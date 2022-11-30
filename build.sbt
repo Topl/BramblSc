@@ -41,3 +41,41 @@ lazy val commonSettings = Seq(
   addCompilerPlugin("com.olegpy"   %% "better-monadic-for" % "0.3.1"),
   testFrameworks += TestFrameworks.MUnit
 )
+
+lazy val publishSettings = Seq(
+  homepage := Some(url("https://github.com/Topl/BrambleSc")),
+  licenses := Seq("MPL2.0" -> url("https://www.mozilla.org/en-US/MPL/2.0/")),
+  Test / publishArtifact := false,
+  pomIncludeRepository := { _ => false },
+  pomExtra :=
+    <developers>
+      <developer>
+        <id>scasplte2</id>
+        <name>James Aman</name>
+      </developer>
+      <developer>
+        <id>mgrand</id>
+        <name>Mark Grand</name>
+      </developer>
+    </developers>
+)
+
+lazy val brambl = project
+  .in(file("."))
+  .settings(
+    moduleName := "brambl",
+    commonSettings,
+    publish / skip := true
+  )
+  .aggregate(
+//    crypto
+  )
+
+//lazy val crypto = project
+//  .in(file("crypto"))
+//  .settings(
+//    name := "crypto",
+//    commonSettings,
+//    publishSettings,
+//    libraryDependencies ++= Dependencies.crypto
+//  )
