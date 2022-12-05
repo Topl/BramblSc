@@ -2,7 +2,7 @@
 inThisBuild(
   List(
     organization := "co.topl",
-    scalaVersion := "2.13.8",
+    scalaVersion := "2.13.10",
     testFrameworks += TestFrameworks.MUnit
   )
 )
