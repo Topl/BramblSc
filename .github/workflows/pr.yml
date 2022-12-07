@@ -1,0 +1,30 @@
+name: commonSc_PR
+
+on:
+  pull_request:
+    branches: [main, release-*, rc-*]
+
+jobs:
+  sbt-build:
+    uses: ./.github/workflows/_sbt_build.yml
+    with:
+      target-os: >-
+        ["ubuntu-latest"]
+      java-versions: >-
+        ["11"]
+      preserve-cache-between-runs: true
+
+#  sbt-integration-tests:
+#    uses: ./.github/workflows/_scala_integration_tests.yml
+#    needs: sbt-build
+#    with:
+#      target-os: >-
+#        ["ubuntu-latest"]
+#      java-versions: >-
+#        ["11"]
+#      preserve-cache-between-runs: true
+#
+#  publish-test-results:
+#    uses: ./.github/workflows/_publish_test_results.yml
+#    if: always()
+#    needs: [sbt-integration-tests]
