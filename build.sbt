@@ -67,6 +67,7 @@ lazy val brambl = project
     commonSettings,
     publish / skip := true
   )
+  .enablePlugins(ReproducibleBuildsPlugin)
   .aggregate(
 //    crypto
   )
@@ -80,6 +81,6 @@ lazy val brambl = project
 //    libraryDependencies ++= Dependencies.crypto
 //  )
 
-addCommandAlias("checkPR", s"; scalafixAll --check; scalafmtCheckAll; +test; it:compile")
-addCommandAlias("preparePR", s"; scalafixAll; scalafmtAll; +test; it:compile")
-addCommandAlias("checkPRTestQuick", s"; scalafixAll --check; scalafmtCheckAll; testQuick; it:compile")
+addCommandAlias("checkPR", s"; scalafixAll --check; scalafmtCheckAll; +test")
+addCommandAlias("preparePR", s"; scalafixAll; scalafmtAll; +test")
+addCommandAlias("checkPRTestQuick", s"; scalafixAll --check; scalafmtCheckAll; testQuick")
