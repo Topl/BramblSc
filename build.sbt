@@ -1,4 +1,3 @@
-
 inThisBuild(
   List(
     organization := "co.topl",
@@ -60,6 +59,64 @@ lazy val publishSettings = Seq(
     </developers>
 )
 
+lazy val scalamacrosParadiseSettings =
+  Seq(
+    scalacOptions ++= {
+      CrossVersion.partialVersion(scalaVersion.value) match {
+        case Some((2, v)) if v >= 13 =>
+          Seq(
+            "-Ymacro-annotations"
+          )
+        case _ =>
+          Nil
+      }
+    }
+  )
+
+
+lazy val typeclasses: Project = project
+  .in(file("typeclasses"))
+  .disablePlugins(AssemblyPlugin)
+  .enablePlugins(BuildInfoPlugin)
+  .settings(
+    name := "typeclasses",
+    commonSettings,
+    buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion),
+    buildInfoPackage := "co.topl.buildinfo.typeclasses"
+  )
+  .settings(
+    libraryDependencies ++= Dependencies.logging
+  )
+//  .settings(scalamacrosParadiseSettings)
+//  .dependsOn(models % "compile->compile;test->test", crypto, tetraByteCodecs, jsonCodecs)
+
+lazy val models = project
+  .in(file("models"))
+  .enablePlugins(BuildInfoPlugin)
+  .settings(
+    name := "models",
+    commonSettings,
+    publishSettings,
+    buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion),
+    buildInfoPackage := "co.topl.buildinfo.models"
+  )
+  .settings(scalamacrosParadiseSettings)
+  .settings(
+    libraryDependencies ++= Dependencies.models
+  )
+  .settings(libraryDependencies ++= Dependencies.test)
+
+lazy val crypto = project
+  .in(file("crypto"))
+  .settings(
+    name := "crypto",
+    commonSettings,
+    publishSettings,
+    libraryDependencies ++= Dependencies.crypto,
+    scalamacrosParadiseSettings
+  )
+  .dependsOn(models)
+
 lazy val brambl = project
   .in(file("."))
   .settings(
@@ -69,17 +126,8 @@ lazy val brambl = project
   )
   .enablePlugins(ReproducibleBuildsPlugin)
   .aggregate(
-//    crypto
+    crypto
   )
-
-//lazy val crypto = project
-//  .in(file("crypto"))
-//  .settings(
-//    name := "crypto",
-//    commonSettings,
-//    publishSettings,
-//    libraryDependencies ++= Dependencies.crypto
-//  )
 
 addCommandAlias("checkPR", s"; scalafixAll --check; scalafmtCheckAll; +test")
 addCommandAlias("preparePR", s"; scalafixAll; scalafmtAll; +test")
