@@ -24,7 +24,7 @@ class KeyInitializerSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks
   case class SpecInputs(mnemonic: String, size: MnemonicSize, password: Option[String])
 
   case class SpecOutputs(
-    ed25519:         SecretKeys.Ed25519,
+    ed25519: SecretKeys.Ed25519
   )
   case class KeyInitializorTestVector(inputs: SpecInputs, outputs: SpecOutputs) extends TestVector
 
@@ -36,7 +36,7 @@ class KeyInitializerSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks
 
   implicit val outputsDecoder: Decoder[SpecOutputs] = (c: HCursor) =>
     for {
-      ed25519    <- c.get[String]("ed25519").map(ed25519Initializer.fromBase16String(_).value)
+      ed25519 <- c.get[String]("ed25519").map(ed25519Initializer.fromBase16String(_).value)
     } yield SpecOutputs(ed25519)
 
   implicit val testVectorDecoder: Decoder[KeyInitializorTestVector] = deriveDecoder[KeyInitializorTestVector]
