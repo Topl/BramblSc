@@ -115,7 +115,7 @@ lazy val crypto = project
     libraryDependencies ++= Dependencies.crypto,
     scalamacrosParadiseSettings
   )
-  .dependsOn(models)
+  .dependsOn(models % "compile->compile;test->test")
 
 lazy val brambl = project
   .in(file("."))
