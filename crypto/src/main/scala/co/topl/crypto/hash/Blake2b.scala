@@ -6,6 +6,11 @@ import co.topl.models.utility.HasLength.instances.bytesLength
 import co.topl.models.utility.{Lengths, Sized}
 import org.bouncycastle.crypto.digests.Blake2bDigest
 
+/**
+ * Blake2b-* hashing scheme
+ *
+ * @tparam D the sized digest type with an implicit Digest implementation
+ */
 abstract class Blake2bHash[D: Digest] extends Hash[Blake2b, D] {
   val digestSize: Int = Digest[D].size
   val digestSizeInBits: Int = 8 * digestSize
