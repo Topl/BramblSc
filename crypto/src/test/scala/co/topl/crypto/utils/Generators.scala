@@ -25,6 +25,12 @@ object Generators {
   lazy val stringGen: Gen[String] = Gen.alphaNumStr.suchThat(_.nonEmpty)
 
   val mnemonicSizeGen: Gen[MnemonicSize] =
-    Gen.oneOf(MnemonicSizes.words12, MnemonicSizes.words15, MnemonicSizes.words18, MnemonicSizes.words21, MnemonicSizes.words24)
+    Gen.oneOf(
+      MnemonicSizes.words12,
+      MnemonicSizes.words15,
+      MnemonicSizes.words18,
+      MnemonicSizes.words21,
+      MnemonicSizes.words24
+    )
 
 }
