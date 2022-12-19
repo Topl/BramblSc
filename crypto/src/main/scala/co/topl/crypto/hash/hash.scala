@@ -8,6 +8,7 @@ import co.topl.crypto.hash.digest._
  * This package wraps externally implemented hash algorithms
  */
 package object hash {
+
   /**
    * The type that hash operations use as their input.
    */
