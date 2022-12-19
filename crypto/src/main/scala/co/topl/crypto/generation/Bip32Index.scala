@@ -17,7 +17,7 @@ sealed trait Bip32Index {
   /**
    * The index representation as a 4-byte vector.
    */
-  val bytes: Sized.Strict[Bytes, Lengths.`4`.type] =
+  val bytes: Sized.Strict[Bytes, Lengths.bytes4.type] =
     // cut off top 4 significant bytes since representation is an unsigned integer
     Sized.strictUnsafe(
       Bytes(

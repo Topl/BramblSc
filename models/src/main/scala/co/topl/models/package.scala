@@ -16,11 +16,11 @@ package object models {
   type Evidence = Sized.Strict[Bytes, Evidence.Length]
 
   object Evidence {
-    type Length = Lengths.`32`.type
+    type Length = Lengths.bytes32.type
   }
 
   object Eta {
-    type Length = Lengths.`32`.type
+    type Length = Lengths.bytes32.type
   }
 
   case class TypedEvidence(typePrefix: TypePrefix, evidence: Evidence) {
@@ -38,19 +38,19 @@ package object models {
 
   type TypePrefix = Byte
   type TypedIdentifier = TypedBytes
-  type Int128 = Sized.Max[BigInt, Lengths.`128`.type]
+  type Int128 = Sized.Max[BigInt, Lengths.bytes128.type]
   type Timestamp = Long
   type Slot = Long
   type Epoch = Long
 
   @newsubtype case class NetworkPrefix(value: Byte)
 
-  type TxRoot = Sized.Strict[Bytes, Lengths.`32`.type]
-  type BloomFilter = Sized.Strict[Bytes, Lengths.`256`.type]
-  @newtype case class Rho(sizedBytes: Sized.Strict[Bytes, Lengths.`64`.type])
-  @newtype case class RhoTestHash(sizedBytes: Sized.Strict[Bytes, Lengths.`64`.type])
-  @newtype case class RhoNonceHash(sizedBytes: Sized.Strict[Bytes, Lengths.`64`.type])
-  type Digest32 = Sized.Strict[Bytes, Lengths.`32`.type]
+  type TxRoot = Sized.Strict[Bytes, Lengths.bytes32.type]
+  type BloomFilter = Sized.Strict[Bytes, Lengths.bytes256.type]
+  @newtype case class Rho(sizedBytes: Sized.Strict[Bytes, Lengths.bytes64.type])
+  @newtype case class RhoTestHash(sizedBytes: Sized.Strict[Bytes, Lengths.bytes64.type])
+  @newtype case class RhoNonceHash(sizedBytes: Sized.Strict[Bytes, Lengths.bytes64.type])
+  type Digest32 = Sized.Strict[Bytes, Lengths.bytes32.type]
 
   case class SlotId(slot: Slot, blockId: TypedIdentifier)
 

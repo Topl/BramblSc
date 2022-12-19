@@ -15,7 +15,7 @@ object Proofs {
     case class Ed25519(bytes: Sized.Strict[Bytes, Ed25519.Length]) extends Proof
 
     object Ed25519 {
-      type Length = Lengths.`64`.type
+      type Length = Lengths.bytes64.type
     }
 
     /**

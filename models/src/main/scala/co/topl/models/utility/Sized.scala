@@ -2,6 +2,8 @@ package co.topl.models.utility
 
 import co.topl.models.{Bytes, TypedBytes}
 
+import scala.annotation.unused
+
 object Sized {
 
   //noinspection ScalaUnusedSymbol
@@ -41,6 +43,7 @@ object Sized {
     )
   }
 
+  @unused
   def maxUnsafe[Data: HasLength, L <: Length](data: Data)(implicit length: L): Max[Data, L] = {
     val dataLength = implicitly[HasLength[Data]].length(data)
     require(dataLength <= length.value)
@@ -54,22 +57,22 @@ sealed abstract class Length(val value: Int)
 
 object Lengths {
   implicit case object Empty extends Length(0)
-  implicit case object `1` extends Length(1)
-  implicit case object `2` extends Length(2)
-  implicit case object `4` extends Length(4)
-  implicit case object `8` extends Length(8)
-  implicit case object `32` extends Length(32)
-  implicit case object `33` extends Length(33)
-  implicit case object `58` extends Length(58)
-  implicit case object `64` extends Length(64)
-  implicit case object `80` extends Length(80)
-  implicit case object `96` extends Length(96)
-  implicit case object `127` extends Length(127)
-  implicit case object `128` extends Length(128)
-  implicit case object `256` extends Length(256)
-  implicit case object `704` extends Length(704)
-  implicit case object `1448` extends Length(1448)
-  implicit case object `2788` extends Length(2788)
+  implicit case object bytes1 extends Length(1)
+  implicit case object bytes2 extends Length(2)
+  implicit case object bytes4 extends Length(4)
+  implicit case object bytes8 extends Length(8)
+  implicit case object bytes32 extends Length(32)
+  implicit case object bytes33 extends Length(33)
+  implicit case object bytes58 extends Length(58)
+  implicit case object bytes64 extends Length(64)
+  implicit case object bytes80 extends Length(80)
+  implicit case object bytes96 extends Length(96)
+  implicit case object bytes127 extends Length(127)
+  implicit case object bytes128 extends Length(128)
+  implicit case object bytes256 extends Length(256)
+  implicit case object bytes704 extends Length(704)
+  implicit case object bytes1448 extends Length(1448)
+  implicit case object bytes2788 extends Length(2788)
 }
 
 trait HasLength[T] {

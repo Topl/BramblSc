@@ -20,7 +20,7 @@ class Ed25519
   override def deriveKeyPairFromSeed(
     seed: Sized.Strict[Bytes, SecretKeys.Ed25519.Length]
   ): (SecretKeys.Ed25519, VerificationKeys.Ed25519) = {
-    val secretKey = SecretKeys.Ed25519(Sized.strictUnsafe(Bytes(seed.data.toArray))(bytesLength, Lengths.`32`))
+    val secretKey = SecretKeys.Ed25519(Sized.strictUnsafe(Bytes(seed.data.toArray))(bytesLength, Lengths.bytes32))
     val verificationKey = getVerificationKey(secretKey)
     secretKey -> verificationKey
   }
@@ -37,7 +37,7 @@ class Ed25519
       0
     )
 
-    Proofs.Knowledge.Ed25519(Sized.strictUnsafe(Bytes(sig))(bytesLength, Lengths.`64`))
+    Proofs.Knowledge.Ed25519(Sized.strictUnsafe(Bytes(sig))(bytesLength, Lengths.bytes64))
   }
 
   override def verify(
@@ -65,7 +65,7 @@ class Ed25519
   override def getVerificationKey(secretKey: SecretKeys.Ed25519): VerificationKeys.Ed25519 = {
     val pkBytes = new Array[Byte](impl.PUBLIC_KEY_SIZE)
     impl.generatePublicKey(secretKey.bytes.data.toArray, 0, pkBytes, 0)
-    VerificationKeys.Ed25519(Sized.strictUnsafe(Bytes(pkBytes))(bytesLength, Lengths.`32`))
+    VerificationKeys.Ed25519(Sized.strictUnsafe(Bytes(pkBytes))(bytesLength, Lengths.bytes32))
   }
 }
 
