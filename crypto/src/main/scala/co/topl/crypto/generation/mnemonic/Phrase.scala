@@ -103,11 +103,11 @@ object Phrase {
 
   private[mnemonic] def sizeFromNumberOfWords(numberOfWords: Int): Either[PhraseFailure, MnemonicSize] =
     numberOfWords match {
-      case 12 => Right(MnemonicSizes.`12`)
-      case 15 => Right(MnemonicSizes.`15`)
-      case 18 => Right(MnemonicSizes.`18`)
-      case 21 => Right(MnemonicSizes.`21`)
-      case 24 => Right(MnemonicSizes.`24`)
+      case 12 => Right(MnemonicSizes.words12)
+      case 15 => Right(MnemonicSizes.words15)
+      case 18 => Right(MnemonicSizes.words18)
+      case 21 => Right(MnemonicSizes.words21)
+      case 24 => Right(MnemonicSizes.words24)
       case _  => Left(PhraseFailures.InvalidWordLength)
     }
 

@@ -1,7 +1,7 @@
 package co.topl.crypto.generation.mnemonic
 
 import co.topl.crypto.generation.mnemonic.Language.LanguageWordList
-import co.topl.crypto.generation.mnemonic.MnemonicSizes.{`12`, `18`, `24`}
+import co.topl.crypto.generation.mnemonic.MnemonicSizes.{words12, words18, words24}
 import co.topl.crypto.utils.Generators
 import org.scalacheck.Gen
 import org.scalatest.matchers.should.Matchers.convertToAnyShouldWrapper
@@ -23,8 +23,8 @@ class PhraseSpec extends AnyPropSpec with ScalaCheckPropertyChecks with ScalaChe
   property("entropy should fail to create a phrase if there is a size mismatch") {
     Phrase
       .fromEntropy(
-        Entropy.generate(MnemonicSizes.`24`),
-        MnemonicSizes.`12`,
+        Entropy.generate(MnemonicSizes.words24),
+        MnemonicSizes.words12,
         Language.English
       )
       .isLeft shouldBe true

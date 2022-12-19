@@ -20,7 +20,7 @@ object Entropy {
    * @param size one of the
    * @return
    */
-  def generate(size: MnemonicSize = MnemonicSizes.`12`): Entropy = {
+  def generate(size: MnemonicSize = MnemonicSizes.words12): Entropy = {
     val numBytes = size.entropyLength / byteLen
     val r = new Array[Byte](numBytes)
     new java.security.SecureRandom().nextBytes(r) // overrides r
@@ -96,11 +96,11 @@ object Entropy {
 
   private[mnemonic] def sizeFromEntropyLength(entropyByteLength: Int): Either[EntropyFailure, MnemonicSize] =
     entropyByteLength match {
-      case 16 => Right(MnemonicSizes.`12`)
-      case 20 => Right(MnemonicSizes.`15`)
-      case 24 => Right(MnemonicSizes.`18`)
-      case 28 => Right(MnemonicSizes.`21`)
-      case 32 => Right(MnemonicSizes.`24`)
+      case 16 => Right(MnemonicSizes.words12)
+      case 20 => Right(MnemonicSizes.words15)
+      case 24 => Right(MnemonicSizes.words18)
+      case 28 => Right(MnemonicSizes.words21)
+      case 32 => Right(MnemonicSizes.words24)
       case _  => Left(InvalidByteSize)
     }
 }
