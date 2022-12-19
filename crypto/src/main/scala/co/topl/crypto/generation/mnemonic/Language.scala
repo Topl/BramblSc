@@ -19,6 +19,9 @@ sealed abstract class Language(val filePath: String, val hash: String) {
   private val wordlistDirectory: String = "bip-0039"
 }
 
+/**
+ * Enumeration of languages that mnemonics can be generated in
+ */
 object Language {
 
   case object ChineseSimplified
@@ -86,6 +89,11 @@ object Language {
         InvalidChecksum()
       )
 
+    /**
+     * Read the word list for the specified language and validate it with its specified hash value.
+     * @param language The language to read a word list for
+     * @return The work list or an error
+     */
     def validated(language: Language): Either[ValidationFailure, LanguageWordList] =
       Try(
         scala.io.Source.fromResource(s"${language.wordlistDirectory}/${language.filePath}").getLines().toIndexedSeq

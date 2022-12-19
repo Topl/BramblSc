@@ -17,8 +17,8 @@ object Entropy {
 
   /**
    * Generate an Entropy of the specified size.
-   * @param size one of the
-   * @return
+   * @param size one of the values defined in [[MnemonicSizes]]
+   * @return the generated Entropy
    */
   def generate(size: MnemonicSize = MnemonicSizes.words12): Entropy = {
     val numBytes = size.entropyLength / byteLen
@@ -27,6 +27,13 @@ object Entropy {
     Entropy(Bytes(r))
   }
 
+  /**
+   * Generate an mnemonic string from an `Entropy` value
+   *
+   * @param entropy The entropy value from which to compute the mnemonic
+   * @param language The language of the mnemonic string
+   * @return
+   */
   def toMnemonicString(entropy: Entropy, language: Language = Language.English): Either[EntropyFailure, String] =
     for {
       size   <- sizeFromEntropyLength(entropy.value.length.toInt)
@@ -107,6 +114,9 @@ object Entropy {
 
 sealed trait EntropyFailure
 
+/**
+ * Enumeration of errors that can be produced when creating a mnemonic from entropy.
+ */
 object EntropyFailures {
   case object InvalidByteSize extends EntropyFailure
   case class PhraseToEntropyFailure(failure: PhraseFailure) extends EntropyFailure
