@@ -1,8 +1,7 @@
 name: Maven Central Release
-on:
-  release:
-    # Doing this on push is just temporary while debugging
-    types: [released, push]
+on: [release, push]
+#  release:
+#    types: [released]
 
 jobs:
   maven_release:
