@@ -33,10 +33,12 @@ import java.util.UUID
   def fromBytes(bytes: Bytes): Either[InitializationFailure, SK]
 
   /**
-   * @param mnemonicString
-   * @param language
-   * @param password
-   * @return
+   * Create a secret key from a mnemonic string.
+   *
+   * @param mnemonicString The mnemonic string from which to create the key
+   * @param language The language of the mnemonic string
+   * @param password An optional password to use in creating the key.
+   * @return The created secret key.
    */
   def fromMnemonicString(
     mnemonicString: String
