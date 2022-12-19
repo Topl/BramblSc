@@ -22,13 +22,6 @@ abstract private[signing] class EllipticCurveSignatureScheme[
   val SignatureLength: Int
   val KeyLength: Int
 
-  def generateRandom: (SK, VK) = {
-    val random = SecureRandom.getInstance("SHA1PRNG")
-    val seed = random.generateSeed(KeyLength)
-    random.nextBytes(seed) // updating random seed per https://howtodoinjava.com/java8/secure-random-number-generation/
-    deriveKeyPairFromSeed(Sized.strictUnsafe(Bytes(seed)))
-  }
-
   def deriveKeyPairFromEntropy(entropy: Entropy, password: Option[String])(implicit
     entropyToSeed:                      EntropyToSeed[SeedLength] = EntropyToSeed.instances.pbkdf2Sha512[SeedLength]
   ): (SK, VK) = {
