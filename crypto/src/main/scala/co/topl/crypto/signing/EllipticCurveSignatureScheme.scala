@@ -10,8 +10,13 @@ import java.security.SecureRandom
 
 /* Forked from https://github.com/input-output-hk/scrypto */
 
-abstract class EllipticCurveSignatureScheme[SK <: SecretKey, VK <: VerificationKey, SIG <: Proof, SeedLength <: Length](
-  implicit seedLength: SeedLength
+abstract private[signing] class EllipticCurveSignatureScheme[
+  SK <: SecretKey,
+  VK <: VerificationKey,
+  SIG <: Proof,
+  SeedLength <: Length
+](implicit
+  seedLength: SeedLength
 ) {
 
   val SignatureLength: Int
