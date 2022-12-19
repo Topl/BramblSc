@@ -1,7 +1,7 @@
 name: Maven Central Release
 on:
   release:
-    types: [released]
+    types: [released, push]
 
 jobs:
   maven_release:
