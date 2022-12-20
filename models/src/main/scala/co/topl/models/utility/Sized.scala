@@ -6,8 +6,8 @@ import scala.annotation.unused
 
 object Sized {
 
-  //noinspection ScalaUnusedSymbol
-  class Strict[Data, Length] private[Sized](val data: Data) extends AnyVal {
+  // noinspection ScalaUnusedSymbol
+  class Strict[Data, Length] private[Sized] (val data: Data) extends AnyVal {
     type L = Length
 
     override def toString: String = s"Sized.Strict(${data.toString})"
