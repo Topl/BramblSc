@@ -129,7 +129,7 @@ lazy val brambl = project
   )
   .enablePlugins(ReproducibleBuildsPlugin)
   .aggregate(
-    crypto
+    models,crypto
   )
 
 addCommandAlias("checkPR", s"; scalafixAll --check; scalafmtCheckAll; +test")
