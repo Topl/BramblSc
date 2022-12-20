@@ -1,6 +1,8 @@
 inThisBuild(
   List(
     organization := "co.topl",
+    homepage := Some(url("https://github.com/Topl/BramblSc")),
+    licenses := Seq("MPL2.0" -> url("https://www.mozilla.org/en-US/MPL/2.0/")),
     scalaVersion := "2.13.10",
     testFrameworks += TestFrameworks.MUnit
   )
@@ -43,7 +45,8 @@ lazy val commonSettings = Seq(
 
 lazy val publishSettings = Seq(
   homepage := Some(url("https://github.com/Topl/BrambleSc")),
-  licenses := Seq("MPL2.0" -> url("https://www.mozilla.org/en-US/MPL/2.0/")),
+  sonatypeCredentialHost := "s01.oss.sonatype.org",
+  sonatypeRepository := "https://s01.oss.sonatype.org/service/local",
   Test / publishArtifact := false,
   pomIncludeRepository := { _ => false },
   pomExtra :=
