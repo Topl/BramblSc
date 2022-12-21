@@ -6,9 +6,9 @@ import co.topl.crypto.utils.EntropySupport._
 import co.topl.crypto.utils.Hex.implicits._
 import co.topl.crypto.utils.{Hex, TestVector}
 import co.topl.models.{Proofs, SecretKeys, VerificationKeys}
-import co.topl.models.ModelGenerators.arbitraryBytes
 import io.circe.generic.semiauto.deriveDecoder
 import io.circe.{Decoder, HCursor}
+import org.scalacheck.Arbitrary
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.propspec.AnyPropSpec
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
@@ -25,6 +25,9 @@ import java.nio.charset.StandardCharsets
  * All values below are Hex encoded byte representations unless otherwise specified.
  */
 class Ed25519Spec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks with Matchers {
+
+  implicit val arbitraryBytes: Arbitrary[ByteVector] =
+    Arbitrary(implicitly[Arbitrary[Array[Byte]]].arbitrary.map(ByteVector(_)))
 
   property("with Ed25519, signed message should be verifiable with appropriate public key") {
     forAll { (seed1: Entropy, seed2: Entropy, message1: ByteVector, message2: ByteVector) =>
