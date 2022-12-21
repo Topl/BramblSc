@@ -3,11 +3,11 @@ package co.topl.crypto.generation
 import cats.implicits._
 import co.topl.crypto.generation.mnemonic.{Entropy, EntropyFailure, Language}
 import co.topl.crypto.signing._
-import co.topl.models._
 import scodec.bits.{BitVector, ByteVector}
 import simulacrum.typeclass
 
 import java.util.UUID
+import scala.annotation.unused
 
 @typeclass trait KeyInitializer[SK] {
   self =>
@@ -46,6 +46,7 @@ import java.util.UUID
       .map(fromEntropy(_, password))
       .leftMap(e => InitializationFailures.FailedToCreateEntropy(e))
 
+  @unused
   def fromBase58String(base58String: String): Either[InitializationFailure, ByteVector] =
     Either
       .fromOption(BitVector.fromBase58(base58String), InitializationFailures.InvalidBase58String)
@@ -80,7 +81,6 @@ object KeyInitializer {
 sealed abstract class InitializationFailure
 
 object InitializationFailures {
-  case class KeyCreationError(throwable: Throwable) extends InitializationFailure
   case object InvalidBase58String extends InitializationFailure
   case object InvalidBase16String extends InitializationFailure
   case class FailedToCreateEntropy(entropyFailure: EntropyFailure) extends InitializationFailure

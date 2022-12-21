@@ -11,7 +11,7 @@ import org.scalatestplus.scalacheck.{ScalaCheckDrivenPropertyChecks, ScalaCheckP
 
 class LanguageSpec extends AnyPropSpec with ScalaCheckPropertyChecks with ScalaCheckDrivenPropertyChecks {
 
-  val languages = Seq(
+  val languages: Seq[Language] = Seq(
     English,
     ChineseSimplified,
     ChineseTraditional,
