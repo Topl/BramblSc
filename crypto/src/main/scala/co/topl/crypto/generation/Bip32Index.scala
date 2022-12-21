@@ -17,13 +17,13 @@ sealed trait Bip32Index {
    */
   val bytes: ByteVector =
     // cut off top 4 significant bytes since representation is an unsigned integer
-      ByteVector(
-        ByteBuffer
-          .allocate(java.lang.Long.SIZE)
-          .order(ByteOrder.LITTLE_ENDIAN)
-          .putLong(value)
-          .array()
-          .take(4)
+    ByteVector(
+      ByteBuffer
+        .allocate(java.lang.Long.SIZE)
+        .order(ByteOrder.LITTLE_ENDIAN)
+        .putLong(value)
+        .array()
+        .take(4)
     )
 }
 

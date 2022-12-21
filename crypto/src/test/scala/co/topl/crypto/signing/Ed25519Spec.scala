@@ -6,6 +6,7 @@ import co.topl.crypto.utils.EntropySupport._
 import co.topl.crypto.utils.Hex.implicits._
 import co.topl.crypto.utils.{Hex, TestVector}
 import co.topl.models.{Proofs, SecretKeys, VerificationKeys}
+import co.topl.models.ModelGenerators.arbitraryBytes
 import io.circe.generic.semiauto.deriveDecoder
 import io.circe.{Decoder, HCursor}
 import org.scalatest.matchers.should.Matchers

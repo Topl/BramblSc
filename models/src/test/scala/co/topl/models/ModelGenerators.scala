@@ -1,4 +1,5 @@
 package co.topl.models
+
 //import co.topl.models.Propositions.Contextual.RequiredTransactionIO
 //import co.topl.models.utility.StringDataTypes.Latin1Data
 import org.scalacheck.Arbitrary

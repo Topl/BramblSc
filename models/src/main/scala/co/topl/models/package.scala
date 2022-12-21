@@ -9,8 +9,6 @@ package object models {
   type Eta = ByteVector
   type Evidence = ByteVector
 
-
-
   @newsubtype case class NetworkPrefix(value: Byte)
 
   type Digest32 = ByteVector

@@ -39,19 +39,21 @@ import java.util.UUID
    * @return The created secret key.
    */
   def fromMnemonicString(
-                          mnemonicString: String
-                        )(language: Language = Language.English, password: Option[String] = None): Either[InitializationFailure, SK] =
+    mnemonicString: String
+  )(language:       Language = Language.English, password: Option[String] = None): Either[InitializationFailure, SK] =
     Entropy
       .fromMnemonicString(mnemonicString, language)
       .map(fromEntropy(_, password))
       .leftMap(e => InitializationFailures.FailedToCreateEntropy(e))
 
   def fromBase58String(base58String: String): Either[InitializationFailure, SK] =
-    Either.fromOption(BitVector.fromBase58(base58String), InitializationFailures.InvalidBase58String)
+    Either
+      .fromOption(BitVector.fromBase58(base58String), InitializationFailures.InvalidBase58String)
       .map(bits => fromBytes(bits.toByteVector))
 
   def fromBase16String(base16String: String): Either[InitializationFailure, SK] =
-    Either.fromOption(BitVector.fromHex(base16String), InitializationFailures.InvalidBase16String)
+    Either
+      .fromOption(BitVector.fromHex(base16String), InitializationFailures.InvalidBase16String)
       .map(bits => fromBytes(bits.toByteVector))
 }
 
