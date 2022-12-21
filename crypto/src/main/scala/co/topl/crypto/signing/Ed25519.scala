@@ -29,9 +29,9 @@ class Ed25519
    * @return a tuple of a secret signing key and a public verification key
    */
   override def deriveKeyPairFromSeed(
-    seed: Sized.Strict[Bytes, SecretKeys.Ed25519.Length]
+    seed: ByteVector
   ): (SecretKeys.Ed25519, VerificationKeys.Ed25519) = {
-    val secretKey = SecretKeys.Ed25519(Sized.strictUnsafe(Bytes(seed.data.toArray))(bytesLength, Lengths.bytes32))
+    val secretKey = SecretKeys.Ed25519(seed)
     val verificationKey = getVerificationKey(secretKey)
     secretKey -> verificationKey
   }
@@ -46,7 +46,7 @@ class Ed25519
   override def sign(privateKey: SecretKeys.Ed25519, message: Bytes): Proofs.Knowledge.Ed25519 = {
     val sig = new Array[Byte](impl.SIGNATURE_SIZE)
     impl.sign(
-      privateKey.bytes.data.toArray,
+      privateKey.bytes.toArray,
       0,
       message.toArray,
       0,
@@ -72,7 +72,7 @@ class Ed25519
     publicKey: VerificationKeys.Ed25519
   ): Boolean = {
     val sigByteArray = signature.bytes.toArray
-    val vkByteArray = publicKey.bytes.data.toArray
+    val vkByteArray = publicKey.bytes.toArray
     val msgByteArray = message.toArray
 
     sigByteArray.length == impl.SIGNATURE_SIZE &&
@@ -95,8 +95,8 @@ class Ed25519
    */
   override def getVerificationKey(secretKey: SecretKeys.Ed25519): VerificationKeys.Ed25519 = {
     val pkBytes = new Array[Byte](impl.PUBLIC_KEY_SIZE)
-    impl.generatePublicKey(secretKey.bytes.data.toArray, 0, pkBytes, 0)
-    VerificationKeys.Ed25519(Sized.strictUnsafe(Bytes(pkBytes))(bytesLength, Lengths.bytes32))
+    impl.generatePublicKey(secretKey.bytes.toArray, 0, pkBytes, 0)
+    VerificationKeys.Ed25519(ByteVector(pkBytes))
   }
 }
 

@@ -2,11 +2,9 @@ package co.topl.crypto.signing
 
 import co.topl.crypto.generation.EntropyToSeed
 import co.topl.crypto.generation.mnemonic.Entropy
-import co.topl.models.utility.HasLength.instances.bytesLength
-import co.topl.models.utility.{Length, Sized}
+import co.topl.models.utility.Length
 import co.topl.models.{Bytes, Proof, SecretKey, VerificationKey}
-
-import java.security.SecureRandom
+import scodec.bits.ByteVector
 
 /* Forked from https://github.com/input-output-hk/scrypto */
 
@@ -29,7 +27,7 @@ abstract private[signing] class EllipticCurveSignatureScheme[
     deriveKeyPairFromSeed(seed)
   }
 
-  def deriveKeyPairFromSeed(seed: Sized.Strict[Bytes, SeedLength]): (SK, VK)
+  def deriveKeyPairFromSeed(seed: ByteVector): (SK, VK)
 
   def sign(privateKey: SK, message: Bytes): SIG
 

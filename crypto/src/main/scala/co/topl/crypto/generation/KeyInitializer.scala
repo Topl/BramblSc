@@ -72,12 +72,9 @@ object KeyInitializer {
         override def fromEntropy(entropy: Entropy, password: Option[String]): SecretKeys.Ed25519 =
           ed25519.deriveKeyPairFromEntropy(entropy, password)._1
 
-        override def fromBytes(bytes: Bytes): Either[InvalidSizeByteLength, SecretKeys.Ed25519] =
-          Sized
-            .strict[Bytes, SecretKeys.Ed25519.Length](bytes)
-            .map(SecretKeys.Ed25519(_))
-            .leftMap(InitializationFailures.InvalidSizeByteLength)
-
+        override def fromBytes(bytes: Bytes): Either[InvalidSizeByteLength, SecretKeys.Ed25519] = Right(
+          SecretKeys.Ed25519(bytes)
+        )
       }
   }
 

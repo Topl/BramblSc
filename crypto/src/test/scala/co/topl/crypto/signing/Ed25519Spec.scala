@@ -3,17 +3,15 @@ package co.topl.crypto.signing
 import cats.implicits._
 import co.topl.crypto.generation.mnemonic.Entropy
 import co.topl.crypto.utils.EntropySupport._
-import co.topl.crypto.utils.{Hex, TestVector}
 import co.topl.crypto.utils.Hex.implicits._
+import co.topl.crypto.utils.{Hex, TestVector}
 import co.topl.models.ModelGenerators.arbitraryBytes
-import co.topl.models.utility.Sized
 import co.topl.models.{Bytes, Proofs, SecretKeys, VerificationKeys}
 import io.circe.generic.semiauto.deriveDecoder
 import io.circe.{Decoder, HCursor}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.propspec.AnyPropSpec
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
-import co.topl.models.utility.HasLength.instances._
 import scodec.bits.ByteVector
 
 import java.nio.charset.StandardCharsets
@@ -60,9 +58,9 @@ class Ed25519Spec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks with M
     val e = Entropy(Bytes("topl".getBytes(StandardCharsets.UTF_8)))
     val p = "topl"
     val specOutSK =
-      SecretKeys.Ed25519("d8f0ad4d22ec1a143905af150e87c7f0dadd13749ef56fbd1bb380c37bc18cf8".unsafeStrictBytes)
+      SecretKeys.Ed25519("d8f0ad4d22ec1a143905af150e87c7f0dadd13749ef56fbd1bb380c37bc18cf8".hexStringToBytes)
     val specOutVK =
-      VerificationKeys.Ed25519("8ecfec14ce183dd6e747724993a9ae30328058fd85fa1e3c6f996b61bb164fa8".unsafeStrictBytes)
+      VerificationKeys.Ed25519("8ecfec14ce183dd6e747724993a9ae30328058fd85fa1e3c6f996b61bb164fa8".hexStringToBytes)
 
     val underTest = new Ed25519
     val (sk, vk) = underTest.deriveKeyPairFromEntropy(e, Some(p))
@@ -100,7 +98,7 @@ class Ed25519Spec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks with M
         sk <- c
           .downField("secretKey")
           .as[String]
-          .map(b => SecretKeys.Ed25519(Sized.strictUnsafe(Bytes(Hex.decode(b)))))
+          .map(b => SecretKeys.Ed25519(ByteVector(Hex.decode(b))))
         msg <- c.downField("message").as[String].map(b => Bytes(Hex.decode(b)))
       } yield SpecInputs(sk, msg)
 
@@ -109,7 +107,7 @@ class Ed25519Spec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks with M
         vk <- c
           .downField("verificationKey")
           .as[String]
-          .map(b => VerificationKeys.Ed25519(Sized.strictUnsafe(Bytes(Hex.decode(b)))))
+          .map(b => VerificationKeys.Ed25519(Bytes(Hex.decode(b))))
         sig <- c
           .downField("signature")
           .as[String]

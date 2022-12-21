@@ -39,7 +39,6 @@ class EntropyToSeedSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks 
         EntropyToSeed.instances
           .pbkdf2Sha512[Lengths.bytes96.type]
           .toSeed(underTest.inputs.entropy, underTest.inputs.password)
-          .data
 
       val expectedSeed = Bytes(underTest.outputs.seed96)
 
