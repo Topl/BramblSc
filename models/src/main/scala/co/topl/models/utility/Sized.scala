@@ -72,7 +72,6 @@ object Lengths {
   implicit case object bytes256 extends Length(256)
   implicit case object bytes704 extends Length(704)
   implicit case object bytes1448 extends Length(1448)
-  implicit case object bytes2788 extends Length(2788)
 }
 
 trait HasLength[T] {
