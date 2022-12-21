@@ -11,7 +11,7 @@ import scodec.bits.ByteVector
 
 import java.nio.charset.StandardCharsets
 
-trait EntropyToSeed[SeedLength <: Length] {
+trait EntropyToSeed {
   def toSeed(entropy: Entropy, password: Option[String]): ByteVector
 }
 
@@ -19,14 +19,14 @@ object EntropyToSeed {
 
   trait Instances {
 
-    implicit def pbkdf2Sha512[SeedLength <: Length](implicit seedLength: SeedLength): EntropyToSeed[SeedLength] =
+    implicit def pbkdf2Sha512(seedLength: Int): EntropyToSeed =
       (entropy: Entropy, password: Option[String]) => {
         val kdf = new Pbkdf2Sha512()
         ByteVector(
           kdf.generateKey(
             password.getOrElse("").getBytes(StandardCharsets.UTF_8),
             entropy.value.toArray,
-            seedLength.value,
+            seedLength,
             4096
           )
         )

@@ -87,7 +87,6 @@ object InitializationFailures {
   case class KeyCreationError(throwable: Throwable) extends InitializationFailure
   case object InvalidBase58String extends InitializationFailure
   case object InvalidBase16String extends InitializationFailure
-  case object InvalidByteLength extends InitializationFailure
   case class InvalidSizeByteLength(sizedByteError: Sized.InvalidLength) extends InitializationFailure
   case class FailedToCreateEntropy(entropyFailure: EntropyFailure) extends InitializationFailure
 }

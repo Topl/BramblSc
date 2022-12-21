@@ -37,7 +37,7 @@ class EntropyToSeedSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks 
     property(s"Generate 96 byte seed from entropy: ${underTest.inputs.entropy}") {
       val actualSeed =
         EntropyToSeed.instances
-          .pbkdf2Sha512[Lengths.bytes96.type]
+          .pbkdf2Sha512(96)
           .toSeed(underTest.inputs.entropy, underTest.inputs.password)
 
       val expectedSeed = Bytes(underTest.outputs.seed96)

@@ -1,7 +1,5 @@
 package co.topl.crypto.signing
 
-import co.topl.models.utility.HasLength.instances.bytesLength
-import co.topl.models.utility.{Lengths, Sized}
 import co.topl.models.{Bytes, Proofs, SecretKeys, VerificationKeys}
 import scodec.bits.ByteVector
 
@@ -14,9 +12,8 @@ class Ed25519
     extends EllipticCurveSignatureScheme[
       SecretKeys.Ed25519,
       VerificationKeys.Ed25519,
-      Proofs.Knowledge.Ed25519,
-      SecretKeys.Ed25519.Length
-    ] {
+      Proofs.Knowledge.Ed25519
+    ](32) {
   private val impl = new eddsa.Ed25519
   impl.precompute()
 

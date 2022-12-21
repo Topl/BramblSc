@@ -11,17 +11,14 @@ import scodec.bits.ByteVector
 abstract private[signing] class EllipticCurveSignatureScheme[
   SK <: SecretKey,
   VK <: VerificationKey,
-  SIG <: Proof,
-  SeedLength <: Length
-](implicit
-  seedLength: SeedLength
-) {
+  SIG <: Proof
+](seedLength: Int) {
 
   val SignatureLength: Int
   val KeyLength: Int
 
   def deriveKeyPairFromEntropy(entropy: Entropy, password: Option[String])(implicit
-    entropyToSeed:                      EntropyToSeed[SeedLength] = EntropyToSeed.instances.pbkdf2Sha512[SeedLength]
+    entropyToSeed:                      EntropyToSeed = EntropyToSeed.instances.pbkdf2Sha512(seedLength)
   ): (SK, VK) = {
     val seed = entropyToSeed.toSeed(entropy, password)
     deriveKeyPairFromSeed(seed)
