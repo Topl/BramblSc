@@ -14,6 +14,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.propspec.AnyPropSpec
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import co.topl.models.utility.HasLength.instances._
+import scodec.bits.ByteVector
 
 import java.nio.charset.StandardCharsets
 
@@ -112,9 +113,7 @@ class Ed25519Spec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks with M
         sig <- c
           .downField("signature")
           .as[String]
-          .map(b => Proofs.Knowledge.Ed25519(Sized.strictUnsafe(Bytes(Hex.decode(b)))))
-
-        // Hex.hexStringToStrictBytes[Proofs.Knowledge.Curve25519.Length](b)))
+          .map(b => Proofs.Knowledge.Ed25519(ByteVector(Hex.decode(b))))
       } yield SpecOutputs(vk, sig)
 
     implicit val testVectorDecoder: Decoder[Ed25519TestVector] = deriveDecoder[Ed25519TestVector]

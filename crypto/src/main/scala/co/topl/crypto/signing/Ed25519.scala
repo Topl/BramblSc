@@ -3,6 +3,7 @@ package co.topl.crypto.signing
 import co.topl.models.utility.HasLength.instances.bytesLength
 import co.topl.models.utility.{Lengths, Sized}
 import co.topl.models.{Bytes, Proofs, SecretKeys, VerificationKeys}
+import scodec.bits.ByteVector
 
 import scala.annotation.unused
 
@@ -54,7 +55,7 @@ class Ed25519
       0
     )
 
-    Proofs.Knowledge.Ed25519(Sized.strictUnsafe(Bytes(sig))(bytesLength, Lengths.bytes64))
+    Proofs.Knowledge.Ed25519(ByteVector(sig))
   }
 
   /**
@@ -70,7 +71,7 @@ class Ed25519
     message:   Bytes,
     publicKey: VerificationKeys.Ed25519
   ): Boolean = {
-    val sigByteArray = signature.bytes.data.toArray
+    val sigByteArray = signature.bytes.toArray
     val vkByteArray = publicKey.bytes.data.toArray
     val msgByteArray = message.toArray
 
