@@ -1,6 +1,5 @@
 package co.topl.models
 
-import co.topl.models.utility.{Lengths, Sized}
 import scodec.bits.ByteVector
 
 sealed trait SecretKey

@@ -1,15 +1,8 @@
 package co.topl.models
-
-import cats.data.{Chain, NonEmptyChain, NonEmptyList}
 //import co.topl.models.Propositions.Contextual.RequiredTransactionIO
-import co.topl.models.utility.HasLength.instances._
-import co.topl.models.utility.Lengths._
 //import co.topl.models.utility.StringDataTypes.Latin1Data
-import co.topl.models.utility._
-import org.scalacheck.rng.Seed
-import org.scalacheck.{Arbitrary, Gen}
-
-import scala.collection.immutable.ListSet
+import org.scalacheck.Arbitrary
+import scodec.bits.ByteVector
 
 trait ModelGenerators {
 
@@ -166,8 +159,8 @@ trait ModelGenerators {
 //      .map(Bytes(_))
 //      .map(Sized.strict[Bytes, L](_).toOption.get)
 
-  implicit val arbitraryBytes: Arbitrary[Bytes] =
-    Arbitrary(implicitly[Arbitrary[Array[Byte]]].arbitrary.map(Bytes(_)))
+  implicit val arbitraryBytes: Arbitrary[ByteVector] =
+    Arbitrary(implicitly[Arbitrary[Array[Byte]]].arbitrary.map(ByteVector(_)))
 //
 //  implicit val arbitraryCurve25519VK: Arbitrary[VerificationKeys.Curve25519] =
 //    Arbitrary(

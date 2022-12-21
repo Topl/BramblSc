@@ -3,7 +3,7 @@ package co.topl.crypto.generation.mnemonic
 import cats.implicits._
 import co.topl.crypto.generation.mnemonic.EntropyFailures.InvalidByteSize
 import co.topl.crypto.generation.mnemonic.Language.LanguageWordList
-import co.topl.models.Bytes
+import scodec.bits.ByteVector
 
 import java.util.UUID
 
@@ -11,7 +11,7 @@ import java.util.UUID
  * Wrapper around the entropy contained represented by an array of bytes
  * @param value the underlying bytes of entropy
  */
-case class Entropy(value: Bytes)
+case class Entropy(value: ByteVector)
 
 object Entropy {
 
@@ -24,7 +24,7 @@ object Entropy {
     val numBytes = size.entropyLength / byteLen
     val r = new Array[Byte](numBytes)
     new java.security.SecureRandom().nextBytes(r) // overrides r
-    Entropy(Bytes(r))
+    Entropy(ByteVector(r))
   }
 
   /**
@@ -64,7 +64,7 @@ object Entropy {
    */
   def fromUuid(uuid: UUID): Entropy =
     Entropy(
-      Bytes(
+      ByteVector(
         uuid.toString
           .filterNot("-".toSet)
           .grouped(2)
@@ -77,7 +77,7 @@ object Entropy {
    * @param bytes the byte data to convert into entropy
    * @return either a `ValidationFailure` if the byte data is invalid or `Entropy` if it is valid
    */
-  def fromBytes(bytes: Bytes): Either[EntropyFailure, Entropy] = for {
+  def fromBytes(bytes: ByteVector): Either[EntropyFailure, Entropy] = for {
     _ <- sizeFromEntropyLength(bytes.length.toInt)
     entropy = Entropy(bytes)
   } yield entropy
@@ -92,7 +92,7 @@ object Entropy {
    */
   private[mnemonic] def unsafeFromPhrase(phrase: Phrase): Entropy =
     Entropy(
-      Bytes(
+      ByteVector(
         Phrase
           .toBinaryString(phrase)
           ._1 // extract the entropy from the Phrase

@@ -1,13 +1,13 @@
 package co.topl.crypto.utils
 
 import co.topl.crypto.generation.mnemonic.{MnemonicSize, MnemonicSizes}
-import co.topl.models.Bytes
 import org.scalacheck.{Arbitrary, Gen}
+import scodec.bits.ByteVector
 
 object Generators {
   def genRandomlySizedByteArray: Gen[Array[Byte]] = Gen.listOf(Arbitrary.arbitrary[Byte]).map(_.toArray)
 
-  def genRandomlySizedBytes: Gen[Bytes] = genRandomlySizedByteArray.map(Bytes(_))
+  def genRandomlySizedBytes: Gen[ByteVector] = genRandomlySizedByteArray.map(ByteVector(_))
 
   def genByteArrayWithBoundedSize(minSize: Int, maxSize: Int): Gen[Array[Byte]] =
     Gen
@@ -16,8 +16,8 @@ object Generators {
       .retryUntil(list => list.length >= minSize && list.length <= maxSize)
       .map(_.toArray)
 
-  def genBytesWithBoundedSize(minSize: Int, maxSize: Int): Gen[Bytes] =
-    genByteArrayWithBoundedSize(minSize, maxSize).map(Bytes(_))
+  def genBytesWithBoundedSize(minSize: Int, maxSize: Int): Gen[ByteVector] =
+    genByteArrayWithBoundedSize(minSize, maxSize).map(ByteVector(_))
 
   def genByteArrayOfSize(n: Int): Gen[Array[Byte]] =
     Gen.listOfN(n, Arbitrary.arbitrary[Byte]).retryUntil(_.length == n).map(_.toArray)

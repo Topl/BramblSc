@@ -1,10 +1,8 @@
 package co.topl.crypto.hash
 
 import co.topl.crypto.hash.digest.Digest
-import co.topl.models.Bytes
-import co.topl.models.utility.HasLength.instances.bytesLength
-import co.topl.models.utility.{Lengths, Sized}
 import org.bouncycastle.crypto.digests.Blake2bDigest
+import scodec.bits.ByteVector
 
 /**
  * Blake2b-* hashing scheme
@@ -42,11 +40,11 @@ abstract class Blake2bHash[D: Digest] extends Hash[Blake2b, D] {
 class Blake2b256 {
   private val digest = new Blake2bDigest(256)
 
-  def hash(bytes: Bytes*): Sized.Strict[Bytes, Lengths.bytes32.type] = {
+  def hash(bytes: ByteVector*): ByteVector = {
     val out = new Array[Byte](32)
     bytes.foreach(b => digest.update(b.toArray, 0, b.length.toInt))
     digest.doFinal(out, 0)
-    Sized.strictUnsafe(Bytes(out))
+    ByteVector(out)
   }
 }
 
@@ -56,10 +54,10 @@ class Blake2b256 {
 class Blake2b512 {
   private val digest = new Blake2bDigest(512)
 
-  def hash(bytes: Bytes*): Sized.Strict[Bytes, Lengths.bytes64.type] = {
+  def hash(bytes: ByteVector*): ByteVector = {
     val out = new Array[Byte](64)
     bytes.foreach(b => digest.update(b.toArray, 0, b.length.toInt))
     digest.doFinal(out, 0)
-    Sized.strictUnsafe(Bytes(out))
+    ByteVector(out)
   }
 }

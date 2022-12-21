@@ -1,6 +1,6 @@
 package co.topl.crypto.signing
 
-import co.topl.models.{Bytes, Proofs, SecretKeys, VerificationKeys}
+import co.topl.models.{Proofs, SecretKeys, VerificationKeys}
 import scodec.bits.ByteVector
 
 import scala.annotation.unused
@@ -40,7 +40,7 @@ class Ed25519
    * @param message a ByteVector that the the signature will be generated for
    * @return the signature
    */
-  override def sign(privateKey: SecretKeys.Ed25519, message: Bytes): Proofs.Knowledge.Ed25519 = {
+  override def sign(privateKey: SecretKeys.Ed25519, message: ByteVector): Proofs.Knowledge.Ed25519 = {
     val sig = new Array[Byte](impl.SIGNATURE_SIZE)
     impl.sign(
       privateKey.bytes.toArray,
@@ -65,7 +65,7 @@ class Ed25519
    */
   override def verify(
     signature: Proofs.Knowledge.Ed25519,
-    message:   Bytes,
+    message:   ByteVector,
     publicKey: VerificationKeys.Ed25519
   ): Boolean = {
     val sigByteArray = signature.bytes.toArray

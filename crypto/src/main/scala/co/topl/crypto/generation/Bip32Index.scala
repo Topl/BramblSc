@@ -1,9 +1,7 @@
 package co.topl.crypto.generation
 
 import co.topl.crypto.generation.Bip32Indexes.{HardenedIndex, SoftIndex}
-import co.topl.models.Bytes
-import co.topl.models.utility.HasLength.instances._
-import co.topl.models.utility.{Lengths, Sized}
+import scodec.bits.ByteVector
 
 import java.nio.{ByteBuffer, ByteOrder}
 
@@ -17,17 +15,15 @@ sealed trait Bip32Index {
   /**
    * The index representation as a 4-byte vector.
    */
-  val bytes: Sized.Strict[Bytes, Lengths.bytes4.type] =
+  val bytes: ByteVector =
     // cut off top 4 significant bytes since representation is an unsigned integer
-    Sized.strictUnsafe(
-      Bytes(
+      ByteVector(
         ByteBuffer
           .allocate(java.lang.Long.SIZE)
           .order(ByteOrder.LITTLE_ENDIAN)
           .putLong(value)
           .array()
           .take(4)
-      )
     )
 }
 

@@ -3,13 +3,12 @@ package co.topl.crypto.generation
 import cats.scalatest.EitherValues
 import co.topl.crypto.generation.mnemonic.{Entropy, EntropyTestVectorHelper}
 import co.topl.crypto.utils.{Hex, TestVector}
-import co.topl.models.Bytes
-import co.topl.models.utility.Lengths
 import io.circe.generic.semiauto.deriveDecoder
 import io.circe.{Decoder, HCursor}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.propspec.AnyPropSpec
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+import scodec.bits.ByteVector
 
 class EntropyToSeedSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks with Matchers with EitherValues {
 
@@ -40,7 +39,7 @@ class EntropyToSeedSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks 
           .pbkdf2Sha512(96)
           .toSeed(underTest.inputs.entropy, underTest.inputs.password)
 
-      val expectedSeed = Bytes(underTest.outputs.seed96)
+      val expectedSeed = ByteVector(underTest.outputs.seed96)
 
       (actualSeed == expectedSeed) shouldBe true
 
