@@ -1,6 +1,5 @@
 package co.topl.crypto.signing
 
-import co.topl.models.{Proofs, SecretKeys, VerificationKeys}
 import scodec.bits.ByteVector
 
 import scala.annotation.unused
@@ -8,12 +7,7 @@ import scala.annotation.unused
 /**
  * Implementation of Ed25519 elliptic curve signature
  */
-class Ed25519
-    extends EllipticCurveSignatureScheme[
-      SecretKeys.Ed25519,
-      VerificationKeys.Ed25519,
-      Proofs.Knowledge.Ed25519
-    ](32) {
+class Ed25519 extends EllipticCurveSignatureScheme(32) {
   private val impl = new eddsa.Ed25519
   impl.precompute()
 
@@ -25,10 +19,8 @@ class Ed25519
    * @param seed a 32 byte long ByteVector
    * @return a tuple of a secret signing key and a public verification key
    */
-  override def deriveKeyPairFromSeed(
-    seed: ByteVector
-  ): (SecretKeys.Ed25519, VerificationKeys.Ed25519) = {
-    val secretKey = SecretKeys.Ed25519(seed)
+  override def deriveKeyPairFromSeed(seed: ByteVector): (ByteVector, ByteVector) = {
+    val secretKey = seed
     val verificationKey = getVerificationKey(secretKey)
     secretKey -> verificationKey
   }
@@ -40,10 +32,10 @@ class Ed25519
    * @param message a ByteVector that the the signature will be generated for
    * @return the signature
    */
-  override def sign(privateKey: SecretKeys.Ed25519, message: ByteVector): Proofs.Knowledge.Ed25519 = {
+  override def sign(privateKey: ByteVector, message: ByteVector): ByteVector = {
     val sig = new Array[Byte](impl.SIGNATURE_SIZE)
     impl.sign(
-      privateKey.bytes.toArray,
+      privateKey.toArray,
       0,
       message.toArray,
       0,
@@ -52,7 +44,7 @@ class Ed25519
       0
     )
 
-    Proofs.Knowledge.Ed25519(ByteVector(sig))
+    ByteVector(sig)
   }
 
   /**
@@ -64,12 +56,12 @@ class Ed25519
    * @return true if the signature is verified; otherwise false.
    */
   override def verify(
-    signature: Proofs.Knowledge.Ed25519,
+    signature: ByteVector,
     message:   ByteVector,
-    publicKey: VerificationKeys.Ed25519
+    publicKey: ByteVector
   ): Boolean = {
-    val sigByteArray = signature.bytes.toArray
-    val vkByteArray = publicKey.bytes.toArray
+    val sigByteArray = signature.toArray
+    val vkByteArray = publicKey.toArray
     val msgByteArray = message.toArray
 
     sigByteArray.length == impl.SIGNATURE_SIZE &&
@@ -90,10 +82,10 @@ class Ed25519
    * @param secretKey the secret key
    * @return the public verification key
    */
-  override def getVerificationKey(secretKey: SecretKeys.Ed25519): VerificationKeys.Ed25519 = {
+  override def getVerificationKey(secretKey: ByteVector): ByteVector = {
     val pkBytes = new Array[Byte](impl.PUBLIC_KEY_SIZE)
-    impl.generatePublicKey(secretKey.bytes.toArray, 0, pkBytes, 0)
-    VerificationKeys.Ed25519(ByteVector(pkBytes))
+    impl.generatePublicKey(secretKey.toArray, 0, pkBytes, 0)
+    ByteVector(pkBytes)
   }
 }
 

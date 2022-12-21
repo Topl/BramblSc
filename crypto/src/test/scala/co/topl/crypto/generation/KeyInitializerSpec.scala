@@ -4,12 +4,12 @@ import cats.scalatest.EitherValues
 import co.topl.crypto.generation.mnemonic._
 import co.topl.crypto.signing.Ed25519
 import co.topl.crypto.utils.TestVector
-import co.topl.models.SecretKeys
 import io.circe.generic.semiauto.deriveDecoder
 import io.circe.{Decoder, HCursor}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.propspec.AnyPropSpec
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+import scodec.bits.ByteVector
 
 /**
  * test vectors adapted from multiple sources:
@@ -24,7 +24,7 @@ class KeyInitializerSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks
   case class SpecInputs(mnemonic: String, size: MnemonicSize, password: Option[String])
 
   case class SpecOutputs(
-    ed25519: SecretKeys.Ed25519
+    ed25519: ByteVector
   )
   case class KeyInitializorTestVector(inputs: SpecInputs, outputs: SpecOutputs) extends TestVector
 

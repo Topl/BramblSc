@@ -5,7 +5,6 @@ import co.topl.crypto.generation.mnemonic.Entropy
 import co.topl.crypto.utils.EntropySupport._
 import co.topl.crypto.utils.Hex.implicits._
 import co.topl.crypto.utils.{Hex, TestVector}
-import co.topl.models.{Proofs, SecretKeys, VerificationKeys}
 import io.circe.generic.semiauto.deriveDecoder
 import io.circe.{Decoder, HCursor}
 import org.scalacheck.Arbitrary
@@ -60,10 +59,8 @@ class Ed25519Spec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks with M
   property("Topl specific seed generation mechanism should generate a fixed secret key given an entropy and password") {
     val e = Entropy(ByteVector("topl".getBytes(StandardCharsets.UTF_8)))
     val p = "topl"
-    val specOutSK =
-      SecretKeys.Ed25519("d8f0ad4d22ec1a143905af150e87c7f0dadd13749ef56fbd1bb380c37bc18cf8".hexStringToBytes)
-    val specOutVK =
-      VerificationKeys.Ed25519("8ecfec14ce183dd6e747724993a9ae30328058fd85fa1e3c6f996b61bb164fa8".hexStringToBytes)
+    val specOutSK = "d8f0ad4d22ec1a143905af150e87c7f0dadd13749ef56fbd1bb380c37bc18cf8".hexStringToBytes
+    val specOutVK = "8ecfec14ce183dd6e747724993a9ae30328058fd85fa1e3c6f996b61bb164fa8".hexStringToBytes
 
     val underTest = new Ed25519
     val (sk, vk) = underTest.deriveKeyPairFromEntropy(e, Some(p))
@@ -90,9 +87,9 @@ class Ed25519Spec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks with M
   }
 
   object Ed25519SpecHelper {
-    case class SpecInputs(secretKey: SecretKeys.Ed25519, message: ByteVector)
+    case class SpecInputs(secretKey: ByteVector, message: ByteVector)
 
-    case class SpecOutputs(verificationKey: VerificationKeys.Ed25519, signature: Proofs.Knowledge.Ed25519)
+    case class SpecOutputs(verificationKey: ByteVector, signature: ByteVector)
 
     case class Ed25519TestVector(description: String, inputs: SpecInputs, outputs: SpecOutputs) extends TestVector
 
@@ -101,7 +98,7 @@ class Ed25519Spec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks with M
         sk <- c
           .downField("secretKey")
           .as[String]
-          .map(b => SecretKeys.Ed25519(ByteVector(Hex.decode(b))))
+          .map(b => ByteVector(Hex.decode(b)))
         msg <- c.downField("message").as[String].map(b => ByteVector(Hex.decode(b)))
       } yield SpecInputs(sk, msg)
 
@@ -110,11 +107,11 @@ class Ed25519Spec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks with M
         vk <- c
           .downField("verificationKey")
           .as[String]
-          .map(b => VerificationKeys.Ed25519(ByteVector(Hex.decode(b))))
+          .map(b => ByteVector(Hex.decode(b)))
         sig <- c
           .downField("signature")
           .as[String]
-          .map(b => Proofs.Knowledge.Ed25519(ByteVector(Hex.decode(b))))
+          .map(b => ByteVector(Hex.decode(b)))
       } yield SpecOutputs(vk, sig)
 
     implicit val testVectorDecoder: Decoder[Ed25519TestVector] = deriveDecoder[Ed25519TestVector]
