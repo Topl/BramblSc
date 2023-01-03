@@ -9,7 +9,7 @@ import simulacrum.typeclass
 import java.util.UUID
 import scala.annotation.unused
 
-@typeclass trait KeyInitializer[SK] {
+trait KeyInitializer {
   self =>
 
   /**
@@ -62,8 +62,8 @@ object KeyInitializer {
 
   trait Instances {
 
-    implicit def ed25519Initializer(implicit ed25519: Ed25519): KeyInitializer[ByteVector] =
-      new KeyInitializer[ByteVector] {
+    implicit def ed25519Initializer(implicit ed25519: Ed25519): KeyInitializer =
+      new KeyInitializer {
 
         override def random(): ByteVector =
           fromEntropy(Entropy.fromUuid(UUID.randomUUID()), password = Some(""))
