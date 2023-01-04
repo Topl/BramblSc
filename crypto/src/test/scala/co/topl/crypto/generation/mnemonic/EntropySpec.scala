@@ -10,7 +10,7 @@ import org.scalatest.propspec.AnyPropSpec
 import org.scalatestplus.scalacheck.{ScalaCheckDrivenPropertyChecks, ScalaCheckPropertyChecks}
 import co.topl.crypto.utils.EntropySupport._
 import org.scalatest.EitherValues
-import co.topl.models.Bytes
+import scodec.bits.ByteVector
 
 class EntropySpec
     extends AnyPropSpec
@@ -20,7 +20,7 @@ class EntropySpec
 
   property("random byte arrays (of the correct length) should be a valid Entropy") {
     forAll(Gen.oneOf(Seq(16, 20, 24, 28, 32))) { byteLength =>
-      val bytes = Bytes(Generators.genByteArrayOfSize(byteLength).sample.get)
+      val bytes = ByteVector(Generators.genByteArrayOfSize(byteLength).sample.get)
 
       Entropy.fromBytes(bytes).isRight shouldBe true
     }
@@ -89,7 +89,7 @@ object EntropyTestVectorHelper {
   def entropyDecoder(c: HCursor): Either[DecodingFailure, Entropy] =
     for {
       bytes   <- c.downField("entropy").as[String].map(Hex.decode)
-      entropy <- Entropy.fromBytes(Bytes(bytes)).leftMap(err => DecodingFailure(err.toString, c.history))
+      entropy <- Entropy.fromBytes(ByteVector(bytes)).leftMap(err => DecodingFailure(err.toString, c.history))
     } yield entropy
 
   implicit val inputsDecoder: Decoder[SpecInputs] = (c: HCursor) =>

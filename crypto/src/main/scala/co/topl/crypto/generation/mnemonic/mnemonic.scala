@@ -54,11 +54,14 @@ package object mnemonic {
     val entropyLength: Int = 32 * checksumLength
   }
 
+  /**
+   * An enumeration of `MnemonicSize` values that can be passed to [[Entropy.generate]] to create an `Entropy` value.
+   */
   object MnemonicSizes {
-    case object `12` extends MnemonicSize(12)
-    case object `15` extends MnemonicSize(15)
-    case object `18` extends MnemonicSize(18)
-    case object `21` extends MnemonicSize(21)
-    case object `24` extends MnemonicSize(24)
+    case object words12 extends MnemonicSize(12)
+    case object words15 extends MnemonicSize(15)
+    case object words18 extends MnemonicSize(18)
+    case object words21 extends MnemonicSize(21)
+    case object words24 extends MnemonicSize(24)
   }
 }

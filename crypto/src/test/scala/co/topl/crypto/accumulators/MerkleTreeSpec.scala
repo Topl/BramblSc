@@ -15,7 +15,7 @@ class MerkleTreeSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks wit
 
   type HashScheme = Blake2b
   type HashDigest = Digest32
-  val hf = Hash[HashScheme, HashDigest]
+  val hf: Hash[HashScheme, HashDigest] = Hash[HashScheme, HashDigest]
   def bytesOf(h: HashDigest): Array[Byte] = Digest[HashDigest].bytes(h)
 
   private val leafSize = 32

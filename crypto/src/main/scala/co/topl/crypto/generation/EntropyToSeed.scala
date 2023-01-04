@@ -1,34 +1,30 @@
 package co.topl.crypto.generation
 
 import co.topl.crypto.generation.mnemonic.Entropy
-import co.topl.models.Bytes
-import co.topl.models.utility.HasLength.instances._
-import co.topl.models.utility.{Length, Sized}
 import org.bouncycastle.crypto.digests.SHA512Digest
 import org.bouncycastle.crypto.generators.PKCS5S2ParametersGenerator
 import org.bouncycastle.crypto.params.KeyParameter
+import scodec.bits.ByteVector
 
 import java.nio.charset.StandardCharsets
 
-trait EntropyToSeed[SeedLength <: Length] {
-  def toSeed(entropy: Entropy, password: Option[String]): Sized.Strict[Bytes, SeedLength]
+trait EntropyToSeed {
+  def toSeed(entropy: Entropy, password: Option[String]): ByteVector
 }
 
 object EntropyToSeed {
 
   trait Instances {
 
-    implicit def pbkdf2Sha512[SeedLength <: Length](implicit seedLength: SeedLength): EntropyToSeed[SeedLength] =
+    implicit def pbkdf2Sha512(seedLength: Int): EntropyToSeed =
       (entropy: Entropy, password: Option[String]) => {
         val kdf = new Pbkdf2Sha512()
-        Sized.strictUnsafe(
-          Bytes(
-            kdf.generateKey(
-              password.getOrElse("").getBytes(StandardCharsets.UTF_8),
-              entropy.value.toArray,
-              seedLength.value,
-              4096
-            )
+        ByteVector(
+          kdf.generateKey(
+            password.getOrElse("").getBytes(StandardCharsets.UTF_8),
+            entropy.value.toArray,
+            seedLength,
+            4096
           )
         )
       }

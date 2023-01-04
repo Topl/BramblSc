@@ -1,6 +1,8 @@
 inThisBuild(
   List(
     organization := "co.topl",
+    homepage := Some(url("https://github.com/Topl/BramblSc")),
+    licenses := Seq("MPL2.0" -> url("https://www.mozilla.org/en-US/MPL/2.0/")),
     scalaVersion := "2.13.10",
     testFrameworks += TestFrameworks.MUnit
   )
@@ -43,7 +45,8 @@ lazy val commonSettings = Seq(
 
 lazy val publishSettings = Seq(
   homepage := Some(url("https://github.com/Topl/BrambleSc")),
-  licenses := Seq("MPL2.0" -> url("https://www.mozilla.org/en-US/MPL/2.0/")),
+  sonatypeCredentialHost := "s01.oss.sonatype.org",
+  sonatypeRepository := "https://s01.oss.sonatype.org/service/local",
   Test / publishArtifact := false,
   pomIncludeRepository := { _ => false },
   pomExtra :=
@@ -56,7 +59,7 @@ lazy val publishSettings = Seq(
         <id>mgrand</id>
         <name>Mark Grand</name>
       </developer>
-    </developers>
+    </developers>,
 )
 
 lazy val scalamacrosParadiseSettings =
@@ -73,7 +76,6 @@ lazy val scalamacrosParadiseSettings =
     }
   )
 
-
 lazy val typeclasses: Project = project
   .in(file("typeclasses"))
   .disablePlugins(AssemblyPlugin)
@@ -87,24 +89,6 @@ lazy val typeclasses: Project = project
   .settings(
     libraryDependencies ++= Dependencies.logging
   )
-//  .settings(scalamacrosParadiseSettings)
-//  .dependsOn(models % "compile->compile;test->test", crypto, tetraByteCodecs, jsonCodecs)
-
-lazy val models = project
-  .in(file("models"))
-  .enablePlugins(BuildInfoPlugin)
-  .settings(
-    name := "models",
-    commonSettings,
-    publishSettings,
-    buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion),
-    buildInfoPackage := "co.topl.buildinfo.models"
-  )
-  .settings(scalamacrosParadiseSettings)
-  .settings(
-    libraryDependencies ++= Dependencies.models
-  )
-  .settings(libraryDependencies ++= Dependencies.test)
 
 lazy val crypto = project
   .in(file("crypto"))
@@ -115,7 +99,6 @@ lazy val crypto = project
     libraryDependencies ++= Dependencies.crypto,
     scalamacrosParadiseSettings
   )
-  .dependsOn(models % "compile->compile;test->test")
 
 lazy val brambl = project
   .in(file("."))

@@ -3,7 +3,7 @@ package co.topl.crypto.generation.mnemonic
 import cats.implicits._
 import co.topl.crypto.generation.mnemonic.EntropyFailures.InvalidByteSize
 import co.topl.crypto.generation.mnemonic.Language.LanguageWordList
-import co.topl.models.Bytes
+import scodec.bits.ByteVector
 
 import java.util.UUID
 
@@ -11,17 +11,29 @@ import java.util.UUID
  * Wrapper around the entropy contained represented by an array of bytes
  * @param value the underlying bytes of entropy
  */
-case class Entropy(value: Bytes)
+case class Entropy(value: ByteVector)
 
 object Entropy {
 
-  def generate(size: MnemonicSize = MnemonicSizes.`12`): Entropy = {
+  /**
+   * Generate an Entropy of the specified size.
+   * @param size one of the values defined in [[MnemonicSizes]]
+   * @return the generated Entropy
+   */
+  def generate(size: MnemonicSize = MnemonicSizes.words12): Entropy = {
     val numBytes = size.entropyLength / byteLen
     val r = new Array[Byte](numBytes)
     new java.security.SecureRandom().nextBytes(r) // overrides r
-    Entropy(Bytes(r))
+    Entropy(ByteVector(r))
   }
 
+  /**
+   * Generate an mnemonic string from an `Entropy` value
+   *
+   * @param entropy The entropy value from which to compute the mnemonic
+   * @param language The language of the mnemonic string
+   * @return
+   */
   def toMnemonicString(entropy: Entropy, language: Language = Language.English): Either[EntropyFailure, String] =
     for {
       size   <- sizeFromEntropyLength(entropy.value.length.toInt)
@@ -33,7 +45,6 @@ object Entropy {
    * Instantiates an 'Entropy' value from a string by validating the string to a mnemonic phrase and then deriving
    * the entropy of the string according to the BIP-39 wordlists
    * @param mnemonic string to be decoded to a mnemonic
-   * @param size size of the mnemonic to try and decode
    * @param language applicable language to pull the wordlist for
    * @return either an entropy encode failure or the entropy for use in key derivation
    */
@@ -53,7 +64,7 @@ object Entropy {
    */
   def fromUuid(uuid: UUID): Entropy =
     Entropy(
-      Bytes(
+      ByteVector(
         uuid.toString
           .filterNot("-".toSet)
           .grouped(2)
@@ -64,10 +75,9 @@ object Entropy {
   /**
    * Instantiates an `Entropy` value from byte data for an expected mnemonic size.
    * @param bytes the byte data to convert into entropy
-   * @param size the expected size of the byte data to use for validation
    * @return either a `ValidationFailure` if the byte data is invalid or `Entropy` if it is valid
    */
-  def fromBytes(bytes: Bytes): Either[EntropyFailure, Entropy] = for {
+  def fromBytes(bytes: ByteVector): Either[EntropyFailure, Entropy] = for {
     _ <- sizeFromEntropyLength(bytes.length.toInt)
     entropy = Entropy(bytes)
   } yield entropy
@@ -78,13 +88,11 @@ object Entropy {
    * Note: the phrase is not re-validated for the given `LanguageWordList` and `MnemonicSize`
    *
    * @param phrase the mnemonic phrase to get entropy from
-   * @param wordList the list of valid mnemonic words for the language
-   * @param size the mnemonic size of the phrase
    * @return the underlying entropy of the mnemonic phrase
    */
   private[mnemonic] def unsafeFromPhrase(phrase: Phrase): Entropy =
     Entropy(
-      Bytes(
+      ByteVector(
         Phrase
           .toBinaryString(phrase)
           ._1 // extract the entropy from the Phrase
@@ -95,17 +103,20 @@ object Entropy {
 
   private[mnemonic] def sizeFromEntropyLength(entropyByteLength: Int): Either[EntropyFailure, MnemonicSize] =
     entropyByteLength match {
-      case 16 => Right(MnemonicSizes.`12`)
-      case 20 => Right(MnemonicSizes.`15`)
-      case 24 => Right(MnemonicSizes.`18`)
-      case 28 => Right(MnemonicSizes.`21`)
-      case 32 => Right(MnemonicSizes.`24`)
+      case 16 => Right(MnemonicSizes.words12)
+      case 20 => Right(MnemonicSizes.words15)
+      case 24 => Right(MnemonicSizes.words18)
+      case 28 => Right(MnemonicSizes.words21)
+      case 32 => Right(MnemonicSizes.words24)
       case _  => Left(InvalidByteSize)
     }
 }
 
 sealed trait EntropyFailure
 
+/**
+ * Enumeration of errors that can be produced when creating a mnemonic from entropy.
+ */
 object EntropyFailures {
   case object InvalidByteSize extends EntropyFailure
   case class PhraseToEntropyFailure(failure: PhraseFailure) extends EntropyFailure

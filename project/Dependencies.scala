@@ -63,9 +63,6 @@ object Dependencies {
     "org.scodec" %% "scodec-cats" % "1.1.0"
   )
 
-  lazy val models: Seq[ModuleID] =
-    cats ++ simulacrum ++ newType ++ scodec
-
   lazy val crypto: Seq[ModuleID] =
     Seq("org.bouncycastle" % "bcprov-jdk18on" % "1.72") ++
     scodec ++

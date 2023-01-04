@@ -1,11 +1,16 @@
 package co.topl.crypto.hash
 
 import co.topl.crypto.hash.digest.Digest
-import co.topl.models.Bytes
-import co.topl.models.utility.HasLength.instances.bytesLength
-import co.topl.models.utility.{Lengths, Sized}
 import org.bouncycastle.crypto.digests.Blake2bDigest
+import scodec.bits.ByteVector
 
+/**
+ * Blake2b-* hashing scheme
+ *
+ * @tparam D the sized digest type with an implicit Digest implementation
+ *
+ * @note TODO This abstract class may no longer be needed; If it is needed, we should look into making it not be synchronized.
+ */
 abstract class Blake2bHash[D: Digest] extends Hash[Blake2b, D] {
   val digestSize: Int = Digest[D].size
   val digestSizeInBits: Int = 8 * digestSize
@@ -32,29 +37,33 @@ abstract class Blake2bHash[D: Digest] extends Hash[Blake2b, D] {
 }
 
 /**
- * A thread-unsafe version of the blake2b interface defined above
+ * A 256 bit (32 byte) implementation of Blake2b
+ *
+ * @note this is not thread safe
  */
 class Blake2b256 {
   private val digest = new Blake2bDigest(256)
 
-  def hash(bytes: Bytes*): Sized.Strict[Bytes, Lengths.`32`.type] = {
+  def hash(bytes: ByteVector*): ByteVector = {
     val out = new Array[Byte](32)
     bytes.foreach(b => digest.update(b.toArray, 0, b.length.toInt))
     digest.doFinal(out, 0)
-    Sized.strictUnsafe(Bytes(out))
+    ByteVector(out)
   }
 }
 
 /**
- * A thread-unsafe version of the blake2b interface defined above
+ * A 512 bit (64 byte) implementation of Blake2b
+ *
+ * @note this is not thread safe
  */
 class Blake2b512 {
   private val digest = new Blake2bDigest(512)
 
-  def hash(bytes: Bytes*): Sized.Strict[Bytes, Lengths.`64`.type] = {
+  def hash(bytes: ByteVector*): ByteVector = {
     val out = new Array[Byte](64)
     bytes.foreach(b => digest.update(b.toArray, 0, b.length.toInt))
     digest.doFinal(out, 0)
-    Sized.strictUnsafe(Bytes(out))
+    ByteVector(out)
   }
 }
