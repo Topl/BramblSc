@@ -8,6 +8,8 @@ import scodec.bits.ByteVector
  * Blake2b-* hashing scheme
  *
  * @tparam D the sized digest type with an implicit Digest implementation
+ *
+ * @note TODO This abstract class may no longer be needed; If it is needed, we should look into making it not be synchronized.
  */
 abstract class Blake2bHash[D: Digest] extends Hash[Blake2b, D] {
   val digestSize: Int = Digest[D].size
@@ -35,7 +37,9 @@ abstract class Blake2bHash[D: Digest] extends Hash[Blake2b, D] {
 }
 
 /**
- * A thread-unsafe version of the blake2b interface defined above
+ * A 256 bit (32 byte) implementation of Blake2b
+ *
+ * @note this is not thread safe
  */
 class Blake2b256 {
   private val digest = new Blake2bDigest(256)
@@ -49,7 +53,9 @@ class Blake2b256 {
 }
 
 /**
- * A thread-unsafe version of the blake2b interface defined above
+ * A 512 bit (64 byte) implementation of Blake2b
+ *
+ * @note this is not thread safe
  */
 class Blake2b512 {
   private val digest = new Blake2bDigest(512)
