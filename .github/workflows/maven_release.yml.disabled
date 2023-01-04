@@ -1,5 +1,5 @@
 name: Maven Central Release
-#on: [release, push]
+on: [release, push]
 #  release:
 #    types: [released]
 
