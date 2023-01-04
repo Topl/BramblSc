@@ -59,7 +59,7 @@ lazy val publishSettings = Seq(
         <id>mgrand</id>
         <name>Mark Grand</name>
       </developer>
-    </developers>
+    </developers>,
 )
 
 lazy val scalamacrosParadiseSettings =
@@ -76,7 +76,6 @@ lazy val scalamacrosParadiseSettings =
     }
   )
 
-
 lazy val typeclasses: Project = project
   .in(file("typeclasses"))
   .disablePlugins(AssemblyPlugin)
@@ -90,7 +89,6 @@ lazy val typeclasses: Project = project
   .settings(
     libraryDependencies ++= Dependencies.logging
   )
-
 
 lazy val crypto = project
   .in(file("crypto"))
