@@ -1,3 +1,5 @@
+![GitHub tag (latest SemVer)](https://img.shields.io/github/v/tag/topl/bramblsc?label=release&sort=semver&style=plastic)
+
 # BrambleSc
 Topl's Brambl SDK implemented in Scala
 
