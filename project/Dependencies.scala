@@ -63,6 +63,10 @@ object Dependencies {
     "org.scodec" %% "scodec-cats" % "1.1.0"
   )
 
+  val protobufSpecs: ModuleID = "com.github.Topl" % "protobuf-specs" % "87dcd9d"
+
+  val quivr4s: ModuleID = "com.github.Topl" % "quivr4s" % "0ec3bce"
+
   lazy val crypto: Seq[ModuleID] =
     Seq("org.bouncycastle" % "bcprov-jdk18on" % "1.72") ++
     scodec ++
