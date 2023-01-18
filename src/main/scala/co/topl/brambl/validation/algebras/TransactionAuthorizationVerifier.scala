@@ -7,4 +7,4 @@ import co.topl.quivr.runtime.DynamicContext
 import co.topl.brambl.validation.TransactionAuthorizationError
 
 trait TransactionAuthorizationVerifier[F[_]]
-  extends ContextualValidation[F, TransactionAuthorizationError, IoTransaction, DynamicContext[F, String, Datum]]
+    extends ContextualValidation[F, TransactionAuthorizationError, IoTransaction, DynamicContext[F, String, Datum]]

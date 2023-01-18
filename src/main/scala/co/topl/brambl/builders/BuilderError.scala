@@ -9,6 +9,7 @@ package co.topl.brambl.builders
 abstract class BuilderError(val message: String)
 
 object BuilderError {
+
   /**
    * A Builder error indicating that an IoTransaction's input
    * ([[co.topl.brambl.models.transaction.SpentTransactionOutput SpentTransactionOutput]])

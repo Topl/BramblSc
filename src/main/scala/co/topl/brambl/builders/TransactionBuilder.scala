@@ -10,6 +10,7 @@ import quivr.models.SmallData
  * Defines a builder for [[IoTransaction]]s
  */
 trait TransactionBuilder {
+
   /**
    * Construct an unproven IoTransaction input ([[SpentTransactionOutput]]).
    * A SpentTransactionOutput spends an existing [[UnspentTransactionOutput]].
@@ -61,12 +62,11 @@ trait TransactionBuilder {
    * @return Either a list of BuilderError or the built IoTransaction
    */
   def constructUnprovenTransaction(
-                                    inputRequests: List[InputBuildRequest],
-                                    outputRequests: List[OutputBuildRequest],
-                                    schedule: Option[Schedule] = None,
-                                    output32Refs: List[TransactionOutput32] = List(),
-                                    output64Refs: List[TransactionOutput64] = List(),
-                                    metadata: Option[SmallData] = None
-                                  ): Either[List[BuilderError], IoTransaction]
+    inputRequests:  List[InputBuildRequest],
+    outputRequests: List[OutputBuildRequest],
+    schedule:       Option[Schedule] = None,
+    output32Refs:   List[TransactionOutput32] = List(),
+    output64Refs:   List[TransactionOutput64] = List(),
+    metadata:       Option[SmallData] = None
+  ): Either[List[BuilderError], IoTransaction]
 }
-

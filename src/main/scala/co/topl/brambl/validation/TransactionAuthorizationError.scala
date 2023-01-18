@@ -5,6 +5,7 @@ import co.topl.quivr.runtime.QuivrRuntimeError
 sealed abstract class TransactionAuthorizationError extends ValidationError
 
 object TransactionAuthorizationError {
+
   /**
    * Generic error for when a transaction is not authorized
    *

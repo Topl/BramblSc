@@ -1,6 +1,7 @@
 package co.topl.brambl.common
 
 object Tags {
+
   /**
    * See spec at https://github.com/Topl/protobuf-specs/blob/main/brambl/models/identifier.proto
    */

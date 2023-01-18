@@ -6,7 +6,6 @@ sealed abstract class TransactionSyntaxError extends ValidationError
 
 object TransactionSyntaxError {
 
-
   /**
    * Error for when a transaction is not syntactically valid because its attestation is formed incorrectly
    */
