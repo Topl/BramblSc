@@ -44,7 +44,7 @@ lazy val commonSettings = Seq(
 )
 
 lazy val publishSettings = Seq(
-  homepage := Some(url("https://github.com/Topl/BrambleSc")),
+  homepage := Some(url("https://github.com/Topl/BramblSc")),
   sonatypeCredentialHost := "s01.oss.sonatype.org",
   sonatypeRepository := "https://s01.oss.sonatype.org/service/local",
   Test / publishArtifact := false,
