@@ -1,15 +1,17 @@
 package co.topl.brambl.builders
 
 import co.topl.brambl.models.KnownIdentifier.{TransactionOutput32, TransactionOutput64}
-import co.topl.brambl.models.transaction.{IoTransaction, SpentTransactionOutput, UnspentTransactionOutput}
 import co.topl.brambl.models.builders.{InputBuildRequest, OutputBuildRequest}
-import co.topl.brambl.models.transaction.Schedule
+import co.topl.brambl.models.transaction.{IoTransaction, Schedule, SpentTransactionOutput, UnspentTransactionOutput}
+import com.google.protobuf.ByteString
 import quivr.models.SmallData
 
 /**
  * Defines a builder for [[IoTransaction]]s
  */
 trait TransactionBuilder {
+
+  final val EmptyData = SmallData(ByteString.EMPTY)
 
   /**
    * Construct an unproven IoTransaction input ([[SpentTransactionOutput]]).

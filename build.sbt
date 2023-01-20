@@ -101,17 +101,27 @@ lazy val crypto = project
     scalamacrosParadiseSettings
   )
 
+lazy val bramblSdk = project
+  .in(file("brambl-sdk"))
+  .settings(
+    name := "brambl-sdk",
+    commonSettings,
+    publishSettings,
+    libraryDependencies ++= Seq(Dependencies.protobufSpecs, Dependencies.quivr4s),
+    scalamacrosParadiseSettings
+  )
+
 lazy val brambl = project
   .in(file("."))
   .settings(
     moduleName := "brambl",
     commonSettings,
-    publish / skip := true,
-    libraryDependencies ++= Seq(Dependencies.protobufSpecs, Dependencies.quivr4s)
+    publish / skip := true
   )
   .enablePlugins(ReproducibleBuildsPlugin)
   .aggregate(
-    crypto
+    crypto,
+    bramblSdk
   )
 
 addCommandAlias("checkPR", s"; scalafixAll --check; scalafmtCheckAll; +test")
