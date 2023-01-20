@@ -4,7 +4,7 @@ import cats.Id
 import co.topl.brambl.models.Datum
 import co.topl.brambl.models.transaction.IoTransaction
 import co.topl.brambl.routines.digests.validators.Blake2b256DigestInterpreter
-import co.topl.brambl.routines.signatures.validators.Curve25519SignatureInterpreter
+import co.topl.brambl.routines.signatures.validators.Ed25519SignatureInterpreter
 import co.topl.brambl.typeclasses.ContainsSignable.instances.ioTransactionSignable
 import co.topl.common.ParsableDataInterface
 import co.topl.quivr.runtime.DynamicContext
@@ -20,7 +20,7 @@ case class Context(tx: IoTransaction, curTick: Long, heightDatums: String => Opt
     Map("blake2b256" -> Blake2b256DigestInterpreter)
 
   override val signingRoutines: Map[String, SignatureVerifier[Id]] =
-    Map("curve25519" -> Curve25519SignatureInterpreter)
+    Map("ed25519" -> Ed25519SignatureInterpreter)
 
   override val interfaces: Map[String, ParsableDataInterface] = Map() // Arbitrary
 

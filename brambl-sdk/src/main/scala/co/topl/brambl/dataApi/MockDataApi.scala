@@ -20,7 +20,7 @@ import co.topl.brambl.typeclasses.ContainsSignable.instances._
 import ContainsEvidence._
 import cats.Id
 import co.topl.brambl.routines.digests.Blake2b256Digest
-import co.topl.brambl.routines.signatures.{Curve25519Signature, Signing}
+import co.topl.brambl.routines.signatures.{Ed25519Signature, Signing}
 import co.topl.quivr.api.Proposer
 import quivr.models.Int128
 
@@ -119,8 +119,8 @@ object MockDataApi extends DataApi {
         .signatureProposer[Id]
         .propose(
           (
-            Curve25519Signature.routine,
-            getKeyPair(idx, Curve25519Signature)
+            Ed25519Signature.routine,
+            getKeyPair(idx, Ed25519Signature)
               .flatMap(_.vk)
               .getOrElse(VerificationKey(ByteString.copyFromUtf8("fake vk")))
           )
