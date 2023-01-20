@@ -2,7 +2,7 @@ package co.topl.brambl.routines.signatures.validators
 
 import cats.Id
 import co.topl.brambl.routines.Routine
-import co.topl.crypto.{PublicKey, signatures}
+import co.topl.crypto.{signatures, PublicKey}
 import co.topl.quivr.algebras.SignatureVerifier
 import co.topl.quivr.runtime.{QuivrRuntimeError, QuivrRuntimeErrors}
 import quivr.models.SignatureVerification

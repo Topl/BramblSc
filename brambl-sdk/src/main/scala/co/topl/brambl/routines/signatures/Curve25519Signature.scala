@@ -1,7 +1,7 @@
 package co.topl.brambl.routines.signatures
 
 import cats.implicits.catsSyntaxOptionId
-import co.topl.crypto.{PrivateKey, signatures}
+import co.topl.crypto.{signatures, PrivateKey}
 import com.google.protobuf.ByteString
 import quivr.models.{KeyPair, SignableBytes, SigningKey, VerificationKey, Witness}
 
@@ -19,5 +19,7 @@ object Curve25519Signature extends Signing {
   }
 
   override def sign(sk: SigningKey, msg: SignableBytes): Witness =
-    Witness(ByteString.copyFrom(signatures.Curve25519.sign(PrivateKey(sk.value.toByteArray), msg.value.toByteArray).value))
+    Witness(
+      ByteString.copyFrom(signatures.Curve25519.sign(PrivateKey(sk.value.toByteArray), msg.value.toByteArray).value)
+    )
 }

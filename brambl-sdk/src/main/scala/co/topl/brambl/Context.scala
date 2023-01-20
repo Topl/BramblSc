@@ -14,7 +14,7 @@ import quivr.models.SignableBytes
 // A Verification Context opinionated to the Topl context.
 // signableBytes, currentTick and the datums are dynamic
 case class Context(tx: IoTransaction, curTick: Long, heightDatums: String => Option[Datum])
-  extends DynamicContext[Id, String, Datum] {
+    extends DynamicContext[Id, String, Datum] {
 
   override val hashingRoutines: Map[String, DigestVerifier[Id]] =
     Map("blake2b256" -> Blake2b256DigestInterpreter)

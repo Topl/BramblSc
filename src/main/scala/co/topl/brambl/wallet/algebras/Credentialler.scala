@@ -7,7 +7,8 @@ import co.topl.quivr.runtime.DynamicContext
 
 trait Credentialler[F[_]] {
   def prove(unprovenTx: IoTransaction): F[Either[List[TransactionSyntaxError], IoTransaction]]
-  def validate(tx: IoTransaction, ctx: DynamicContext[F, String, Datum]): F[List[TransactionAuthorizationError]]
+  def validate(tx:      IoTransaction, ctx: DynamicContext[F, String, Datum]): F[List[TransactionAuthorizationError]]
+
   def proveAndValidate(
     unprovenTx: IoTransaction,
     ctx:        DynamicContext[F, String, Datum]

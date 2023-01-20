@@ -15,6 +15,7 @@ import quivr.models.{KeyPair, Preimage}
  * TODO: Design and replace this interface with the actual interface that will be used by the rest of the system.
  */
 trait DataApi {
+
   /**
    * Return the indices associated to a known identifier.
    * Simplifying assumption is that KnownIdentifier and Indices are 1 to 1

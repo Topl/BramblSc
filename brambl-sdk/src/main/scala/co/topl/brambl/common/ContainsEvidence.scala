@@ -5,7 +5,7 @@ import co.topl.brambl.models.Evidence
 import co.topl.crypto.accumulators.LeafData
 import co.topl.crypto.accumulators.merkle.MerkleTree
 import co.topl.crypto.hash.digest.{Digest32, Digest64}
-import co.topl.crypto.hash.{Blake2b, blake2b256, blake2b512}
+import co.topl.crypto.hash.{blake2b256, blake2b512, Blake2b}
 import co.topl.crypto.implicits.{blake2b256Hash, blake2b512Hash, digestDigest32, digestDigest64}
 import com.google.protobuf.ByteString
 import quivr.models.Digest

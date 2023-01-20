@@ -6,7 +6,8 @@ import co.topl.brambl.validation.{TransactionAuthorizationError, TransactionSynt
 
 trait Credentialler {
   def prove(unprovenTx: IoTransaction): Either[List[TransactionSyntaxError], IoTransaction]
-  def validate(tx: IoTransaction, ctx: Context): List[TransactionAuthorizationError]
+  def validate(tx:      IoTransaction, ctx: Context): List[TransactionAuthorizationError]
+
   def proveAndValidate(
     unprovenTx: IoTransaction,
     ctx:        Context

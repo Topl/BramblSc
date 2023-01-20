@@ -8,7 +8,10 @@ import co.topl.brambl.models.transaction.IoTransaction
 import co.topl.brambl.models.transaction.SpentTransactionOutput
 import co.topl.brambl.routines.signatures.Curve25519Signature
 import co.topl.brambl.transaction.validators.ValidationError
-import co.topl.brambl.transaction.validators.authorization.{TransactionAuthorizationError, TransactionAuthorizationInterpreter}
+import co.topl.brambl.transaction.validators.authorization.{
+  TransactionAuthorizationError,
+  TransactionAuthorizationInterpreter
+}
 import co.topl.brambl.transaction.validators.syntax.{TransactionSyntaxError, TransactionSyntaxErrors}
 import co.topl.brambl.Context
 import co.topl.brambl.typeclasses.ContainsSignable.instances.ioTransactionSignable
@@ -69,9 +72,9 @@ object MockCredentialler extends Credentials {
    * @return The same input, but proven. If the input is unprovable, an error is returned.
    */
   private def proveInput(
-                          input: SpentTransactionOutput,
-                          msg:   SignableBytes
-                        ): Either[TransactionSyntaxError, SpentTransactionOutput] = {
+    input: SpentTransactionOutput,
+    msg:   SignableBytes
+  ): Either[TransactionSyntaxError, SpentTransactionOutput] = {
     val idx: Option[Indices] = input.knownIdentifier.flatMap(MockStorage.getIndicesByKnownIdentifier)
     // TODO: None.get
     val inputAttestation = input.attestation.get
