@@ -13,7 +13,9 @@ import cats.implicits.{catsSyntaxApplicativeId, catsSyntaxEitherObject}
  * Validates that a Blake2b256 digest is valid.
  */
 object Blake2b256DigestInterpreter {
+
   def make[F[_]: Monad](): DigestVerifier[F] = new DigestVerifier[F] {
+
     /**
      * Validates that an Blake2b256 digest is valid.
      * @param t DigestVerification object containing the digest and preimage
@@ -28,7 +30,8 @@ object Blake2b256DigestInterpreter {
         else // TODO: replace with correct error. Verification failed.
           Either.left[QuivrRuntimeError, DigestVerification](ValidationError.LockedPropositionIsUnsatisfiable).pure[F]
       // TODO: replace with correct error. SignatureVerification is malformed
-      case _ => Either.left[QuivrRuntimeError, DigestVerification](ValidationError.LockedPropositionIsUnsatisfiable).pure[F]
+      case _ =>
+        Either.left[QuivrRuntimeError, DigestVerification](ValidationError.LockedPropositionIsUnsatisfiable).pure[F]
     }
   }
 }

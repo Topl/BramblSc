@@ -7,6 +7,7 @@ import scodec.bits.ByteVector
 
 object Blake2b256Digest extends Hash {
   override val routine: String = "blake2b256"
+
   override def hash(preimage: Preimage): Digest = {
     val digest = (new Blake2b256).hash(ByteVector(preimage.toByteArray ++ preimage.toByteArray))
     Digest().withDigest32(

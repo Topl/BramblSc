@@ -13,7 +13,9 @@ import scodec.bits.ByteVector
  * Validates that an Ed25519 signature is valid.
  */
 object Ed25519SignatureInterpreter {
+
   def make[F[_]: Monad](): SignatureVerifier[F] = new SignatureVerifier[F] {
+
     /**
      * Validates that an Ed25519 signature is valid.
      * @param t SignatureVerification object containing the message, verification key, and signature
@@ -21,12 +23,17 @@ object Ed25519SignatureInterpreter {
      */
     override def validate(t: SignatureVerification): F[Either[QuivrRuntimeError, SignatureVerification]] = t match {
       case SignatureVerification(Some(VerificationKey(vk, _)), Some(Witness(sig, _)), Some(Message(msg, _)), _) =>
-        if (Ed25519.instance.verify(ByteVector(sig.toByteArray), ByteVector(msg.toByteArray), ByteVector(vk.toByteArray)))
+        if (
+          Ed25519.instance.verify(ByteVector(sig.toByteArray), ByteVector(msg.toByteArray), ByteVector(vk.toByteArray))
+        )
           Either.right[QuivrRuntimeError, SignatureVerification](t).pure[F]
         else // TODO: replace with correct error. Verification failed.
-          Either.left[QuivrRuntimeError, SignatureVerification](ValidationError.LockedPropositionIsUnsatisfiable).pure[F]
+          Either
+            .left[QuivrRuntimeError, SignatureVerification](ValidationError.LockedPropositionIsUnsatisfiable)
+            .pure[F]
       // TODO: replace with correct error. SignatureVerification is malformed
-      case _ => Either.left[QuivrRuntimeError, SignatureVerification](ValidationError.LockedPropositionIsUnsatisfiable).pure[F]
+      case _ =>
+        Either.left[QuivrRuntimeError, SignatureVerification](ValidationError.LockedPropositionIsUnsatisfiable).pure[F]
     }
   }
 }
