@@ -6,7 +6,7 @@ import co.topl.brambl.models.Datum
 import co.topl.brambl.models.transaction.Attestation
 import co.topl.brambl.models.transaction.IoTransaction
 import co.topl.brambl.models.transaction.SpentTransactionOutput
-import co.topl.brambl.routines.signatures.Curve25519Signature
+import co.topl.brambl.routines.signatures.Ed25519Signature
 import co.topl.brambl.transaction.validators.ValidationError
 import co.topl.brambl.transaction.validators.authorization.{
   TransactionAuthorizationError,
@@ -38,7 +38,7 @@ object MockCredentialler extends Credentials {
   private def getProof(msg: SignableBytes, proposition: Proposition, idx: Option[Indices]): Option[Proof] = {
     // Temporary until we have a way to map routines strings to the actual Routine
     val signingRoutines = Map(
-      "curve25519" -> Curve25519Signature
+      "ed25519" -> Ed25519Signature
     )
     proposition.value match {
       case _: Proposition.Value.Locked => Prover.lockedProver[Id].prove((), msg).some

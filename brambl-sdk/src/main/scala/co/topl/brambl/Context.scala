@@ -3,9 +3,8 @@ package co.topl.brambl
 import cats.Id
 import co.topl.brambl.models.Datum
 import co.topl.brambl.models.transaction.IoTransaction
-import co.topl.brambl.routines.digests.validators.Blake2b256DigestInterpreter
-import co.topl.brambl.routines.signatures.validators.Curve25519SignatureInterpreter
 import co.topl.brambl.typeclasses.ContainsSignable.instances.ioTransactionSignable
+import co.topl.brambl.validation.{Blake2b256DigestInterpreter, Ed25519SignatureInterpreter}
 import co.topl.common.ParsableDataInterface
 import co.topl.quivr.runtime.DynamicContext
 import co.topl.quivr.algebras.{DigestVerifier, SignatureVerifier}
@@ -17,10 +16,10 @@ case class Context(tx: IoTransaction, curTick: Long, heightDatums: String => Opt
     extends DynamicContext[Id, String, Datum] {
 
   override val hashingRoutines: Map[String, DigestVerifier[Id]] =
-    Map("blake2b256" -> Blake2b256DigestInterpreter)
+    Map("blake2b256" -> Blake2b256DigestInterpreter.make())
 
   override val signingRoutines: Map[String, SignatureVerifier[Id]] =
-    Map("curve25519" -> Curve25519SignatureInterpreter)
+    Map("ed25519" -> Ed25519SignatureInterpreter.make())
 
   override val interfaces: Map[String, ParsableDataInterface] = Map() // Arbitrary
 

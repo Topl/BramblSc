@@ -110,6 +110,7 @@ lazy val bramblSdk = project
     libraryDependencies ++= Seq(Dependencies.protobufSpecs, Dependencies.quivr4s),
     scalamacrosParadiseSettings
   )
+  .dependsOn(crypto)
 
 lazy val brambl = project
   .in(file("."))
