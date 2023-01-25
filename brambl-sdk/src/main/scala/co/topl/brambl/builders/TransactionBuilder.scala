@@ -9,7 +9,7 @@ import quivr.models.SmallData
 /**
  * Defines a builder for [[IoTransaction]]s
  */
-trait TransactionBuilder {
+trait TransactionBuilder[F[_]] {
 
   final val EmptyData = SmallData(ByteString.EMPTY)
 
@@ -24,7 +24,7 @@ trait TransactionBuilder {
    *             If not provided, the built SpentTransactionOutput's metadata will be empty data
    * @return Either a InputBuilderError or the built SpentTransactionOutput
    */
-  def constructUnprovenInput(data: InputBuildRequest): Either[BuilderError.InputBuilderError, SpentTransactionOutput]
+  def constructUnprovenInput(data: InputBuildRequest): F[Either[BuilderError.InputBuilderError, SpentTransactionOutput]]
 
   /**
    * Construct a IoTransaction output ([[UnspentTransactionOutput]]).
@@ -37,7 +37,7 @@ trait TransactionBuilder {
    *             If not provided, the built UnspentTransactionOutput's metadata will be empty data
    * @return Either a OutputBuilderError or the built UnspentTransactionOutput
    */
-  def constructOutput(data: OutputBuildRequest): Either[BuilderError.OutputBuilderError, UnspentTransactionOutput]
+  def constructOutput(data: OutputBuildRequest): F[Either[BuilderError.OutputBuilderError, UnspentTransactionOutput]]
 
   /**
    * Construct an unproven [[IoTransaction]]. The transaction fee is whatever is left over after the sum of the
@@ -70,5 +70,5 @@ trait TransactionBuilder {
     output32Refs:   List[TransactionOutput32] = List(),
     output64Refs:   List[TransactionOutput64] = List(),
     metadata:       Option[SmallData] = None
-  ): Either[List[BuilderError], IoTransaction]
+  ): F[Either[List[BuilderError], IoTransaction]]
 }
