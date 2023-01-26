@@ -3,7 +3,7 @@ package co.topl.brambl
 import cats.Id
 import co.topl.brambl.models.Datum
 import co.topl.brambl.models.transaction.IoTransaction
-import co.topl.brambl.typeclasses.ContainsSignable.instances.ioTransactionSignable
+import co.topl.brambl.common.ContainsSignable.instances.ioTransactionSignable
 import co.topl.brambl.validation.{Blake2b256DigestInterpreter, Ed25519SignatureInterpreter}
 import co.topl.common.ParsableDataInterface
 import co.topl.quivr.runtime.DynamicContext

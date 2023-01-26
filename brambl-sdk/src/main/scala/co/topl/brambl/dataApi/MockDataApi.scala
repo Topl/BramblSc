@@ -11,12 +11,12 @@ import co.topl.brambl.models.box.Value
 import co.topl.brambl.models.transaction.IoTransaction
 import co.topl.brambl.models.transaction.Schedule
 import co.topl.brambl.models.Indices
-import co.topl.brambl.typeclasses.ContainsEvidence
+import co.topl.brambl.common.ContainsEvidence
 import com.google.protobuf.ByteString
 import quivr.models.Preimage
 import quivr.models.VerificationKey
 import quivr.models.KeyPair
-import co.topl.brambl.typeclasses.ContainsSignable.instances._
+import co.topl.brambl.common.ContainsSignable.instances._
 import ContainsEvidence._
 import cats.Id
 import co.topl.brambl.routines.digests.Blake2b256Digest
