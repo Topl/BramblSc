@@ -6,7 +6,7 @@ import scodec.bits.ByteVector
 
 /* Forked from https://github.com/input-output-hk/scrypto */
 
-abstract private[signing] class EllipticCurveSignatureScheme(seedLength: Int) {
+abstract private[signing] class EllipticCurveSignatureScheme(val seedLength: Int) {
 
   val SignatureLength: Int
   val KeyLength: Int
