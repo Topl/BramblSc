@@ -7,21 +7,22 @@ import co.topl.brambl.models.transaction.Attestation
 import co.topl.brambl.models.transaction.IoTransaction
 import co.topl.brambl.models.transaction.SpentTransactionOutput
 import co.topl.brambl.routines.signatures.Ed25519Signature
-import co.topl.brambl.transaction.validators.ValidationError
-import co.topl.brambl.transaction.validators.authorization.{
+import co.topl.brambl.validation.ValidationError
+import co.topl.brambl.validation.{
   TransactionAuthorizationError,
-  TransactionAuthorizationInterpreter
+  TransactionAuthorizationInterpreter,
+  TransactionSyntaxError
 }
-import co.topl.brambl.transaction.validators.syntax.{TransactionSyntaxError, TransactionSyntaxErrors}
 import co.topl.brambl.Context
-import co.topl.brambl.typeclasses.ContainsSignable.instances.ioTransactionSignable
+import co.topl.brambl.common.ContainsSignable.instances.ioTransactionSignable
+import co.topl.brambl.dataApi.MockDataApi
 import co.topl.quivr.api.{Prover, Verifier}
 import quivr.models.Proof
 import quivr.models.Proposition
 import quivr.models.SignableBytes
 import co.topl.brambl.models.Indices
 
-object MockCredentialler extends Credentials {
+object MockCredentialler extends Credentialler {
 
   /**
    * Return a Proof (if possible) that will satisfy a Proposition and signable bytes
@@ -43,13 +44,13 @@ object MockCredentialler extends Credentials {
     proposition.value match {
       case _: Proposition.Value.Locked => Prover.lockedProver[Id].prove((), msg).some
       case _: Proposition.Value.Digest =>
-        idx.flatMap(MockStorage.getPreimage(_).map(Prover.digestProver[Id].prove(_, msg)))
+        idx.flatMap(MockDataApi.getPreimage(_).map(Prover.digestProver[Id].prove(_, msg)))
       case Proposition.Value.DigitalSignature(p) =>
         signingRoutines
           .get(p.routine)
           .flatMap(r =>
             idx
-              .flatMap(i => MockStorage.getKeyPair(i, r))
+              .flatMap(i => MockDataApi.getKeyPair(i, r))
               .flatMap(keyPair => keyPair.sk)
               .map(sk => Prover.signatureProver[Id].prove(r.sign(sk, msg), msg))
           )
@@ -75,14 +76,14 @@ object MockCredentialler extends Credentials {
     input: SpentTransactionOutput,
     msg:   SignableBytes
   ): Either[TransactionSyntaxError, SpentTransactionOutput] = {
-    val idx: Option[Indices] = input.knownIdentifier.flatMap(MockStorage.getIndicesByKnownIdentifier)
+    val idx: Option[Indices] = input.knownIdentifier.flatMap(MockDataApi.getIndicesByKnownIdentifier)
     // TODO: None.get
     val inputAttestation = input.attestation.get
     val attestations: Either[TransactionSyntaxError, Attestation] =
       inputAttestation.value match {
         case Attestation.Value.Predicate(Attestation.Predicate(Some(predLock), responses, _)) =>
           if (predLock.challenges.length != responses.length)
-            Left(TransactionSyntaxErrors.AttestationMalformed(inputAttestation))
+            Left(TransactionSyntaxError.AttestationMalformed(inputAttestation))
           else
             Right(
               Attestation().withPredicate(
