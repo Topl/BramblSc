@@ -1,7 +1,9 @@
 package co.topl.brambl.validation
 
 import co.topl.brambl.models.KnownIdentifier
-import co.topl.brambl.models.transaction.Attestation
+import co.topl.brambl.models.box.Value
+import co.topl.brambl.models.transaction.{Attestation, Schedule}
+import quivr.models.{Proof, Proposition}
 
 sealed abstract class TransactionSyntaxError extends ValidationError
 
@@ -33,6 +35,31 @@ object TransactionSyntaxError {
    * A Syntax error indicating that this transaction contains an invalid timestamp.
    * */
   case class InvalidTimestamp(timestamp: Long) extends TransactionSyntaxError
+
+  /**
+   * A Syntax error indicating that this transaction contains an invalid schedule.
+   * */
+  case class InvalidSchedule(schedule: Schedule) extends TransactionSyntaxError
+
+  /**
+   * A Syntax error indicating that this transaction contains an output with a non-positive quantity value.
+   * */
+  case class NonPositiveOutputValue(outputValue: Value) extends TransactionSyntaxError
+
+  /**
+   * A Syntax error indicating that the inputs of this transaction cannot satisfy the outputs.
+   * */
+  case class InsufficientInputFunds(inputs: List[Value], outputs: List[Value]) extends TransactionSyntaxError
+
+  /**
+   * A Syntax error indicating that this transaction contains a proof whose type does not match its corresponding proposition.
+   * */
+  case class InvalidProofType(proposition: Proposition, proof: Proof) extends TransactionSyntaxError
+
+  /**
+   * A Syntax error indicating that the size of this transaction is invalid.
+   * */
+  case object InvalidDataLength extends TransactionSyntaxError
 
   /**
    * Error for when a transaction is not syntactically valid because its attestation is formed incorrectly
