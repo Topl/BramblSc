@@ -2,6 +2,7 @@ package co.topl.brambl.common
 
 import co.topl.brambl.models._
 import co.topl.brambl.models.box.{Box, Lock, Value}
+import co.topl.brambl.models.common.ImmutableBytes
 import co.topl.brambl.models.transaction._
 import co.topl.quivr.Tokens
 import com.google.protobuf.ByteString
@@ -9,8 +10,6 @@ import quivr.models._
 
 import java.nio.charset.StandardCharsets
 import scala.language.implicitConversions
-
-case class ImmutableBytes(value: ByteString = ByteString.EMPTY) // TODO: Replace with PB
 
 trait ContainsImmutable[T] {
   def immutableBytes(t: T): ImmutableBytes

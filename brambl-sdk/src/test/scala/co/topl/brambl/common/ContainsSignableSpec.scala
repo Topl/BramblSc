@@ -1,20 +1,9 @@
 package co.topl.brambl.common
 
-import cats.Id
-import cats.implicits.catsSyntaxOptionId
-import co.topl.brambl.common.ContainsEvidence.Ops
 import co.topl.brambl.common.ContainsImmutable.ContainsImmutableTOps
 import co.topl.brambl.common.ContainsImmutable.instances._
-import co.topl.brambl.common.ContainsImmutable.instances.proofImmutable
 import co.topl.brambl.common.ContainsSignable.ContainsSignableTOps
 import co.topl.brambl.common.ContainsSignable.instances._
-import co.topl.brambl.dataApi.MockDataApi
-import co.topl.brambl.models._
-import co.topl.brambl.models.box.{Lock, Value}
-import co.topl.brambl.models.transaction.{Attestation, IoTransaction, Schedule, SpentTransactionOutput, UnspentTransactionOutput}
-import co.topl.quivr.api.{Proposer, Prover}
-import com.google.protobuf.ByteString
-import quivr.models._
 import scala.language.implicitConversions
 
 
