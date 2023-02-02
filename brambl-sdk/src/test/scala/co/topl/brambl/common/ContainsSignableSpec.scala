@@ -6,8 +6,8 @@ import co.topl.brambl.common.ContainsSignable.ContainsSignableTOps
 import co.topl.brambl.common.ContainsSignable.instances._
 import scala.language.implicitConversions
 
-
 class ContainsSignableSpec extends munit.FunSuite with MockHelpers {
+
   test("IoTransaction.signable should return the same bytes as IoTransaction.immutable minus the Proofs") {
     val signableFull = txFull.signable.value
     val immutableFull = txFull.immutable.value
@@ -18,6 +18,7 @@ class ContainsSignableSpec extends munit.FunSuite with MockHelpers {
     assertEquals(signableFull.size, immutableFull.size - proofsImmutableSize)
     assertEquals(signableFull.size, immutableEmpty.size)
   }
+
   test("The Proofs in an IoTransaction changing should not alter the transaction's signable bytes") {
     val signableFull = txFull.signable.value
     val signableEmpty = txEmpty.signable.value
