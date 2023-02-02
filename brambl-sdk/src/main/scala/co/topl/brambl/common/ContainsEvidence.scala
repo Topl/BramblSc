@@ -72,7 +72,9 @@ object ContainsEvidence {
                 MerkleTree
                   .apply[Blake2b, Digest32](
                     list.zipWithIndex
-                      .map { case (item, index) => LeafData(ContainsImmutable[T].immutableBytes(item).value.toByteArray) }
+                      .map { case (item, index) =>
+                        LeafData(ContainsImmutable[T].immutableBytes(item).value.toByteArray)
+                      }
                   )
                   .rootHash
                   .value
@@ -89,7 +91,9 @@ object ContainsEvidence {
                 MerkleTree
                   .apply[Blake2b, Digest64](
                     list.zipWithIndex
-                      .map { case (item, index) => LeafData(ContainsImmutable[T].immutableBytes(item).value.toByteArray) }
+                      .map { case (item, index) =>
+                        LeafData(ContainsImmutable[T].immutableBytes(item).value.toByteArray)
+                      }
                   )
                   .rootHash
                   .value

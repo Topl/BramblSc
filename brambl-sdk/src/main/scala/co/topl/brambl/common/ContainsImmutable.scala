@@ -43,7 +43,8 @@ object ContainsImmutable {
 
     implicit val longImmutable: ContainsImmutable[Long] = (long: Long) => BigInt(long).toByteArray
 
-    implicit val stringImmutable: ContainsImmutable[String] = (string: String) => string.getBytes(StandardCharsets.UTF_8)
+    implicit val stringImmutable: ContainsImmutable[String] = (string: String) =>
+      string.getBytes(StandardCharsets.UTF_8)
 
     implicit def seqImmutable[T: ContainsImmutable]: ContainsImmutable[Seq[T]] = (seq: Seq[T]) =>
       seq.zipWithIndex.foldLeft(ImmutableBytes()) { case (acc, (item, index)) =>
@@ -103,10 +104,11 @@ object ContainsImmutable {
       stxo.value.immutable ++
       stxo.datum.immutable
 
-    implicit val unspentOutputImmutable: ContainsImmutable[UnspentTransactionOutput] = (utxo: UnspentTransactionOutput) =>
-      utxo.address.immutable ++
-      utxo.value.immutable ++
-      utxo.datum.immutable
+    implicit val unspentOutputImmutable: ContainsImmutable[UnspentTransactionOutput] =
+      (utxo: UnspentTransactionOutput) =>
+        utxo.address.immutable ++
+        utxo.value.immutable ++
+        utxo.datum.immutable
 
     implicit val boxImmutable: ContainsImmutable[Box] = (box: Box) =>
       box.lock.immutable ++
@@ -349,8 +351,8 @@ object ContainsImmutable {
 
     implicit val digestProofImmutable: ContainsImmutable[Proof.Digest] =
       p =>
-          p.transactionBind.immutable ++
-          p.preimage.immutable
+        p.transactionBind.immutable ++
+        p.preimage.immutable
 
     implicit val signatureImmutable: ContainsImmutable[Proposition.DigitalSignature] =
       p =>
@@ -427,8 +429,7 @@ object ContainsImmutable {
       Tokens.Not.immutable ++
       p.proposition.immutable
 
-    implicit val notProofImmutable: ContainsImmutable[Proof.Not] = p =>
-      p.transactionBind.immutable ++ p.proof.immutable
+    implicit val notProofImmutable: ContainsImmutable[Proof.Not] = p => p.transactionBind.immutable ++ p.proof.immutable
 
     implicit val andImmutable: ContainsImmutable[Proposition.And] = p =>
       Tokens.And.immutable ++

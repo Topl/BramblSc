@@ -8,7 +8,11 @@ import co.topl.brambl.models.transaction.IoTransaction
 import co.topl.brambl.models.transaction.SpentTransactionOutput
 import co.topl.brambl.routines.signatures.Ed25519Signature
 import co.topl.brambl.validation.ValidationError
-import co.topl.brambl.validation.{TransactionAuthorizationError, TransactionAuthorizationInterpreter, TransactionSyntaxError}
+import co.topl.brambl.validation.{
+  TransactionAuthorizationError,
+  TransactionAuthorizationInterpreter,
+  TransactionSyntaxError
+}
 import co.topl.brambl.Context
 import co.topl.brambl.common.ContainsSignable.ContainsSignableTOps
 import co.topl.brambl.common.ContainsSignable.instances._
