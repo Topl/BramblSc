@@ -328,7 +328,7 @@ object ContainsImmutable {
       case Event.Value.UnspentTransactionOutput(e) => utxoEventImmutable.immutableBytes(e)
     }
 
-    implicit val proofImmutable: ContainsImmutable[Proof] = _ => Array.emptyByteArray
+    implicit val proofImmutable: ContainsImmutable[Proof] = _ => ImmutableBytes(ByteString.copyFrom(Array(9.toByte)))
 
     implicit val lockedImmutable: ContainsImmutable[Proposition.Locked] =
       _ => Tokens.Locked.immutable
