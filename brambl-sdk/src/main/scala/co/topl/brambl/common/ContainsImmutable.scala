@@ -66,6 +66,8 @@ object ContainsImmutable {
 
     implicit val verificationKeyImmutable: ContainsImmutable[VerificationKey] = _.value.immutable
 
+    implicit val witnessImmutable: ContainsImmutable[Witness] = _.value.immutable
+
     implicit val datumImmutable: ContainsImmutable[Datum] = _.value match {
       case Datum.Value.Eon(v)           => v.immutable
       case Datum.Value.Era(v)           => v.immutable
@@ -138,6 +140,9 @@ object ContainsImmutable {
       case Digest.Value.Digest32(v) => v.immutable
       case Digest.Value.Digest64(v) => v.immutable
     }
+
+    implicit val preimageImmutable: ContainsImmutable[Preimage] = (pre: Preimage) =>
+      pre.input.immutable ++ pre.salt.immutable
 
     implicit val accumulatorRoot32IdentifierImmutable: ContainsImmutable[Identifier.AccumulatorRoot32] =
       id =>
@@ -328,10 +333,13 @@ object ContainsImmutable {
       case Event.Value.UnspentTransactionOutput(e) => utxoEventImmutable.immutableBytes(e)
     }
 
-    implicit val proofImmutable: ContainsImmutable[Proof] = _ => ImmutableBytes(ByteString.copyFrom(Array(9.toByte)))
+    implicit val txBindImmutable: ContainsImmutable[TxBind] = _.value.immutable
 
     implicit val lockedImmutable: ContainsImmutable[Proposition.Locked] =
       _ => Tokens.Locked.immutable
+
+    implicit val lockedProofImmutable: ContainsImmutable[Proof.Locked] =
+      _ => Array.emptyByteArray
 
     implicit val digestPropositionImmutable: ContainsImmutable[Proposition.Digest] =
       p =>
@@ -339,11 +347,21 @@ object ContainsImmutable {
         p.routine.immutable ++
         p.digest.immutable
 
+    implicit val digestProofImmutable: ContainsImmutable[Proof.Digest] =
+      p =>
+          p.transactionBind.immutable ++
+          p.preimage.immutable
+
     implicit val signatureImmutable: ContainsImmutable[Proposition.DigitalSignature] =
       p =>
         Tokens.DigitalSignature.immutable ++
         p.routine.immutable ++
         p.verificationKey.immutable
+
+    implicit val signatureProofImmutable: ContainsImmutable[Proof.DigitalSignature] =
+      p =>
+        p.transactionBind.immutable ++
+        p.witness.immutable
 
     implicit val heightRangeImmutable: ContainsImmutable[Proposition.HeightRange] =
       p =>
@@ -352,11 +370,15 @@ object ContainsImmutable {
         p.min.immutable ++
         p.max.immutable
 
+    implicit val heightRangeProofImmutable: ContainsImmutable[Proof.HeightRange] = _.transactionBind.immutable
+
     implicit val tickRangeImmutable: ContainsImmutable[Proposition.TickRange] =
       p =>
         Tokens.TickRange.immutable ++
         p.min.immutable ++
         p.max.immutable
+
+    implicit val tickRangeProofImmutable: ContainsImmutable[Proof.TickRange] = _.transactionBind.immutable
 
     implicit val exactMatchImmutable: ContainsImmutable[Proposition.ExactMatch] =
       p =>
@@ -364,11 +386,15 @@ object ContainsImmutable {
         p.location.immutable ++
         p.compareTo.immutable
 
+    implicit val exactMatchProofImmutable: ContainsImmutable[Proof.ExactMatch] = _.transactionBind.immutable
+
     implicit val lessThanImmutable: ContainsImmutable[Proposition.LessThan] =
       p =>
         Tokens.LessThan.immutable ++
         p.location.immutable ++
         p.compareTo.immutable
+
+    implicit val lessThanProofImmutable: ContainsImmutable[Proof.LessThan] = _.transactionBind.immutable
 
     implicit val greaterThanImmutable: ContainsImmutable[Proposition.GreaterThan] =
       p =>
@@ -376,11 +402,15 @@ object ContainsImmutable {
         p.location.immutable ++
         p.compareTo.immutable
 
+    implicit val greaterThanProofImmutable: ContainsImmutable[Proof.GreaterThan] = _.transactionBind.immutable
+
     implicit val equalToImmutable: ContainsImmutable[Proposition.EqualTo] =
       p =>
         Tokens.EqualTo.immutable ++
         p.location.immutable ++
         p.compareTo.immutable
+
+    implicit val equalToProofImmutable: ContainsImmutable[Proof.EqualTo] = _.transactionBind.immutable
 
     implicit val thresholdImmutable: ContainsImmutable[Proposition.Threshold] =
       p =>
@@ -388,17 +418,35 @@ object ContainsImmutable {
         p.threshold.immutable ++
         p.challenges.immutable
 
+    implicit val thresholdProofImmutable: ContainsImmutable[Proof.Threshold] =
+      p =>
+        p.transactionBind.immutable ++
+        p.responses.immutable
+
     implicit val notImmutable: ContainsImmutable[Proposition.Not] = p =>
       Tokens.Not.immutable ++
       p.proposition.immutable
+
+    implicit val notProofImmutable: ContainsImmutable[Proof.Not] = p =>
+      p.transactionBind.immutable ++ p.proof.immutable
 
     implicit val andImmutable: ContainsImmutable[Proposition.And] = p =>
       Tokens.And.immutable ++
       p.left.immutable ++
       p.right.immutable
 
+    implicit val andProofImmutable: ContainsImmutable[Proof.And] = p =>
+      p.transactionBind.immutable ++
+      p.left.immutable ++
+      p.right.immutable
+
     implicit val orImmutable: ContainsImmutable[Proposition.Or] = p =>
       Tokens.Or.immutable ++
+      p.left.immutable ++
+      p.right.immutable
+
+    implicit val orProofImmutable: ContainsImmutable[Proof.Or] = p =>
+      p.transactionBind.immutable ++
       p.left.immutable ++
       p.right.immutable
 
@@ -418,6 +466,21 @@ object ContainsImmutable {
       case Proposition.Value.Or(p)               => orImmutable.immutableBytes(p)
     }
 
+    implicit val proofImmutable: ContainsImmutable[Proof] = _.value match {
+      case Proof.Value.Locked(p)           => lockedProofImmutable.immutableBytes(p)
+      case Proof.Value.Digest(p)           => digestProofImmutable.immutableBytes(p)
+      case Proof.Value.DigitalSignature(p) => signatureProofImmutable.immutableBytes(p)
+      case Proof.Value.HeightRange(p)      => heightRangeProofImmutable.immutableBytes(p)
+      case Proof.Value.TickRange(p)        => tickRangeProofImmutable.immutableBytes(p)
+      case Proof.Value.ExactMatch(p)       => exactMatchProofImmutable.immutableBytes(p)
+      case Proof.Value.LessThan(p)         => lessThanProofImmutable.immutableBytes(p)
+      case Proof.Value.GreaterThan(p)      => greaterThanProofImmutable.immutableBytes(p)
+      case Proof.Value.EqualTo(p)          => equalToProofImmutable.immutableBytes(p)
+      case Proof.Value.Threshold(p)        => thresholdProofImmutable.immutableBytes(p)
+      case Proof.Value.Not(p)              => notProofImmutable.immutableBytes(p)
+      case Proof.Value.And(p)              => andProofImmutable.immutableBytes(p)
+      case Proof.Value.Or(p)               => orProofImmutable.immutableBytes(p)
+    }
   }
   object instances extends Instances
 }
