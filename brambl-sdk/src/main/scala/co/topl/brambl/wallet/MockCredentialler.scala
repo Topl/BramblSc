@@ -8,13 +8,10 @@ import co.topl.brambl.models.transaction.IoTransaction
 import co.topl.brambl.models.transaction.SpentTransactionOutput
 import co.topl.brambl.routines.signatures.Ed25519Signature
 import co.topl.brambl.validation.ValidationError
-import co.topl.brambl.validation.{
-  TransactionAuthorizationError,
-  TransactionAuthorizationInterpreter,
-  TransactionSyntaxError
-}
+import co.topl.brambl.validation.{TransactionAuthorizationError, TransactionAuthorizationInterpreter, TransactionSyntaxError}
 import co.topl.brambl.Context
-import co.topl.brambl.common.ContainsSignable.instances.ioTransactionSignable
+import co.topl.brambl.common.ContainsSignable.ContainsSignableTOps
+import co.topl.brambl.common.ContainsSignable.instances._
 import co.topl.brambl.dataApi.MockDataApi
 import co.topl.quivr.api.{Prover, Verifier}
 import quivr.models.Proof
@@ -106,7 +103,7 @@ object MockCredentialler extends Credentialler {
    * @return The proven version of the transaction. If not possible, errors for the unprovable inputs are returned
    */
   override def prove(unprovenTx: IoTransaction): Either[List[TransactionSyntaxError], IoTransaction] = {
-    val signable = ioTransactionSignable.signableBytes(unprovenTx)
+    val signable = unprovenTx.signable
     val (errs, provenInputs) = unprovenTx.inputs.toList
       .partitionMap(proveInput(_, signable))
 
