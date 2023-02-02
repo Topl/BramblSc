@@ -1,14 +1,10 @@
 package co.topl.brambl.common
 
-import co.topl.brambl.models._
-import co.topl.brambl.models.box.{Box, Lock, Value}
-import co.topl.brambl.models.transaction._
-import co.topl.quivr.Tokens
-import com.google.protobuf.ByteString
 import quivr.models._
-import co.topl.brambl.common.ContainsImmutable.instances._
+import ContainsImmutable.instances._
+import ContainsImmutable._
+import co.topl.brambl.models.transaction.{Attestation, IoTransaction, SpentTransactionOutput}
 
-import java.nio.charset.StandardCharsets
 import scala.language.implicitConversions
 // Long -> longSignable -> longSignableEvidence -> longSignableEvidenceId
 // Long -> longSignable -> longSignableEvidence -> longSingableEvidenceSignable -> longSingableEvidenceSignableEvidence
@@ -22,18 +18,38 @@ trait ContainsSignable[T] {
 
 object ContainsSignable {
   def apply[T](implicit ev: ContainsSignable[T]): ContainsSignable[T] = ev
-
   implicit class ContainsSignableTOps[T: ContainsSignable](t: T) {
     def signable: SignableBytes = ContainsSignable[T].signableBytes(t)
   }
 
   trait Instances {
-    import ContainsImmutable.ContainsImmutableTOps
-
     implicit val immutableSignable: ContainsSignable[ImmutableBytes] = (t: ImmutableBytes) => SignableBytes(t.value)
 
-    implicit val proofSignable: ContainsSignable[Proof] = _ => Array.emptyByteArray.immutable.signable
-    implicit def immutableToSignable[T: ContainsImmutable](t: T): ContainsSignable[T] = _ => t.immutable.signable
+    /**
+     * Strips the proofs from a SpentTransactionOutput.
+     * This is needed because the proofs are not part of the transaction's signable bytes
+     * */
+    private def stripInput(stxo: SpentTransactionOutput): SpentTransactionOutput =
+      stxo.copy(
+        attestation = stxo.attestation.map(att => att.copy(
+          value = att.value match {
+            case p: Attestation.Value.Predicate => p.copy(p.value.copy(responses = Array()))
+            case i32: Attestation.Value.Image32 => i32.copy(i32.value.copy(responses = Array()))
+            case i64: Attestation.Value.Image64 => i64.copy(i64.value.copy(responses = Array()))
+            case c32: Attestation.Value.Commitment32 => c32.copy(c32.value.copy(responses = Array()))
+            case c64: Attestation.Value.Commitment64 => c64.copy(c64.value.copy(responses = Array()))
+          }
+        ))
+      )
+
+    implicit val ioTransactionSignable: ContainsSignable[IoTransaction] = (iotx: IoTransaction) =>
+      iotx.copy(
+        inputs = iotx.inputs.map(stripInput),
+        outputs = iotx.outputs,
+        datum = iotx.datum
+      ).immutable
+      .signable
+
   }
   object instances extends Instances
 }
