@@ -107,7 +107,7 @@ lazy val bramblSdk = project
     name := "brambl-sdk",
     commonSettings,
     publishSettings,
-    libraryDependencies ++= Seq(Dependencies.protobufSpecs, Dependencies.quivr4s),
+    libraryDependencies ++= Seq(Dependencies.protobufSpecs, Dependencies.quivr4s) ++ Dependencies.mUnitTest,
     scalamacrosParadiseSettings
   )
   .dependsOn(crypto)
