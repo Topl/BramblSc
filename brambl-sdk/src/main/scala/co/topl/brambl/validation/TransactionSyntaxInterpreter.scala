@@ -3,12 +3,14 @@ package co.topl.brambl.validation
 import cats.Monad
 import cats.implicits._
 import cats.data.{Chain, NonEmptyChain, Validated, ValidatedNec}
-import co.topl.brambl.models.box.Value
-import co.topl.brambl.models.transaction.IoTransaction
+import co.topl.brambl.models.box.{Lock, Value}
+import co.topl.brambl.models.transaction.{Attestation, IoTransaction}
 import co.topl.brambl.validation.algebras.TransactionSyntaxVerifier
 import co.topl.brambl.common.ContainsImmutable.ContainsImmutableTOps
 import co.topl.brambl.common.ContainsImmutable.instances._
-import quivr.models.Int128
+import quivr.models.{Int128, Proof, Proposition}
+
+// TODO: All the .get will need to be handled by the PB Validation
 
 object TransactionSyntaxInterpreter {
 
@@ -35,7 +37,7 @@ object TransactionSyntaxInterpreter {
       scheduleValidation,
       positiveOutputValuesValidation,
       sufficientFundsValidation,
-//      proofTypeValidation, // TODO: Add check for proof length
+      attestationValidation,
       dataLengthValidation
     )
 
@@ -176,6 +178,63 @@ object TransactionSyntaxInterpreter {
           )
       )
     ).combineAll
+
+  /**
+   * Validates that the attestations for each of the transaction's inputs are valid
+   */
+  private def attestationValidation(
+    transaction: IoTransaction
+  ): ValidatedNec[TransactionSyntaxError, Unit] =
+    transaction.inputs
+      .map(input =>
+        input.attestation.get.value match {
+          case Attestation.Value.Predicate(Attestation.Predicate(Some(lock), responses, _)) =>
+            predicateLockProofTypeValidation(lock, responses)
+          // TODO: There is no validation for Attestation types other than Predicate for now
+          case _ => ().validNec[TransactionSyntaxError]
+        }
+      )
+      .combineAll
+
+  /**
+   * Validates that the proofs associated with each proposition matches the expected _type_ for a Predicate Attestation
+   *
+   * (i.e. a DigitalSignature Proof that is associated with a HeightRange Proposition, this validation will fail)
+   *
+   * Preconditions: lock.challenges.length <= responses.length
+   */
+  private def predicateLockProofTypeValidation(
+    lock:      Lock.Predicate,
+    responses: Seq[Proof]
+  ): ValidatedNec[TransactionSyntaxError, Unit] =
+    (lock.challenges zip responses)
+      .map(challenge => proofTypeMatch(challenge._1, challenge._2))
+      .combineAll
+
+  /**
+   * Validate that the type of Proof matches the type of the given Proposition
+   * A Proof.Value.Empty type is considered valid for all Proposition types
+   */
+  private def proofTypeMatch(proposition: Proposition, proof: Proof): ValidatedNec[TransactionSyntaxError, Unit] =
+    (proposition.value, proof.value) match {
+      case (_, Proof.Value.Empty) =>
+        ().validNec[TransactionSyntaxError] // Empty proofs are valid for all Proposition types
+      case (Proposition.Value.Locked(_), Proof.Value.Locked(_)) => ().validNec[TransactionSyntaxError]
+      case (Proposition.Value.Digest(_), Proof.Value.Digest(_)) => ().validNec[TransactionSyntaxError]
+      case (Proposition.Value.DigitalSignature(_), Proof.Value.DigitalSignature(_)) =>
+        ().validNec[TransactionSyntaxError]
+      case (Proposition.Value.HeightRange(_), Proof.Value.HeightRange(_)) => ().validNec[TransactionSyntaxError]
+      case (Proposition.Value.TickRange(_), Proof.Value.TickRange(_))     => ().validNec[TransactionSyntaxError]
+      case (Proposition.Value.ExactMatch(_), Proof.Value.ExactMatch(_))   => ().validNec[TransactionSyntaxError]
+      case (Proposition.Value.LessThan(_), Proof.Value.LessThan(_))       => ().validNec[TransactionSyntaxError]
+      case (Proposition.Value.GreaterThan(_), Proof.Value.GreaterThan(_)) => ().validNec[TransactionSyntaxError]
+      case (Proposition.Value.EqualTo(_), Proof.Value.EqualTo(_))         => ().validNec[TransactionSyntaxError]
+      case (Proposition.Value.Threshold(_), Proof.Value.Threshold(_))     => ().validNec[TransactionSyntaxError]
+      case (Proposition.Value.Not(_), Proof.Value.Not(_))                 => ().validNec[TransactionSyntaxError]
+      case (Proposition.Value.And(_), Proof.Value.And(_))                 => ().validNec[TransactionSyntaxError]
+      case (Proposition.Value.Or(_), Proof.Value.Or(_))                   => ().validNec[TransactionSyntaxError]
+      case _ => TransactionSyntaxError.InvalidProofType(proposition, proof).invalidNec[Unit]
+    }
 
   /**
    * DataLengthValidation validates approved transaction data length, includes proofs
