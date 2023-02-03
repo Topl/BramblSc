@@ -1,6 +1,6 @@
 package co.topl.brambl.validation
 
-import cats.Monad
+import cats.Applicative
 import cats.implicits._
 import cats.data.{Chain, NonEmptyChain, Validated, ValidatedNec}
 import co.topl.brambl.models.box.{Lock, Value}
@@ -16,14 +16,12 @@ object TransactionSyntaxInterpreter {
 
   final val MaxDataLength = 15360
 
-  def make[F[_]: Monad](): TransactionSyntaxVerifier[F] = new TransactionSyntaxVerifier[F] {
+  def make[F[_]: Applicative](): TransactionSyntaxVerifier[F] = new TransactionSyntaxVerifier[F] {
 
-    override def validate(t: IoTransaction): F[Either[TransactionSyntaxError, IoTransaction]] =
+    override def validate(t: IoTransaction): F[Either[NonEmptyChain[TransactionSyntaxError], IoTransaction]] =
       validators
         .foldMap(_ apply t)
         .toEither
-        // TODO: The following line is a temporary measure until we decide on a return type
-        .leftMap[TransactionSyntaxError](_ => TransactionSyntaxError.SyntaxFailed)
         .as(t)
         .pure[F]
   }
