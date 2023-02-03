@@ -1,4 +1,4 @@
-package co.topl.brambl.common
+package co.topl.brambl
 
 import cats.Id
 import cats.implicits.catsSyntaxOptionId
@@ -10,13 +10,7 @@ import co.topl.brambl.common.ContainsSignable.instances._
 import co.topl.brambl.dataApi.MockDataApi
 import co.topl.brambl.models._
 import co.topl.brambl.models.box.{Lock, Value}
-import co.topl.brambl.models.transaction.{
-  Attestation,
-  IoTransaction,
-  Schedule,
-  SpentTransactionOutput,
-  UnspentTransactionOutput
-}
+import co.topl.brambl.models.transaction._
 import co.topl.quivr.api.{Proposer, Prover}
 import com.google.protobuf.ByteString
 import quivr.models.{Int128, Proof, SignableBytes, SmallData}

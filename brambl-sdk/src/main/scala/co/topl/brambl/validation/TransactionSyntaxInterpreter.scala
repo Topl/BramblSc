@@ -236,8 +236,6 @@ object TransactionSyntaxInterpreter {
 
   /**
    * DataLengthValidation validates approved transaction data length, includes proofs
-   * TODO should we include proofs lengths?:
-   *
    * @see [[https://topl.atlassian.net/browse/BN-708]]
    * @param transaction transaction
    * @return

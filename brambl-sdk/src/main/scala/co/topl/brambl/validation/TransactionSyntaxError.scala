@@ -10,13 +10,6 @@ sealed abstract class TransactionSyntaxError extends ValidationError
 object TransactionSyntaxError {
 
   /**
-   * Generic error for when a transaction is not syntactically valid
-   *
-   * TEMPORARY until return type (and its contents) of Syntax validation is finalized
-   */
-  case object SyntaxFailed extends TransactionSyntaxError
-
-  /**
    * A Syntax error indicating that this transaction does not contain at least 1 input.
    */
   case object EmptyInputs extends TransactionSyntaxError
