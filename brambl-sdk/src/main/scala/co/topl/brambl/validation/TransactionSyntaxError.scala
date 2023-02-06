@@ -54,9 +54,4 @@ object TransactionSyntaxError {
    * A Syntax error indicating that the size of this transaction is invalid.
    */
   case object InvalidDataLength extends TransactionSyntaxError
-
-  /**
-   * Error for when a transaction is not syntactically valid because its attestation is formed incorrectly
-   */
-  case class AttestationMalformed(attestation: Attestation) extends TransactionSyntaxError
 }

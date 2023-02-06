@@ -83,15 +83,11 @@ object MockCredentialler extends Credentialler {
     val attestations: Either[TransactionSyntaxError, Attestation] =
       inputAttestation.value match {
         case Attestation.Value.Predicate(Attestation.Predicate(Some(predLock), responses, _)) =>
-          if (predLock.challenges.length != responses.length)
-            Left(TransactionSyntaxError.AttestationMalformed(inputAttestation))
-          else
-            Right(
-              Attestation().withPredicate(
-                Attestation.Predicate(predLock.some, predLock.challenges.map(getProof(msg, _, idx).getOrElse(Proof())))
-              )
+          Right(
+            Attestation().withPredicate(
+              Attestation.Predicate(predLock.some, predLock.challenges.map(getProof(msg, _, idx).getOrElse(Proof())))
             )
-
+          )
         case _ => ??? // We are not handling other types of Attestations at this moment in time
       }
 
