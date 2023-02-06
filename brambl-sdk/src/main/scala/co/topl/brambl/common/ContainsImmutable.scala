@@ -480,6 +480,7 @@ object ContainsImmutable {
       case Proof.Value.Not(p)              => notProofImmutable.immutableBytes(p)
       case Proof.Value.And(p)              => andProofImmutable.immutableBytes(p)
       case Proof.Value.Or(p)               => orProofImmutable.immutableBytes(p)
+      case Proof.Value.Empty               => Array.emptyByteArray
     }
   }
   object instances extends Instances
