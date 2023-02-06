@@ -9,13 +9,14 @@ import co.topl.brambl.models.box.{Lock, Value}
 import co.topl.brambl.models.transaction.{Attestation, IoTransaction, Schedule}
 import co.topl.quivr.api.{Proposer, Prover}
 import com.google.protobuf.ByteString
-import quivr.models.{Int128, Proof, SmallData, Proposition}
+import quivr.models.{Int128, Proof, Proposition, SmallData}
 
 import scala.language.implicitConversions
 
 class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
+
   test("validate non-empty inputs") {
-    val testTx  = txFull.copy(inputs = List())
+    val testTx = txFull.copy(inputs = List())
     val validator = TransactionSyntaxInterpreter.make[Id]()
     val result = validator
       .validate(testTx)
@@ -45,9 +46,13 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
   }
 
   test("validate positive timestamp") {
-    val testTx = txFull.copy(datum = txDatum.copy(
-      event = txDatum.event.get.copy(schedule = Schedule(3, 50, -1).some).some
-    ).some)
+    val testTx = txFull.copy(datum =
+      txDatum
+        .copy(
+          event = txDatum.event.get.copy(schedule = Schedule(3, 50, -1).some).some
+        )
+        .some
+    )
     val validator = TransactionSyntaxInterpreter.make[Id]()
     val result = validator
       .validate(testTx)
@@ -58,16 +63,22 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
 
   test("validate schedule") {
     val invalidSchedules = List(Schedule(5, 4, 100), Schedule(-5, -1, 100), Schedule(-1, 0, 100), Schedule(-1, 1, 100))
-    val result = invalidSchedules.map(schedule => {
-      val testTx = txFull.copy(datum = txDatum.copy(
-        event = txDatum.event.get.copy(schedule = schedule.some).some
-      ).some)
-      val validator = TransactionSyntaxInterpreter.make[Id]()
-      validator
-        .validate(testTx)
-        .swap
-        .exists(_.toList.contains(TransactionSyntaxError.InvalidSchedule(schedule)))
-    }).forall(identity)
+    val result = invalidSchedules
+      .map { schedule =>
+        val testTx = txFull.copy(datum =
+          txDatum
+            .copy(
+              event = txDatum.event.get.copy(schedule = schedule.some).some
+            )
+            .some
+        )
+        val validator = TransactionSyntaxInterpreter.make[Id]()
+        validator
+          .validate(testTx)
+          .swap
+          .exists(_.toList.contains(TransactionSyntaxError.InvalidSchedule(schedule)))
+      }
+      .forall(identity)
     assertEquals(result, true)
   }
 
@@ -85,44 +96,62 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
   test("validate sufficient input funds") {
     val tokenValueIn: Value = Value().withToken(Value.Token(Int128(ByteString.copyFrom(BigInt(100).toByteArray)).some))
     val tokenValueOut: Value = Value().withToken(Value.Token(Int128(ByteString.copyFrom(BigInt(101).toByteArray)).some))
-    val assetValueIn: Value = Value().withAsset(Value.Asset("label", Int128(ByteString.copyFrom(BigInt(100).toByteArray)).some))
-    val assetValueOut: Value = Value().withAsset(Value.Asset("label", Int128(ByteString.copyFrom(BigInt(101).toByteArray)).some))
+    val assetValueIn: Value =
+      Value().withAsset(Value.Asset("label", Int128(ByteString.copyFrom(BigInt(100).toByteArray)).some))
+    val assetValueOut: Value =
+      Value().withAsset(Value.Asset("label", Int128(ByteString.copyFrom(BigInt(101).toByteArray)).some))
 
-    def testTx(inputValue: Value, outputValue: Value) = TransactionSyntaxInterpreter.make[Id]()
-        .validate(txFull.copy(inputs = txFull.inputs.map(_.copy(value = inputValue.some)), outputs = Seq(output.copy(value = outputValue.some))))
-        .swap
-        .exists(_.toList.contains(TransactionSyntaxError.InsufficientInputFunds(List(inputValue.value), List(outputValue.value))))
+    def testTx(inputValue: Value, outputValue: Value) = TransactionSyntaxInterpreter
+      .make[Id]()
+      .validate(
+        txFull.copy(
+          inputs = txFull.inputs.map(_.copy(value = inputValue.some)),
+          outputs = Seq(output.copy(value = outputValue.some))
+        )
+      )
+      .swap
+      .exists(
+        _.toList
+          .contains(TransactionSyntaxError.InsufficientInputFunds(List(inputValue.value), List(outputValue.value)))
+      )
 
     val result = List(
       testTx(tokenValueIn, tokenValueOut), // Token Test
-      testTx (assetValueIn, assetValueOut) // Asset Test
+      testTx(assetValueIn, assetValueOut) // Asset Test
     ).forall(identity)
     assertEquals(result, true)
   }
 
   test("validate proof types: Lock.Predicate") {
     val challenges: Seq[Proposition] = List(
-      Proposer.LockedProposer[Id].propose(None), Proposer.heightProposer[Id].propose(("header", 0, 100)),
-      Proposer.tickProposer[Id].propose((0, 100)), Proposer.tickProposer[Id].propose((0, 100))
+      Proposer.LockedProposer[Id].propose(None),
+      Proposer.heightProposer[Id].propose(("header", 0, 100)),
+      Proposer.tickProposer[Id].propose((0, 100)),
+      Proposer.tickProposer[Id].propose((0, 100))
     )
     val responses: Seq[Proof] = List(
       Prover.heightProver[Id].prove((), fakeMsgBind), // Mismatched
       Prover.heightProver[Id].prove((), fakeMsgBind), // Matched
-      Proof(), // Empty proof
+      Proof() // Empty proof
       // Missing a Proof
     )
-    val testTx = txFull.copy(inputs = txFull.inputs.map(_.copy(attestation =
-      Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(challenges, 1).some, responses)).some
-    )))
+    val testTx = txFull.copy(inputs =
+      txFull.inputs.map(
+        _.copy(attestation =
+          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(challenges, 1).some, responses)).some
+        )
+      )
+    )
 
     def testError(error: TransactionSyntaxError) = error match {
       case TransactionSyntaxError.InvalidProofType(challenge, response) =>
         // First challenge is mismatched so we expect the error
-        if(challenge == challenges.head && response == responses.head) true else false
+        if (challenge == challenges.head && response == responses.head) true else false
       case _ => false // We don't expect any other errors
     }
 
-    val result = TransactionSyntaxInterpreter.make[Id]()
+    val result = TransactionSyntaxInterpreter
+      .make[Id]()
       .validate(testTx)
       .swap
       .forall(_.toList.map(testError).forall(identity))
@@ -131,16 +160,20 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
 
   test("Invalid data-length transaction > MaxDataLength ") {
     val invalidData = ByteString.copyFrom(Array.fill(TransactionSyntaxInterpreter.MaxDataLength + 1)(1.toByte))
-    val testTx = txFull.copy(datum = Datum.IoTransaction(
-      Event
+    val testTx = txFull.copy(datum =
+      Datum
         .IoTransaction(
-          Schedule(3, 50, 100).some,
-          List(),
-          List(),
-          SmallData(invalidData).some
+          Event
+            .IoTransaction(
+              Schedule(3, 50, 100).some,
+              List(),
+              List(),
+              SmallData(invalidData).some
+            )
+            .some
         )
         .some
-    ).some)
+    )
 
     val validator = TransactionSyntaxInterpreter.make[Id]()
     val result = validator
@@ -153,37 +186,49 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
   test(s"Valid data-length transaction with edge MaxDataLength") {
     import co.topl.brambl.common.ContainsImmutable.ContainsImmutableTOps
     import co.topl.brambl.common.ContainsImmutable.instances._
-    val curSize = txFull.copy(datum = Datum.IoTransaction(
-      Event
-        .IoTransaction(
-          Schedule(3, 50, 100).some,
-          List(),
-          List(),
-          SmallData(ByteString.EMPTY).some
-        )
-        .some
-    ).some).immutable.value.size
+    val curSize = txFull
+      .copy(datum =
+        Datum
+          .IoTransaction(
+            Event
+              .IoTransaction(
+                Schedule(3, 50, 100).some,
+                List(),
+                List(),
+                SmallData(ByteString.EMPTY).some
+              )
+              .some
+          )
+          .some
+      )
+      .immutable
+      .value
+      .size
     // create data with size -> tx + data = MaxDataLength
     val diff = TransactionSyntaxInterpreter.MaxDataLength - curSize + 1
     val result =
-    if(diff > 0){
-      val invalidData = ByteString.copyFrom(Array.fill(diff)(1.toByte))
-      val testTx = txFull.copy(datum = Datum.IoTransaction(
-        Event
-          .IoTransaction(
-            Schedule(3, 50, 100).some,
-            List(),
-            List(),
-            SmallData(invalidData).some
-          )
-          .some
-      ).some)
-      val validator = TransactionSyntaxInterpreter.make[Id]()
-      validator
-        .validate(testTx)
-        .swap
-        .exists(_.toList.contains(TransactionSyntaxError.InvalidDataLength))
-    } else true
+      if (diff > 0) {
+        val invalidData = ByteString.copyFrom(Array.fill(diff)(1.toByte))
+        val testTx = txFull.copy(datum =
+          Datum
+            .IoTransaction(
+              Event
+                .IoTransaction(
+                  Schedule(3, 50, 100).some,
+                  List(),
+                  List(),
+                  SmallData(invalidData).some
+                )
+                .some
+            )
+            .some
+        )
+        val validator = TransactionSyntaxInterpreter.make[Id]()
+        validator
+          .validate(testTx)
+          .swap
+          .exists(_.toList.contains(TransactionSyntaxError.InvalidDataLength))
+      } else true
     assertEquals(result, true)
   }
 }
