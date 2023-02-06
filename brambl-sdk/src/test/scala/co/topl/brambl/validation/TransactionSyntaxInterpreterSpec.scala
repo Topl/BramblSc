@@ -5,11 +5,11 @@ import cats.data.Chain
 import co.topl.brambl.MockHelpers
 import cats.implicits._
 import co.topl.brambl.models.{Datum, Event}
-import co.topl.brambl.models.box.Value
+import co.topl.brambl.models.box.{Lock, Value}
 import co.topl.brambl.models.transaction.{Attestation, IoTransaction, Schedule}
-import co.topl.quivr.api.Prover
+import co.topl.quivr.api.{Proposer, Prover}
 import com.google.protobuf.ByteString
-import quivr.models.{Int128, Proof, SmallData}
+import quivr.models.{Int128, Proof, SmallData, Proposition}
 
 import scala.language.implicitConversions
 
@@ -100,23 +100,32 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
     assertEquals(result, true)
   }
 
-  test("validate proof types") {
-    val txUnproven = txEmpty
-    val inResponsesMismatched: Seq[Proof] = List(
-      Prover.heightProver[Id].prove((), fakeMsgBind),
-      Prover.lockedProver[Id].prove((), fakeMsgBind),
-      Prover.heightProver[Id].prove((), fakeMsgBind)
+  test("validate proof types: Lock.Predicate") {
+    val challenges: Seq[Proposition] = List(
+      Proposer.LockedProposer[Id].propose(None), Proposer.heightProposer[Id].propose(("header", 0, 100)),
+      Proposer.tickProposer[Id].propose((0, 100)), Proposer.tickProposer[Id].propose((0, 100))
     )
-    val txProven = txFull.copy(inputs = txFull.inputs.map(_.copy(attestation =
-      Attestation().withPredicate(Attestation.Predicate(inLock.some, inResponsesMismatched)).some
+    val responses: Seq[Proof] = List(
+      Prover.heightProver[Id].prove((), fakeMsgBind), // Mismatched
+      Prover.heightProver[Id].prove((), fakeMsgBind), // Matched
+      Proof(), // Empty proof
+      // Missing a Proof
+    )
+    val testTx = txFull.copy(inputs = txFull.inputs.map(_.copy(attestation =
+      Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(challenges, 1).some, responses)).some
     )))
 
-    def testTx(transaction: IoTransaction) = TransactionSyntaxInterpreter.make[Id]()
-      .validate(transaction)
-      .swap
-      .exists(_.toList.contains(TransactionSyntaxError.InvalidProofType(_, _)))
+    def testError(error: TransactionSyntaxError) = error match {
+      case TransactionSyntaxError.InvalidProofType(challenge, response) =>
+        // First challenge is mismatched so we expect the error
+        if(challenge == challenges.head && response == responses.head) true else false
+      case _ => false // We don't expect any other errors
+    }
 
-    val result = List(txUnproven, txProven).map(testTx).forall(identity)
+    val result = TransactionSyntaxInterpreter.make[Id]()
+      .validate(testTx)
+      .swap
+      .forall(_.toList.map(testError).forall(identity))
     assertEquals(result, true)
   }
 
