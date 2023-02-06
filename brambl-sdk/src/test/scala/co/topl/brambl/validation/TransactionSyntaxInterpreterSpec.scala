@@ -88,20 +88,14 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
     val assetValueIn: Value = Value().withAsset(Value.Asset("label", Int128(ByteString.copyFrom(BigInt(100).toByteArray)).some))
     val assetValueOut: Value = Value().withAsset(Value.Asset("label", Int128(ByteString.copyFrom(BigInt(101).toByteArray)).some))
 
-    def testTx(transaction: IoTransaction) = TransactionSyntaxInterpreter.make[Id]()
-        .validate(transaction)
+    def testTx(inputValue: Value, outputValue: Value) = TransactionSyntaxInterpreter.make[Id]()
+        .validate(txFull.copy(inputs = txFull.inputs.map(_.copy(value = inputValue.some)), outputs = Seq(output.copy(value = outputValue.some))))
         .swap
-        .exists(_.toList.contains(TransactionSyntaxError.InsufficientInputFunds(_, _)))
+        .exists(_.toList.contains(TransactionSyntaxError.InsufficientInputFunds(List(inputValue.value), List(outputValue.value))))
 
     val result = List(
-      // Token Test
-      testTx(
-        txFull.copy(inputs = txFull.inputs.map(_.copy(value = tokenValueIn.some)), outputs = Seq(output.copy(value = tokenValueOut.some)))
-      ),
-      // Asset Test
-      testTx (
-        txFull.copy(inputs = txFull.inputs.map(_.copy(value = assetValueIn.some)), outputs = Seq(output.copy(value = assetValueOut.some)))
-      )
+      testTx(tokenValueIn, tokenValueOut), // Token Test
+      testTx (assetValueIn, assetValueOut) // Asset Test
     ).forall(identity)
     assertEquals(result, true)
   }
