@@ -16,7 +16,7 @@ import com.google.protobuf.ByteString
 import quivr.models.Preimage
 import quivr.models.VerificationKey
 import quivr.models.KeyPair
-import co.topl.brambl.common.ContainsSignable.instances._
+import co.topl.brambl.common.ContainsImmutable.instances._
 import ContainsEvidence._
 import cats.Id
 import co.topl.brambl.routines.digests.Blake2b256Digest
@@ -62,7 +62,7 @@ object MockDataApi extends DataApi {
   )
 
   private def transactionId(transaction: IoTransaction) =
-    Identifier.IoTransaction32(ContainsEvidence[IoTransaction].sized32Evidence(transaction).some)
+    Identifier.IoTransaction32(transaction.sized32Evidence.some)
 
   val dummyTxIdentifier2a: KnownIdentifier.TransactionOutput32 =
     KnownIdentifier.TransactionOutput32(0, 0, 0, transactionId(dummyTx2a).some)

@@ -4,7 +4,7 @@ import cats._
 import cats.implicits._
 import cats.implicits.{catsSyntaxApplicativeId, catsSyntaxEitherObject, catsSyntaxOptionId, toFlatMapOps}
 import co.topl.brambl.common.ContainsEvidence.Ops
-import co.topl.brambl.common.ContainsSignable.instances.lockSignable
+import co.topl.brambl.common.ContainsImmutable.instances._
 import co.topl.brambl.dataApi.DataApi
 import co.topl.brambl.models.{Address, Datum, Event, Identifier, KnownIdentifier}
 import co.topl.brambl.models.box.Lock

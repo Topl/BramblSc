@@ -27,7 +27,7 @@ object ContainsEvidence {
     def sized64Evidence: Evidence.Sized64 = ContainsEvidence[T].sized64Evidence(t)
   }
 
-  implicit def blake2bEvidenceFromSignable[T: ContainsSignable]: ContainsEvidence[T] =
+  implicit def blake2bEvidenceFromImmutable[T: ContainsImmutable]: ContainsEvidence[T] =
     new ContainsEvidence[T] {
 
       override def sized32Evidence(t: T): Evidence.Sized32 =
@@ -37,7 +37,7 @@ object ContainsEvidence {
               ByteString.copyFrom(
                 blake2b256
                   .hash(
-                    ContainsSignable[T].signableBytes(t).value.toByteArray
+                    ContainsImmutable[T].immutableBytes(t).value.toByteArray
                   )
                   .value
               )
@@ -52,7 +52,7 @@ object ContainsEvidence {
               ByteString.copyFrom(
                 blake2b512
                   .hash(
-                    ContainsSignable[T].signableBytes(t).value.toByteArray
+                    ContainsImmutable[T].immutableBytes(t).value.toByteArray
                   )
                   .value
               )
@@ -61,7 +61,7 @@ object ContainsEvidence {
         )
     }
 
-  implicit def merkleRootFromBlake2bEvidence[T: ContainsSignable]: ContainsEvidence[List[T]] =
+  implicit def merkleRootFromBlake2bEvidence[T: ContainsImmutable]: ContainsEvidence[List[T]] =
     new ContainsEvidence[List[T]] {
 
       override def sized32Evidence(list: List[T]): Evidence.Sized32 =
@@ -72,7 +72,9 @@ object ContainsEvidence {
                 MerkleTree
                   .apply[Blake2b, Digest32](
                     list.zipWithIndex
-                      .map { case (item, index) => LeafData(ContainsSignable[T].signableBytes(item).value.toByteArray) }
+                      .map { case (item, index) =>
+                        LeafData(ContainsImmutable[T].immutableBytes(item).value.toByteArray)
+                      }
                   )
                   .rootHash
                   .value
@@ -89,7 +91,9 @@ object ContainsEvidence {
                 MerkleTree
                   .apply[Blake2b, Digest64](
                     list.zipWithIndex
-                      .map { case (item, index) => LeafData(ContainsSignable[T].signableBytes(item).value.toByteArray) }
+                      .map { case (item, index) =>
+                        LeafData(ContainsImmutable[T].immutableBytes(item).value.toByteArray)
+                      }
                   )
                   .rootHash
                   .value
