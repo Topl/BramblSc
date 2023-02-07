@@ -63,7 +63,7 @@ object Dependencies {
     "org.scodec" %% "scodec-cats" % "1.1.0"
   )
 
-  val protobufSpecs: ModuleID = "com.github.Topl" % "protobuf-specs" % "d698605"
+  val protobufSpecs: ModuleID = "com.github.Topl" % "protobuf-specs" % "1771816"
 
   val quivr4s: ModuleID = "com.github.Topl" % "quivr4s" % "27c502e"
 

@@ -42,7 +42,6 @@ object ContainsEvidence {
                   .value
               )
             )
-            .some
         )
 
       override def sized64Evidence(t: T): Evidence.Sized64 =
@@ -57,7 +56,6 @@ object ContainsEvidence {
                   .value
               )
             )
-            .some
         )
     }
 
@@ -80,7 +78,6 @@ object ContainsEvidence {
                   .value
               )
             )
-            .some
         )
 
       override def sized64Evidence(list: List[T]): Evidence.Sized64 =
@@ -99,7 +96,6 @@ object ContainsEvidence {
                   .value
               )
             )
-            .some
         )
     }
 }

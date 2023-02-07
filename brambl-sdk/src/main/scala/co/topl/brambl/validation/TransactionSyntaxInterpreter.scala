@@ -10,8 +10,6 @@ import co.topl.brambl.common.ContainsImmutable.ContainsImmutableTOps
 import co.topl.brambl.common.ContainsImmutable.instances._
 import quivr.models.{Int128, Proof, Proposition}
 
-// TODO: All the .get will need to be handled by the PB Validation
-
 object TransactionSyntaxInterpreter {
 
   final val MaxDataLength = 15360
@@ -58,7 +56,7 @@ object TransactionSyntaxInterpreter {
         transaction.inputs
           .groupBy(_.knownIdentifier)
           .collect {
-            case (Some(knownIdentifier), inputs) if inputs.size > 1 =>
+            case (knownIdentifier, inputs) if inputs.size > 1 =>
               TransactionSyntaxError.DuplicateInput(knownIdentifier)
           }
           .toSeq
@@ -82,9 +80,9 @@ object TransactionSyntaxInterpreter {
     transaction: IoTransaction
   ): ValidatedNec[TransactionSyntaxError, Unit] =
     Validated.condNec(
-      transaction.datum.get.event.get.schedule.get.timestamp >= 0, // TODO: This should be replaced after PB validation is included
+      transaction.datum.event.schedule.timestamp >= 0,
       (),
-      TransactionSyntaxError.InvalidTimestamp(transaction.datum.get.event.get.schedule.get.timestamp)
+      TransactionSyntaxError.InvalidTimestamp(transaction.datum.event.schedule.timestamp)
     )
 
   /**
@@ -93,12 +91,11 @@ object TransactionSyntaxInterpreter {
   private def scheduleValidation(
     transaction: IoTransaction
   ): ValidatedNec[TransactionSyntaxError, Unit] =
-    // TODO: This should be replaced after PB validation is included
     Validated.condNec(
-      transaction.datum.get.event.get.schedule.get.max >= transaction.datum.get.event.get.schedule.get.min &&
-      transaction.datum.get.event.get.schedule.get.min >= 0,
+      transaction.datum.event.schedule.max >= transaction.datum.event.schedule.min &&
+      transaction.datum.event.schedule.min >= 0,
       (),
-      TransactionSyntaxError.InvalidSchedule(transaction.datum.get.event.get.schedule.get)
+      TransactionSyntaxError.InvalidSchedule(transaction.datum.event.schedule)
     )
 
   /**
@@ -109,17 +106,16 @@ object TransactionSyntaxInterpreter {
   ): ValidatedNec[TransactionSyntaxError, Unit] =
     transaction.outputs
       .foldMap[ValidatedNec[TransactionSyntaxError, Unit]](output =>
-        (output.value.get.value match {
-          case Value.Value.Token(Value.Token(Some(Int128(q, _)), _))       => BigInt(q.toByteArray).some
-          case Value.Value.Asset(Value.Asset(_, Some(Int128(q, _)), _, _)) => BigInt(q.toByteArray).some
-          case _ => none // TODO: This will be unneeded when PB validation is included
+        (output.value.value match {
+          case Value.Value.Token(Value.Token(Int128(q, _), _))       => BigInt(q.toByteArray).some
+          case Value.Value.Asset(Value.Asset(_, Int128(q, _), _, _)) => BigInt(q.toByteArray).some
+          case _ => none
         }).foldMap((quantity: BigInt) =>
           Validated
             .condNec(
               quantity > BigInt(0),
               (),
-              // TODO: .get will be unneeded when PB validation is included
-              TransactionSyntaxError.NonPositiveOutputValue(output.value.get): TransactionSyntaxError
+              TransactionSyntaxError.NonPositiveOutputValue(output.value): TransactionSyntaxError
             )
         )
       )
@@ -133,9 +129,8 @@ object TransactionSyntaxInterpreter {
     transaction: IoTransaction
   ): ValidatedNec[TransactionSyntaxError, Unit] =
     quantityBasedValidation(transaction) { f =>
-      // TODO: .get will be unneeded when PB validation is included
-      val filteredInputs = transaction.inputs.map(_.value.get.value).filter(f.isDefinedAt)
-      val filteredOutputs = transaction.outputs.map(_.value.get.value).filter(f.isDefinedAt)
+      val filteredInputs = transaction.inputs.map(_.value.value).filter(f.isDefinedAt)
+      val filteredOutputs = transaction.outputs.map(_.value.value).filter(f.isDefinedAt)
       val inputsSum = filteredInputs.map(f).sumAll
       val outputsSum = filteredOutputs.map(f).sumAll
       Validated.condNec(
@@ -158,19 +153,19 @@ object TransactionSyntaxInterpreter {
   ): ValidatedNec[TransactionSyntaxError, Unit] =
     NonEmptyChain(
       // Extract all Token values and their quantities
-      f { case Value.Value.Token(Value.Token(Some(Int128(q, _)), _)) => BigInt(q.toByteArray) },
+      f { case Value.Value.Token(Value.Token(Int128(q, _), _)) => BigInt(q.toByteArray) },
       // Extract all Asset values and their quantities
-      f { case Value.Value.Asset(Value.Asset(_, Some(Int128(q, _)), _, _)) => BigInt(q.toByteArray) }
+      f { case Value.Value.Asset(Value.Asset(_, Int128(q, _), _, _)) => BigInt(q.toByteArray) }
     ).appendChain(
       // Extract all Asset values (grouped by asset label) and their quantities
       Chain.fromSeq(
-        (transaction.inputs.map(_.value.get.value) ++ transaction.outputs.map(_.value.get.value))
+        (transaction.inputs.map(_.value.value) ++ transaction.outputs.map(_.value.value))
           .collect { case Value.Value.Asset(Value.Asset(label, _, _, _)) => label }
           .toList
           .distinct
           .map(code =>
             f {
-              case Value.Value.Asset(Value.Asset(label, Some(Int128(q, _)), _, _)) if label === code =>
+              case Value.Value.Asset(Value.Asset(label, Int128(q, _), _, _)) if label === code =>
                 BigInt(q.toByteArray)
             }
           )
@@ -185,8 +180,8 @@ object TransactionSyntaxInterpreter {
   ): ValidatedNec[TransactionSyntaxError, Unit] =
     transaction.inputs
       .map(input =>
-        input.attestation.get.value match {
-          case Attestation.Value.Predicate(Attestation.Predicate(Some(lock), responses, _)) =>
+        input.attestation.value match {
+          case Attestation.Value.Predicate(Attestation.Predicate(lock, responses, _)) =>
             predicateLockProofTypeValidation(lock, responses)
           // TODO: There is no validation for Attestation types other than Predicate for now
           case _ => ().validNec[TransactionSyntaxError]

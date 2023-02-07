@@ -1,6 +1,7 @@
 package co.topl.brambl
 
 import cats.Id
+import cats.implicits.catsSyntaxOptionId
 import co.topl.brambl.models.Datum
 import co.topl.brambl.models.transaction.IoTransaction
 import co.topl.brambl.common.ContainsSignable.ContainsSignableTOps
@@ -32,7 +33,7 @@ case class Context(tx: IoTransaction, curTick: Long, heightDatums: String => Opt
   override val datums: String => Option[Datum] = heightDatums
 
   def heightOf(label: String): Id[Option[Long]] = heightDatums(label).flatMap(_.value match {
-    case Datum.Value.Header(h) => h.event.map(_.height)
+    case Datum.Value.Header(h) => h.event.height.some
     case _                     => None
   })
 }

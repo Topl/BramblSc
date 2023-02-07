@@ -24,7 +24,7 @@ trait MockHelpers {
     Datum.SpentOutput(Event.SpentTransactionOutput(SmallData(ByteString.copyFrom("metadata".getBytes)).some).some)
 
   val value: Value =
-    Value().withToken(Value.Token(Int128(ByteString.copyFrom(BigInt(1).toByteArray)).some))
+    Value().withToken(Value.Token(Int128(ByteString.copyFrom(BigInt(1).toByteArray))))
 
   val trivialOutLock: Lock =
     Lock().withPredicate(Lock.Predicate(List(Proposer.tickProposer[Id].propose(5, 15)), 1))
@@ -46,14 +46,13 @@ trait MockHelpers {
   val txDatum: Datum.IoTransaction = Datum.IoTransaction(
     Event
       .IoTransaction(
-        Schedule(3, 50, 100).some,
+        Schedule(3, 50, 100),
         List(),
         List(),
         SmallData(ByteString.copyFrom("metadata".getBytes)).some
       )
-      .some
   )
-  val output: UnspentTransactionOutput = UnspentTransactionOutput(address.some, value.some, outDatum.some)
+  val output: UnspentTransactionOutput = UnspentTransactionOutput(address, value, outDatum.some)
 
   val inResponsesFull: Seq[Proof] = List(
     Prover.lockedProver[Id].prove((), fakeMsgBind),
@@ -62,16 +61,16 @@ trait MockHelpers {
   )
   val inResponsesEmpty: Seq[Proof] = List()
 
-  val attFull: Attestation = Attestation().withPredicate(Attestation.Predicate(inLock.some, inResponsesFull))
+  val attFull: Attestation = Attestation().withPredicate(Attestation.Predicate(inLock, inResponsesFull))
 
   val inputFull: SpentTransactionOutput =
-    SpentTransactionOutput(knownId.some, attFull.some, value.some, inDatum.some, List())
+    SpentTransactionOutput(knownId, attFull, value, inDatum.some, List())
 
-  val attEmpty: Attestation = Attestation().withPredicate(Attestation.Predicate(inLock.some, inResponsesEmpty))
+  val attEmpty: Attestation = Attestation().withPredicate(Attestation.Predicate(inLock, inResponsesEmpty))
 
   val inputEmpty: SpentTransactionOutput =
-    SpentTransactionOutput(knownId.some, attEmpty.some, value.some, inDatum.some, List())
+    SpentTransactionOutput(knownId, attEmpty, value, inDatum.some, List())
 
-  val txFull: IoTransaction = IoTransaction(List(inputFull), List(output), txDatum.some)
-  val txEmpty: IoTransaction = IoTransaction(List(inputEmpty), List(output), txDatum.some)
+  val txFull: IoTransaction = IoTransaction(List(inputFull), List(output), txDatum)
+  val txEmpty: IoTransaction = IoTransaction(List(inputEmpty), List(output), txDatum)
 }

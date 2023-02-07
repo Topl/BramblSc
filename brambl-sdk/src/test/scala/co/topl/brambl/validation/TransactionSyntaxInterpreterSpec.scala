@@ -1,12 +1,11 @@
 package co.topl.brambl.validation
 
 import cats.Id
-import cats.data.Chain
 import co.topl.brambl.MockHelpers
 import cats.implicits._
 import co.topl.brambl.models.{Datum, Event}
 import co.topl.brambl.models.box.{Lock, Value}
-import co.topl.brambl.models.transaction.{Attestation, IoTransaction, Schedule}
+import co.topl.brambl.models.transaction.{Attestation, Schedule}
 import co.topl.quivr.api.{Proposer, Prover}
 import com.google.protobuf.ByteString
 import quivr.models.{Int128, Proof, Proposition, SmallData}
@@ -31,7 +30,7 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
     val result = validator
       .validate(testTx)
       .swap
-      .exists(_.toList.contains(TransactionSyntaxError.DuplicateInput(inputFull.knownIdentifier.get)))
+      .exists(_.toList.contains(TransactionSyntaxError.DuplicateInput(inputFull.knownIdentifier)))
     assertEquals(result, true)
   }
 
@@ -49,9 +48,8 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
     val testTx = txFull.copy(datum =
       txDatum
         .copy(
-          event = txDatum.event.get.copy(schedule = Schedule(3, 50, -1).some).some
+          event = txDatum.event.copy(schedule = Schedule(3, 50, -1))
         )
-        .some
     )
     val validator = TransactionSyntaxInterpreter.make[Id]()
     val result = validator
@@ -68,9 +66,8 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
         val testTx = txFull.copy(datum =
           txDatum
             .copy(
-              event = txDatum.event.get.copy(schedule = schedule.some).some
+              event = txDatum.event.copy(schedule = schedule)
             )
-            .some
         )
         val validator = TransactionSyntaxInterpreter.make[Id]()
         validator
@@ -83,8 +80,8 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
   }
 
   test("validate positive output quantities") {
-    val negativeValue: Value = Value().withToken(Value.Token(Int128(ByteString.copyFrom(BigInt(-1).toByteArray)).some))
-    val testTx = txFull.copy(outputs = Seq(output.copy(value = negativeValue.some)))
+    val negativeValue: Value = Value().withToken(Value.Token(Int128(ByteString.copyFrom(BigInt(-1).toByteArray))))
+    val testTx = txFull.copy(outputs = Seq(output.copy(value = negativeValue)))
     val validator = TransactionSyntaxInterpreter.make[Id]()
     val result = validator
       .validate(testTx)
@@ -94,19 +91,19 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
   }
 
   test("validate sufficient input funds") {
-    val tokenValueIn: Value = Value().withToken(Value.Token(Int128(ByteString.copyFrom(BigInt(100).toByteArray)).some))
-    val tokenValueOut: Value = Value().withToken(Value.Token(Int128(ByteString.copyFrom(BigInt(101).toByteArray)).some))
+    val tokenValueIn: Value = Value().withToken(Value.Token(Int128(ByteString.copyFrom(BigInt(100).toByteArray))))
+    val tokenValueOut: Value = Value().withToken(Value.Token(Int128(ByteString.copyFrom(BigInt(101).toByteArray))))
     val assetValueIn: Value =
-      Value().withAsset(Value.Asset("label", Int128(ByteString.copyFrom(BigInt(100).toByteArray)).some))
+      Value().withAsset(Value.Asset("label", Int128(ByteString.copyFrom(BigInt(100).toByteArray))))
     val assetValueOut: Value =
-      Value().withAsset(Value.Asset("label", Int128(ByteString.copyFrom(BigInt(101).toByteArray)).some))
+      Value().withAsset(Value.Asset("label", Int128(ByteString.copyFrom(BigInt(101).toByteArray))))
 
     def testTx(inputValue: Value, outputValue: Value) = TransactionSyntaxInterpreter
       .make[Id]()
       .validate(
         txFull.copy(
-          inputs = txFull.inputs.map(_.copy(value = inputValue.some)),
-          outputs = Seq(output.copy(value = outputValue.some))
+          inputs = txFull.inputs.map(_.copy(value = inputValue)),
+          outputs = Seq(output.copy(value = outputValue))
         )
       )
       .swap
@@ -138,7 +135,7 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
     val testTx = txFull.copy(inputs =
       txFull.inputs.map(
         _.copy(attestation =
-          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(challenges, 1).some, responses)).some
+          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(challenges, 1), responses))
         )
       )
     )
@@ -165,14 +162,12 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
         .IoTransaction(
           Event
             .IoTransaction(
-              Schedule(3, 50, 100).some,
+              Schedule(3, 50, 100),
               List(),
               List(),
               SmallData(invalidData).some
             )
-            .some
         )
-        .some
     )
 
     val validator = TransactionSyntaxInterpreter.make[Id]()
@@ -192,14 +187,12 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
           .IoTransaction(
             Event
               .IoTransaction(
-                Schedule(3, 50, 100).some,
+                Schedule(3, 50, 100),
                 List(),
                 List(),
                 SmallData(ByteString.EMPTY).some
               )
-              .some
           )
-          .some
       )
       .immutable
       .value
@@ -214,14 +207,12 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
             .IoTransaction(
               Event
                 .IoTransaction(
-                  Schedule(3, 50, 100).some,
+                  Schedule(3, 50, 100),
                   List(),
                   List(),
                   SmallData(invalidData).some
                 )
-                .some
             )
-            .some
         )
         val validator = TransactionSyntaxInterpreter.make[Id]()
         validator
