@@ -94,9 +94,9 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
     val tokenValueIn: Value = Value().withToken(Value.Token(Int128(ByteString.copyFrom(BigInt(100).toByteArray))))
     val tokenValueOut: Value = Value().withToken(Value.Token(Int128(ByteString.copyFrom(BigInt(101).toByteArray))))
     val assetValueIn: Value =
-      Value().withAsset(Value.Asset("label", Int128(ByteString.copyFrom(BigInt(100).toByteArray))))
+      Value().withAsset(Value.Asset("label", Int128(ByteString.copyFrom(BigInt(100).toByteArray)), SmallData()))
     val assetValueOut: Value =
-      Value().withAsset(Value.Asset("label", Int128(ByteString.copyFrom(BigInt(101).toByteArray))))
+      Value().withAsset(Value.Asset("label", Int128(ByteString.copyFrom(BigInt(101).toByteArray)), SmallData()))
 
     def testTx(inputValue: Value, outputValue: Value) = TransactionSyntaxInterpreter
       .make[Id]()
@@ -165,7 +165,7 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
               Schedule(3, 50, 100),
               List(),
               List(),
-              SmallData(invalidData).some
+              SmallData(invalidData)
             )
         )
     )
@@ -190,7 +190,7 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
                 Schedule(3, 50, 100),
                 List(),
                 List(),
-                SmallData(ByteString.EMPTY).some
+                SmallData()
               )
           )
       )
@@ -210,7 +210,7 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
                   Schedule(3, 50, 100),
                   List(),
                   List(),
-                  SmallData(invalidData).some
+                  SmallData(invalidData)
                 )
             )
         )

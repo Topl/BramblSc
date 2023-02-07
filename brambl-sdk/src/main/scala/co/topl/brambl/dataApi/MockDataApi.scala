@@ -125,8 +125,7 @@ object MockDataApi extends DataApi {
     .get(id)
     .flatMap(idxToLocks.get)
     .map(Lock().withPredicate(_))
-    .map(_.some)
-    .map(Box(_, Value().withToken(Value.Token(Int128(ByteString.copyFrom(BigInt(1).toByteArray)))).some))
+    .map(Box(_, Value().withToken(Value.Token(Int128(ByteString.copyFrom(BigInt(1).toByteArray))))))
 
   override def getPreimage(idx: Indices): Option[Preimage] =
     if (idx.x == 1) // Mocking that we only have access to secrets associated with x=1

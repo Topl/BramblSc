@@ -1,7 +1,6 @@
 package co.topl.brambl
 
 import cats.Id
-import cats.implicits.catsSyntaxOptionId
 import co.topl.brambl.common.ContainsEvidence.Ops
 import co.topl.brambl.common.ContainsImmutable.ContainsImmutableTOps
 import co.topl.brambl.common.ContainsImmutable.instances._
@@ -18,10 +17,10 @@ import quivr.models.{Int128, Proof, SignableBytes, SmallData}
 trait MockHelpers {
 
   val outDatum: Datum.UnspentOutput =
-    Datum.UnspentOutput(Event.UnspentTransactionOutput(SmallData(ByteString.copyFrom("metadata".getBytes)).some).some)
+    Datum.UnspentOutput(Event.UnspentTransactionOutput(SmallData(ByteString.copyFrom("metadata".getBytes))))
 
   val inDatum: Datum.SpentOutput =
-    Datum.SpentOutput(Event.SpentTransactionOutput(SmallData(ByteString.copyFrom("metadata".getBytes)).some).some)
+    Datum.SpentOutput(Event.SpentTransactionOutput(SmallData(ByteString.copyFrom("metadata".getBytes))))
 
   val value: Value =
     Value().withToken(Value.Token(Int128(ByteString.copyFrom(BigInt(1).toByteArray))))
@@ -30,7 +29,7 @@ trait MockHelpers {
     Lock().withPredicate(Lock.Predicate(List(Proposer.tickProposer[Id].propose(5, 15)), 1))
 
   val address: Address =
-    Address(0, 0, Identifier().withLock32(Identifier.Lock32(trivialOutLock.sized32Evidence.some)).some)
+    Address(0, 0, Identifier().withLock32(Identifier.Lock32(trivialOutLock.sized32Evidence)))
   val knownId: KnownIdentifier = KnownIdentifier().withTransactionOutput32(MockDataApi.dummyTxIdentifier2a)
 
   val inLock: Lock.Predicate = Lock.Predicate(
@@ -49,10 +48,10 @@ trait MockHelpers {
         Schedule(3, 50, 100),
         List(),
         List(),
-        SmallData(ByteString.copyFrom("metadata".getBytes)).some
+        SmallData(ByteString.copyFrom("metadata".getBytes))
       )
   )
-  val output: UnspentTransactionOutput = UnspentTransactionOutput(address, value, outDatum.some)
+  val output: UnspentTransactionOutput = UnspentTransactionOutput(address, value, outDatum)
 
   val inResponsesFull: Seq[Proof] = List(
     Prover.lockedProver[Id].prove((), fakeMsgBind),
@@ -64,12 +63,12 @@ trait MockHelpers {
   val attFull: Attestation = Attestation().withPredicate(Attestation.Predicate(inLock, inResponsesFull))
 
   val inputFull: SpentTransactionOutput =
-    SpentTransactionOutput(knownId, attFull, value, inDatum.some, List())
+    SpentTransactionOutput(knownId, attFull, value, inDatum, List())
 
   val attEmpty: Attestation = Attestation().withPredicate(Attestation.Predicate(inLock, inResponsesEmpty))
 
   val inputEmpty: SpentTransactionOutput =
-    SpentTransactionOutput(knownId, attEmpty, value, inDatum.some, List())
+    SpentTransactionOutput(knownId, attEmpty, value, inDatum, List())
 
   val txFull: IoTransaction = IoTransaction(List(inputFull), List(output), txDatum)
   val txEmpty: IoTransaction = IoTransaction(List(inputEmpty), List(output), txDatum)

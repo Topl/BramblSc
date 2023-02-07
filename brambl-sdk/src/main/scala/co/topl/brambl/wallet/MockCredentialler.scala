@@ -77,21 +77,20 @@ object MockCredentialler extends Credentialler {
     input: SpentTransactionOutput,
     msg:   SignableBytes
   ): Either[TransactionSyntaxError, SpentTransactionOutput] = {
-    val idx: Option[Indices] = input.knownIdentifier.flatMap(MockDataApi.getIndicesByKnownIdentifier)
-    // TODO: None.get
-    val inputAttestation = input.attestation.get
+    val idx: Option[Indices] = MockDataApi.getIndicesByKnownIdentifier(input.knownIdentifier)
+    val inputAttestation = input.attestation
     val attestations: Either[TransactionSyntaxError, Attestation] =
       inputAttestation.value match {
-        case Attestation.Value.Predicate(Attestation.Predicate(Some(predLock), responses, _)) =>
+        case Attestation.Value.Predicate(Attestation.Predicate(predLock, responses, _)) =>
           Right(
             Attestation().withPredicate(
-              Attestation.Predicate(predLock.some, predLock.challenges.map(getProof(msg, _, idx).getOrElse(Proof())))
+              Attestation.Predicate(predLock, predLock.challenges.map(getProof(msg, _, idx).getOrElse(Proof())))
             )
           )
         case _ => ??? // We are not handling other types of Attestations at this moment in time
       }
 
-    attestations.map(_.some).map(SpentTransactionOutput(input.knownIdentifier, _, input.value, input.datum, input.opts))
+    attestations.map(SpentTransactionOutput(input.knownIdentifier, _, input.value, input.datum, input.opts))
   }
 
   /**

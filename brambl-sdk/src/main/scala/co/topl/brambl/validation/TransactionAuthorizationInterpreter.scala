@@ -27,29 +27,29 @@ object TransactionAuthorizationInterpreter {
         transaction.inputs.zipWithIndex
           .foldLeft(Either.right[TransactionAuthorizationError, IoTransaction](transaction).pure[F]) {
             case (acc, (input, index)) =>
-              input.attestation.get.value match {
+              input.attestation.value match {
                 case Attestation.Value.Predicate(p) =>
-                  predicateValidate(p.lock.get.challenges, p.lock.get.threshold, p.responses, context).map(r =>
+                  predicateValidate(p.lock.challenges, p.lock.threshold, p.responses, context).map(r =>
                     r.map(_ => transaction)
                   )
 
                 case Attestation.Value.Image32(p) =>
-                  image32Validate(p.lock.get.leaves, p.lock.get.threshold, p.known, p.responses, context).map(r =>
+                  image32Validate(p.lock.leaves, p.lock.threshold, p.known, p.responses, context).map(r =>
                     r.map(_ => transaction)
                   )
 
                 case Attestation.Value.Image64(p) =>
-                  image64Validate(p.lock.get.leaves, p.lock.get.threshold, p.known, p.responses, context).map(r =>
+                  image64Validate(p.lock.leaves, p.lock.threshold, p.known, p.responses, context).map(r =>
                     r.map(_ => transaction)
                   )
 
                 case Attestation.Value.Commitment32(p) =>
-                  commitment32Validate(p.lock.get.root.get, p.lock.get.threshold, p.known, p.responses, context).map(
+                  commitment32Validate(p.lock.root.get, p.lock.threshold, p.known, p.responses, context).map(
                     r => r.map(_ => transaction)
                   )
 
                 case Attestation.Value.Commitment64(p) =>
-                  commitment64Validate(p.lock.get.root.get, p.lock.get.threshold, p.known, p.responses, context).map(
+                  commitment64Validate(p.lock.root.get, p.lock.threshold, p.known, p.responses, context).map(
                     r => r.map(_ => transaction)
                   )
               }
