@@ -44,13 +44,13 @@ object TransactionAuthorizationInterpreter {
                   )
 
                 case Attestation.Value.Commitment32(p) =>
-                  commitment32Validate(p.lock.root.get, p.lock.threshold, p.known, p.responses, context).map(
-                    r => r.map(_ => transaction)
+                  commitment32Validate(p.lock.root.get, p.lock.threshold, p.known, p.responses, context).map(r =>
+                    r.map(_ => transaction)
                   )
 
                 case Attestation.Value.Commitment64(p) =>
-                  commitment64Validate(p.lock.root.get, p.lock.threshold, p.known, p.responses, context).map(
-                    r => r.map(_ => transaction)
+                  commitment64Validate(p.lock.root.get, p.lock.threshold, p.known, p.responses, context).map(r =>
+                    r.map(_ => transaction)
                   )
               }
           }

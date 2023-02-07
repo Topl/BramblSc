@@ -29,7 +29,7 @@ object MockDataApi extends DataApi {
 
   // Arbitrary Transaction that any new transaction can reference
   private val dummyTx2a = IoTransaction(
-    datum=Datum.IoTransaction(Event.IoTransaction(Schedule(1, 50, 100), metadata=SmallData()))
+    datum = Datum.IoTransaction(Event.IoTransaction(Schedule(1, 50, 100), metadata = SmallData()))
   )
 
   private val dummyTx2b = IoTransaction(

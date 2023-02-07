@@ -109,7 +109,7 @@ object TransactionSyntaxInterpreter {
         (output.value.value match {
           case Value.Value.Token(Value.Token(Int128(q, _), _))       => BigInt(q.toByteArray).some
           case Value.Value.Asset(Value.Asset(_, Int128(q, _), _, _)) => BigInt(q.toByteArray).some
-          case _ => none
+          case _                                                     => none
         }).foldMap((quantity: BigInt) =>
           Validated
             .condNec(
