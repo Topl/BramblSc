@@ -1,9 +1,11 @@
 package co.topl.brambl.common
 
+import co.topl.brambl.MockHelpers
 import co.topl.brambl.common.ContainsImmutable.ContainsImmutableTOps
 import co.topl.brambl.common.ContainsImmutable.instances._
 import co.topl.brambl.common.ContainsSignable.ContainsSignableTOps
 import co.topl.brambl.common.ContainsSignable.instances._
+
 import scala.language.implicitConversions
 
 class ContainsSignableSpec extends munit.FunSuite with MockHelpers {

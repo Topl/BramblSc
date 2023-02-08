@@ -13,16 +13,13 @@ import co.topl.brambl.models.transaction.Schedule
 import co.topl.brambl.models.Indices
 import co.topl.brambl.common.ContainsEvidence
 import com.google.protobuf.ByteString
-import quivr.models.Preimage
-import quivr.models.VerificationKey
-import quivr.models.KeyPair
+import quivr.models.{Int128, KeyPair, Preimage, SmallData, VerificationKey}
 import co.topl.brambl.common.ContainsImmutable.instances._
 import ContainsEvidence._
 import cats.Id
 import co.topl.brambl.routines.digests.Blake2b256Digest
 import co.topl.brambl.routines.signatures.{Ed25519Signature, Signing}
 import co.topl.quivr.api.Proposer
-import quivr.models.Int128
 
 /**
  * *
@@ -32,52 +29,41 @@ object MockDataApi extends DataApi {
 
   // Arbitrary Transaction that any new transaction can reference
   private val dummyTx2a = IoTransaction(
-    List(),
-    List(),
-    Datum.IoTransaction(Event.IoTransaction(Schedule(1, 5, 100).some, List(), List(), none).some).some
+    datum = Datum.IoTransaction(Event.IoTransaction(Schedule(1, 50, 100), metadata = SmallData()))
   )
 
   private val dummyTx2b = IoTransaction(
-    List(),
-    List(),
-    Datum.IoTransaction(Event.IoTransaction(Schedule(2, 50, 100).some, List(), List(), none).some).some
+    datum = Datum.IoTransaction(Event.IoTransaction(Schedule(2, 50, 100), metadata = SmallData()))
   )
 
   private val dummyTx3 = IoTransaction(
-    List(),
-    List(),
-    Datum.IoTransaction(Event.IoTransaction(Schedule(3, 50, 100).some, List(), List(), none).some).some
+    datum = Datum.IoTransaction(Event.IoTransaction(Schedule(3, 50, 100), metadata = SmallData()))
   )
 
   private val dummyTx4 = IoTransaction(
-    List(),
-    List(),
-    Datum.IoTransaction(Event.IoTransaction(Schedule(4, 50, 100).some, List(), List(), none).some).some
+    datum = Datum.IoTransaction(Event.IoTransaction(Schedule(4, 50, 100), metadata = SmallData()))
   )
 
   private val dummyTx5 = IoTransaction(
-    List(),
-    List(),
-    Datum.IoTransaction(Event.IoTransaction(Schedule(5, 50, 100).some, List(), List(), none).some).some
+    datum = Datum.IoTransaction(Event.IoTransaction(Schedule(5, 50, 100), metadata = SmallData()))
   )
 
-  private def transactionId(transaction: IoTransaction) =
-    Identifier.IoTransaction32(transaction.sized32Evidence.some)
+  private def transactionId(transaction: IoTransaction) = Identifier.IoTransaction32(transaction.sized32Evidence)
 
   val dummyTxIdentifier2a: KnownIdentifier.TransactionOutput32 =
-    KnownIdentifier.TransactionOutput32(0, 0, 0, transactionId(dummyTx2a).some)
+    KnownIdentifier.TransactionOutput32(0, 0, 0, transactionId(dummyTx2a))
 
   val dummyTxIdentifier2b: KnownIdentifier.TransactionOutput32 =
-    KnownIdentifier.TransactionOutput32(0, 0, 0, transactionId(dummyTx2b).some)
+    KnownIdentifier.TransactionOutput32(0, 0, 0, transactionId(dummyTx2b))
 
   val dummyTxIdentifier3: KnownIdentifier.TransactionOutput32 =
-    KnownIdentifier.TransactionOutput32(0, 0, 0, transactionId(dummyTx3).some)
+    KnownIdentifier.TransactionOutput32(0, 0, 0, transactionId(dummyTx3))
 
   val dummyTxIdentifier4: KnownIdentifier.TransactionOutput32 =
-    KnownIdentifier.TransactionOutput32(0, 0, 0, transactionId(dummyTx5).some)
+    KnownIdentifier.TransactionOutput32(0, 0, 0, transactionId(dummyTx5))
 
   val dummyTxIdentifier5: KnownIdentifier.TransactionOutput32 =
-    KnownIdentifier.TransactionOutput32(0, 0, 0, transactionId(dummyTx4).some)
+    KnownIdentifier.TransactionOutput32(0, 0, 0, transactionId(dummyTx4))
 
   // Static mappings to provide the Wallet with data
 
@@ -139,8 +125,7 @@ object MockDataApi extends DataApi {
     .get(id)
     .flatMap(idxToLocks.get)
     .map(Lock().withPredicate(_))
-    .map(_.some)
-    .map(Box(_, Value().withToken(Value.Token(Int128(ByteString.copyFrom(BigInt(1).toByteArray)).some)).some))
+    .map(Box(_, Value().withToken(Value.Token(Int128(ByteString.copyFrom(BigInt(1).toByteArray))))))
 
   override def getPreimage(idx: Indices): Option[Preimage] =
     if (idx.x == 1) // Mocking that we only have access to secrets associated with x=1
