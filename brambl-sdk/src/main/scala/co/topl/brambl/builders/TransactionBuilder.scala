@@ -11,8 +11,6 @@ import quivr.models.SmallData
  */
 trait TransactionBuilder[F[_]] {
 
-  final val EmptyData = SmallData(ByteString.EMPTY)
-
   /**
    * Construct an unproven IoTransaction input ([[SpentTransactionOutput]]).
    * A SpentTransactionOutput spends an existing [[UnspentTransactionOutput]].
