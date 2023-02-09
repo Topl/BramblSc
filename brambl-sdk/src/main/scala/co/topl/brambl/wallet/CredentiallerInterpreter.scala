@@ -1,26 +1,23 @@
 package co.topl.brambl.wallet
 
-import cats.{Id, Monad, Monoid}
+import cats.{Id, Monad}
 import cats.implicits._
-import cats.instances.map
-//import cats._
-import co.topl.brambl.models.Datum
 import co.topl.brambl.models.transaction.Attestation
 import co.topl.brambl.models.transaction.IoTransaction
 import co.topl.brambl.models.transaction.SpentTransactionOutput
 import co.topl.brambl.routines.signatures.Ed25519Signature
-import co.topl.brambl.validation.{TransactionAuthorizationError, TransactionAuthorizationInterpreter, TransactionSyntaxError, TransactionSyntaxInterpreter, ValidationError}
+import co.topl.brambl.validation.{TransactionAuthorizationInterpreter, TransactionSyntaxInterpreter, ValidationError}
 import co.topl.brambl.Context
 import co.topl.brambl.common.ContainsSignable.ContainsSignableTOps
 import co.topl.brambl.common.ContainsSignable.instances._
-import co.topl.brambl.dataApi.{DataApi, MockDataApi}
+import co.topl.brambl.dataApi.DataApi
 import co.topl.quivr.api.Prover
 import co.topl.quivr.api.Verifier.instances.verifierInstance
 import quivr.models.Proof
 import quivr.models.Proposition
 import quivr.models.SignableBytes
 import co.topl.brambl.models.Indices
-import cats.data.{Chain, EitherT}
+import cats.data.EitherT
 
 object CredentiallerInterpreter {
   def make[F[_]: Monad](dataApi: DataApi): Credentialler[F] = new Credentialler[F] {
@@ -65,13 +62,13 @@ object CredentiallerInterpreter {
       proposition.value match {
         case _: Proposition.Value.Locked => Prover.lockedProver[Id].prove((), msg).some
         case _: Proposition.Value.Digest =>
-          idx.flatMap(MockDataApi.getPreimage(_).map(Prover.digestProver[Id].prove(_, msg)))
+          idx.flatMap(dataApi.getPreimage(_).map(Prover.digestProver[Id].prove(_, msg)))
         case Proposition.Value.DigitalSignature(p) =>
           signingRoutines
             .get(p.routine)
             .flatMap(r =>
               idx
-                .flatMap(i => MockDataApi.getKeyPair(i, r))
+                .flatMap(i => dataApi.getKeyPair(i, r))
                 .flatMap(keyPair => keyPair.sk)
                 .map(sk => Prover.signatureProver[Id].prove(r.sign(sk, msg), msg))
             )
@@ -97,7 +94,7 @@ object CredentiallerInterpreter {
                             input: SpentTransactionOutput,
                             msg: SignableBytes
                           ): SpentTransactionOutput = {
-      val idx: Option[Indices] = MockDataApi.getIndicesByKnownIdentifier(input.knownIdentifier)
+      val idx: Option[Indices] = dataApi.getIndicesByKnownIdentifier(input.knownIdentifier)
       val attestation: Attestation = input.attestation.value match {
           case Attestation.Value.Predicate(Attestation.Predicate(predLock, _, _)) =>
             Attestation().withPredicate(
