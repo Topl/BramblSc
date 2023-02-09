@@ -48,7 +48,7 @@ lazy val publishSettings = Seq(
   homepage := Some(url("https://github.com/Topl/BramblSc")),
   sonatypeCredentialHost := "s01.oss.sonatype.org",
   sonatypeRepository := "https://s01.oss.sonatype.org/service/local",
-  Test / publishArtifact := false,
+  Test / publishArtifact := true, // TODO Ask if we want to publish Test Sources of Crypto and Brambl, or only Bramble
   pomIncludeRepository := { _ => false },
   pomExtra :=
     <developers>
