@@ -1,6 +1,6 @@
 package co.topl.brambl.wallet
 
-import cats.{Id, Monad}
+import cats.Monad
 import cats.implicits._
 import co.topl.brambl.models.transaction.Attestation
 import co.topl.brambl.models.transaction.IoTransaction
@@ -23,9 +23,11 @@ object CredentiallerInterpreter {
   def make[F[_]: Monad](dataApi: DataApi): Credentialler[F] = new Credentialler[F] {
     override def prove(unprovenTx: IoTransaction): F[IoTransaction] = {
       val signable = unprovenTx.signable
-      val provenInputs = unprovenTx.inputs.map(proveInput(_, signable))
-
-      IoTransaction(provenInputs, unprovenTx.outputs, unprovenTx.datum).pure[F]
+      unprovenTx
+        .inputs
+        .map(proveInput(_, signable))
+        .sequence
+        .map(IoTransaction(_, unprovenTx.outputs, unprovenTx.datum))
     }
 
     override def validate(tx: IoTransaction, ctx: Context[F]): F[List[ValidationError]] = {
@@ -55,15 +57,15 @@ object CredentiallerInterpreter {
      * @param idx         Indices for which the proof's secret data can be obtained from
      * @return The Proof
      */
-    private def getProof(msg: SignableBytes, proposition: Proposition, idx: Option[Indices]): Proof = {
+    private def getProof(msg: SignableBytes, proposition: Proposition, idx: Option[Indices]): F[Proof] = {
       // TODO: Temporary until we have a way to map routines strings to the actual Routine
       val signingRoutines = Map(
         "ed25519" -> Ed25519Signature
       )
       proposition.value match {
-        case _: Proposition.Value.Locked => Prover.lockedProver[Id].prove((), msg)
+        case _: Proposition.Value.Locked => Prover.lockedProver[F].prove((), msg)
         case _: Proposition.Value.Digest =>
-          idx.flatMap(dataApi.getPreimage(_).map(Prover.digestProver[Id].prove(_, msg))).getOrElse(Proof())
+          idx.flatMap(dataApi.getPreimage(_).map(Prover.digestProver[F].prove(_, msg))).getOrElse(Proof().pure[F])
         case Proposition.Value.DigitalSignature(p) =>
           signingRoutines
             .get(p.routine)
@@ -71,11 +73,11 @@ object CredentiallerInterpreter {
               idx
                 .flatMap(i => dataApi.getKeyPair(i, r))
                 .flatMap(keyPair => keyPair.sk)
-                .map(sk => Prover.signatureProver[Id].prove(r.sign(sk, msg), msg))
-            ).getOrElse(Proof())
-        case _: Proposition.Value.HeightRange => Prover.heightProver[Id].prove((), msg)
-        case _: Proposition.Value.TickRange => Prover.tickProver[Id].prove((), msg)
-        case _ => Proof()
+                .map(sk => Prover.signatureProver[F].prove(r.sign(sk, msg), msg))
+            ).getOrElse(Proof().pure[F])
+        case _: Proposition.Value.HeightRange => Prover.heightProver[F].prove((), msg)
+        case _: Proposition.Value.TickRange => Prover.tickProver[F].prove((), msg)
+        case _ => Proof().pure[F]
       }
     }
 
@@ -93,18 +95,18 @@ object CredentiallerInterpreter {
     private def proveInput(
                             input: SpentTransactionOutput,
                             msg: SignableBytes
-                          ): SpentTransactionOutput = {
+                          ): F[SpentTransactionOutput] = {
       val idx: Option[Indices] = dataApi.getIndicesByKnownIdentifier(input.knownIdentifier)
-      val attestation: Attestation = input.attestation.value match {
-          case Attestation.Value.Predicate(Attestation.Predicate(predLock, _, _)) =>
-            Attestation().withPredicate(
-              Attestation.Predicate(predLock, predLock.challenges.map(getProof(msg, _, idx)))
-            )
-          // TODO: We are not handling other types of Attestations at this moment in time
-          case _ => ???
-        }
-
-      SpentTransactionOutput(input.knownIdentifier, attestation, input.value, input.datum, input.opts)
+      val attestation: F[Attestation] = input.attestation.value match {
+        case Attestation.Value.Predicate(Attestation.Predicate(predLock, _, _)) =>
+          predLock.challenges
+            .map(getProof(msg, _, idx))
+            .sequence
+            .map(proofs => Attestation().withPredicate(Attestation.Predicate(predLock, proofs)))
+        // TODO: We are not handling other types of Attestations at this moment in time
+        case _ => ???
+      }
+      attestation.map(SpentTransactionOutput(input.knownIdentifier, _, input.value, input.datum, input.opts))
     }
   }
 }
