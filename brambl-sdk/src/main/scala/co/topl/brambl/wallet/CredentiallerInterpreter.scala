@@ -43,26 +43,27 @@ object CredentiallerInterpreter {
       } yield if(vErrs.isEmpty) provenTx.asRight else vErrs.asLeft
 
     /**
-     * Return a Proof (if possible) that will satisfy a Proposition and signable bytes
+     * Return a Proof that will satisfy a Proposition and signable bytes, if possible.
+     * Otherwise return [[Proof.Value.Empty]]
      *
      * It may not be possible to retrieve a proof if
      * - The proposition type is not yet supported (not one of Locked, Digest, Signature, Height and Tick)
-     * - The secret data required for the proof is not available at idx
+     * - The secret data required for the proof is not available at idx (or idx not provided)
      *
      * @param msg         Signable bytes to bind to the proof
      * @param proposition Proposition in which the Proof should satisfy
      * @param idx         Indices for which the proof's secret data can be obtained from
-     * @return The Proof (if possible)
+     * @return The Proof
      */
-    private def getProof(msg: SignableBytes, proposition: Proposition, idx: Option[Indices]): Option[Proof] = {
+    private def getProof(msg: SignableBytes, proposition: Proposition, idx: Option[Indices]): Proof = {
       // TODO: Temporary until we have a way to map routines strings to the actual Routine
       val signingRoutines = Map(
         "ed25519" -> Ed25519Signature
       )
       proposition.value match {
-        case _: Proposition.Value.Locked => Prover.lockedProver[Id].prove((), msg).some
+        case _: Proposition.Value.Locked => Prover.lockedProver[Id].prove((), msg)
         case _: Proposition.Value.Digest =>
-          idx.flatMap(dataApi.getPreimage(_).map(Prover.digestProver[Id].prove(_, msg)))
+          idx.flatMap(dataApi.getPreimage(_).map(Prover.digestProver[Id].prove(_, msg))).getOrElse(Proof())
         case Proposition.Value.DigitalSignature(p) =>
           signingRoutines
             .get(p.routine)
@@ -71,24 +72,23 @@ object CredentiallerInterpreter {
                 .flatMap(i => dataApi.getKeyPair(i, r))
                 .flatMap(keyPair => keyPair.sk)
                 .map(sk => Prover.signatureProver[Id].prove(r.sign(sk, msg), msg))
-            )
-        case _: Proposition.Value.HeightRange => Prover.heightProver[Id].prove((), msg).some
-        case _: Proposition.Value.TickRange => Prover.tickProver[Id].prove((), msg).some
-        case _ => None
+            ).getOrElse(Proof())
+        case _: Proposition.Value.HeightRange => Prover.heightProver[Id].prove((), msg)
+        case _: Proposition.Value.TickRange => Prover.tickProver[Id].prove((), msg)
+        case _ => Proof()
       }
     }
 
     /**
      * *
-     * Prove an input. That is, to prove all the propositions within the attestation
-     *
-     * If the wallet is unaware of the input's identifier, an error is returned
+     * Prove an input. That is, to prove all the propositions within the attestation.
+     * If a proposition cannot be proven, it's proof will be [[Proof.Value.Empty]].
      *
      * @param input Input to prove. Once proven, the input can be spent
      *              Although the input is not yet spent, it is of type SpentTransactionOutput to denote its state
      *              after the transaction is accepted into the blockchain.
      * @param msg   signable bytes to bind to the proofs
-     * @return The same input, but proven. If the input is unprovable, an error is returned.
+     * @return The same input, but proven.
      */
     private def proveInput(
                             input: SpentTransactionOutput,
@@ -98,7 +98,7 @@ object CredentiallerInterpreter {
       val attestation: Attestation = input.attestation.value match {
           case Attestation.Value.Predicate(Attestation.Predicate(predLock, _, _)) =>
             Attestation().withPredicate(
-              Attestation.Predicate(predLock, predLock.challenges.map(getProof(msg, _, idx).getOrElse(Proof())))
+              Attestation.Predicate(predLock, predLock.challenges.map(getProof(msg, _, idx)))
             )
           // TODO: We are not handling other types of Attestations at this moment in time
           case _ => ???
