@@ -9,6 +9,7 @@ import quivr.models.Proof
  * Defines a Credentialler. A Credentialler is responsible for proving and verifying transactions.
  */
 trait Credentialler[F[_]] {
+
   /**
    * Prove a transaction. That is, prove all the inputs within the transaction if possible
    *

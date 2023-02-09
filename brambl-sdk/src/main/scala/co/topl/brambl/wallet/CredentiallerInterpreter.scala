@@ -20,11 +20,12 @@ import co.topl.brambl.models.Indices
 import cats.data.EitherT
 
 object CredentiallerInterpreter {
+
   def make[F[_]: Monad](dataApi: DataApi): Credentialler[F] = new Credentialler[F] {
+
     override def prove(unprovenTx: IoTransaction): F[IoTransaction] = {
       val signable = unprovenTx.signable
-      unprovenTx
-        .inputs
+      unprovenTx.inputs
         .map(proveInput(_, signable))
         .sequence
         .map(IoTransaction(_, unprovenTx.outputs, unprovenTx.datum))
@@ -33,16 +34,19 @@ object CredentiallerInterpreter {
     override def validate(tx: IoTransaction, ctx: Context[F]): F[List[ValidationError]] = {
       val combinedErrs = for {
         syntaxErrs <- EitherT(TransactionSyntaxInterpreter.make[F]().validate(tx)).swap
-        authErr <- EitherT(TransactionAuthorizationInterpreter.make[F]().validate(ctx)(tx)).swap
+        authErr    <- EitherT(TransactionAuthorizationInterpreter.make[F]().validate(ctx)(tx)).swap
       } yield syntaxErrs.toList :+ authErr
       combinedErrs.getOrElse(List.empty)
     }
 
-    override def proveAndValidate(unprovenTx: IoTransaction, ctx: Context[F]): F[Either[List[ValidationError], IoTransaction]] =
+    override def proveAndValidate(
+      unprovenTx: IoTransaction,
+      ctx:        Context[F]
+    ): F[Either[List[ValidationError], IoTransaction]] =
       for {
         provenTx <- prove(unprovenTx)
-        vErrs <- validate(provenTx, ctx)
-      } yield if(vErrs.isEmpty) provenTx.asRight else vErrs.asLeft
+        vErrs    <- validate(provenTx, ctx)
+      } yield if (vErrs.isEmpty) provenTx.asRight else vErrs.asLeft
 
     /**
      * Return a Proof that will satisfy a Proposition and signable bytes, if possible.
@@ -74,15 +78,15 @@ object CredentiallerInterpreter {
                 .flatMap(i => dataApi.getKeyPair(i, r))
                 .flatMap(keyPair => keyPair.sk)
                 .map(sk => Prover.signatureProver[F].prove(r.sign(sk, msg), msg))
-            ).getOrElse(Proof().pure[F])
+            )
+            .getOrElse(Proof().pure[F])
         case _: Proposition.Value.HeightRange => Prover.heightProver[F].prove((), msg)
-        case _: Proposition.Value.TickRange => Prover.tickProver[F].prove((), msg)
-        case _ => Proof().pure[F]
+        case _: Proposition.Value.TickRange   => Prover.tickProver[F].prove((), msg)
+        case _                                => Proof().pure[F]
       }
     }
 
     /**
-     * *
      * Prove an input. That is, to prove all the propositions within the attestation.
      * If a proposition cannot be proven, it's proof will be [[Proof.Value.Empty]].
      *
@@ -93,9 +97,9 @@ object CredentiallerInterpreter {
      * @return The same input, but proven.
      */
     private def proveInput(
-                            input: SpentTransactionOutput,
-                            msg: SignableBytes
-                          ): F[SpentTransactionOutput] = {
+      input: SpentTransactionOutput,
+      msg:   SignableBytes
+    ): F[SpentTransactionOutput] = {
       val idx: Option[Indices] = dataApi.getIndicesByKnownIdentifier(input.knownIdentifier)
       val attestation: F[Attestation] = input.attestation.value match {
         case Attestation.Value.Predicate(Attestation.Predicate(predLock, _, _)) =>

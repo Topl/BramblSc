@@ -32,8 +32,10 @@ case class Context[F[_]: Monad](tx: IoTransaction, curTick: Long, heightDatums: 
   // Needed for height
   override val datums: String => Option[Datum] = heightDatums
 
-  def heightOf(label: String): F[Option[Long]] = heightDatums(label).flatMap(_.value match {
-    case Datum.Value.Header(h) => h.event.height.some
-    case _                     => None
-  }).pure[F]
+  def heightOf(label: String): F[Option[Long]] = heightDatums(label)
+    .flatMap(_.value match {
+      case Datum.Value.Header(h) => h.event.height.some
+      case _                     => None
+    })
+    .pure[F]
 }
