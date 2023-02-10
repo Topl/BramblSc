@@ -48,7 +48,7 @@ lazy val publishSettings = Seq(
   homepage := Some(url("https://github.com/Topl/BramblSc")),
   sonatypeCredentialHost := "s01.oss.sonatype.org",
   sonatypeRepository := "https://s01.oss.sonatype.org/service/local",
-  Test / publishArtifact := true, // TODO Ask if we want to publish Test Sources of Crypto and Brambl, or only Bramble
+  Test / publishArtifact := false,
   pomIncludeRepository := { _ => false },
   pomExtra :=
     <developers>
@@ -60,7 +60,7 @@ lazy val publishSettings = Seq(
         <id>mgrand</id>
         <name>Mark Grand</name>
       </developer>
-    </developers>,
+    </developers>
 )
 
 lazy val scalamacrosParadiseSettings =
@@ -107,7 +107,8 @@ lazy val bramblSdk = project
     name := "brambl-sdk",
     commonSettings,
     publishSettings,
-    libraryDependencies ++= Seq(Dependencies.quivr4s) ++ Dependencies.mUnitTest,
+    Test / publishArtifact := true,
+    libraryDependencies ++= Seq(Dependencies.quivr4s, Dependencies.quivr4sTest) ++ Dependencies.mUnitTest,
     dependencyOverrides += Dependencies.protobufSpecs,
     scalamacrosParadiseSettings
   )

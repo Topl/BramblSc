@@ -1,34 +1,10 @@
 package co.topl.brambl.generators
 
 import co.topl.brambl.models.{Evidence, Identifier}
-import com.google.protobuf.ByteString
-import org.scalacheck.{Arbitrary, Gen}
-import quivr.models.Digest.{Digest32, Digest64}
+import co.topl.quivr.generators.ModelGenerators.{arbitraryDigest32, arbitraryDigest64}
+import org.scalacheck.Arbitrary
 
 trait ModelGenerators {
-
-  def genSizedStrictByteString(n: Int)(
-    byteGen:                      Gen[Byte] = Gen.choose[Byte](0, 32)
-  ): Gen[ByteString] =
-    Gen
-      .containerOfN[Array, Byte](n, byteGen)
-      .map(ByteString.copyFrom)
-
-  // TODO, Start this generator should Live on quivr
-  val arbitraryDigest32: Arbitrary[Digest32] =
-    Arbitrary(
-      for {
-        bs <- genSizedStrictByteString(32)()
-      } yield Digest32(bs)
-    )
-
-  val arbitraryDigest64: Arbitrary[Digest64] =
-    Arbitrary(
-      for {
-        bs <- genSizedStrictByteString(64)()
-      } yield Digest64(bs)
-    )
-  // TODO, Finish this generator should Live on quivr
 
   implicit val arbitraryEvidence32: Arbitrary[Evidence.Sized32] =
     Arbitrary(
