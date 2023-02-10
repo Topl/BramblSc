@@ -75,10 +75,9 @@ trait MockHelpers {
           )
         ),
       Proposer.heightProposer[Id].propose(("header", 0, 100)),
-      Proposer.tickProposer[Id].propose((0, 100)),
-      Proposer.exactMatchProposer[Id].propose(("mockLocation", "mockValue".getBytes))
+      Proposer.tickProposer[Id].propose((0, 100))
     ),
-    1
+    3
   )
   val fakeMsgBind: SignableBytes = "transaction binding".getBytes.immutable.signable
 
