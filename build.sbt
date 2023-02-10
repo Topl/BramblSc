@@ -60,7 +60,7 @@ lazy val publishSettings = Seq(
         <id>mgrand</id>
         <name>Mark Grand</name>
       </developer>
-    </developers>,
+    </developers>
 )
 
 lazy val scalamacrosParadiseSettings =
@@ -107,7 +107,8 @@ lazy val bramblSdk = project
     name := "brambl-sdk",
     commonSettings,
     publishSettings,
-    libraryDependencies ++= Seq(Dependencies.quivr4s) ++ Dependencies.mUnitTest,
+    Test / publishArtifact := true,
+    libraryDependencies ++= Seq(Dependencies.quivr4s, Dependencies.quivr4sTest) ++ Dependencies.mUnitTest,
     dependencyOverrides += Dependencies.protobufSpecs,
     scalamacrosParadiseSettings
   )
