@@ -4,7 +4,7 @@ object Dependencies {
   val catsCoreVersion = "2.8.0"
   val simulacrumVersion = "1.0.1"
   val circeVersion = "0.14.3"
-  val quivr4sVersion = "14fd312"
+  val quivr4sVersion = "14fd312" // scala-steward:off
 
   val catsSlf4j: ModuleID =
     "org.typelevel" %% "log4cats-slf4j" % "2.4.0"
@@ -64,10 +64,10 @@ object Dependencies {
     "org.scodec" %% "scodec-cats" % "1.1.0"
   )
 
-  val protobufSpecs: ModuleID = "com.github.Topl" % "protobuf-specs" % "c920f90"
+  val protobufSpecs: ModuleID = "com.github.Topl" % "protobuf-specs" % "c920f90" // scala-steward:off
 
-  val quivr4s: ModuleID = "com.github.Topl" % "quivr4s" % quivr4sVersion
-  val quivr4sTest: ModuleID = "com.github.Topl" % "quivr4s" % quivr4sVersion % Test classifier("tests")
+  val quivr4s: ModuleID = "com.github.Topl"     % "quivr4s" % quivr4sVersion
+  val quivr4sTest: ModuleID = "com.github.Topl" % "quivr4s" % quivr4sVersion % Test classifier ("tests")
 
   lazy val crypto: Seq[ModuleID] =
     Seq("org.bouncycastle" % "bcprov-jdk18on" % "1.72") ++
