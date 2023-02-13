@@ -1,49 +1,47 @@
+import Dependencies.Versions._
 import sbt._
 
 object Dependencies {
-  val catsCoreVersion = "2.8.0"
-  val simulacrumVersion = "1.0.1"
-  val circeVersion = "0.14.3"
-  val quivr4sVersion = "14fd312"
+
+  object Versions {
+    val catsCoreVersion = "2.8.0"
+    val simulacrumVersion = "1.0.1"
+    val circeVersion = "0.14.3"
+    val quivr4sVersion = "3bcc730"
+    val protobufSpecsVersion = "c920f90"
+    val mUnitTeVersion = "0.7.29"
+  }
 
   val catsSlf4j: ModuleID =
     "org.typelevel" %% "log4cats-slf4j" % "2.4.0"
 
-  val logging: Seq[ModuleID] = Seq(
-    "com.typesafe.scala-logging" %% "scala-logging"   % "3.9.5",
-    "ch.qos.logback"              % "logback-classic" % "1.2.11",
-    "ch.qos.logback"              % "logback-core"    % "1.2.11",
-    "org.slf4j"                   % "slf4j-api"       % "1.7.36",
-    catsSlf4j
-  )
-
   val circe: Seq[ModuleID] = Seq(
-    "io.circe" %% "circe-core"    % circeVersion % "test",
-    "io.circe" %% "circe-parser"  % circeVersion % "test",
-    "io.circe" %% "circe-generic" % circeVersion % "test"
+    "io.circe" %% "circe-core"    % circeVersion,
+    "io.circe" %% "circe-parser"  % circeVersion,
+    "io.circe" %% "circe-generic" % circeVersion
   )
 
   val scalacheck: Seq[ModuleID] = Seq(
-    "org.scalacheck"    %% "scalacheck"      % "1.17.0"  % "test",
-    "org.scalatestplus" %% "scalacheck-1-14" % "3.2.2.0" % "test"
+    "org.scalacheck"    %% "scalacheck"      % "1.17.0",
+    "org.scalatestplus" %% "scalacheck-1-14" % "3.2.2.0"
   )
 
   val scalamock: Seq[ModuleID] = Seq(
-    "org.scalamock" %% "scalamock" % "5.2.0" % "test"
+    "org.scalamock" %% "scalamock" % "5.2.0"
   )
 
-  val test: Seq[ModuleID] = Seq(
-    "org.scalatest"    %% "scalatest"                     % "3.2.14" % "test",
-    "com.ironcorelabs" %% "cats-scalatest"                % "3.1.1"  % "test",
-    "org.typelevel"    %% "cats-effect-testing-scalatest" % "1.4.0"  % "test"
-  ) ++ scalacheck ++ scalamock
+  val scalatest: Seq[ModuleID] = Seq(
+    "org.scalatest"    %% "scalatest"                     % "3.2.14",
+    "com.ironcorelabs" %% "cats-scalatest"                % "3.1.1",
+    "org.typelevel"    %% "cats-effect-testing-scalatest" % "1.4.0"
+  )
 
   val mUnitTest: Seq[ModuleID] = Seq(
-    "org.scalameta" %% "munit"                   % "0.7.29" % Test,
-    "org.scalameta" %% "munit-scalacheck"        % "0.7.29" % Test,
-    "org.typelevel" %% "munit-cats-effect-3"     % "1.0.7"  % Test,
-    "org.typelevel" %% "scalacheck-effect-munit" % "1.0.4"  % Test
-  ) ++ scalamock
+    "org.scalameta" %% "munit"                   % mUnitTeVersion,
+    "org.scalameta" %% "munit-scalacheck"        % mUnitTeVersion,
+    "org.typelevel" %% "munit-cats-effect-3"     % "1.0.7",
+    "org.typelevel" %% "scalacheck-effect-munit" % "1.0.4"
+  )
 
   val newType: Seq[ModuleID] = Seq(
     "io.estatico" %% "newtype" % "0.4.4"
@@ -64,17 +62,44 @@ object Dependencies {
     "org.scodec" %% "scodec-cats" % "1.1.0"
   )
 
-  val protobufSpecs: ModuleID = "com.github.Topl" % "protobuf-specs" % "c920f90"
+  val protobufSpecs: Seq[ModuleID] = Seq(
+    "com.github.Topl" % "protobuf-specs" % protobufSpecsVersion
+  )
 
-  val quivr4s: ModuleID = "com.github.Topl" % "quivr4s" % quivr4sVersion
-  val quivr4sTest: ModuleID = "com.github.Topl" % "quivr4s" % quivr4sVersion % Test classifier("tests")
+  val quivr4s: Seq[ModuleID] = Seq(
+    "com.github.Topl" % "quivr4s" % quivr4sVersion
+  )
 
-  lazy val crypto: Seq[ModuleID] =
-    Seq("org.bouncycastle" % "bcprov-jdk18on" % "1.72") ++
-    scodec ++
-    newType ++
-    cats ++
-    circe ++
-    simulacrum ++
-    test
+  object Crypto {
+
+    lazy val sources: Seq[ModuleID] =
+      Seq("org.bouncycastle" % "bcprov-jdk18on" % "1.72") ++
+      scodec ++
+      newType ++
+      cats ++
+      simulacrum
+
+    lazy val tests: Seq[ModuleID] =
+      (
+        circe ++
+          scalatest ++
+          scalamock ++
+          scalacheck
+      )
+        .map(_ % Test)
+  }
+
+  object BramblSdk {
+
+    lazy val sources: Seq[ModuleID] =
+      quivr4s
+
+    lazy val tests: Seq[ModuleID] =
+      (
+        quivr4s.map(_ classifier ("tests")) ++
+          mUnitTest ++
+          scalamock
+      ).map(_ % Test)
+  }
+
 }

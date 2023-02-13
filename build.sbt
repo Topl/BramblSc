@@ -77,27 +77,15 @@ lazy val scalamacrosParadiseSettings =
     }
   )
 
-lazy val typeclasses: Project = project
-  .in(file("typeclasses"))
-  .disablePlugins(AssemblyPlugin)
-  .enablePlugins(BuildInfoPlugin)
-  .settings(
-    name := "typeclasses",
-    commonSettings,
-    buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion),
-    buildInfoPackage := "co.topl.buildinfo.typeclasses"
-  )
-  .settings(
-    libraryDependencies ++= Dependencies.logging
-  )
-
 lazy val crypto = project
   .in(file("crypto"))
   .settings(
     name := "crypto",
     commonSettings,
     publishSettings,
-    libraryDependencies ++= Dependencies.crypto,
+    libraryDependencies ++=
+      Dependencies.Crypto.sources ++
+      Dependencies.Crypto.tests,
     scalamacrosParadiseSettings
   )
 
@@ -108,8 +96,9 @@ lazy val bramblSdk = project
     commonSettings,
     publishSettings,
     Test / publishArtifact := true,
-    libraryDependencies ++= Seq(Dependencies.quivr4s, Dependencies.quivr4sTest) ++ Dependencies.mUnitTest,
-    dependencyOverrides += Dependencies.protobufSpecs,
+    libraryDependencies ++=
+      Dependencies.BramblSdk.sources ++
+      Dependencies.BramblSdk.tests,
     scalamacrosParadiseSettings
   )
   .dependsOn(crypto)
@@ -119,8 +108,7 @@ lazy val brambl = project
   .settings(
     moduleName := "brambl",
     commonSettings,
-    publish / skip := true,
-    libraryDependencies ++= Seq(Dependencies.protobufSpecs, Dependencies.quivr4s)
+    publish / skip := true
   )
   .enablePlugins(ReproducibleBuildsPlugin)
   .aggregate(
