@@ -9,7 +9,7 @@ object Blake2b256Digest extends Hash {
   override val routine: String = "blake2b256"
 
   override def hash(preimage: Preimage): Digest = {
-    val digest = (new Blake2b256).hash(ByteVector(preimage.toByteArray ++ preimage.toByteArray))
+    val digest = (new Blake2b256).hash(ByteVector(preimage.input.toByteArray ++ preimage.salt.toByteArray))
     Digest().withDigest32(
       Digest.Digest32(ByteString.copyFrom(digest.toArray))
     )

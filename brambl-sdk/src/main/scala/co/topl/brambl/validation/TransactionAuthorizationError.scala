@@ -10,8 +10,10 @@ object TransactionAuthorizationError {
    * Generic error for when a transaction is not authorized
    *
    * Temporary until the interpreter utilized Contextual and Permanent errors
+   *
+   * @param errors the errors that occurred during the authorization process, if available
    */
-  case object AuthorizationFailed extends TransactionAuthorizationError
+  case class AuthorizationFailed(errors: List[QuivrRuntimeError] = List.empty) extends TransactionAuthorizationError
 
   /**
    * An Authorization error indicating that this transaction was invalid only within the provided validation context.

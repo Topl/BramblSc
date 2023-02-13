@@ -5,7 +5,7 @@ import cats.implicits._
 import co.topl.brambl.models.{Datum, Identifier}
 import co.topl.brambl.models.transaction.{Attestation, IoTransaction}
 import co.topl.quivr.api.Verifier
-import co.topl.quivr.runtime.DynamicContext
+import co.topl.quivr.runtime.{DynamicContext, QuivrRuntimeError}
 import quivr.models.{Proof, Proposition}
 import co.topl.brambl.validation.algebras.TransactionAuthorizationVerifier
 
@@ -101,36 +101,42 @@ object TransactionAuthorizationInterpreter {
       ): F[Either[TransactionAuthorizationError, Boolean]] =
         thresholdVerifier(known, responses, threshold, context)
 
+      /***
+       * Verifies that at least threshold number of proofs satisfy their associated propositions
+       * @param propositions the propositions to be verified
+       * @param proofs the proofs to be verified
+       * @param threshold the threshold of proofs that must be satisfied
+       * @param context the context in which the proofs are to be verified
+       * @param verifier the verifier to be used to verify the proofs
+       * @return
+       */
       private def thresholdVerifier(
         propositions:      Seq[Proposition],
         proofs:            Seq[Proof],
         threshold:         Int,
         context:           DynamicContext[F, String, Datum]
-      )(implicit verifier: Verifier[F, Datum]): F[Either[TransactionAuthorizationError, Boolean]] = for {
-        evalAuth <-
-          if (threshold === 0) true.pure[F]
-          else if (threshold >= propositions.size) false.pure[F]
-          else if (proofs.isEmpty) false.pure[F]
-          // We assume a one-to-one pairing of sub-proposition to sub-proof with the assumption that some of the proofs
-          // may be Proofs.False
-          else if (proofs.size =!= propositions.size) false.pure[F]
-          else {
-            propositions
-              .zip(proofs)
-              .foldLeftM(0L) {
-                case (successCount, _) if successCount >= threshold =>
-                  successCount.pure[F]
-                case (successCount, (_, proof)) if proof.value.isEmpty =>
-                  successCount.pure[F]
-                case (successCount, (prop, proof)) =>
-                  verifier.evaluate(prop, proof, context).map {
-                    case Right(true) => successCount + 1
-                    case _           => successCount
-                  }
-              }
-              .map(_ >= threshold)
-          }
-        res <- Either.cond(evalAuth, evalAuth, TransactionAuthorizationError.AuthorizationFailed).pure[F]
-      } yield res
+      )(implicit verifier: Verifier[F, Datum]): F[Either[TransactionAuthorizationError, Boolean]] = {
+        if (threshold === 0) true.asRight[TransactionAuthorizationError].pure[F]
+        else if (threshold >= propositions.size)
+          Either.left[TransactionAuthorizationError, Boolean](TransactionAuthorizationError.AuthorizationFailed()).pure[F]
+        else if (proofs.isEmpty)
+          Either.left[TransactionAuthorizationError, Boolean](TransactionAuthorizationError.AuthorizationFailed()).pure[F]
+        // We assume a one-to-one pairing of sub-proposition to sub-proof with the assumption that some of the proofs
+        // may be Proof.Value.Empty
+        else if (proofs.size =!= propositions.size)
+          Either.left[TransactionAuthorizationError, Boolean](TransactionAuthorizationError.AuthorizationFailed()).pure[F]
+        else propositions.zip(proofs)
+          .map(p => verifier.evaluate(p._1, p._2, context)) // Evaluate all the (proposition, proof) pairs
+          .sequence
+          .map(_.partitionMap(identity))
+          .map(res => {
+            // If at least threshold number of pairs are valid, authorization is successful
+            if (res._2.count(identity) >= threshold)
+              true.asRight[TransactionAuthorizationError]
+            // If authorization fails, return the QuivrRuntimeErrors that were encountered
+            else
+              TransactionAuthorizationError.AuthorizationFailed(res._1.toList).asLeft[Boolean]
+          })
+      }
     }
 }

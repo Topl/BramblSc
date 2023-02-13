@@ -7,7 +7,9 @@ import co.topl.brambl.common.ContainsSignable.ContainsSignableTOps
 import co.topl.brambl.common.ContainsSignable.instances._
 import co.topl.brambl.models.KnownIdentifier
 import co.topl.brambl.models.box.Value
+import co.topl.brambl.validation.TransactionAuthorizationError.AuthorizationFailed
 import co.topl.brambl.validation.{TransactionAuthorizationError, TransactionSyntaxError}
+import co.topl.quivr.runtime.QuivrRuntimeErrors.ValidationError.{EvaluationAuthorizationFailed, LockedPropositionIsUnsatisfiable}
 import com.google.protobuf.ByteString
 import quivr.models.Int128
 
@@ -51,15 +53,21 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
     val testTx = txFull.copy(outputs = Seq(output.copy(value = negativeValue)))
     val credentialler = CredentiallerInterpreter.make[Id](MockDataApi)
     val provenTx: IoTransaction = credentialler.prove(testTx)
-    val ctx = Context[Id](txFull, 500, _ => None) // Tick does not satisfies proposition
+    val ctx = Context[Id](testTx, 500, _ => None) // Tick does not satisfies proposition
     val errs = credentialler.validate(provenTx, ctx)
     // Threshold is not met so authorization failed
     // Transaction syntax is also invalid
     assertEquals(errs.length, 2)
+    val provenAttestation = provenTx.inputs.head.attestation.getPredicate
     val result =
       errs.contains(TransactionSyntaxError.NonPositiveOutputValue(negativeValue)) &&
-      errs.contains(TransactionAuthorizationError.AuthorizationFailed)
-    assertEquals(result, true)
+      errs.contains(TransactionAuthorizationError.AuthorizationFailed(List(
+        // Contains all failed propositions and proofs: Locked, Height and Tick
+        LockedPropositionIsUnsatisfiable,
+        EvaluationAuthorizationFailed(provenAttestation.lock.challenges(3), provenAttestation.responses(3)),
+        EvaluationAuthorizationFailed(provenAttestation.lock.challenges(4), provenAttestation.responses(4))
+      )))
+    assert(result)
   }
 
   test("proveAndValidate: Single Input Transaction with Attestation.Predicate > Validation successful") {
