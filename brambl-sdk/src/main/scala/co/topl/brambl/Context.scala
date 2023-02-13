@@ -1,7 +1,7 @@
 package co.topl.brambl
 
-import cats.Id
-import cats.implicits.catsSyntaxOptionId
+import cats.Monad
+import cats.implicits.{catsSyntaxApplicativeId, catsSyntaxOptionId}
 import co.topl.brambl.models.Datum
 import co.topl.brambl.models.transaction.IoTransaction
 import co.topl.brambl.common.ContainsSignable.ContainsSignableTOps
@@ -14,26 +14,28 @@ import quivr.models.SignableBytes
 
 // A Verification Context opinionated to the Topl context.
 // signableBytes, currentTick and the datums are dynamic
-case class Context(tx: IoTransaction, curTick: Long, heightDatums: String => Option[Datum])
-    extends DynamicContext[Id, String, Datum] {
+case class Context[F[_]: Monad](tx: IoTransaction, curTick: Long, heightDatums: String => Option[Datum])
+    extends DynamicContext[F, String, Datum] {
 
-  override val hashingRoutines: Map[String, DigestVerifier[Id]] =
+  override val hashingRoutines: Map[String, DigestVerifier[F]] =
     Map("blake2b256" -> Blake2b256DigestInterpreter.make())
 
-  override val signingRoutines: Map[String, SignatureVerifier[Id]] =
+  override val signingRoutines: Map[String, SignatureVerifier[F]] =
     Map("ed25519" -> Ed25519SignatureInterpreter.make())
 
   override val interfaces: Map[String, ParsableDataInterface] = Map() // Arbitrary
 
-  override def signableBytes: Id[SignableBytes] = tx.signable
+  override def signableBytes: F[SignableBytes] = tx.signable.pure[F]
 
-  override def currentTick: Id[Long] = curTick
+  override def currentTick: F[Long] = curTick.pure[F]
 
   // Needed for height
   override val datums: String => Option[Datum] = heightDatums
 
-  def heightOf(label: String): Id[Option[Long]] = heightDatums(label).flatMap(_.value match {
-    case Datum.Value.Header(h) => h.event.height.some
-    case _                     => None
-  })
+  def heightOf(label: String): F[Option[Long]] = heightDatums(label)
+    .flatMap(_.value match {
+      case Datum.Value.Header(h) => h.event.height.some
+      case _                     => None
+    })
+    .pure[F]
 }

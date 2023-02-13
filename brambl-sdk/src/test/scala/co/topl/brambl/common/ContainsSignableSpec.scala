@@ -11,9 +11,10 @@ import scala.language.implicitConversions
 class ContainsSignableSpec extends munit.FunSuite with MockHelpers {
 
   test("IoTransaction.signable should return the same bytes as IoTransaction.immutable minus the Proofs") {
-    val signableFull = txFull.signable.value
-    val immutableFull = txFull.immutable.value
-    val immutableEmpty = txEmpty.immutable.value
+    val withProofs = txFull.copy(inputs = txFull.inputs.map(stxo => stxo.copy(attestation = nonEmptyAttestation)))
+    val signableFull = withProofs.signable.value
+    val immutableFull = withProofs.immutable.value
+    val immutableEmpty = txFull.immutable.value
     // The only difference between immutableFull and immutableEmpty is the Proofs
     val proofsImmutableSize = immutableFull.size - immutableEmpty.size
     assertEquals(proofsImmutableSize > 0, true)
@@ -22,8 +23,9 @@ class ContainsSignableSpec extends munit.FunSuite with MockHelpers {
   }
 
   test("The Proofs in an IoTransaction changing should not alter the transaction's signable bytes") {
-    val signableFull = txFull.signable.value
-    val signableEmpty = txEmpty.signable.value
+    val withProofs = txFull.copy(inputs = txFull.inputs.map(stxo => stxo.copy(attestation = nonEmptyAttestation)))
+    val signableFull = withProofs.signable.value
+    val signableEmpty = txFull.signable.value
     // The only difference between signableFull and signableEmpty is the Proofs
     assertEquals(signableFull.size, signableEmpty.size)
   }

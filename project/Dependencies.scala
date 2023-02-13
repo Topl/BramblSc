@@ -7,8 +7,8 @@ object Dependencies {
     val catsCoreVersion = "2.8.0"
     val simulacrumVersion = "1.0.1"
     val circeVersion = "0.14.3"
-    val quivr4sVersion = "3bcc730"
-    val protobufSpecsVersion = "c920f90"
+    val quivr4sVersion = "3bcc730"  // scala-steward:off
+    val protobufSpecsVersion = "c920f90" // scala-steward:off
     val mUnitTeVersion = "0.7.29"
   }
 
@@ -101,5 +101,4 @@ object Dependencies {
           scalamock
       ).map(_ % Test)
   }
-
 }
