@@ -4,7 +4,7 @@ object Dependencies {
   val catsCoreVersion = "2.8.0"
   val simulacrumVersion = "1.0.1"
   val circeVersion = "0.14.3"
-  val quivr4sVersion = "14fd312"
+  val quivr4sVersion = "3bcc730"
 
   val catsSlf4j: ModuleID =
     "org.typelevel" %% "log4cats-slf4j" % "2.4.0"

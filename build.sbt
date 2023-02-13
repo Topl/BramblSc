@@ -109,7 +109,6 @@ lazy val bramblSdk = project
     publishSettings,
     Test / publishArtifact := true,
     libraryDependencies ++= Seq(Dependencies.quivr4s, Dependencies.quivr4sTest) ++ Dependencies.mUnitTest,
-    dependencyOverrides += Dependencies.protobufSpecs,
     scalamacrosParadiseSettings
   )
   .dependsOn(crypto)
@@ -119,8 +118,7 @@ lazy val brambl = project
   .settings(
     moduleName := "brambl",
     commonSettings,
-    publish / skip := true,
-    libraryDependencies ++= Seq(Dependencies.protobufSpecs, Dependencies.quivr4s)
+    publish / skip := true
   )
   .enablePlugins(ReproducibleBuildsPlugin)
   .aggregate(
