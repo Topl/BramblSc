@@ -9,7 +9,10 @@ import co.topl.brambl.models.KnownIdentifier
 import co.topl.brambl.models.box.Value
 import co.topl.brambl.validation.TransactionAuthorizationError.AuthorizationFailed
 import co.topl.brambl.validation.{TransactionAuthorizationError, TransactionSyntaxError}
-import co.topl.quivr.runtime.QuivrRuntimeErrors.ValidationError.{EvaluationAuthorizationFailed, LockedPropositionIsUnsatisfiable}
+import co.topl.quivr.runtime.QuivrRuntimeErrors.ValidationError.{
+  EvaluationAuthorizationFailed,
+  LockedPropositionIsUnsatisfiable
+}
 import com.google.protobuf.ByteString
 import quivr.models.Int128
 
@@ -61,12 +64,16 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
     val provenAttestation = provenTx.inputs.head.attestation.getPredicate
     val result =
       errs.contains(TransactionSyntaxError.NonPositiveOutputValue(negativeValue)) &&
-      errs.contains(TransactionAuthorizationError.AuthorizationFailed(List(
-        // Contains all failed propositions and proofs: Locked, Height and Tick
-        LockedPropositionIsUnsatisfiable,
-        EvaluationAuthorizationFailed(provenAttestation.lock.challenges(3), provenAttestation.responses(3)),
-        EvaluationAuthorizationFailed(provenAttestation.lock.challenges(4), provenAttestation.responses(4))
-      )))
+      errs.contains(
+        TransactionAuthorizationError.AuthorizationFailed(
+          List(
+            // Contains all failed propositions and proofs: Locked, Height and Tick
+            LockedPropositionIsUnsatisfiable,
+            EvaluationAuthorizationFailed(provenAttestation.lock.challenges(3), provenAttestation.responses(3)),
+            EvaluationAuthorizationFailed(provenAttestation.lock.challenges(4), provenAttestation.responses(4))
+          )
+        )
+      )
     assert(result)
   }
 

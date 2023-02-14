@@ -101,7 +101,8 @@ object TransactionAuthorizationInterpreter {
       ): F[Either[TransactionAuthorizationError, Boolean]] =
         thresholdVerifier(known, responses, threshold, context)
 
-      /***
+      /**
+       * *
        * Verifies that at least threshold number of proofs satisfy their associated propositions
        * @param propositions the propositions to be verified
        * @param proofs the proofs to be verified
@@ -115,28 +116,35 @@ object TransactionAuthorizationInterpreter {
         proofs:            Seq[Proof],
         threshold:         Int,
         context:           DynamicContext[F, String, Datum]
-      )(implicit verifier: Verifier[F, Datum]): F[Either[TransactionAuthorizationError, Boolean]] = {
+      )(implicit verifier: Verifier[F, Datum]): F[Either[TransactionAuthorizationError, Boolean]] =
         if (threshold === 0) true.asRight[TransactionAuthorizationError].pure[F]
         else if (threshold >= propositions.size)
-          Either.left[TransactionAuthorizationError, Boolean](TransactionAuthorizationError.AuthorizationFailed()).pure[F]
+          Either
+            .left[TransactionAuthorizationError, Boolean](TransactionAuthorizationError.AuthorizationFailed())
+            .pure[F]
         else if (proofs.isEmpty)
-          Either.left[TransactionAuthorizationError, Boolean](TransactionAuthorizationError.AuthorizationFailed()).pure[F]
+          Either
+            .left[TransactionAuthorizationError, Boolean](TransactionAuthorizationError.AuthorizationFailed())
+            .pure[F]
         // We assume a one-to-one pairing of sub-proposition to sub-proof with the assumption that some of the proofs
         // may be Proof.Value.Empty
         else if (proofs.size =!= propositions.size)
-          Either.left[TransactionAuthorizationError, Boolean](TransactionAuthorizationError.AuthorizationFailed()).pure[F]
-        else propositions.zip(proofs)
-          .map(p => verifier.evaluate(p._1, p._2, context)) // Evaluate all the (proposition, proof) pairs
-          .sequence
-          .map(_.partitionMap(identity))
-          .map(res => {
-            // If at least threshold number of pairs are valid, authorization is successful
-            if (res._2.count(identity) >= threshold)
-              true.asRight[TransactionAuthorizationError]
-            // If authorization fails, return the QuivrRuntimeErrors that were encountered
-            else
-              TransactionAuthorizationError.AuthorizationFailed(res._1.toList).asLeft[Boolean]
-          })
-      }
+          Either
+            .left[TransactionAuthorizationError, Boolean](TransactionAuthorizationError.AuthorizationFailed())
+            .pure[F]
+        else
+          propositions
+            .zip(proofs)
+            .map(p => verifier.evaluate(p._1, p._2, context)) // Evaluate all the (proposition, proof) pairs
+            .sequence
+            .map(_.partitionMap(identity))
+            .map { res =>
+              // If at least threshold number of pairs are valid, authorization is successful
+              if (res._2.count(identity) >= threshold)
+                true.asRight[TransactionAuthorizationError]
+              // If authorization fails, return the QuivrRuntimeErrors that were encountered
+              else
+                TransactionAuthorizationError.AuthorizationFailed(res._1.toList).asLeft[Boolean]
+            }
     }
 }
