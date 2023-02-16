@@ -58,7 +58,7 @@ object Dependencies {
 
   val scodec: Seq[ModuleID] = Seq(
     "org.scodec" %% "scodec-core" % "1.11.9",
-    "org.scodec" %% "scodec-bits" % "1.1.34",
+    "org.scodec" %% "scodec-bits" % "1.1.35",
     "org.scodec" %% "scodec-cats" % "1.1.0"
   )
 
