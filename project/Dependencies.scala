@@ -4,7 +4,7 @@ import sbt._
 object Dependencies {
 
   object Versions {
-    val catsCoreVersion = "2.8.0"
+    val catsCoreVersion = "2.9.0"
     val simulacrumVersion = "1.0.1"
     val circeVersion = "0.14.4"
     val quivr4sVersion = "ef14fe2" // scala-steward:off
