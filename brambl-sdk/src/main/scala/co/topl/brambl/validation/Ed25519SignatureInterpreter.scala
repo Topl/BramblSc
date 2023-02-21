@@ -23,9 +23,7 @@ object Ed25519SignatureInterpreter {
      */
     override def validate(t: SignatureVerification): F[Either[QuivrRuntimeError, SignatureVerification]] = t match {
       case SignatureVerification(Some(VerificationKey(vk, _)), Some(Witness(sig, _)), Some(Message(msg, _)), _) =>
-        if (
-          Ed25519.instance.verify(ByteVector(sig.toByteArray), ByteVector(msg.toByteArray), ByteVector(vk.toByteArray))
-        )
+        if ((new Ed25519).verify(ByteVector(sig.toByteArray), ByteVector(msg.toByteArray), ByteVector(vk.toByteArray)))
           Either.right[QuivrRuntimeError, SignatureVerification](t).pure[F]
         else // TODO: replace with correct error. Verification failed.
           Either
