@@ -4,9 +4,9 @@ import sbt._
 object Dependencies {
 
   object Versions {
-    val catsCoreVersion = "2.8.0"
+    val catsCoreVersion = "2.9.0"
     val simulacrumVersion = "1.0.1"
-    val circeVersion = "0.14.3"
+    val circeVersion = "0.14.4"
     val quivr4sVersion = "ef14fe2"  // scala-steward:off
     val protobufSpecsVersion = "c920f90" // scala-steward:off
     val mUnitTeVersion = "0.7.29"
@@ -31,9 +31,9 @@ object Dependencies {
   )
 
   val scalatest: Seq[ModuleID] = Seq(
-    "org.scalatest"    %% "scalatest"                     % "3.2.14",
+    "org.scalatest"    %% "scalatest"                     % "3.2.15",
     "com.ironcorelabs" %% "cats-scalatest"                % "3.1.1",
-    "org.typelevel"    %% "cats-effect-testing-scalatest" % "1.4.0"
+    "org.typelevel"    %% "cats-effect-testing-scalatest" % "1.5.0"
   )
 
   val mUnitTest: Seq[ModuleID] = Seq(
@@ -49,7 +49,7 @@ object Dependencies {
 
   val cats: Seq[ModuleID] = Seq(
     "org.typelevel" %% "cats-core" % catsCoreVersion,
-    "org.typelevel" %% "mouse"     % "1.1.0"
+    "org.typelevel" %% "mouse"     % "1.2.1"
   )
 
   val simulacrum: Seq[ModuleID] = Seq(
@@ -57,9 +57,9 @@ object Dependencies {
   )
 
   val scodec: Seq[ModuleID] = Seq(
-    "org.scodec" %% "scodec-core" % "1.11.9",
-    "org.scodec" %% "scodec-bits" % "1.1.34",
-    "org.scodec" %% "scodec-cats" % "1.1.0"
+    "org.scodec" %% "scodec-core" % "1.11.10",
+    "org.scodec" %% "scodec-bits" % "1.1.35",
+    "org.scodec" %% "scodec-cats" % "1.2.0"
   )
 
   val protobufSpecs: Seq[ModuleID] = Seq(
