@@ -52,7 +52,8 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
   }
 
   test("validate: Single Input Transaction with Attestation.Predicate > Validation failed") {
-    val negativeValue: Value = Value().withToken(Value.Token(Int128(ByteString.copyFrom(BigInt(-1).toByteArray))))
+    val negativeValue: Value =
+      Value.defaultInstance.withToken(Value.Token(Int128(ByteString.copyFrom(BigInt(-1).toByteArray))))
     val testTx = txFull.copy(outputs = Seq(output.copy(value = negativeValue)))
     val credentialler = CredentiallerInterpreter.make[Id](MockDataApi)
     val provenTx: IoTransaction = credentialler.prove(testTx)
@@ -61,20 +62,34 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
     // Threshold is not met so authorization failed
     // Transaction syntax is also invalid
     assertEquals(errs.length, 2)
+    assert(
+      errs.contains(TransactionSyntaxError.NonPositiveOutputValue(negativeValue)),
+      "NonPositiveOutputValue Syntax Error is expected"
+    )
     val provenAttestation = provenTx.inputs.head.attestation.getPredicate
-    val result =
-      errs.contains(TransactionSyntaxError.NonPositiveOutputValue(negativeValue)) &&
-      errs.contains(
-        TransactionAuthorizationError.AuthorizationFailed(
-          List(
-            // Contains all failed propositions and proofs: Locked, Height and Tick
-            LockedPropositionIsUnsatisfiable,
-            EvaluationAuthorizationFailed(provenAttestation.lock.challenges(3), provenAttestation.responses(3)),
-            EvaluationAuthorizationFailed(provenAttestation.lock.challenges(4), provenAttestation.responses(4))
-          )
-        )
-      )
-    assert(result)
+    assert(errs.tail.head.isInstanceOf[AuthorizationFailed], "AuthorizationFailed error is expected")
+    assert(
+      errs.tail.head.asInstanceOf[AuthorizationFailed].errors.length == 3,
+      "AuthorizationFailed error expects exactly 3 errors"
+    )
+    assert(
+      errs.tail.head.asInstanceOf[AuthorizationFailed].errors.contains(LockedPropositionIsUnsatisfiable),
+      s"AuthorizationFailed error expects errors Locked error. Received: ${errs.tail.head.asInstanceOf[AuthorizationFailed].errors}"
+    )
+    assert(
+      errs.tail.head
+        .asInstanceOf[AuthorizationFailed]
+        .errors
+        .contains(EvaluationAuthorizationFailed(provenAttestation.lock.challenges(3), provenAttestation.responses(3))),
+      s"AuthorizationFailed error expects Height error. Received: ${errs.tail.head.asInstanceOf[AuthorizationFailed].errors}"
+    )
+    assert(
+      errs.tail.head
+        .asInstanceOf[AuthorizationFailed]
+        .errors
+        .contains(EvaluationAuthorizationFailed(provenAttestation.lock.challenges(4), provenAttestation.responses(4))),
+      s"AuthorizationFailed error expects Tick error. Received: ${errs.tail.head.asInstanceOf[AuthorizationFailed].errors}"
+    )
   }
 
   test("proveAndValidate: Single Input Transaction with Attestation.Predicate > Validation successful") {

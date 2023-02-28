@@ -10,8 +10,8 @@ object Ed25519Signature extends Signing {
   override val routine: String = "ed25519"
 
   override def createKeyPair(seed: Array[Byte]): KeyPair = {
-    val seedLength = Ed25519.instance.seedLength
-    val (sk, vk) = Ed25519.instance.deriveKeyPairFromSeed(ByteVector(seed.padTo(seedLength, 0.toByte)))
+    val instance = new Ed25519
+    val (sk, vk) = instance.deriveKeyPairFromSeed(ByteVector(seed.padTo(instance.seedLength, 0.toByte)))
     val skBytes = sk.toArray
     val vkBytes = vk.toArray
     KeyPair(
@@ -24,7 +24,7 @@ object Ed25519Signature extends Signing {
     val privateKey = ByteVector(sk.value.toByteArray)
     val message = ByteVector(msg.value.toByteArray)
     Witness(
-      ByteString.copyFrom(Ed25519.instance.sign(privateKey, message).toArray)
+      ByteString.copyFrom((new Ed25519).sign(privateKey, message).toArray)
     )
   }
 }

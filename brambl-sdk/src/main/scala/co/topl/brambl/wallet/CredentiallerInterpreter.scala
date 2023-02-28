@@ -64,7 +64,7 @@ object CredentiallerInterpreter {
     private def getProof(msg: SignableBytes, proposition: Proposition, idx: Option[Indices]): F[Proof] = {
       // TODO: Temporary until we have a way to map routines strings to the actual Routine
       val signingRoutines = Map(
-        "ed25519" -> Ed25519Signature
+        Ed25519Signature.routine -> Ed25519Signature
       )
       proposition.value match {
         case _: Proposition.Value.Locked => Prover.lockedProver[F].prove((), msg)
