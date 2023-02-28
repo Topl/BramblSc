@@ -22,7 +22,7 @@ object TransactionAuthorizationInterpreter {
        * Verifies each (Proposition, Proof) pair in the given Transaction
        */
       override def validate(context: DynamicContext[F, String, Datum])(
-        transaction:                 IoTransaction
+        transaction: IoTransaction
       ): F[Either[TransactionAuthorizationError, IoTransaction]] =
         transaction.inputs.zipWithIndex
           .foldLeft(Either.right[TransactionAuthorizationError, IoTransaction](transaction).pure[F]) {
@@ -112,10 +112,10 @@ object TransactionAuthorizationInterpreter {
        * @return
        */
       private def thresholdVerifier(
-        propositions:      Seq[Proposition],
-        proofs:            Seq[Proof],
-        threshold:         Int,
-        context:           DynamicContext[F, String, Datum]
+        propositions: Seq[Proposition],
+        proofs:       Seq[Proof],
+        threshold:    Int,
+        context:      DynamicContext[F, String, Datum]
       )(implicit verifier: Verifier[F, Datum]): F[Either[TransactionAuthorizationError, Boolean]] =
         if (threshold === 0) true.asRight[TransactionAuthorizationError].pure[F]
         else if (threshold >= propositions.size)

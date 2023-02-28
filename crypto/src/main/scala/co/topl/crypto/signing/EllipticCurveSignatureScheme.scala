@@ -12,7 +12,7 @@ abstract private[signing] class EllipticCurveSignatureScheme(val seedLength: Int
   val KeyLength: Int
 
   def deriveKeyPairFromEntropy(entropy: Entropy, password: Option[String])(implicit
-    entropyToSeed:                      EntropyToSeed = EntropyToSeed.instances.pbkdf2Sha512(seedLength)
+    entropyToSeed: EntropyToSeed = EntropyToSeed.instances.pbkdf2Sha512(seedLength)
   ): (ByteVector, ByteVector) = {
     val seed = entropyToSeed.toSeed(entropy, password)
     deriveKeyPairFromSeed(seed)

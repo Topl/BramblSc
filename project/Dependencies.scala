@@ -7,7 +7,7 @@ object Dependencies {
     val catsCoreVersion = "2.9.0"
     val simulacrumVersion = "1.0.1"
     val circeVersion = "0.14.4"
-    val quivr4sVersion = "ef14fe2"  // scala-steward:off
+    val quivr4sVersion = "ef14fe2" // scala-steward:off
     val protobufSpecsVersion = "c920f90" // scala-steward:off
     val mUnitTeVersion = "0.7.29"
   }
@@ -58,7 +58,7 @@ object Dependencies {
 
   val scodec: Seq[ModuleID] = Seq(
     "org.scodec" %% "scodec-core" % "1.11.10",
-    "org.scodec" %% "scodec-bits" % "1.1.35",
+    "org.scodec" %% "scodec-bits" % "1.1.36",
     "org.scodec" %% "scodec-cats" % "1.2.0"
   )
 
