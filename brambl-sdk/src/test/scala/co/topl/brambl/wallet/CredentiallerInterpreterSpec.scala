@@ -53,7 +53,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
 
   test("validate: Single Input Transaction with Attestation.Predicate > Validation failed") {
     val negativeValue: Value =
-      Value.defaultInstance.withToken(Value.Token(Int128(ByteString.copyFrom(BigInt(-1).toByteArray))))
+      Value.defaultInstance.withLvl(Value.LVL(Int128(ByteString.copyFrom(BigInt(-1).toByteArray))))
     val testTx = txFull.copy(outputs = Seq(output.copy(value = negativeValue)))
     val credentialler = CredentiallerInterpreter.make[Id](MockDataApi)
     val provenTx: IoTransaction = credentialler.prove(testTx)
@@ -101,7 +101,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
   }
 
   test("proveAndValidate: Single Input Transaction with Attestation.Predicate > Validation failed") {
-    val negativeValue: Value = Value().withToken(Value.Token(Int128(ByteString.copyFrom(BigInt(-1).toByteArray))))
+    val negativeValue: Value = Value().withLvl(Value.LVL(Int128(ByteString.copyFrom(BigInt(-1).toByteArray))))
     val credentialler = CredentiallerInterpreter.make[Id](MockDataApi)
     val testTx = txFull.copy(outputs = Seq(output.copy(value = negativeValue)))
     val ctx = Context[Id](testTx, 500, _ => None) // Tick does not satisfies proposition

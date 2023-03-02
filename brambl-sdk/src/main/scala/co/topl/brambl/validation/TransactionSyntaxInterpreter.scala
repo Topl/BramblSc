@@ -107,7 +107,8 @@ object TransactionSyntaxInterpreter {
     transaction.outputs
       .foldMap[ValidatedNec[TransactionSyntaxError, Unit]](output =>
         (output.value.value match {
-          case Value.Value.Token(Value.Token(Int128(q, _), _))       => BigInt(q.toByteArray).some
+          case Value.Value.Lvl(v)                                    => BigInt(v.quantity.value.toByteArray).some
+          case Value.Value.Topl(v)                                   => BigInt(v.quantity.value.toByteArray).some
           case Value.Value.Asset(Value.Asset(_, Int128(q, _), _, _)) => BigInt(q.toByteArray).some
           case _                                                     => none
         }).foldMap((quantity: BigInt) =>
@@ -153,7 +154,8 @@ object TransactionSyntaxInterpreter {
   ): ValidatedNec[TransactionSyntaxError, Unit] =
     NonEmptyChain(
       // Extract all Token values and their quantities
-      f { case Value.Value.Token(Value.Token(Int128(q, _), _)) => BigInt(q.toByteArray) },
+      f { case Value.Value.Lvl(v) => BigInt(v.quantity.value.toByteArray) },
+      f { case Value.Value.Topl(v) => BigInt(v.quantity.value.toByteArray) },
       // Extract all Asset values and their quantities
       f { case Value.Value.Asset(Value.Asset(_, Int128(q, _), _, _)) => BigInt(q.toByteArray) }
     ).appendChain(

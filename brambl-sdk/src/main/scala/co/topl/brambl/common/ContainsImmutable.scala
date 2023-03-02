@@ -114,7 +114,8 @@ object ContainsImmutable {
       box.value.immutable
 
     implicit val valueImmutable: ContainsImmutable[Value] = _.value match {
-      case Value.Value.Token(v) => v.immutable
+      case Value.Value.Lvl(v)   => v.immutable
+      case Value.Value.Topl(v)  => v.immutable
       case Value.Value.Asset(v) => v.immutable
     }
 
@@ -215,7 +216,25 @@ object ContainsImmutable {
       case KnownIdentifier.Value.TransactionOutput64(r) => knownOutput64IdentifierImmutable.immutableBytes(r)
     }
 
-    implicit val tokenValueImmutable: ContainsImmutable[Value.Token] = (token: Value.Token) => token.quantity.immutable
+    implicit val lvlValueImmutable: ContainsImmutable[Value.LVL] =
+      _.quantity.immutable
+
+    implicit val toplValueImmutable: ContainsImmutable[Value.TOPL] =
+      v =>
+        v.quantity.immutable ++
+        v.registration.immutable
+
+    implicit val signatureKesSumImmutable: ContainsImmutable[co.topl.consensus.models.SignatureKesSum] =
+      v =>
+        v.verificationKey.immutable ++
+        v.signature.immutable ++
+        v.witness.immutable
+
+    implicit val signatureKesProductImmutable: ContainsImmutable[co.topl.consensus.models.SignatureKesProduct] =
+      v =>
+        v.superSignature.immutable ++
+        v.subSignature.immutable ++
+        v.subRoot.immutable
 
     implicit val assetValueImmutable: ContainsImmutable[Value.Asset] = (asset: Value.Asset) =>
       asset.label.immutable ++

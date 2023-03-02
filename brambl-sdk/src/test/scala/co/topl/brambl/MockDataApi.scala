@@ -35,7 +35,7 @@ object MockDataApi extends DataApi with MockHelpers {
     .get(id)
     .flatMap(idxToLocks.get)
     .map(Lock().withPredicate(_))
-    .map(Box(_, Value().withToken(Value.Token(Int128(ByteString.copyFrom(BigInt(1).toByteArray))))))
+    .map(Box(_, Value().withLvl(Value.LVL(Int128(ByteString.copyFrom(BigInt(1).toByteArray))))))
 
   override def getPreimage(idx: Indices): Option[Preimage] =
     if (

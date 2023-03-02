@@ -11,7 +11,6 @@ import co.topl.brambl.models.box.{Lock, Value}
 import co.topl.brambl.models.transaction._
 import co.topl.brambl.routines.digests.Blake2b256Digest
 import co.topl.brambl.routines.signatures.Ed25519Signature
-import co.topl.proto.models.Proof
 import co.topl.quivr.api.{Proposer, Prover}
 import com.google.protobuf.ByteString
 import quivr.models.{Int128, Preimage, SignableBytes, SmallData}
@@ -44,7 +43,7 @@ trait MockHelpers {
     Datum.SpentOutput(Event.SpentTransactionOutput(SmallData(ByteString.copyFrom("metadata".getBytes))))
 
   val value: Value =
-    Value().withToken(Value.Token(Int128(ByteString.copyFrom(BigInt(1).toByteArray))))
+    Value().withLvl(Value.LVL(Int128(ByteString.copyFrom(BigInt(1).toByteArray))))
 
   val trivialOutLock: Lock =
     Lock().withPredicate(Lock.Predicate(List(Proposer.tickProposer[Id].propose(5, 15)), 1))
@@ -71,7 +70,7 @@ trait MockHelpers {
           (
             // Hardcoding Ed25519Signature
             Ed25519Signature.routine,
-            Ed25519Signature.createKeyPair(MockSecret).vk.get // Get will be removed once validation rules are in place
+            Ed25519Signature.createKeyPair(MockSecret).vk // Get will be removed once validation rules are in place
           )
         ),
       Proposer.heightProposer[Id].propose(("header", 0, 100)),

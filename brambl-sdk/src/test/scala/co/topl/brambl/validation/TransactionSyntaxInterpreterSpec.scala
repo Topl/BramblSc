@@ -80,7 +80,7 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
   }
 
   test("validate positive output quantities") {
-    val negativeValue: Value = Value().withToken(Value.Token(Int128(ByteString.copyFrom(BigInt(-1).toByteArray))))
+    val negativeValue: Value = Value().withLvl(Value.LVL(Int128(ByteString.copyFrom(BigInt(-1).toByteArray))))
     val testTx = txFull.copy(outputs = Seq(output.copy(value = negativeValue)))
     val validator = TransactionSyntaxInterpreter.make[Id]()
     val result = validator
@@ -91,8 +91,8 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
   }
 
   test("validate sufficient input funds") {
-    val tokenValueIn: Value = Value().withToken(Value.Token(Int128(ByteString.copyFrom(BigInt(100).toByteArray))))
-    val tokenValueOut: Value = Value().withToken(Value.Token(Int128(ByteString.copyFrom(BigInt(101).toByteArray))))
+    val tokenValueIn: Value = Value().withLvl(Value.LVL(Int128(ByteString.copyFrom(BigInt(100).toByteArray))))
+    val tokenValueOut: Value = Value().withLvl(Value.LVL(Int128(ByteString.copyFrom(BigInt(101).toByteArray))))
     val assetValueIn: Value =
       Value().withAsset(Value.Asset("label", Int128(ByteString.copyFrom(BigInt(100).toByteArray)), SmallData()))
     val assetValueOut: Value =

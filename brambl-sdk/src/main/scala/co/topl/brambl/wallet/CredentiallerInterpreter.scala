@@ -76,7 +76,7 @@ object CredentiallerInterpreter {
             .flatMap(r =>
               idx
                 .flatMap(i => dataApi.getKeyPair(i, r))
-                .flatMap(keyPair => keyPair.sk)
+                .map(keyPair => keyPair.sk)
                 .map(sk => Prover.signatureProver[F].prove(r.sign(sk, msg), msg))
             )
             .getOrElse(Proof().pure[F])

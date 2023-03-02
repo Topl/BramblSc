@@ -15,8 +15,8 @@ object Ed25519Signature extends Signing {
     val skBytes = sk.toArray
     val vkBytes = vk.toArray
     KeyPair(
-      VerificationKey(ByteString.copyFrom(vkBytes)).some,
-      SigningKey(ByteString.copyFrom(skBytes)).some
+      VerificationKey(ByteString.copyFrom(vkBytes)),
+      SigningKey(ByteString.copyFrom(skBytes))
     )
   }
 
