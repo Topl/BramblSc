@@ -100,7 +100,7 @@ object CredentiallerInterpreter {
       input: SpentTransactionOutput,
       msg:   SignableBytes
     ): F[SpentTransactionOutput] = {
-      val idx: Option[Indices] = dataApi.getIndicesByKnownIdentifier(input.knownIdentifier)
+      val idx: Option[Indices] = None // TODO dataApi.getIndicesByKnownIdentifier(input.address)
       val attestation: F[Attestation] = input.attestation.value match {
         case Attestation.Value.Predicate(Attestation.Predicate(predLock, _, _)) =>
           predLock.challenges
@@ -110,7 +110,7 @@ object CredentiallerInterpreter {
         // TODO: We are not handling other types of Attestations at this moment in time
         case _ => ???
       }
-      attestation.map(SpentTransactionOutput(input.knownIdentifier, _, input.value, input.datum, input.opts))
+      attestation.map(SpentTransactionOutput(input.address, _, input.value))
     }
   }
 }

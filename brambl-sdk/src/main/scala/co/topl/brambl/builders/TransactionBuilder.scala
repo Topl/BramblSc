@@ -1,9 +1,8 @@
 package co.topl.brambl.builders
 
-import co.topl.brambl.models.KnownIdentifier.{TransactionOutput32, TransactionOutput64}
+import co.topl.brambl.models.TransactionOutputAddress
 import co.topl.brambl.models.builders.{InputBuildRequest, OutputBuildRequest}
 import co.topl.brambl.models.transaction.{IoTransaction, Schedule, SpentTransactionOutput, UnspentTransactionOutput}
-import com.google.protobuf.ByteString
 import quivr.models.SmallData
 
 /**
@@ -65,8 +64,7 @@ trait TransactionBuilder[F[_]] {
     inputRequests:  List[InputBuildRequest],
     outputRequests: List[OutputBuildRequest],
     schedule:       Option[Schedule] = None,
-    output32Refs:   List[TransactionOutput32] = List(),
-    output64Refs:   List[TransactionOutput64] = List(),
+    outputRefs:     List[TransactionOutputAddress] = List(),
     metadata:       Option[SmallData] = None
   ): F[Either[List[BuilderError], IoTransaction]]
 }

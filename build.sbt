@@ -83,6 +83,7 @@ lazy val crypto = project
     name := "crypto",
     commonSettings,
     publishSettings,
+    Test / publishArtifact := true,
     libraryDependencies ++=
       Dependencies.Crypto.sources ++
       Dependencies.Crypto.tests,

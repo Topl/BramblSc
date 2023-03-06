@@ -54,7 +54,7 @@ object TransactionSyntaxInterpreter {
     NonEmptyChain
       .fromSeq(
         transaction.inputs
-          .groupBy(_.knownIdentifier)
+          .groupBy(_.address)
           .collect {
             case (knownIdentifier, inputs) if inputs.size > 1 =>
               TransactionSyntaxError.DuplicateInput(knownIdentifier)

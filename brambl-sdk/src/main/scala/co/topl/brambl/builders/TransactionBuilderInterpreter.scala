@@ -1,23 +1,29 @@
 package co.topl.brambl.builders
 
 import cats._
+import cats.data.EitherT
+import cats.data.Validated
 import cats.implicits._
-import cats.implicits.{catsSyntaxApplicativeId, catsSyntaxEitherObject, catsSyntaxOptionId, toFlatMapOps}
+import cats.implicits.catsSyntaxApplicativeId
+import cats.implicits.toFlatMapOps
 import co.topl.brambl.common.ContainsEvidence.Ops
 import co.topl.brambl.common.ContainsImmutable.instances._
 import co.topl.brambl.dataApi.DataApi
-import co.topl.brambl.models.{Address, Datum, Event, Identifier, KnownIdentifier}
+import co.topl.brambl.models.LockAddress
+import co.topl.brambl.models.TransactionOutputAddress
 import co.topl.brambl.models.box.Lock
-import co.topl.brambl.models.builders.{InputBuildRequest, OutputBuildRequest}
-import co.topl.brambl.models.transaction.{
-  Attestation,
-  IoTransaction,
-  Schedule,
-  SpentTransactionOutput,
-  UnspentTransactionOutput
-}
-import quivr.models.{Proof, SmallData}
-import cats.data.{EitherT, Validated}
+import co.topl.brambl.models.builders.InputBuildRequest
+import co.topl.brambl.models.builders.OutputBuildRequest
+import co.topl.brambl.models.transaction.Attestation
+import co.topl.brambl.models.transaction.IoTransaction
+import co.topl.brambl.models.transaction.Schedule
+import co.topl.brambl.models.transaction.SpentTransactionOutput
+import co.topl.brambl.models.transaction.UnspentTransactionOutput
+import co.topl.brambl.models.Datum
+import co.topl.brambl.models.Event
+import co.topl.brambl.models.Identifier
+import quivr.models.Proof
+import quivr.models.SmallData
 
 object TransactionBuilderInterpreter {
 
@@ -26,20 +32,20 @@ object TransactionBuilderInterpreter {
     override def constructUnprovenInput(
       data: InputBuildRequest
     ): F[Either[BuilderError.InputBuilderError, SpentTransactionOutput]] = {
-      val box = dataApi.getBoxByKnownIdentifier(data.id)
+      val box = dataApi.getBoxByKnownIdentifier(data.address)
       val attestation = box.map(_.lock).map(constructUnprovenAttestation)
       val value = box.map(_.value)
       val datum = Datum.SpentOutput(Event.SpentTransactionOutput(data.metadata.getOrElse(SmallData())))
       (attestation, value) match {
         case (Some(Right(att)), Some(boxVal)) =>
-          SpentTransactionOutput(data.id, att, boxVal, datum)
+          SpentTransactionOutput(data.address, att, boxVal)
             .asRight[BuilderError.InputBuilderError]
             .pure[F]
         case (Some(Left(err)), _) => err.asLeft[SpentTransactionOutput].pure[F]
         case _ =>
           BuilderError
             .InputBuilderError(
-              s"Could not construct input. Id=${data.id}, Attestation=${attestation}, Value=${value}"
+              s"Could not construct input. Id=${data.address}, Attestation=${attestation}, Value=${value}"
             )
             .asLeft[SpentTransactionOutput]
             .pure[F]
@@ -52,9 +58,8 @@ object TransactionBuilderInterpreter {
       // TODO: Replace with non-hardcoded values
       val Network = 0
       val Ledger = 0
-      val datum = Datum.UnspentOutput(Event.UnspentTransactionOutput(data.metadata.getOrElse(SmallData())))
-      val address = Address(Network, Ledger, Identifier().withLock32(Identifier.Lock32(data.lock.sized32Evidence)))
-      UnspentTransactionOutput(address, data.value, datum)
+      val address = LockAddress(Network, Ledger, LockAddress.Id.Lock32(Identifier.Lock32(data.lock.sized32Evidence)))
+      UnspentTransactionOutput(address, data.value)
         .asRight[BuilderError.OutputBuilderError]
         .pure[F]
     }
@@ -63,8 +68,7 @@ object TransactionBuilderInterpreter {
       inputRequests:  List[InputBuildRequest],
       outputRequests: List[OutputBuildRequest],
       schedule:       Option[Schedule],
-      output32Refs:   List[KnownIdentifier.TransactionOutput32],
-      output64Refs:   List[KnownIdentifier.TransactionOutput64],
+      outputRefs:     List[TransactionOutputAddress],
       metadata:       Option[SmallData]
     ): F[Either[List[BuilderError], IoTransaction]] = {
       // Build the inputs
@@ -91,8 +95,6 @@ object TransactionBuilderInterpreter {
             Event.IoTransaction(
               // TODO: Replace min and max with slot numbers
               schedule.getOrElse(Schedule(0, 2147483647, System.currentTimeMillis)),
-              output32Refs,
-              output64Refs,
               metadata.getOrElse(SmallData())
             )
           )

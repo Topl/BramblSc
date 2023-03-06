@@ -5,10 +5,10 @@ import co.topl.brambl.models.transaction.IoTransaction
 import co.topl.brambl.{Context, MockDataApi, MockHelpers}
 import co.topl.brambl.common.ContainsSignable.ContainsSignableTOps
 import co.topl.brambl.common.ContainsSignable.instances._
-import co.topl.brambl.models.KnownIdentifier
+import co.topl.brambl.models.TransactionOutputAddress
 import co.topl.brambl.models.box.Value
 import co.topl.brambl.validation.TransactionAuthorizationError.AuthorizationFailed
-import co.topl.brambl.validation.{TransactionAuthorizationError, TransactionSyntaxError}
+import co.topl.brambl.validation.TransactionSyntaxError
 import co.topl.quivr.runtime.QuivrRuntimeErrors.ValidationError.{
   EvaluationAuthorizationFailed,
   LockedPropositionIsUnsatisfiable
@@ -30,9 +30,8 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
 
   test("prove: Single Input Transaction with Attestation.Predicate > Unprovable propositions have empty proofs") {
     // Secrets are not available for this KnownIdentifier
-    val unknownKnownId =
-      KnownIdentifier().withTransactionOutput32(dummyTxIdentifier.copy(network = 1, ledger = 1, index = 1))
-    val testTx = txFull.copy(inputs = txFull.inputs.map(stxo => stxo.copy(knownIdentifier = unknownKnownId)))
+    val unknownKnownId = dummyTxIdentifier.copy(network = 1, ledger = 1, index = 1)
+    val testTx = txFull.copy(inputs = txFull.inputs.map(stxo => stxo.copy(address = unknownKnownId)))
     val provenTx: IoTransaction = CredentiallerInterpreter.make[Id](MockDataApi).prove(testTx)
     val provenPredicate = provenTx.inputs.head.attestation.getPredicate
     val sameLen = provenPredicate.lock.challenges.length == provenPredicate.responses.length

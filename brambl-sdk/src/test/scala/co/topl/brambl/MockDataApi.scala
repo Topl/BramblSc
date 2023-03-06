@@ -1,15 +1,11 @@
 package co.topl.brambl
 
-import cats.Id
-import co.topl.brambl.common.ContainsEvidence._
-import co.topl.brambl.common.ContainsImmutable.instances._
 import co.topl.brambl.dataApi.DataApi
 import co.topl.brambl.models._
-import co.topl.brambl.models.box.{Box, Lock, Value}
-import co.topl.brambl.models.transaction.{IoTransaction, Schedule}
-import co.topl.brambl.routines.digests.Blake2b256Digest
-import co.topl.brambl.routines.signatures.{Ed25519Signature, Signing}
-import co.topl.quivr.api.Proposer
+import co.topl.brambl.models.box.Box
+import co.topl.brambl.models.box.Lock
+import co.topl.brambl.models.box.Value
+import co.topl.brambl.routines.signatures.Signing
 import com.google.protobuf.ByteString
 import quivr.models._
 
@@ -24,14 +20,11 @@ object MockDataApi extends DataApi with MockHelpers {
     Indices(0, 0, 0) -> inLockFull
   )
 
-  val idToIdx: Map[KnownIdentifier, Indices] = Map(
+  val idToIdx: Map[TransactionOutputAddress, Indices] = Map(
     dummyTxIdentifier -> Indices(0, 0, 0)
-  ).map { case (o32, v) =>
-    KnownIdentifier().withTransactionOutput32(o32) -> v
-  }
-  override def getIndicesByKnownIdentifier(id: KnownIdentifier): Option[Indices] = idToIdx.get(id)
+  )
 
-  override def getBoxByKnownIdentifier(id: KnownIdentifier): Option[Box] = idToIdx
+  override def getBoxByKnownIdentifier(id: TransactionOutputAddress): Option[Box] = idToIdx
     .get(id)
     .flatMap(idxToLocks.get)
     .map(Lock().withPredicate(_))

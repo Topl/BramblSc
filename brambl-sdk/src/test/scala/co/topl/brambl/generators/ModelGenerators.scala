@@ -1,22 +1,12 @@
 package co.topl.brambl.generators
 
-import co.topl.brambl.models.{Datum, Event, Evidence, Identifier, KnownIdentifier}
+import co.topl.brambl.models.TransactionOutputAddress
+import co.topl.brambl.models.transaction.IoTransaction
+import co.topl.brambl.models.{Datum, Event, Evidence, Identifier}
 import co.topl.brambl.models.transaction.Schedule
 import co.topl.quivr.generators.ModelGenerators.{arbitraryDigest32, arbitraryDigest64}
 import com.google.protobuf.ByteString
 import org.scalacheck.{Arbitrary, Gen}
-
-trait TransactionGenerator {
-
-  implicit val arbitrarySchedule: Arbitrary[Schedule] =
-    Arbitrary(
-      for {
-        min       <- Gen.chooseNum(0L, 50L)
-        max       <- Gen.chooseNum(0L, 50L)
-        timestamp <- Gen.chooseNum(0L, 50L)
-      } yield Schedule.of(min, max, timestamp)
-    )
-}
 
 trait EvidenceGenerator {
 
@@ -94,31 +84,21 @@ trait IdentifierGenerator extends EvidenceGenerator {
     )
 }
 
-trait KnownIdentifierGenerator extends IdentifierGenerator {
+trait TransactionOutputAddressGenerator extends IdentifierGenerator {
 
-  implicit val arbitraryTransactionOutput32: Arbitrary[KnownIdentifier.TransactionOutput32] =
+  implicit val arbitraryTransactionOutputAddress: Arbitrary[TransactionOutputAddress] =
     Arbitrary(
       for {
         network <- Gen.chooseNum(0, 50)
         ledger  <- Gen.chooseNum(0, 50)
         index   <- Gen.chooseNum(0, 50)
         id      <- arbitraryIoTransaction32.arbitrary
-      } yield KnownIdentifier.TransactionOutput32.of(network, ledger, index, id)
-    )
-
-  implicit val arbitraryTransactionOutput64: Arbitrary[KnownIdentifier.TransactionOutput64] =
-    Arbitrary(
-      for {
-        network <- Gen.chooseNum(0, 50)
-        ledger  <- Gen.chooseNum(0, 50)
-        index   <- Gen.chooseNum(0, 50)
-        id      <- arbitraryIoTransaction64.arbitrary
-      } yield KnownIdentifier.TransactionOutput64.of(network, ledger, index, id)
+      } yield TransactionOutputAddress(network, ledger, index, TransactionOutputAddress.Id.IoTransaction32(id))
     )
 
 }
 
-trait EventGenerator extends TransactionGenerator with KnownIdentifierGenerator {
+trait EventGenerator extends TransactionGenerator with TransactionOutputAddressGenerator {
 
   implicit val arbitraryEventEon: Arbitrary[Event.Eon] =
     Arbitrary(
@@ -155,14 +135,10 @@ trait EventGenerator extends TransactionGenerator with KnownIdentifierGenerator 
     Arbitrary(
       for {
         schedule <- arbitrarySchedule.arbitrary
-        references32 <- Gen
-          .containerOfN[Seq, KnownIdentifier.TransactionOutput32](3, arbitraryTransactionOutput32.arbitrary)
-        references64 <- Gen
-          .containerOfN[Seq, KnownIdentifier.TransactionOutput64](3, arbitraryTransactionOutput64.arbitrary)
         metadata <- Gen.const(
           quivr.models.SmallData.of(ByteString.EMPTY)
         ) // TODO create Small Data generator: QuivrRepo
-      } yield Event.IoTransaction.of(schedule, references32, references64, metadata)
+      } yield Event.IoTransaction.of(schedule, metadata)
     )
 
   implicit val arbitraryEventSpentTransactionOutput: Arbitrary[Event.SpentTransactionOutput] =
@@ -222,6 +198,26 @@ trait DatumGenerator extends EventGenerator {
 
 }
 
-trait ModelGenerators extends DatumGenerator with KnownIdentifierGenerator with EvidenceGenerator with EventGenerator
+trait TransactionGenerator {
+
+  implicit val arbitrarySchedule: Arbitrary[Schedule] =
+    Arbitrary(
+      for {
+        min       <- Gen.chooseNum(0L, 50L)
+        max       <- Gen.chooseNum(0L, 50L)
+        timestamp <- Gen.chooseNum(0L, 50L)
+      } yield Schedule.of(min, max, timestamp)
+    )
+
+  implicit val arbitraryIoTransaction: Arbitrary[IoTransaction] =
+    Arbitrary(Gen.const(???)) // TODO
+}
+
+trait ModelGenerators
+    extends DatumGenerator
+    with TransactionOutputAddressGenerator
+    with EvidenceGenerator
+    with EventGenerator
+    with TransactionGenerator
 
 object ModelGenerators extends ModelGenerators

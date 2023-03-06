@@ -30,7 +30,7 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
     val result = validator
       .validate(testTx)
       .swap
-      .exists(_.toList.contains(TransactionSyntaxError.DuplicateInput(inputFull.knownIdentifier)))
+      .exists(_.toList.contains(TransactionSyntaxError.DuplicateInput(inputFull.address)))
     assertEquals(result, true)
   }
 
@@ -163,8 +163,6 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
           Event
             .IoTransaction(
               Schedule(3, 50, 100),
-              List(),
-              List(),
               SmallData(invalidData)
             )
         )
@@ -188,8 +186,6 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
             Event
               .IoTransaction(
                 Schedule(3, 50, 100),
-                List(),
-                List(),
                 SmallData()
               )
           )
@@ -208,8 +204,6 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
               Event
                 .IoTransaction(
                   Schedule(3, 50, 100),
-                  List(),
-                  List(),
                   SmallData(invalidData)
                 )
             )

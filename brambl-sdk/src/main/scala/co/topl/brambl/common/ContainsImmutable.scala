@@ -98,31 +98,30 @@ object ContainsImmutable {
       schedule.max.immutable
 
     implicit val spentOutputImmutable: ContainsImmutable[SpentTransactionOutput] = (stxo: SpentTransactionOutput) =>
-      stxo.knownIdentifier.immutable ++
+      stxo.address.immutable ++
       stxo.attestation.immutable ++
-      stxo.value.immutable ++
-      stxo.datum.immutable
+      stxo.value.immutable
 
     implicit val unspentOutputImmutable: ContainsImmutable[UnspentTransactionOutput] =
       (utxo: UnspentTransactionOutput) =>
         utxo.address.immutable ++
-        utxo.value.immutable ++
-        utxo.datum.immutable
+        utxo.value.immutable
 
     implicit val boxImmutable: ContainsImmutable[Box] = (box: Box) =>
       box.lock.immutable ++
       box.value.immutable
 
     implicit val valueImmutable: ContainsImmutable[Value] = _.value match {
-      case Value.Value.Lvl(v)   => v.immutable
-      case Value.Value.Topl(v)  => v.immutable
-      case Value.Value.Asset(v) => v.immutable
+      case Value.Value.Lvl(v)          => v.immutable
+      case Value.Value.Topl(v)         => v.immutable
+      case Value.Value.Asset(v)        => v.immutable
+      case Value.Value.Registration(v) => v.immutable
     }
 
     implicit val addressImmutable: ContainsImmutable[Address] = (address: Address) =>
       address.network.immutable ++
       address.ledger.immutable ++
-      address.identifier.immutable
+      address.id.immutable
 
     implicit val size32EvidenceImmutable: ContainsImmutable[Evidence.Sized32] =
       ev => ev.digest.immutable
@@ -197,32 +196,41 @@ object ContainsImmutable {
       case Identifier.Value.IoTransaction64(i)   => ioTransaction64IdentifierImmutable.immutableBytes(i)
     }
 
-    implicit val knownOutput32IdentifierImmutable: ContainsImmutable[KnownIdentifier.TransactionOutput32] =
-      (knownId: KnownIdentifier.TransactionOutput32) =>
-        knownId.network.immutable ++
-        knownId.ledger.immutable ++
-        knownId.index.immutable ++
-        knownId.id.immutable
+    implicit val transactionOutputAddressImmutable: ContainsImmutable[TransactionOutputAddress] =
+      v =>
+        v.network.immutable ++
+        v.ledger.immutable ++
+        v.index.immutable ++
+        v.id.immutable
 
-    implicit val knownOutput64IdentifierImmutable: ContainsImmutable[KnownIdentifier.TransactionOutput64] =
-      (knownId: KnownIdentifier.TransactionOutput64) =>
-        knownId.network.immutable ++
-        knownId.ledger.immutable ++
-        knownId.index.immutable ++
-        knownId.id.immutable
+    implicit val transactionOutputAddressIdImmutable: ContainsImmutable[TransactionOutputAddress.Id] = {
+      case TransactionOutputAddress.Id.IoTransaction32(id) => id.immutable
+      case TransactionOutputAddress.Id.IoTransaction64(id) => id.immutable
+      case e                                               => throw new MatchError(e)
+    }
 
-    implicit val knownIdentifierImmutable: ContainsImmutable[KnownIdentifier] = _.value match {
-      case KnownIdentifier.Value.TransactionOutput32(r) => knownOutput32IdentifierImmutable.immutableBytes(r)
-      case KnownIdentifier.Value.TransactionOutput64(r) => knownOutput64IdentifierImmutable.immutableBytes(r)
+    implicit val lockAddressImmutable: ContainsImmutable[LockAddress] =
+      v =>
+        v.network.immutable ++
+        v.ledger.immutable ++
+        v.id.immutable
+
+    implicit val lockAddressIdImmutable: ContainsImmutable[LockAddress.Id] = {
+      case LockAddress.Id.Lock32(id) => id.immutable
+      case LockAddress.Id.Lock64(id) => id.immutable
+      case e                         => throw new MatchError(e)
     }
 
     implicit val lvlValueImmutable: ContainsImmutable[Value.LVL] =
       _.quantity.immutable
 
     implicit val toplValueImmutable: ContainsImmutable[Value.TOPL] =
-      v =>
-        v.quantity.immutable ++
-        v.registration.immutable
+      v => v.quantity.immutable
+
+    implicit val assetValueImmutable: ContainsImmutable[Value.Asset] = (asset: Value.Asset) =>
+      asset.label.immutable ++
+      asset.quantity.immutable ++
+      asset.metadata.immutable
 
     implicit val signatureKesSumImmutable: ContainsImmutable[co.topl.consensus.models.SignatureKesSum] =
       v =>
@@ -236,10 +244,8 @@ object ContainsImmutable {
         v.subSignature.immutable ++
         v.subRoot.immutable
 
-    implicit val assetValueImmutable: ContainsImmutable[Value.Asset] = (asset: Value.Asset) =>
-      asset.label.immutable ++
-      asset.quantity.immutable ++
-      asset.metadata.immutable
+    implicit val registrationValueImmutable: ContainsImmutable[Value.Registration] =
+      v => v.registration.immutable
 
     // consider making predicate non-empty
     implicit val predicateLockImmutable: ContainsImmutable[Lock.Predicate] = (predicate: Lock.Predicate) =>
@@ -333,7 +339,6 @@ object ContainsImmutable {
     implicit val iotxEventImmutable: ContainsImmutable[Event.IoTransaction] =
       event =>
         event.schedule.immutable ++
-        event.references32.immutable ++
         event.metadata.immutable
 
     implicit val stxoEventImmutable: ContainsImmutable[Event.SpentTransactionOutput] =

@@ -1,7 +1,8 @@
 package co.topl.brambl.dataApi
 
+import co.topl.brambl.models.TransactionOutputAddress
 import co.topl.brambl.models.box.Box
-import co.topl.brambl.models.{Indices, KnownIdentifier}
+import co.topl.brambl.models.Indices
 import co.topl.brambl.routines.signatures.Signing
 import quivr.models.{KeyPair, Preimage}
 
@@ -17,15 +18,6 @@ import quivr.models.{KeyPair, Preimage}
 trait DataApi {
 
   /**
-   * Return the indices associated to a known identifier.
-   * Simplifying assumption is that KnownIdentifier and Indices are 1 to 1
-   *
-   * @param id The known identifier for which to retrieve the indices
-   * @return The indices associated to the known identifier if it exists. Else None
-   */
-  def getIndicesByKnownIdentifier(id: KnownIdentifier): Option[Indices]
-
-  /**
    * Return the box associated to a known identifier.
    *
    * A Box is created from a utxo. A KnownIdentifier combines an Identifier and an index. For the simple use-case,
@@ -37,7 +29,7 @@ trait DataApi {
    * @param id The known identifier for which to retrieve the box
    * @return The box associated to the known identifier if it exists. Else None
    */
-  def getBoxByKnownIdentifier(id: KnownIdentifier): Option[Box]
+  def getBoxByKnownIdentifier(id: TransactionOutputAddress): Option[Box]
 
   /**
    * Return the preimage secret associated to indices.

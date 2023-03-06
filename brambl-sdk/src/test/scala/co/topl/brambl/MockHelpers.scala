@@ -24,8 +24,6 @@ trait MockHelpers {
     Event
       .IoTransaction(
         Schedule(3, 50, 100),
-        List(),
-        List(),
         SmallData(ByteString.copyFrom("metadata".getBytes))
       )
   )
@@ -33,8 +31,13 @@ trait MockHelpers {
   // Arbitrary Transaction that any new transaction can reference
   val dummyTx: IoTransaction = IoTransaction(datum = txDatum)
 
-  val dummyTxIdentifier: KnownIdentifier.TransactionOutput32 =
-    KnownIdentifier.TransactionOutput32(0, 0, 0, Identifier.IoTransaction32(dummyTx.sized32Evidence))
+  val dummyTxIdentifier: TransactionOutputAddress =
+    TransactionOutputAddress(
+      0,
+      0,
+      0,
+      TransactionOutputAddress.Id.IoTransaction32(Identifier.IoTransaction32(dummyTx.sized32Evidence))
+    )
 
   val outDatum: Datum.UnspentOutput =
     Datum.UnspentOutput(Event.UnspentTransactionOutput(SmallData(ByteString.copyFrom("metadata".getBytes))))
@@ -48,9 +51,8 @@ trait MockHelpers {
   val trivialOutLock: Lock =
     Lock().withPredicate(Lock.Predicate(List(Proposer.tickProposer[Id].propose(5, 15)), 1))
 
-  val address: Address =
-    Address(0, 0, Identifier().withLock32(Identifier.Lock32(trivialOutLock.sized32Evidence)))
-  val knownId: KnownIdentifier = KnownIdentifier().withTransactionOutput32(dummyTxIdentifier)
+  val lockAddress: LockAddress =
+    LockAddress(0, 0, LockAddress.Id.Lock32(Identifier.Lock32(trivialOutLock.sized32Evidence)))
 
   val inLockFull: Lock.Predicate = Lock.Predicate(
     List(
@@ -91,12 +93,12 @@ trait MockHelpers {
     )
   )
 
-  val output: UnspentTransactionOutput = UnspentTransactionOutput(address, value, outDatum)
+  val output: UnspentTransactionOutput = UnspentTransactionOutput(lockAddress, value)
 
   val attFull: Attestation = Attestation().withPredicate(Attestation.Predicate(inLockFull, List()))
 
   val inputFull: SpentTransactionOutput =
-    SpentTransactionOutput(knownId, attFull, value, inDatum, List())
+    SpentTransactionOutput(dummyTxIdentifier, attFull, value)
 
   val txFull: IoTransaction = IoTransaction(List(inputFull), List(output), txDatum)
 }
