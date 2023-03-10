@@ -4,6 +4,7 @@ import co.topl.brambl.models._
 import co.topl.brambl.models.box.{Box, Lock, Value}
 import co.topl.brambl.models.common.ImmutableBytes
 import co.topl.brambl.models.transaction._
+import co.topl.consensus.models.StakingAddress
 import co.topl.quivr.Tokens
 import com.google.protobuf.ByteString
 import quivr.models._
@@ -226,8 +227,11 @@ object ContainsImmutable {
     implicit val lvlValueImmutable: ContainsImmutable[Value.LVL] =
       _.quantity.immutable
 
+    implicit val stakingAddressImmutable: ContainsImmutable[StakingAddress] =
+      _.value.immutable
+
     implicit val toplValueImmutable: ContainsImmutable[Value.TOPL] =
-      v => v.quantity.immutable
+      v => v.quantity.immutable ++ v.stakingAddress.immutable
 
     implicit val assetValueImmutable: ContainsImmutable[Value.Asset] = (asset: Value.Asset) =>
       asset.label.immutable ++
@@ -247,7 +251,7 @@ object ContainsImmutable {
         v.subRoot.immutable
 
     implicit val registrationValueImmutable: ContainsImmutable[Value.Registration] =
-      v => v.registration.immutable
+      v => v.registration.immutable ++ v.stakingAddress.immutable
 
     // consider making predicate non-empty
     implicit val predicateLockImmutable: ContainsImmutable[Lock.Predicate] = (predicate: Lock.Predicate) =>

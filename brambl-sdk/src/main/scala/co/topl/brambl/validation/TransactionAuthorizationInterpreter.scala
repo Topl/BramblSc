@@ -118,7 +118,7 @@ object TransactionAuthorizationInterpreter {
         context:      DynamicContext[F, String, Datum]
       )(implicit verifier: Verifier[F, Datum]): F[Either[TransactionAuthorizationError, Boolean]] =
         if (threshold === 0) true.asRight[TransactionAuthorizationError].pure[F]
-        else if (threshold >= propositions.size)
+        else if (threshold > propositions.size)
           Either
             .left[TransactionAuthorizationError, Boolean](TransactionAuthorizationError.AuthorizationFailed())
             .pure[F]
