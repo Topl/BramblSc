@@ -24,6 +24,9 @@ object MockDataApi extends DataApi with MockHelpers {
     dummyTxIdentifier -> Indices(0, 0, 0)
   )
 
+  override def getIndicesByKnownIdentifier(id: TransactionOutputAddress): Option[Indices] =
+    idToIdx.get(id)
+
   override def getBoxByKnownIdentifier(id: TransactionOutputAddress): Option[Box] = idToIdx
     .get(id)
     .flatMap(idxToLocks.get)

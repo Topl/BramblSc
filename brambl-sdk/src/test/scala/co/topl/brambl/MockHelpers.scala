@@ -72,7 +72,7 @@ trait MockHelpers {
           (
             // Hardcoding Ed25519Signature
             Ed25519Signature.routine,
-            Ed25519Signature.createKeyPair(MockSecret).vk // Get will be removed once validation rules are in place
+            Ed25519Signature.createKeyPair(MockSecret).vk
           )
         ),
       Proposer.heightProposer[Id].propose(("header", 0, 100)),

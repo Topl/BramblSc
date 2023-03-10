@@ -18,6 +18,15 @@ import quivr.models.{KeyPair, Preimage}
 trait DataApi {
 
   /**
+   * Return the indices associated to a known identifier.
+   * Simplifying assumption is that KnownIdentifier and Indices are 1 to 1
+   *
+   * @param id The known identifier for which to retrieve the indices
+   * @return The indices associated to the known identifier if it exists. Else None
+   */
+  def getIndicesByKnownIdentifier(id: TransactionOutputAddress): Option[Indices]
+
+  /**
    * Return the box associated to a known identifier.
    *
    * A Box is created from a utxo. A KnownIdentifier combines an Identifier and an index. For the simple use-case,

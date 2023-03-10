@@ -5,7 +5,6 @@ import co.topl.brambl.models.transaction.IoTransaction
 import co.topl.brambl.{Context, MockDataApi, MockHelpers}
 import co.topl.brambl.common.ContainsSignable.ContainsSignableTOps
 import co.topl.brambl.common.ContainsSignable.instances._
-import co.topl.brambl.models.TransactionOutputAddress
 import co.topl.brambl.models.box.Value
 import co.topl.brambl.validation.TransactionAuthorizationError.AuthorizationFailed
 import co.topl.brambl.validation.TransactionSyntaxError

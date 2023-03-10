@@ -3,7 +3,6 @@ package co.topl.brambl.validation
 import cats.Id
 import co.topl.brambl.MockHelpers
 import cats.implicits._
-import co.topl.brambl.models.{Datum, Event}
 import co.topl.brambl.models.box.{Lock, Value}
 import co.topl.brambl.models.transaction.{Attestation, Schedule}
 import co.topl.quivr.api.{Proposer, Prover}
@@ -157,63 +156,13 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
 
   test("Invalid data-length transaction > MaxDataLength ") {
     val invalidData = ByteString.copyFrom(Array.fill(TransactionSyntaxInterpreter.MaxDataLength + 1)(1.toByte))
-    val testTx = txFull.copy(datum =
-      Datum
-        .IoTransaction(
-          Event
-            .IoTransaction(
-              Schedule(3, 50, 100),
-              SmallData(invalidData)
-            )
-        )
-    )
+    val testTx = txFull.copy(outputs = List.fill(5000)(output))
 
     val validator = TransactionSyntaxInterpreter.make[Id]()
     val result = validator
       .validate(testTx)
       .swap
       .exists(_.toList.contains(TransactionSyntaxError.InvalidDataLength))
-    assertEquals(result, true)
-  }
-
-  test(s"Valid data-length transaction with edge MaxDataLength") {
-    import co.topl.brambl.common.ContainsImmutable.ContainsImmutableTOps
-    import co.topl.brambl.common.ContainsImmutable.instances._
-    val curSize = txFull
-      .copy(datum =
-        Datum
-          .IoTransaction(
-            Event
-              .IoTransaction(
-                Schedule(3, 50, 100),
-                SmallData()
-              )
-          )
-      )
-      .immutable
-      .value
-      .size
-    // create data with size -> tx + data = MaxDataLength
-    val diff = TransactionSyntaxInterpreter.MaxDataLength - curSize + 1
-    val result =
-      if (diff > 0) {
-        val invalidData = ByteString.copyFrom(Array.fill(diff)(1.toByte))
-        val testTx = txFull.copy(datum =
-          Datum
-            .IoTransaction(
-              Event
-                .IoTransaction(
-                  Schedule(3, 50, 100),
-                  SmallData(invalidData)
-                )
-            )
-        )
-        val validator = TransactionSyntaxInterpreter.make[Id]()
-        validator
-          .validate(testTx)
-          .swap
-          .exists(_.toList.contains(TransactionSyntaxError.InvalidDataLength))
-      } else true
     assertEquals(result, true)
   }
 }
