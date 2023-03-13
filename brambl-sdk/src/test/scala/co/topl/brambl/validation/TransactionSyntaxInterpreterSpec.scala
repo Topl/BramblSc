@@ -1,13 +1,20 @@
 package co.topl.brambl.validation
 
 import cats.Id
-import co.topl.brambl.MockHelpers
 import cats.implicits._
-import co.topl.brambl.models.box.{Lock, Value}
-import co.topl.brambl.models.transaction.{Attestation, Schedule}
-import co.topl.quivr.api.{Proposer, Prover}
+import co.topl.brambl.MockHelpers
+import co.topl.brambl.models.box.Attestation
+import co.topl.brambl.models.box.Challenge
+import co.topl.brambl.models.box.Lock
+import co.topl.brambl.models.box.Value
+import co.topl.brambl.models.transaction.Schedule
+import co.topl.quivr.api.Proposer
+import co.topl.quivr.api.Prover
 import com.google.protobuf.ByteString
-import quivr.models.{Int128, Proof, Proposition, SmallData}
+import quivr.models.Int128
+import quivr.models.Proof
+import quivr.models.Proposition
+import quivr.models.SmallData
 
 import scala.language.implicitConversions
 
@@ -119,7 +126,7 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
   }
 
   test("validate proof types: Lock.Predicate") {
-    val challenges: Seq[Proposition] = List(
+    val propositions: Seq[Proposition] = List(
       Proposer.LockedProposer[Id].propose(None),
       Proposer.heightProposer[Id].propose(("header", 0, 100)),
       Proposer.tickProposer[Id].propose((0, 100)),
@@ -134,7 +141,9 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
     val testTx = txFull.copy(inputs =
       txFull.inputs.map(
         _.copy(attestation =
-          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(challenges, 1), responses))
+          Attestation().withPredicate(
+            Attestation.Predicate(Lock.Predicate(propositions.map(Challenge().withRevealed), 1), responses)
+          )
         )
       )
     )
@@ -142,7 +151,7 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
     def testError(error: TransactionSyntaxError) = error match {
       case TransactionSyntaxError.InvalidProofType(challenge, response) =>
         // First challenge is mismatched so we expect the error
-        if (challenge == challenges.head && response == responses.head) true else false
+        if (challenge == propositions.head && response == responses.head) true else false
       case _ => false // We don't expect any other errors
     }
 

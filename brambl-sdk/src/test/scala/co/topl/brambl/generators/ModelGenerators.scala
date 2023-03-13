@@ -2,17 +2,22 @@ package co.topl.brambl.generators
 
 import co.topl.brambl.models.LockAddress
 import co.topl.brambl.models.TransactionOutputAddress
+import co.topl.brambl.models.box.Attestation
 import co.topl.brambl.models.box.Lock
 import co.topl.brambl.models.box.Value
-import co.topl.brambl.models.transaction.Attestation
 import co.topl.brambl.models.transaction.IoTransaction
-import co.topl.brambl.models.{Datum, Event, Evidence, Identifier}
 import co.topl.brambl.models.transaction.Schedule
 import co.topl.brambl.models.transaction.SpentTransactionOutput
 import co.topl.brambl.models.transaction.UnspentTransactionOutput
-import co.topl.quivr.generators.ModelGenerators.{arbitraryDigest32, arbitraryDigest64}
+import co.topl.brambl.models.Datum
+import co.topl.brambl.models.Event
+import co.topl.brambl.models.Evidence
+import co.topl.brambl.models.Identifier
+import co.topl.quivr.generators.ModelGenerators.arbitraryDigest32
+import co.topl.quivr.generators.ModelGenerators.arbitraryDigest64
 import com.google.protobuf.ByteString
-import org.scalacheck.{Arbitrary, Gen}
+import org.scalacheck.Arbitrary
+import org.scalacheck.Gen
 import quivr.models.Int128
 import quivr.models.Proof
 
@@ -49,20 +54,6 @@ trait IdentifierGenerator extends EvidenceGenerator {
       for {
         evidence <- arbitraryEvidenceSized64.arbitrary
       } yield Identifier.Lock64.of(evidence)
-    )
-
-  implicit val arbitraryBoxValue32: Arbitrary[Identifier.BoxValue32] =
-    Arbitrary(
-      for {
-        evidence <- arbitraryEvidenceSized32.arbitrary
-      } yield Identifier.BoxValue32.of(evidence)
-    )
-
-  implicit val arbitraryBoxValue64: Arbitrary[Identifier.BoxValue64] =
-    Arbitrary(
-      for {
-        evidence <- arbitraryEvidenceSized64.arbitrary
-      } yield Identifier.BoxValue64.of(evidence)
     )
 
   implicit val arbitraryIoTransaction32: Arbitrary[Identifier.IoTransaction32] =
@@ -203,33 +194,6 @@ trait EventGenerator extends TransactionOutputAddressGenerator {
       } yield Event.IoTransaction.of(schedule, metadata)
     )
 
-  implicit val arbitraryEventSpentTransactionOutput: Arbitrary[Event.SpentTransactionOutput] =
-    Arbitrary(
-      for {
-        metadata <- Gen.const(
-          quivr.models.SmallData.of(ByteString.EMPTY)
-        ) // TODO create Small Data generator: QuivrRepo
-      } yield Event.SpentTransactionOutput.of(metadata)
-    )
-
-  implicit val arbitraryEventUnspentTransactionOutput: Arbitrary[Event.UnspentTransactionOutput] =
-    Arbitrary(
-      for {
-        metadata <- Gen.const(
-          quivr.models.SmallData.of(ByteString.EMPTY)
-        ) // TODO create Small Data generator: QuivrRepo
-      } yield Event.UnspentTransactionOutput.of(metadata)
-    )
-
-  implicit val arbitraryEventRoot: Arbitrary[Event.Root] =
-    Arbitrary(
-      for {
-        value <- Gen.const(
-          quivr.models.Root.of(quivr.models.Root.Value.Empty)
-        ) // TODO create Root generator: QuivrRepo
-      } yield Event.Root.of(value)
-    )
-
 }
 
 trait DatumGenerator extends EventGenerator {
@@ -246,17 +210,8 @@ trait DatumGenerator extends EventGenerator {
   implicit val genDatumHeader: Gen[Datum.Header] =
     implicitly[Arbitrary[Event.Header]].arbitrary.map(Datum.Header.of)
 
-  implicit val genDatumRoot: Gen[Datum.Root] =
-    implicitly[Arbitrary[Event.Root]].arbitrary.map(Datum.Root.of)
-
   implicit val genDatumIoTransaction: Gen[Datum.IoTransaction] =
     implicitly[Arbitrary[Event.IoTransaction]].arbitrary.map(Datum.IoTransaction.of)
-
-  implicit val genDatumSpentOutput: Gen[Datum.SpentOutput] =
-    implicitly[Arbitrary[Event.SpentTransactionOutput]].arbitrary.map(Datum.SpentOutput.of)
-
-  implicit val genDatumUnspentOutput: Gen[Datum.UnspentOutput] =
-    implicitly[Arbitrary[Event.UnspentTransactionOutput]].arbitrary.map(Datum.UnspentOutput.of)
 
 }
 

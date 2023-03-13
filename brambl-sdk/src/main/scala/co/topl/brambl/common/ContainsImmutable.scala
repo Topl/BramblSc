@@ -1,6 +1,8 @@
 package co.topl.brambl.common
 
 import co.topl.brambl.models._
+import co.topl.brambl.models.box.Attestation
+import co.topl.brambl.models.box.Challenge
 import co.topl.brambl.models.box.{Box, Lock, Value}
 import co.topl.brambl.models.common.ImmutableBytes
 import co.topl.brambl.models.transaction._
@@ -63,6 +65,7 @@ object ContainsImmutable {
     implicit val rootImmutable: ContainsImmutable[Root] = _.value match {
       case Root.Value.Root32(v) => v.immutable
       case Root.Value.Root64(v) => v.immutable
+      case e                    => throw new MatchError(e)
     }
 
     implicit val verificationKeyImmutable: ContainsImmutable[VerificationKey] = _.value.immutable
@@ -74,20 +77,15 @@ object ContainsImmutable {
       case Datum.Value.Era(v)           => v.immutable
       case Datum.Value.Epoch(v)         => v.immutable
       case Datum.Value.Header(v)        => v.immutable
-      case Datum.Value.Root(v)          => v.immutable
       case Datum.Value.IoTransaction(v) => v.immutable
-      case Datum.Value.SpentOutput(v)   => v.immutable
-      case Datum.Value.UnspentOutput(v) => v.immutable
+      case e                            => throw new MatchError(e)
     }
 
     implicit val eonDatumImmutable: ContainsImmutable[Datum.Eon] = _.event.immutable
     implicit val eraDatumImmutable: ContainsImmutable[Datum.Era] = _.event.immutable
     implicit val epochDatumImmutable: ContainsImmutable[Datum.Epoch] = _.event.immutable
     implicit val headerDatumImmutable: ContainsImmutable[Datum.Header] = _.event.immutable
-    implicit val rootDatumImmutable: ContainsImmutable[Datum.Root] = _.event.immutable
     implicit val ioTransactionDatumImmutable: ContainsImmutable[Datum.IoTransaction] = _.event.immutable
-    implicit val spentOutputDatumImmutable: ContainsImmutable[Datum.SpentOutput] = _.event.immutable
-    implicit val unspentOutputDatumImmutable: ContainsImmutable[Datum.UnspentOutput] = _.event.immutable
 
     implicit val ioTransactionImmutable: ContainsImmutable[IoTransaction] = (iotx: IoTransaction) =>
       iotx.inputs.immutable ++
@@ -135,6 +133,7 @@ object ContainsImmutable {
     implicit val evidenceImmutable: ContainsImmutable[Evidence] = _.value match {
       case Evidence.Value.Sized32(e) => size32EvidenceImmutable.immutableBytes(e)
       case Evidence.Value.Sized64(e) => size64EvidenceImmutable.immutableBytes(e)
+      case e                         => throw new MatchError(e)
     }
 
     implicit val digest32Immutable: ContainsImmutable[Digest.Digest32] = _.value.immutable
@@ -143,6 +142,7 @@ object ContainsImmutable {
     implicit val digestImmutable: ContainsImmutable[Digest] = _.value match {
       case Digest.Value.Digest32(v) => v.immutable
       case Digest.Value.Digest64(v) => v.immutable
+      case e                        => throw new MatchError(e)
     }
 
     implicit val preimageImmutable: ContainsImmutable[Preimage] = (pre: Preimage) =>
@@ -168,16 +168,6 @@ object ContainsImmutable {
         Tags.Identifier.Lock64.immutable ++
         id.evidence.immutable
 
-    implicit val boxValue32IdentifierImmutable: ContainsImmutable[Identifier.BoxValue32] =
-      id =>
-        Tags.Identifier.BoxValue32.immutable ++
-        id.evidence.immutable
-
-    implicit val boxValue64IdentifierImmutable: ContainsImmutable[Identifier.BoxValue64] =
-      id =>
-        Tags.Identifier.BoxValue64.immutable ++
-        id.evidence.immutable
-
     implicit val ioTransaction32IdentifierImmutable: ContainsImmutable[Identifier.IoTransaction32] =
       id =>
         Tags.Identifier.IoTransaction32.immutable ++
@@ -193,10 +183,9 @@ object ContainsImmutable {
       case Identifier.Value.AccumulatorRoot64(i) => accumulatorRoot64IdentifierImmutable.immutableBytes(i)
       case Identifier.Value.Lock32(i)            => boxLock32IdentifierImmutable.immutableBytes(i)
       case Identifier.Value.Lock64(i)            => boxLock64IdentifierImmutable.immutableBytes(i)
-      case Identifier.Value.BoxValue32(i)        => boxValue32IdentifierImmutable.immutableBytes(i)
-      case Identifier.Value.BoxValue64(i)        => boxValue64IdentifierImmutable.immutableBytes(i)
       case Identifier.Value.IoTransaction32(i)   => ioTransaction32IdentifierImmutable.immutableBytes(i)
       case Identifier.Value.IoTransaction64(i)   => ioTransaction64IdentifierImmutable.immutableBytes(i)
+      case e                                     => throw new MatchError(e)
     }
 
     implicit val transactionOutputAddressImmutable: ContainsImmutable[TransactionOutputAddress] =
@@ -282,6 +271,7 @@ object ContainsImmutable {
       case Lock.Value.Image64(l)      => image64LockImmutable.immutableBytes(l)
       case Lock.Value.Commitment32(l) => commitment32LockImmutable.immutableBytes(l)
       case Lock.Value.Commitment64(l) => commitment64LockImmutable.immutableBytes(l)
+      case e                          => throw new MatchError(e)
     }
 
     implicit val predicateAttestationImmutable: ContainsImmutable[Attestation.Predicate] =
@@ -319,7 +309,31 @@ object ContainsImmutable {
       case Attestation.Value.Image64(a)      => image64AttestationImmutable.immutableBytes(a)
       case Attestation.Value.Commitment32(a) => commitment32AttestationImmutable.immutableBytes(a)
       case Attestation.Value.Commitment64(a) => commitment64AttestationImmutable.immutableBytes(a)
+      case e                                 => throw new MatchError(e)
     }
+
+    implicit val transactionInputAddressIdContainsImmutable: ContainsImmutable[TransactionInputAddress.Id] = {
+      case TransactionInputAddress.Id.IoTransaction32(id) => id.immutable
+      case TransactionInputAddress.Id.IoTransaction64(id) => id.immutable
+      case e                                              => throw new MatchError(e)
+    }
+
+    implicit val transactionInputAddressContainsImmutable: ContainsImmutable[TransactionInputAddress] =
+      v =>
+        v.network.immutable ++
+        v.ledger.immutable ++
+        v.index.immutable ++
+        v.id.immutable
+
+    implicit val previousPropositionChallengeContainsImmutable: ContainsImmutable[Challenge.PreviousProposition] =
+      p => p.address.immutable ++ p.index.immutable
+
+    implicit val challengeContainsImmutable: ContainsImmutable[Challenge] =
+      _.proposition match {
+        case Challenge.Proposition.Revealed(p) => p.immutable
+        case Challenge.Proposition.Previous(p) => p.immutable
+        case e                                 => throw new MatchError(e)
+      }
 
     implicit val eonEventImmutable: ContainsImmutable[Event.Eon] =
       event =>
@@ -339,29 +353,18 @@ object ContainsImmutable {
     implicit val headerEventImmutable: ContainsImmutable[Event.Header] =
       event => event.height.immutable
 
-    implicit val rootEventImmutable: ContainsImmutable[Event.Root] =
-      event => event.value.immutable
-
     implicit val iotxEventImmutable: ContainsImmutable[Event.IoTransaction] =
       event =>
         event.schedule.immutable ++
         event.metadata.immutable
 
-    implicit val stxoEventImmutable: ContainsImmutable[Event.SpentTransactionOutput] =
-      event => event.metadata.immutable
-
-    implicit val utxoEventImmutable: ContainsImmutable[Event.UnspentTransactionOutput] =
-      event => event.metadata.immutable
-
     implicit val eventImmutable: ContainsImmutable[Event] = _.value match {
-      case Event.Value.Eon(e)                      => eonEventImmutable.immutableBytes(e)
-      case Event.Value.Era(e)                      => eraEventImmutable.immutableBytes(e)
-      case Event.Value.Epoch(e)                    => epochEventImmutable.immutableBytes(e)
-      case Event.Value.Header(e)                   => headerEventImmutable.immutableBytes(e)
-      case Event.Value.Root(e)                     => rootEventImmutable.immutableBytes(e)
-      case Event.Value.IoTransaction(e)            => iotxEventImmutable.immutableBytes(e)
-      case Event.Value.SpentTransactionOutput(e)   => stxoEventImmutable.immutableBytes(e)
-      case Event.Value.UnspentTransactionOutput(e) => utxoEventImmutable.immutableBytes(e)
+      case Event.Value.Eon(e)           => eonEventImmutable.immutableBytes(e)
+      case Event.Value.Era(e)           => eraEventImmutable.immutableBytes(e)
+      case Event.Value.Epoch(e)         => epochEventImmutable.immutableBytes(e)
+      case Event.Value.Header(e)        => headerEventImmutable.immutableBytes(e)
+      case Event.Value.IoTransaction(e) => iotxEventImmutable.immutableBytes(e)
+      case e                            => throw new MatchError(e)
     }
 
     implicit val txBindImmutable: ContainsImmutable[TxBind] = _.value.immutable
@@ -494,6 +497,7 @@ object ContainsImmutable {
       case Proposition.Value.Not(p)              => notImmutable.immutableBytes(p)
       case Proposition.Value.And(p)              => andImmutable.immutableBytes(p)
       case Proposition.Value.Or(p)               => orImmutable.immutableBytes(p)
+      case e                                     => throw new MatchError(e)
     }
 
     implicit val proofImmutable: ContainsImmutable[Proof] = _.value match {
@@ -511,6 +515,7 @@ object ContainsImmutable {
       case Proof.Value.And(p)              => andProofImmutable.immutableBytes(p)
       case Proof.Value.Or(p)               => orProofImmutable.immutableBytes(p)
       case Proof.Value.Empty               => Array.emptyByteArray
+      case e                               => throw new MatchError(e)
     }
   }
   object instances extends Instances

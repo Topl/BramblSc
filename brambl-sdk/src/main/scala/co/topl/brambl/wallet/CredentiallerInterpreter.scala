@@ -2,7 +2,6 @@ package co.topl.brambl.wallet
 
 import cats.Monad
 import cats.implicits._
-import co.topl.brambl.models.transaction.Attestation
 import co.topl.brambl.models.transaction.IoTransaction
 import co.topl.brambl.models.transaction.SpentTransactionOutput
 import co.topl.brambl.routines.signatures.Ed25519Signature
@@ -18,6 +17,7 @@ import quivr.models.Proposition
 import quivr.models.SignableBytes
 import co.topl.brambl.models.Indices
 import cats.data.EitherT
+import co.topl.brambl.models.box.Attestation
 
 object CredentiallerInterpreter {
 
@@ -104,6 +104,8 @@ object CredentiallerInterpreter {
       val attestation: F[Attestation] = input.attestation.value match {
         case Attestation.Value.Predicate(Attestation.Predicate(predLock, _, _)) =>
           predLock.challenges
+            // TODO: Fix .getRevealed
+            .map(_.getRevealed)
             .map(getProof(msg, _, idx))
             .sequence
             .map(proofs => Attestation().withPredicate(Attestation.Predicate(predLock, proofs)))

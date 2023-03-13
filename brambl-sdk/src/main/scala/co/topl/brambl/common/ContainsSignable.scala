@@ -3,8 +3,9 @@ package co.topl.brambl.common
 import quivr.models._
 import ContainsImmutable.instances._
 import ContainsImmutable._
+import co.topl.brambl.models.box.Attestation
 import co.topl.brambl.models.common.ImmutableBytes
-import co.topl.brambl.models.transaction.{Attestation, IoTransaction, SpentTransactionOutput}
+import co.topl.brambl.models.transaction.{IoTransaction, SpentTransactionOutput}
 
 import scala.language.implicitConversions
 // Long -> longSignable -> longSignableEvidence -> longSignableEvidenceId

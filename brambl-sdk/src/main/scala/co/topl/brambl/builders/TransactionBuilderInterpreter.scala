@@ -6,22 +6,16 @@ import cats.data.Validated
 import cats.implicits._
 import cats.implicits.catsSyntaxApplicativeId
 import cats.implicits.toFlatMapOps
-import co.topl.brambl.common.ContainsEvidence.Ops
-import co.topl.brambl.common.ContainsImmutable.instances._
 import co.topl.brambl.dataApi.DataApi
-import co.topl.brambl.models.LockAddress
 import co.topl.brambl.models.TransactionOutputAddress
 import co.topl.brambl.models.box.Lock
 import co.topl.brambl.models.builders.InputBuildRequest
 import co.topl.brambl.models.builders.OutputBuildRequest
-import co.topl.brambl.models.transaction.Attestation
-import co.topl.brambl.models.transaction.IoTransaction
-import co.topl.brambl.models.transaction.Schedule
-import co.topl.brambl.models.transaction.SpentTransactionOutput
+import co.topl.brambl.models.box.Attestation
+import co.topl.brambl.models.transaction._
 import co.topl.brambl.models.transaction.UnspentTransactionOutput
 import co.topl.brambl.models.Datum
 import co.topl.brambl.models.Event
-import co.topl.brambl.models.Identifier
 import quivr.models.Proof
 import quivr.models.SmallData
 
@@ -35,7 +29,6 @@ object TransactionBuilderInterpreter {
       val box = dataApi.getBoxByKnownIdentifier(data.address)
       val attestation = box.map(_.lock).map(constructUnprovenAttestation)
       val value = box.map(_.value)
-      val datum = Datum.SpentOutput(Event.SpentTransactionOutput(data.metadata.getOrElse(SmallData())))
       (attestation, value) match {
         case (Some(Right(att)), Some(boxVal)) =>
           SpentTransactionOutput(data.address, att, boxVal)
@@ -54,15 +47,10 @@ object TransactionBuilderInterpreter {
 
     override def constructOutput(
       data: OutputBuildRequest
-    ): F[Either[BuilderError.OutputBuilderError, UnspentTransactionOutput]] = {
-      // TODO: Replace with non-hardcoded values
-      val Network = 0
-      val Ledger = 0
-      val address = LockAddress(Network, Ledger, LockAddress.Id.Lock32(Identifier.Lock32(data.lock.sized32Evidence)))
-      UnspentTransactionOutput(address, data.value)
+    ): F[Either[BuilderError.OutputBuilderError, UnspentTransactionOutput]] =
+      UnspentTransactionOutput(data.address, data.value)
         .asRight[BuilderError.OutputBuilderError]
         .pure[F]
-    }
 
     override def constructUnprovenTransaction(
       inputRequests:  List[InputBuildRequest],

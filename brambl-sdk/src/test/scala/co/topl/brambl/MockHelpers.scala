@@ -7,13 +7,20 @@ import co.topl.brambl.common.ContainsImmutable.instances._
 import co.topl.brambl.common.ContainsSignable.ContainsSignableTOps
 import co.topl.brambl.common.ContainsSignable.instances._
 import co.topl.brambl.models._
-import co.topl.brambl.models.box.{Lock, Value}
+import co.topl.brambl.models.box.Attestation
+import co.topl.brambl.models.box.Challenge
+import co.topl.brambl.models.box.Lock
+import co.topl.brambl.models.box.Value
 import co.topl.brambl.models.transaction._
 import co.topl.brambl.routines.digests.Blake2b256Digest
 import co.topl.brambl.routines.signatures.Ed25519Signature
-import co.topl.quivr.api.{Proposer, Prover}
+import co.topl.quivr.api.Proposer
+import co.topl.quivr.api.Prover
 import com.google.protobuf.ByteString
-import quivr.models.{Int128, Preimage, SignableBytes, SmallData}
+import quivr.models.Int128
+import quivr.models.Preimage
+import quivr.models.SignableBytes
+import quivr.models.SmallData
 
 trait MockHelpers {
 
@@ -39,17 +46,11 @@ trait MockHelpers {
       TransactionOutputAddress.Id.IoTransaction32(Identifier.IoTransaction32(dummyTx.sized32Evidence))
     )
 
-  val outDatum: Datum.UnspentOutput =
-    Datum.UnspentOutput(Event.UnspentTransactionOutput(SmallData(ByteString.copyFrom("metadata".getBytes))))
-
-  val inDatum: Datum.SpentOutput =
-    Datum.SpentOutput(Event.SpentTransactionOutput(SmallData(ByteString.copyFrom("metadata".getBytes))))
-
   val value: Value =
     Value().withLvl(Value.LVL(Int128(ByteString.copyFrom(BigInt(1).toByteArray))))
 
   val trivialOutLock: Lock =
-    Lock().withPredicate(Lock.Predicate(List(Proposer.tickProposer[Id].propose(5, 15)), 1))
+    Lock().withPredicate(Lock.Predicate(List(Challenge().withRevealed(Proposer.tickProposer[Id].propose(5, 15))), 1))
 
   val lockAddress: LockAddress =
     LockAddress(0, 0, LockAddress.Id.Lock32(Identifier.Lock32(trivialOutLock.sized32Evidence)))
@@ -77,7 +78,8 @@ trait MockHelpers {
         ),
       Proposer.heightProposer[Id].propose(("header", 0, 100)),
       Proposer.tickProposer[Id].propose((0, 100))
-    ),
+    )
+      .map(Challenge().withRevealed),
     3
   )
   val fakeMsgBind: SignableBytes = "transaction binding".getBytes.immutable.signable

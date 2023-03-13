@@ -78,14 +78,26 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
       errs.tail.head
         .asInstanceOf[AuthorizationFailed]
         .errors
-        .contains(EvaluationAuthorizationFailed(provenAttestation.lock.challenges(3), provenAttestation.responses(3))),
+        // TODO: fix .getRevealed
+        .contains(
+          EvaluationAuthorizationFailed(
+            provenAttestation.lock.challenges(3).getRevealed,
+            provenAttestation.responses(3)
+          )
+        ),
       s"AuthorizationFailed error expects Height error. Received: ${errs.tail.head.asInstanceOf[AuthorizationFailed].errors}"
     )
     assert(
       errs.tail.head
         .asInstanceOf[AuthorizationFailed]
         .errors
-        .contains(EvaluationAuthorizationFailed(provenAttestation.lock.challenges(4), provenAttestation.responses(4))),
+        // TODO: fix .getRevealed
+        .contains(
+          EvaluationAuthorizationFailed(
+            provenAttestation.lock.challenges(4).getRevealed,
+            provenAttestation.responses(4)
+          )
+        ),
       s"AuthorizationFailed error expects Tick error. Received: ${errs.tail.head.asInstanceOf[AuthorizationFailed].errors}"
     )
   }
