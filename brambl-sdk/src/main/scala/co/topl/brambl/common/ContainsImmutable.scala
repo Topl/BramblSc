@@ -94,8 +94,7 @@ object ContainsImmutable {
 
     implicit val iotxScheduleImmutable: ContainsImmutable[Schedule] = (schedule: Schedule) =>
       schedule.min.immutable ++
-      schedule.max.immutable ++
-      schedule.timestamp.immutable
+      schedule.max.immutable
 
     implicit val spentOutputImmutable: ContainsImmutable[SpentTransactionOutput] = (stxo: SpentTransactionOutput) =>
       stxo.address.immutable ++
