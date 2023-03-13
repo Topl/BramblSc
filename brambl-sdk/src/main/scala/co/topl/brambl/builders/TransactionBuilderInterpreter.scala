@@ -26,9 +26,9 @@ object TransactionBuilderInterpreter {
     override def constructUnprovenInput(
       data: InputBuildRequest
     ): F[Either[BuilderError.InputBuilderError, SpentTransactionOutput]] = {
-      val box = dataApi.getBoxByKnownIdentifier(data.address)
-      val attestation = box.map(_.lock).map(constructUnprovenAttestation)
-      val value = box.map(_.value)
+      val utxo = dataApi.getUtxoByTxoAddress(data.address)
+      val attestation = utxo.map(_.address).flatMap(dataApi.getLockByLockAddress).map(constructUnprovenAttestation)
+      val value = utxo.map(_.value)
       (attestation, value) match {
         case (Some(Right(att)), Some(boxVal)) =>
           SpentTransactionOutput(data.address, att, boxVal)
