@@ -38,21 +38,23 @@ trait MockHelpers {
   // Arbitrary Transaction that any new transaction can reference
   val dummyTx: IoTransaction = IoTransaction(datum = txDatum)
 
-  val dummyTxIdentifier: TransactionOutputAddress =
+  val dummyTxIdentifier: Identifier.IoTransaction32 = Identifier.IoTransaction32(dummyTx.sized32Evidence)
+
+  val dummyTxoAddress: TransactionOutputAddress =
     TransactionOutputAddress(
       0,
       0,
       0,
-      TransactionOutputAddress.Id.IoTransaction32(Identifier.IoTransaction32(dummyTx.sized32Evidence))
+      TransactionOutputAddress.Id.IoTransaction32(dummyTxIdentifier)
     )
 
   val value: Value =
-    Value().withLvl(Value.LVL(Int128(ByteString.copyFrom(BigInt(1).toByteArray))))
+    Value.defaultInstance.withLvl(Value.LVL(Int128(ByteString.copyFrom(BigInt(1).toByteArray))))
 
   val trivialOutLock: Lock =
     Lock().withPredicate(Lock.Predicate(List(Challenge().withRevealed(Proposer.tickProposer[Id].propose(5, 15))), 1))
 
-  val lockAddress: LockAddress =
+  val trivialLockAddress: LockAddress =
     LockAddress(0, 0, LockAddress.Id.Lock32(Identifier.Lock32(trivialOutLock.sized32Evidence)))
 
   val inLockFull: Lock.Predicate = Lock.Predicate(
@@ -82,6 +84,10 @@ trait MockHelpers {
       .map(Challenge().withRevealed),
     3
   )
+
+  val trivialInLockFullAddress: LockAddress =
+    LockAddress(0, 0, LockAddress.Id.Lock32(Identifier.Lock32(inLockFull.sized32Evidence)))
+
   val fakeMsgBind: SignableBytes = "transaction binding".getBytes.immutable.signable
 
   val nonEmptyAttestation: Attestation = Attestation().withPredicate(
@@ -95,12 +101,11 @@ trait MockHelpers {
     )
   )
 
-  val output: UnspentTransactionOutput = UnspentTransactionOutput(lockAddress, value)
+  val output: UnspentTransactionOutput = UnspentTransactionOutput(trivialLockAddress, value)
 
   val attFull: Attestation = Attestation().withPredicate(Attestation.Predicate(inLockFull, List()))
 
-  val inputFull: SpentTransactionOutput =
-    SpentTransactionOutput(dummyTxIdentifier, attFull, value)
+  val inputFull: SpentTransactionOutput = SpentTransactionOutput(dummyTxoAddress, attFull, value)
 
   val txFull: IoTransaction = IoTransaction(List(inputFull), List(output), txDatum)
 }

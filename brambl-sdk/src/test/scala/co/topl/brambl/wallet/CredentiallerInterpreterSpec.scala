@@ -15,7 +15,6 @@ import co.topl.quivr.runtime.QuivrRuntimeErrors.ValidationError.{
 import com.google.protobuf.ByteString
 import quivr.models.Int128
 
-// TODO: Replace/Update MockHelpers with the usage of ModelGenerators. TSDK-307
 class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
 
   test("prove: Single Input Transaction with Attestation.Predicate > Provable propositions have non-empty proofs") {
@@ -28,8 +27,8 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
   }
 
   test("prove: Single Input Transaction with Attestation.Predicate > Unprovable propositions have empty proofs") {
-    // Secrets are not available for this KnownIdentifier
-    val unknownKnownId = dummyTxIdentifier.copy(network = 1, ledger = 1, index = 1)
+    // Secrets are not available for this TransactionOutputAddress
+    val unknownKnownId = dummyTxoAddress.copy(network = 1, ledger = 1, index = 1)
     val testTx = txFull.copy(inputs = txFull.inputs.map(stxo => stxo.copy(address = unknownKnownId)))
     val provenTx: IoTransaction = CredentiallerInterpreter.make[Id](MockDataApi).prove(testTx)
     val provenPredicate = provenTx.inputs.head.attestation.getPredicate
