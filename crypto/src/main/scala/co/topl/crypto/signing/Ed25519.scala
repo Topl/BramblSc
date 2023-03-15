@@ -1,14 +1,14 @@
 package co.topl.crypto.signing
 
-import Ed25519.{PublicKey, SecretKey, seedLength}
+import Ed25519.{PublicKey, SecretKey, SizedSignature, SeedLength}
 import co.topl.crypto.utility.HasLength.instances._
-import co.topl.crypto.utility.Sized
+import co.topl.crypto.utility.{Lengths, Sized}
 import co.topl.crypto.utility.Lengths._
 
 /**
  * Implementation of Ed25519 elliptic curve signature
  */
-class Ed25519 extends EllipticCurveSignatureScheme[SecretKey, PublicKey](seedLength) {
+class Ed25519 extends EllipticCurveSignatureScheme[SecretKey, PublicKey, SizedSignature, SeedLength] {
   private val impl = new eddsa.Ed25519
   impl.precompute()
 
@@ -22,7 +22,7 @@ class Ed25519 extends EllipticCurveSignatureScheme[SecretKey, PublicKey](seedLen
    * @param message a ByteVector that the the signature will be generated for
    * @return the signature
    */
-  override def sign(privateKey: SecretKey, message: Message): Signature = {
+  override def sign(privateKey: SecretKey, message: Message): SizedSignature = {
     val sig = new Array[Byte](impl.SIGNATURE_SIZE)
     impl.sign(
       privateKey.bytes.data,
@@ -33,7 +33,7 @@ class Ed25519 extends EllipticCurveSignatureScheme[SecretKey, PublicKey](seedLen
       sig,
       0
     )
-    sig
+    SizedSignature(Sized.strictUnsafe(sig))
   }
 
   /**
@@ -45,11 +45,11 @@ class Ed25519 extends EllipticCurveSignatureScheme[SecretKey, PublicKey](seedLen
    * @return true if the signature is verified; otherwise false.
    */
   override def verify(
-    signature: Signature,
+    signature: SizedSignature,
     message:   Message,
     publicKey: PublicKey
   ): Boolean = {
-    val sigByteArray = signature
+    val sigByteArray = signature.bytes.data
     val vkByteArray = publicKey.bytes.data
     val msgByteArray = message
 
@@ -81,11 +81,21 @@ class Ed25519 extends EllipticCurveSignatureScheme[SecretKey, PublicKey](seedLen
    * Derive an Ed25519 secret key from a seed.
    *
    * In accordance to RFC-8032 Section 5.1.5 any 32 byte value is a valid seed for Ed25519 signing.
-   * Therefore we simply slice the first 32 bytes from the seed or pad the seed as necessary.
+   * Therefore the seed is a valid secret key.
    *
    * @param seed the seed
    * @return the secret signing key
    **/
-  override def deriveSecretKeyFromSeed(seed: Seed): SecretKey =
-    SecretKey(Sized.strictUnsafe(seed.slice(0, 32).padTo(seedLength, 0.toByte)))
+  override def deriveSecretKeyFromSeed(seed: SizedSeed): SecretKey = SecretKey(seed)
+}
+
+object Ed25519 {
+  type Length = Lengths.`32`.type
+  type SignatureLength = Lengths.`64`.type
+  type SeedLength = Lengths.`32`.type
+  case class SecretKey(bytes: Sized.Strict[Bytes, Length]) extends SigningKey
+
+  case class PublicKey(bytes: Sized.Strict[Bytes, Length]) extends VerificationKey
+
+  case class SizedSignature(bytes: Sized.Strict[Bytes, SignatureLength]) extends Signature
 }
