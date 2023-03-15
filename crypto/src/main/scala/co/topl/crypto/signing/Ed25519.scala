@@ -1,6 +1,6 @@
 package co.topl.crypto.signing
 
-import Ed25519.{PublicKey, SecretKey, SizedSignature, SeedLength}
+import Ed25519.{PublicKey, SecretKey, SeedLength, SizedSignature}
 import co.topl.crypto.utility.HasLength.instances._
 import co.topl.crypto.utility.{Lengths, Sized}
 import co.topl.crypto.utility.Lengths._
@@ -85,7 +85,7 @@ class Ed25519 extends EllipticCurveSignatureScheme[SecretKey, PublicKey, SizedSi
    *
    * @param seed the seed
    * @return the secret signing key
-   **/
+   */
   override def deriveSecretKeyFromSeed(seed: SizedSeed): SecretKey = SecretKey(seed)
 }
 

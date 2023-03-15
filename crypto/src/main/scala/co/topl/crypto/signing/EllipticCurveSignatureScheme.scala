@@ -6,7 +6,12 @@ import co.topl.crypto.utility.{Length, Sized}
 
 /* Forked from https://github.com/input-output-hk/scrypto */
 
-abstract private[signing] class EllipticCurveSignatureScheme[SK <: SigningKey, VK <: VerificationKey, SIG <: Signature, SeedLength <: Length](implicit seedLength: SeedLength) {
+abstract private[signing] class EllipticCurveSignatureScheme[
+  SK <: SigningKey,
+  VK <: VerificationKey,
+  SIG <: Signature,
+  SeedLength <: Length
+](implicit seedLength: SeedLength) {
 
   val SignatureLength: Int
   val KeyLength: Int
