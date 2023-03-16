@@ -69,7 +69,9 @@ object KeyInitializer {
           fromEntropy(Entropy.fromUuid(UUID.randomUUID()), password = Some(""))
 
         override def fromEntropy(entropy: Entropy, password: Option[String]): ByteVector =
-          ed25519.deriveKeyPairFromEntropy(entropy, password)._1
+          ByteVector(
+            ed25519.deriveKeyPairFromEntropy(entropy, password).signingKey.bytes
+          ) // TODO: Remove Scodec.ByteVector from this file
 
         override def fromBytes(bytes: ByteVector): ByteVector = bytes
       }

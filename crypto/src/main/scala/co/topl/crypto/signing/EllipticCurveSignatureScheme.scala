@@ -1,15 +1,14 @@
 package co.topl.crypto.signing
 
+import co.topl.crypto.generation.EntropyToSeed
 import co.topl.crypto.generation.mnemonic.Entropy
 
 /* Forked from https://github.com/input-output-hk/scrypto */
 
 abstract private[signing] class EllipticCurveSignatureScheme[
   SK <: SigningKey,
-  VK <: VerificationKey,
-  SEED <: SizedSeed,
-  SIG <: SizedSignature
-] {
+  VK <: VerificationKey
+](seedLength: Int) {
 
   /**
    * Generate a key pair from a given entropy and password.
@@ -18,8 +17,12 @@ abstract private[signing] class EllipticCurveSignatureScheme[
    * @param passphrase the passphrase
    * @return the key pair
    */
-  def deriveKeyPairFromEntropy(entropy: Entropy, passphrase: Option[String]): KeyPair =
-    deriveKeyPairFromSeed(entropyToSeed(entropy, passphrase))
+  def deriveKeyPairFromEntropy(entropy: Entropy, passphrase: Option[String])(implicit
+    entropyToSeed: EntropyToSeed = EntropyToSeed.instances.pbkdf2Sha512(seedLength)
+  ): KeyPair[SK, VK] = {
+    val seed = entropyToSeed.toSeed(entropy, passphrase)
+    deriveKeyPairFromSeed(seed)
+  }
 
   /**
    * Derive a key pair from a seed.
@@ -27,20 +30,11 @@ abstract private[signing] class EllipticCurveSignatureScheme[
    * @param seed the seed
    * @return the key pair
    */
-  def deriveKeyPairFromSeed(seed: SEED): KeyPair = {
+  def deriveKeyPairFromSeed(seed: Array[Byte]): KeyPair[SK, VK] = {
     val secretKey = deriveSecretKeyFromSeed(seed)
     val verificationKey = getVerificationKey(secretKey)
     KeyPair(secretKey, verificationKey)
   }
-
-  /**
-   * Generate a seed from a given entropy and password.
-   *
-   * @param entropy    the entropy
-   * @param passphrase the passphrase
-   * @return the seed
-   */
-  def entropyToSeed(entropy: Entropy, passphrase: Option[String]): SEED
 
   /**
    * Derive a secret key from a seed.
@@ -48,7 +42,7 @@ abstract private[signing] class EllipticCurveSignatureScheme[
    * @param seed the seed
    * @return the secret signing key
    */
-  def deriveSecretKeyFromSeed(seed: SEED): SK
+  def deriveSecretKeyFromSeed(seed: Array[Byte]): SK
 
   /**
    * Sign a given message with a given signing key.
@@ -57,7 +51,7 @@ abstract private[signing] class EllipticCurveSignatureScheme[
    * @param message    a message that the the signature will be generated for
    * @return the signature
    */
-  def sign(privateKey: SK, message: Message): SIG
+  def sign(privateKey: SK, message: Array[Byte]): Array[Byte]
 
   /**
    * Verify a signature against a message using the public verification key.
@@ -67,7 +61,7 @@ abstract private[signing] class EllipticCurveSignatureScheme[
    * @param verifyKey The key to use for verification
    * @return true if the signature is verified; otherwise false.
    */
-  def verify(signature: SIG, message: Message, verifyKey: VK): Boolean
+  def verify(signature: Array[Byte], message: Array[Byte], verifyKey: VK): Boolean
 
   /**
    * Get the public key from the secret key

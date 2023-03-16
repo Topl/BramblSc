@@ -1,13 +1,11 @@
 package co.topl.crypto.signing
 
-import Ed25519.{PublicKey, SecretKey, Seed, Signature}
-import co.topl.crypto.generation.EntropyToSeed
-import co.topl.crypto.generation.mnemonic.Entropy
+import Ed25519.{PublicKey, SecretKey}
 
 /**
  * Implementation of Ed25519 elliptic curve signature
  */
-class Ed25519 extends EllipticCurveSignatureScheme[SecretKey, PublicKey, Seed, Signature] {
+class Ed25519 extends EllipticCurveSignatureScheme[SecretKey, PublicKey](ExtendedEd25519.SeedLength) {
   private val impl = Ed25519.Impl
   impl.precompute()
 
@@ -21,7 +19,7 @@ class Ed25519 extends EllipticCurveSignatureScheme[SecretKey, PublicKey, Seed, S
    * @param message a message that the the signature will be generated for
    * @return the signature
    */
-  override def sign(privateKey: SecretKey, message: Message): Signature = {
+  override def sign(privateKey: SecretKey, message: Array[Byte]): Array[Byte] = {
     val sig = new Array[Byte](Ed25519.SignatureLength)
     impl.sign(
       privateKey.bytes,
@@ -32,7 +30,7 @@ class Ed25519 extends EllipticCurveSignatureScheme[SecretKey, PublicKey, Seed, S
       sig,
       0
     )
-    Signature(sig)
+    sig
   }
 
   /**
@@ -47,11 +45,11 @@ class Ed25519 extends EllipticCurveSignatureScheme[SecretKey, PublicKey, Seed, S
    * @return true if the signature is verified; otherwise false.
    */
   override def verify(
-    signature: Signature,
-    message:   Message,
+    signature: Array[Byte],
+    message:   Array[Byte],
     publicKey: PublicKey
   ): Boolean = {
-    val sigByteArray = signature.bytes
+    val sigByteArray = signature
     val vkByteArray = publicKey.bytes
     val msgByteArray = message
 
@@ -87,29 +85,20 @@ class Ed25519 extends EllipticCurveSignatureScheme[SecretKey, PublicKey, Seed, S
    * Derive an Ed25519 secret key from a seed.
    *
    * In accordance to RFC-8032 Section 5.1.5 any 32 byte value is a valid seed for Ed25519 signing.
-   * Therefore, with the precondition on the seed size, the seed is a valid secret key.
+   * Therefore, with the precondition on the seed size, we simply slice the first 32 bytes from the seed.
    *
-   * @note Precondition: the seed must have a length of 32 bytes
+   * @note Precondition: the seed must have a length of at least 32 bytes
    *
    * @param seed the seed
    * @return the secret signing key
    */
-  override def deriveSecretKeyFromSeed(seed: Seed): SecretKey = SecretKey(seed.bytes)
-
-  /**
-   * Generate a seed from a given entropy and password.
-   *
-   * @note Postcondition: the seed must have a length of 32 bytes
-   *
-   * @param entropy the entropy
-   * @param passphrase the passphrase
-   * @return the seed
-   */
-  override def entropyToSeed(entropy: Entropy, passphrase: Option[String]): Seed = Seed(
-    EntropyToSeed.instances
-      .pbkdf2Sha512(ExtendedEd25519.SeedLength)
-      .toSeed(entropy, passphrase)
-  )
+  override def deriveSecretKeyFromSeed(seed: Array[Byte]): SecretKey = {
+    require(
+      seed.length >= Ed25519.SeedLength,
+      s"Invalid seed length. Expected: ${ExtendedEd25519.SeedLength}, Received: ${seed.length}"
+    )
+    SecretKey(seed.slice(0, 32))
+  }
 }
 
 object Ed25519 {
@@ -135,9 +124,4 @@ object Ed25519 {
       s"Invalid right key length. Expected: ${PublicKeyLength}, Received: ${bytes.length}"
     )
   }
-
-  case class Seed(override val bytes: Bytes) extends SizedSeed(SeedLength)
-
-  case class Signature(override val bytes: Bytes) extends SizedSignature(SignatureLength)
-
 }

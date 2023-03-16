@@ -1,15 +1,14 @@
 package co.topl.crypto.signing
 
-import co.topl.crypto.generation.{Bip32Index, Bip32Indexes, EntropyToSeed}
+import co.topl.crypto.generation.{Bip32Index, Bip32Indexes}
 import org.bouncycastle.crypto.digests.SHA512Digest
 import org.bouncycastle.crypto.macs.HMac
 import org.bouncycastle.crypto.params.KeyParameter
-import ExtendedEd25519.{PublicKey, SecretKey, Seed, Signature}
-import co.topl.crypto.generation.mnemonic.Entropy
+import ExtendedEd25519.{PublicKey, SecretKey}
 
 import java.nio.{ByteBuffer, ByteOrder}
 
-class ExtendedEd25519 extends EllipticCurveSignatureScheme[SecretKey, PublicKey, Seed, Signature] {
+class ExtendedEd25519 extends EllipticCurveSignatureScheme[SecretKey, PublicKey](ExtendedEd25519.SeedLength) {
   private val impl = ExtendedEd25519.Impl
   impl.precompute()
 
@@ -23,7 +22,7 @@ class ExtendedEd25519 extends EllipticCurveSignatureScheme[SecretKey, PublicKey,
    * @param message    a message that the the signature will be generated for
    * @return the signature
    */
-  override def sign(privateKey: SecretKey, message: Message): Signature = {
+  override def sign(privateKey: SecretKey, message: Array[Byte]): Array[Byte] = {
     val resultSig = new Array[Byte](ExtendedEd25519.SignatureLength)
     val pk: Array[Byte] = new Array[Byte](ExtendedEd25519.PublicKeyLength)
     val ctx: Array[Byte] = Array.empty
@@ -36,7 +35,7 @@ class ExtendedEd25519 extends EllipticCurveSignatureScheme[SecretKey, PublicKey,
     impl.scalarMultBaseEncoded(privateKey.leftKey, pk, 0)
     impl.implSign(impl.sha512Digest, h, s, pk, 0, ctx, phflag, m, 0, m.length, resultSig, 0)
 
-    Signature(resultSig)
+    resultSig
   }
 
   /**
@@ -50,11 +49,11 @@ class ExtendedEd25519 extends EllipticCurveSignatureScheme[SecretKey, PublicKey,
    * @param verifyKey The key to use for verification
    * @return true if the signature is verified; otherwise false.
    */
-  def verify(signature: Signature, message: Message, verifyKey: Ed25519.PublicKey): Boolean =
+  def verify(signature: Array[Byte], message: Array[Byte], verifyKey: Ed25519.PublicKey): Boolean =
     verifyKey.bytes.length == ExtendedEd25519.PublicKeyLength &&
-    signature.bytes.length == ExtendedEd25519.SignatureLength &&
+    signature.length == ExtendedEd25519.SignatureLength &&
     impl.verify(
-      signature.bytes,
+      signature,
       0,
       verifyKey.bytes,
       0,
@@ -75,14 +74,14 @@ class ExtendedEd25519 extends EllipticCurveSignatureScheme[SecretKey, PublicKey,
    * @return true if the signature is verified; otherwise false.
    */
   override def verify(
-    signature: Signature,
-    message:   Message,
+    signature: Array[Byte],
+    message:   Array[Byte],
     verifyKey: PublicKey
   ): Boolean =
-    signature.bytes.length == ExtendedEd25519.SignatureLength &&
+    signature.length == ExtendedEd25519.SignatureLength &&
     verifyKey.vk.bytes.length == ExtendedEd25519.PublicKeyLength &&
     impl.verify(
-      signature.bytes,
+      signature,
       0,
       verifyKey.vk.bytes,
       0,
@@ -110,7 +109,7 @@ class ExtendedEd25519 extends EllipticCurveSignatureScheme[SecretKey, PublicKey,
     val rNum: BigInt = ExtendedEd25519.rightNumber(secretKey)
     val public: PublicKey = getVerificationKey(secretKey)
 
-    val zHmacData: Bytes = index match {
+    val zHmacData: Array[Byte] = index match {
       case _: Bip32Indexes.SoftIndex =>
         0x02.toByte +: (public.vk.bytes ++ index.bytes)
       case _: Bip32Indexes.HardenedIndex =>
@@ -235,26 +234,19 @@ class ExtendedEd25519 extends EllipticCurveSignatureScheme[SecretKey, PublicKey,
    * As defined in Section 3 of Khovratovich et. al. and detailed in CIP-0003, clamp bits to make a valid
    * Bip32-Ed25519 private key
    *
+   * @note Precondition: the seed must have a length of 96 bytes
+   *
    * @param seed the seed
    * @return the secret signing key
    */
-  override def deriveSecretKeyFromSeed(seed: Seed): SecretKey = ExtendedEd25519.clampBits(seed)
-
-  /**
-   * Generate a seed from a given entropy and password.
-   *
-   * @note Postcondition: the seed must have a length of 96 bytes
-   *
-   * @param entropy    the entropy
-   * @param passphrase the passphrase
-   * @return the seed
-   */
-  override def entropyToSeed(entropy: Entropy, passphrase: Option[String]): Seed =
-    Seed(
-      EntropyToSeed.instances
-        .pbkdf2Sha512(ExtendedEd25519.SeedLength)
-        .toSeed(entropy, passphrase)
+  override def deriveSecretKeyFromSeed(seed: Array[Byte]): SecretKey = {
+    require(
+      seed.length == ExtendedEd25519.SeedLength,
+      s"Invalid seed length. Expected: ${ExtendedEd25519.SeedLength}, Received: ${seed.length}"
     )
+    ExtendedEd25519.clampBits(seed)
+  }
+
 }
 
 object ExtendedEd25519 {
@@ -265,7 +257,7 @@ object ExtendedEd25519 {
   val PublicKeyLength: Int = Impl.PUBLIC_KEY_SIZE
   val SeedLength: Int = 96
 
-  case class SecretKey(leftKey: Bytes, rightKey: Bytes, chainCode: Bytes) extends SigningKey {
+  case class SecretKey(leftKey: Array[Byte], rightKey: Array[Byte], chainCode: Array[Byte]) extends SigningKey {
 
     require(
       leftKey.length == KeyLength,
@@ -283,17 +275,13 @@ object ExtendedEd25519 {
     )
   }
 
-  case class PublicKey(vk: Ed25519.PublicKey, chainCode: Bytes) extends VerificationKey {
+  case class PublicKey(vk: Ed25519.PublicKey, chainCode: Array[Byte]) extends VerificationKey {
 
     require(
       chainCode.length == KeyLength,
       s"Invalid chain code length. Expected: ${KeyLength}, Received: ${chainCode.length}"
     )
   }
-
-  case class Seed(override val bytes: Bytes) extends SizedSeed(SeedLength)
-
-  case class Signature(override val bytes: Bytes) extends SizedSignature(SignatureLength)
 
   /**
    * ED-25519 Base Order N
@@ -317,9 +305,9 @@ object ExtendedEd25519 {
    * the following algorithm is applied to create valid ExtendedEd25519 secret keys .
    */
   private[ExtendedEd25519] def clampBits(
-    sizedSeed: Seed
+    sizedSeed: Array[Byte]
   ): SecretKey = {
-    val seed = sizedSeed.bytes
+    val seed = sizedSeed
 
     // turn seed into a valid ExtendedPrivateKeyEd25519 per the SLIP-0023 Icarus spec
     seed(0) = (seed(0) & 0xf8.toByte).toByte
@@ -339,7 +327,7 @@ object ExtendedEd25519 {
   private def rightNumber(secretKey: SecretKey): BigInt =
     BigInt(1, secretKey.rightKey.reverse)
 
-  private def hmac512WithKey(key: Array[Byte], data: Array[Byte]): Bytes = {
+  private def hmac512WithKey(key: Array[Byte], data: Array[Byte]): Array[Byte] = {
     val mac = new HMac(new SHA512Digest())
     mac.init(new KeyParameter(key))
     mac.update(data, 0, data.length)
