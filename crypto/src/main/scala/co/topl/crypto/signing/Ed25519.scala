@@ -1,31 +1,30 @@
 package co.topl.crypto.signing
 
-import Ed25519.{PublicKey, SecretKey, SeedLength, SizedSignature}
-import co.topl.crypto.utility.HasLength.instances._
-import co.topl.crypto.utility.{Lengths, Sized}
-import co.topl.crypto.utility.Lengths._
+import Ed25519.{PublicKey, SecretKey, Seed, Signature}
+import co.topl.crypto.generation.EntropyToSeed
+import co.topl.crypto.generation.mnemonic.Entropy
 
 /**
  * Implementation of Ed25519 elliptic curve signature
  */
-class Ed25519 extends EllipticCurveSignatureScheme[SecretKey, PublicKey, SizedSignature, SeedLength] {
-  private val impl = new eddsa.Ed25519
+class Ed25519 extends EllipticCurveSignatureScheme[SecretKey, PublicKey, Seed, Signature] {
+  private val impl = Ed25519.Impl
   impl.precompute()
-
-  override val SignatureLength: Int = impl.SIGNATURE_SIZE
-  override val KeyLength: Int = impl.SECRET_KEY_SIZE
 
   /**
    * Sign a given message with a given signing key.
    *
+   * @note Precondition: the private key must be a valid Ed25519 secret key - thus having a length of 32 bytes
+   * @note Postcondition: the signature must be a valid Ed25519 signature - thus having a length of 64 bytes
+   *
    * @param privateKey The private signing key
-   * @param message a ByteVector that the the signature will be generated for
+   * @param message a message that the the signature will be generated for
    * @return the signature
    */
-  override def sign(privateKey: SecretKey, message: Message): SizedSignature = {
-    val sig = new Array[Byte](impl.SIGNATURE_SIZE)
+  override def sign(privateKey: SecretKey, message: Message): Signature = {
+    val sig = new Array[Byte](Ed25519.SignatureLength)
     impl.sign(
-      privateKey.bytes.data,
+      privateKey.bytes,
       0,
       message,
       0,
@@ -33,7 +32,7 @@ class Ed25519 extends EllipticCurveSignatureScheme[SecretKey, PublicKey, SizedSi
       sig,
       0
     )
-    SizedSignature(Sized.strictUnsafe(sig))
+    Signature(sig)
   }
 
   /**
@@ -45,16 +44,16 @@ class Ed25519 extends EllipticCurveSignatureScheme[SecretKey, PublicKey, SizedSi
    * @return true if the signature is verified; otherwise false.
    */
   override def verify(
-    signature: SizedSignature,
+    signature: Signature,
     message:   Message,
     publicKey: PublicKey
   ): Boolean = {
-    val sigByteArray = signature.bytes.data
-    val vkByteArray = publicKey.bytes.data
+    val sigByteArray = signature.bytes
+    val vkByteArray = publicKey.bytes
     val msgByteArray = message
 
-    sigByteArray.length == impl.SIGNATURE_SIZE &&
-    vkByteArray.length == impl.PUBLIC_KEY_SIZE &&
+    sigByteArray.length == Ed25519.SignatureLength &&
+    vkByteArray.length == Ed25519.PublicKeyLength &&
     impl.verify(
       sigByteArray,
       0,
@@ -68,34 +67,65 @@ class Ed25519 extends EllipticCurveSignatureScheme[SecretKey, PublicKey, SizedSi
 
   /**
    * Get the public key from the secret key
+   *
+   * @note Precondition: the secret key must be a valid Ed25519 secret key - thus having a length of 32 bytes
+   * @note Postcondition: the public key must be a valid Ed25519 public key - thus having a length of 32 bytes
+   *
    * @param secretKey the secret key
    * @return the public verification key
    */
   override def getVerificationKey(secretKey: SecretKey): PublicKey = {
-    val pkBytes = new Array[Byte](impl.PUBLIC_KEY_SIZE)
-    impl.generatePublicKey(secretKey.bytes.data, 0, pkBytes, 0)
-    PublicKey(Sized.strictUnsafe(pkBytes))
+    val pkBytes = new Array[Byte](Ed25519.PublicKeyLength)
+    impl.generatePublicKey(secretKey.bytes, 0, pkBytes, 0)
+    PublicKey(pkBytes)
   }
 
   /**
    * Derive an Ed25519 secret key from a seed.
    *
    * In accordance to RFC-8032 Section 5.1.5 any 32 byte value is a valid seed for Ed25519 signing.
-   * Therefore the seed is a valid secret key.
+   * Therefore, with the precondition on the seed size, the seed is a valid secret key.
+   *
+   * @note Precondition: the seed must have a length of 32 bytes
    *
    * @param seed the seed
    * @return the secret signing key
    */
-  override def deriveSecretKeyFromSeed(seed: SizedSeed): SecretKey = SecretKey(seed)
+  override def deriveSecretKeyFromSeed(seed: Seed): SecretKey = {
+    SecretKey(seed.bytes)
+  }
+
+  override def entropyToSeed(entropy: Entropy, password: Option[String]): Seed = Seed(
+    EntropyToSeed.instances
+      .pbkdf2Sha512(ExtendedEd25519.SeedLength)
+      .toSeed(entropy, password)
+  )
 }
 
 object Ed25519 {
-  type Length = Lengths.`32`.type
-  type SignatureLength = Lengths.`64`.type
-  type SeedLength = Lengths.`32`.type
-  case class SecretKey(bytes: Sized.Strict[Bytes, Length]) extends SigningKey
+  private val Impl = new eddsa.Ed25519
 
-  case class PublicKey(bytes: Sized.Strict[Bytes, Length]) extends VerificationKey
+  val SignatureLength: Int = Impl.SIGNATURE_SIZE
+  val KeyLength: Int = Impl.SECRET_KEY_SIZE
+  val PublicKeyLength: Int = Impl.PUBLIC_KEY_SIZE
+  val SeedLength: Int = 32
 
-  case class SizedSignature(bytes: Sized.Strict[Bytes, SignatureLength]) extends Signature
+  case class SecretKey(bytes: Array[Byte]) extends SigningKey {
+    require(
+      bytes.length == KeyLength,
+      s"Invalid left key length. Expected: ${KeyLength}, Received: ${bytes.length}"
+    )
+  }
+
+  case class PublicKey(bytes: Array[Byte]) extends VerificationKey {
+    require(
+      bytes.length == PublicKeyLength,
+      s"Invalid right key length. Expected: ${PublicKeyLength}, Received: ${bytes.length}"
+    )
+  }
+
+  case class Seed(override val bytes: Bytes) extends SizedSeed(SeedLength)
+
+  case class Signature(override val bytes: Bytes) extends SizedSignature(SignatureLength)
+
 }
