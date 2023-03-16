@@ -10,14 +10,16 @@ package object signing {
 
   abstract class SizedSignature(size: Int) {
     val bytes: Bytes
+
     require(
       bytes.length == size,
       s"Invalid signature length. Expected: ${size}, Received: ${bytes.length}"
     )
   }
 
-  abstract class SizedSeed(size: Int){
+  abstract class SizedSeed(size: Int) {
     val bytes: Bytes
+
     require(
       bytes.length == size,
       s"Invalid seed length. Expected: ${size}, Received: ${bytes.length}"

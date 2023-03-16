@@ -38,6 +38,9 @@ class Ed25519 extends EllipticCurveSignatureScheme[SecretKey, PublicKey, Seed, S
   /**
    * Verify a signature against a message using the public verification key.
    *
+   * @note Precondition: the public key must be a valid Ed25519 public key
+   * @note Precondition: the signature must be a valid Ed25519 signature
+   *
    * @param signature the signature to use for verification
    * @param message the message that the signature is expected to verify
    * @param publicKey The key to use for verification
@@ -91,14 +94,21 @@ class Ed25519 extends EllipticCurveSignatureScheme[SecretKey, PublicKey, Seed, S
    * @param seed the seed
    * @return the secret signing key
    */
-  override def deriveSecretKeyFromSeed(seed: Seed): SecretKey = {
-    SecretKey(seed.bytes)
-  }
+  override def deriveSecretKeyFromSeed(seed: Seed): SecretKey = SecretKey(seed.bytes)
 
-  override def entropyToSeed(entropy: Entropy, password: Option[String]): Seed = Seed(
+  /**
+   * Generate a seed from a given entropy and password.
+   *
+   * @note Postcondition: the seed must have a length of 32 bytes
+   *
+   * @param entropy the entropy
+   * @param passphrase the passphrase
+   * @return the seed
+   */
+  override def entropyToSeed(entropy: Entropy, passphrase: Option[String]): Seed = Seed(
     EntropyToSeed.instances
       .pbkdf2Sha512(ExtendedEd25519.SeedLength)
-      .toSeed(entropy, password)
+      .toSeed(entropy, passphrase)
   )
 }
 
@@ -111,6 +121,7 @@ object Ed25519 {
   val SeedLength: Int = 32
 
   case class SecretKey(bytes: Array[Byte]) extends SigningKey {
+
     require(
       bytes.length == KeyLength,
       s"Invalid left key length. Expected: ${KeyLength}, Received: ${bytes.length}"
@@ -118,6 +129,7 @@ object Ed25519 {
   }
 
   case class PublicKey(bytes: Array[Byte]) extends VerificationKey {
+
     require(
       bytes.length == PublicKeyLength,
       s"Invalid right key length. Expected: ${PublicKeyLength}, Received: ${bytes.length}"

@@ -12,6 +12,17 @@ import java.nio.{ByteBuffer, ByteOrder}
 class ExtendedEd25519 extends EllipticCurveSignatureScheme[SecretKey, PublicKey, Seed, Signature] {
   private val impl = ExtendedEd25519.Impl
   impl.precompute()
+
+  /**
+   * Sign a given message with a given signing key.
+   *
+   * @note Precondition: the private key must be a valid ExtednedEd25519 secret key
+   * @note Postcondition: the signature must be a valid ExtendedEd25519 signature
+   *
+   * @param privateKey The private signing key
+   * @param message    a message that the the signature will be generated for
+   * @return the signature
+   */
   override def sign(privateKey: SecretKey, message: Message): Signature = {
     val resultSig = new Array[Byte](ExtendedEd25519.SignatureLength)
     val pk: Array[Byte] = new Array[Byte](ExtendedEd25519.PublicKeyLength)
@@ -28,6 +39,17 @@ class ExtendedEd25519 extends EllipticCurveSignatureScheme[SecretKey, PublicKey,
     Signature(resultSig)
   }
 
+  /**
+   * Verify a signature against a message using the public verification key.
+   *
+   * @note Precondition: the public key must be a valid Ed25519 public key
+   * @note Precondition: the signature must be a valid ExtendedEd25519 signature
+   *
+   * @param signature the signature to use for verification
+   * @param message   the message that the signature is expected to verify
+   * @param verifyKey The key to use for verification
+   * @return true if the signature is verified; otherwise false.
+   */
   def verify(signature: Signature, message: Message, verifyKey: Ed25519.PublicKey): Boolean =
     verifyKey.bytes.length == ExtendedEd25519.PublicKeyLength &&
     signature.bytes.length == ExtendedEd25519.SignatureLength &&
@@ -41,6 +63,17 @@ class ExtendedEd25519 extends EllipticCurveSignatureScheme[SecretKey, PublicKey,
       message.length
     )
 
+  /**
+   * Verify a signature against a message using the public verification key.
+   *
+   * @note Precondition: the public key must be a valid ExtendedEd25519 public key
+   * @note Precondition: the signature must be a valid ExtendedEd25519 signature
+   *
+   * @param signature the signature to use for verification
+   * @param message   the message that the signature is expected to verify
+   * @param verifyKey The key to use for verification
+   * @return true if the signature is verified; otherwise false.
+   */
   override def verify(
     signature: Signature,
     message:   Message,
@@ -58,7 +91,17 @@ class ExtendedEd25519 extends EllipticCurveSignatureScheme[SecretKey, PublicKey,
       message.length
     )
 
-  def deriveSecret(
+  /**
+   * Deterministically derives a child secret key located at the given index.
+   *
+   * @note Precondition: the secret key must be a valid ExtendedEd25519 secret key
+   * @note Postcondition: the secret key must be a valid ExtendedEd25519 secret key
+   *
+   * @param secretKey the secret key to derive the child key from
+   * @param index the index of the key to derive
+   * @return an extended secret key
+   */
+  def deriveChildSecretKey(
     secretKey: SecretKey,
     index:     Bip32Index
   ): SecretKey = {
@@ -112,13 +155,16 @@ class ExtendedEd25519 extends EllipticCurveSignatureScheme[SecretKey, PublicKey,
 
   /**
    * Deterministically derives a child public key located at the given soft index.
-   *
    * Follows section V.D from the BIP32-ED25519 spec.
    *
+   * @note Precondition: the verification key must be a valid ExtendedEd25519 public key
+   * @note Postcondition: the verification key must be a valid ExtendedEd25519 public key
+   *
+   * @param verificationKey the public key to derive the child key from
    * @param index the index of the key to derive
    * @return an extended public key
    */
-  def deriveVerification(
+  def deriveChildVerificationKey(
     verificationKey: PublicKey,
     index:           Bip32Indexes.SoftIndex
   ): PublicKey = {
@@ -164,6 +210,15 @@ class ExtendedEd25519 extends EllipticCurveSignatureScheme[SecretKey, PublicKey,
     )
   }
 
+  /**
+   * Get the public key from the secret key
+   *
+   * @note Precondition: the secret key must be a valid ExtendedEd25519 secret key
+   * @note Postcondition: the public key must be a valid ExtendedEd25519 public key
+   *
+   * @param secretKey the secret key
+   * @return the public verification key
+   */
   override def getVerificationKey(secretKey: SecretKey): PublicKey = {
     val pk = new Array[Byte](ExtendedEd25519.PublicKeyLength)
     impl.scalarMultBaseEncoded(secretKey.leftKey, pk, 0)
@@ -177,19 +232,28 @@ class ExtendedEd25519 extends EllipticCurveSignatureScheme[SecretKey, PublicKey,
   /**
    * Derive an ExtendedEd25519 secret key from a seed.
    *
-   * As defined in Section 3 of Khovratovich et. al. and detailed in CIP-0003,
-   * the following algorithm is applied to create valid ExtendedEd25519 secret keys [reference].
+   * As defined in Section 3 of Khovratovich et. al. and detailed in CIP-0003, clamp bits to make a valid
+   * Bip32-Ed25519 private key
    *
    * @param seed the seed
    * @return the secret signing key
    */
   override def deriveSecretKeyFromSeed(seed: Seed): SecretKey = ExtendedEd25519.clampBits(seed)
 
-  override def entropyToSeed(entropy: Entropy, password: Option[String]): Seed =
+  /**
+   * Generate a seed from a given entropy and password.
+   *
+   * @note Postcondition: the seed must have a length of 96 bytes
+   *
+   * @param entropy    the entropy
+   * @param passphrase the passphrase
+   * @return the seed
+   */
+  override def entropyToSeed(entropy: Entropy, passphrase: Option[String]): Seed =
     Seed(
       EntropyToSeed.instances
-      .pbkdf2Sha512(ExtendedEd25519.SeedLength)
-      .toSeed(entropy, password)
+        .pbkdf2Sha512(ExtendedEd25519.SeedLength)
+        .toSeed(entropy, passphrase)
     )
 }
 
@@ -202,14 +266,17 @@ object ExtendedEd25519 {
   val SeedLength: Int = 96
 
   case class SecretKey(leftKey: Bytes, rightKey: Bytes, chainCode: Bytes) extends SigningKey {
+
     require(
       leftKey.length == KeyLength,
       s"Invalid left key length. Expected: ${KeyLength}, Received: ${leftKey.length}"
     )
+
     require(
       rightKey.length == KeyLength,
       s"Invalid right key length. Expected: ${KeyLength}, Received: ${rightKey.length}"
     )
+
     require(
       chainCode.length == KeyLength,
       s"Invalid chain code length. Expected: ${KeyLength}, Received: ${chainCode.length}"
@@ -217,12 +284,12 @@ object ExtendedEd25519 {
   }
 
   case class PublicKey(vk: Ed25519.PublicKey, chainCode: Bytes) extends VerificationKey {
+
     require(
       chainCode.length == KeyLength,
       s"Invalid chain code length. Expected: ${KeyLength}, Received: ${chainCode.length}"
     )
   }
-
 
   case class Seed(override val bytes: Bytes) extends SizedSeed(SeedLength)
 
@@ -244,9 +311,13 @@ object ExtendedEd25519 {
   def validate(value: SecretKey): Either[InvalidDerivedKey, SecretKey] =
     Either.cond(leftNumber(value) % edBaseN != 0, value, InvalidDerivedKey)
 
-  /** clamp bits to make a valid Bip32-Ed25519 private key */
+  /**
+   * clamp bits to make a valid Bip32-Ed25519 private key
+   * As defined in Section 3 of Khovratovich et. al. and detailed in CIP-0003,
+   * the following algorithm is applied to create valid ExtendedEd25519 secret keys .
+   */
   private[ExtendedEd25519] def clampBits(
-    sizedSeed: SizedSeed
+    sizedSeed: Seed
   ): SecretKey = {
     val seed = sizedSeed.bytes
 
