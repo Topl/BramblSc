@@ -2,7 +2,7 @@ package co.topl.crypto.generation
 
 import cats.scalatest.EitherValues
 import co.topl.crypto.generation.mnemonic._
-import co.topl.crypto.signing.Ed25519
+import co.topl.crypto.signing.{Ed25519, ExtendedEd25519}
 import co.topl.crypto.utils.TestVector
 import io.circe.generic.semiauto.deriveDecoder
 import io.circe.{Decoder, HCursor}
@@ -20,11 +20,12 @@ import scodec.bits.ByteVector
 class KeyInitializerSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks with Matchers with EitherValues {
   import KeyInitializer.Instances._
   implicit val ed25519Instance: Ed25519 = new Ed25519
-
+  implicit val extendedEd25519Instance: ExtendedEd25519 = new ExtendedEd25519
   case class SpecInputs(mnemonic: String, size: MnemonicSize, password: Option[String])
 
   case class SpecOutputs(
-    ed25519: Ed25519.SecretKey
+    ed25519:         Ed25519.SecretKey,
+    extendedEd25519: ExtendedEd25519.SecretKey
   )
   case class KeyInitializorTestVector(inputs: SpecInputs, outputs: SpecOutputs) extends TestVector
 
@@ -37,7 +38,10 @@ class KeyInitializerSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks
   implicit val outputsDecoder: Decoder[SpecOutputs] = (c: HCursor) =>
     for {
       ed25519 <- c.get[String]("ed25519").map(ed25519Initializer.fromBase16String(_).value)
-    } yield SpecOutputs(ed25519)
+      extendedEd25519 <- c
+        .get[String]("extendedEd25519")
+        .map(extendedEd25519Initializer.fromBase16String(_).value)
+    } yield SpecOutputs(ed25519, extendedEd25519)
 
   implicit val testVectorDecoder: Decoder[KeyInitializorTestVector] = deriveDecoder[KeyInitializorTestVector]
 
@@ -51,7 +55,12 @@ class KeyInitializerSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks
         .fromMnemonicString(underTest.inputs.mnemonic)(Language.English, underTest.inputs.password)
         .value
 
+      val actualExtended25519Sk = extendedEd25519Initializer
+        .fromMnemonicString(underTest.inputs.mnemonic)(Language.English, underTest.inputs.password)
+        .value
+
       actualEd25519Sk shouldBe underTest.outputs.ed25519
+      actualExtended25519Sk shouldBe underTest.outputs.extendedEd25519
     }
   }
 }
