@@ -3,24 +3,29 @@ package co.topl.crypto.generation
 import cats.implicits._
 import co.topl.crypto.generation.mnemonic.{Entropy, EntropyFailure, Language}
 import co.topl.crypto.signing._
-import scodec.bits.{BitVector, ByteVector}
-import simulacrum.typeclass
+import scodec.bits.BitVector
 
 import java.util.UUID
 import scala.annotation.unused
 
-trait KeyInitializer {
+// TODO: Scodec.BitVector will be removed from this file in TSDK-354
+
+/**
+ * Provides functionality for creating secret keys
+ * @tparam SK type of secret key
+ */
+trait KeyInitializer[SK <: SigningKey] {
   self =>
 
   /**
    * Creates a random secret key
    */
-  def random(): ByteVector
+  def random(): SK
 
   /**
    * Creates a secret key from the given seed
    */
-  def fromEntropy(entropy: Entropy, password: Option[String] = None): ByteVector
+  def fromEntropy(entropy: Entropy, password: Option[String] = None): SK
 
   /**
    * Creates an instance of a secret key given a byte vector
@@ -28,7 +33,7 @@ trait KeyInitializer {
    * @param bytes bytes of the secret key
    * @return
    */
-  def fromBytes(bytes: ByteVector): ByteVector
+  def fromBytes(bytes: Array[Byte]): SK
 
   /**
    * Create a secret key from a mnemonic string.
@@ -40,40 +45,54 @@ trait KeyInitializer {
    */
   def fromMnemonicString(
     mnemonicString: String
-  )(language: Language = Language.English, password: Option[String] = None): Either[InitializationFailure, ByteVector] =
+  )(language: Language = Language.English, password: Option[String] = None): Either[InitializationFailure, SK] =
     Entropy
       .fromMnemonicString(mnemonicString, language)
       .map(fromEntropy(_, password))
       .leftMap(e => InitializationFailures.FailedToCreateEntropy(e))
 
   @unused
-  def fromBase58String(base58String: String): Either[InitializationFailure, ByteVector] =
+  def fromBase58String(base58String: String): Either[InitializationFailure, SK] =
     Either
       .fromOption(BitVector.fromBase58(base58String), InitializationFailures.InvalidBase58String)
-      .map(bits => fromBytes(bits.toByteVector))
+      .map(bits => fromBytes(bits.toByteArray))
 
-  def fromBase16String(base16String: String): Either[InitializationFailure, ByteVector] =
+  def fromBase16String(base16String: String): Either[InitializationFailure, SK] =
     Either
       .fromOption(BitVector.fromHex(base16String), InitializationFailures.InvalidBase16String)
-      .map(bits => fromBytes(bits.toByteVector))
+      .map(bits => fromBytes(bits.toByteArray))
 }
 
 object KeyInitializer {
 
   trait Instances {
 
-    implicit def ed25519Initializer(implicit ed25519: Ed25519): KeyInitializer =
-      new KeyInitializer {
+    implicit def ed25519Initializer(implicit ed25519: Ed25519): KeyInitializer[Ed25519.SecretKey] =
+      new KeyInitializer[Ed25519.SecretKey] {
 
-        override def random(): ByteVector =
+        override def random(): Ed25519.SecretKey =
           fromEntropy(Entropy.fromUuid(UUID.randomUUID()), password = Some(""))
 
-        override def fromEntropy(entropy: Entropy, password: Option[String]): ByteVector =
-          ByteVector(
-            ed25519.deriveKeyPairFromEntropy(entropy, password).signingKey.bytes
-          ) // TODO: Remove Scodec.ByteVector from this file
+        override def fromEntropy(entropy: Entropy, password: Option[String]): Ed25519.SecretKey =
+          ed25519.deriveKeyPairFromEntropy(entropy, password).signingKey
 
-        override def fromBytes(bytes: ByteVector): ByteVector = bytes
+        override def fromBytes(bytes: Array[Byte]): Ed25519.SecretKey = Ed25519.SecretKey(bytes)
+      }
+
+    // TODO: Remove Scodec.ByteVector from this file. This is added here now to allow tests to pass
+    implicit def extendedEd25519Initializer(implicit
+      extendedEd25519: ExtendedEd25519
+    ): KeyInitializer[ExtendedEd25519.SecretKey] =
+      new KeyInitializer[ExtendedEd25519.SecretKey] {
+
+        def random(): ExtendedEd25519.SecretKey =
+          fromEntropy(Entropy.fromUuid(UUID.randomUUID()), password = Some(""))
+
+        def fromEntropy(entropy: Entropy, password: Option[String]): ExtendedEd25519.SecretKey =
+          extendedEd25519.deriveKeyPairFromEntropy(entropy, password).signingKey
+
+        def fromBytes(bytes: Array[Byte]): ExtendedEd25519.SecretKey =
+          ExtendedEd25519.SecretKey(bytes.slice(0, 32), bytes.slice(32, 64), bytes.slice(64, 96))
       }
   }
 

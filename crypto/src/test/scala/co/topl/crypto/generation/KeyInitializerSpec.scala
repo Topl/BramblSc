@@ -24,7 +24,7 @@ class KeyInitializerSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks
   case class SpecInputs(mnemonic: String, size: MnemonicSize, password: Option[String])
 
   case class SpecOutputs(
-    ed25519: ByteVector
+    ed25519: Ed25519.SecretKey
   )
   case class KeyInitializorTestVector(inputs: SpecInputs, outputs: SpecOutputs) extends TestVector
 

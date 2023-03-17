@@ -2,6 +2,7 @@ package co.topl.crypto.signing
 
 import co.topl.crypto.generation.{Bip32Index, Bip32Indexes}
 import co.topl.crypto.generation.mnemonic.Entropy
+import co.topl.crypto.generation.KeyInitializer.Instances.extendedEd25519Initializer
 import co.topl.crypto.utils.EntropySupport._
 import co.topl.crypto.utils.Hex.implicits.Ops
 import co.topl.crypto.utils.{Hex, TestVector}
@@ -116,7 +117,7 @@ class ExtendedEd25519Spec extends AnyPropSpec with ScalaCheckDrivenPropertyCheck
         sk <- c
           .get[String]("secretKey")
           .map(Hex.decode)
-          .map(extendedEd25519.deriveSecretKeyFromSeed)
+          .map(extendedEd25519Initializer.fromBytes)
         msg <- c.downField("message").as[String].map(Hex.decode)
       } yield SpecInputs(sk, msg)
 
@@ -161,8 +162,8 @@ class ExtendedEd25519Spec extends AnyPropSpec with ScalaCheckDrivenPropertyCheck
       for {
         rootSk <- c
           .get[String]("rootSecretKey")
-          .map(_.hexStringToBytes)
-          .map(extendedEd25519.deriveSecretKeyFromSeed)
+          .map(Hex.decode)
+          .map(extendedEd25519Initializer.fromBytes)
         rootVkString <- c.get[Option[String]]("rootVerificationKey")
         rootVkOpt = rootVkString.map { hexString =>
           val rootVkBytes = Hex.decode(hexString)
@@ -185,7 +186,7 @@ class ExtendedEd25519Spec extends AnyPropSpec with ScalaCheckDrivenPropertyCheck
         childSk <- c
           .get[String]("childSecretKey")
           .map(Hex.decode)
-          .map(extendedEd25519.deriveSecretKeyFromSeed)
+          .map(extendedEd25519Initializer.fromBytes)
         childVk <- c
           .get[String]("childVerificationKey")
           .map { base16String =>
