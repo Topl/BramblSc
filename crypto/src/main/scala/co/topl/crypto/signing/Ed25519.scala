@@ -115,6 +115,11 @@ object Ed25519 {
       bytes.length == KeyLength,
       s"Invalid left key length. Expected: ${KeyLength}, Received: ${bytes.length}"
     )
+
+    override def equals(that: Any): Boolean = that match {
+      case that: SecretKey => bytes sameElements that.bytes
+      case _               => false
+    }
   }
 
   case class PublicKey(bytes: Array[Byte]) extends VerificationKey {
@@ -123,5 +128,10 @@ object Ed25519 {
       bytes.length == PublicKeyLength,
       s"Invalid right key length. Expected: ${PublicKeyLength}, Received: ${bytes.length}"
     )
+
+    override def equals(that: Any): Boolean = that match {
+      case that: PublicKey => bytes sameElements that.bytes
+      case _               => false
+    }
   }
 }

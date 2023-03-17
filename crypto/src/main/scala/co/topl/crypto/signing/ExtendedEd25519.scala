@@ -8,6 +8,9 @@ import ExtendedEd25519.{PublicKey, SecretKey}
 
 import java.nio.{ByteBuffer, ByteOrder}
 
+/**
+ * Implementation of ExtendedEd25519 elliptic curve signature
+ */
 class ExtendedEd25519 extends EllipticCurveSignatureScheme[SecretKey, PublicKey](ExtendedEd25519.SeedLength) {
   private val impl = ExtendedEd25519.Impl
   impl.precompute()
@@ -273,6 +276,14 @@ object ExtendedEd25519 {
       chainCode.length == KeyLength,
       s"Invalid chain code length. Expected: ${KeyLength}, Received: ${chainCode.length}"
     )
+
+    override def equals(that: Any): Boolean = that match {
+      case that: SecretKey =>
+        (leftKey sameElements that.leftKey) &&
+        (rightKey sameElements that.rightKey) &&
+        (chainCode sameElements that.chainCode)
+      case _ => false
+    }
   }
 
   case class PublicKey(vk: Ed25519.PublicKey, chainCode: Array[Byte]) extends VerificationKey {
@@ -281,6 +292,12 @@ object ExtendedEd25519 {
       chainCode.length == KeyLength,
       s"Invalid chain code length. Expected: ${KeyLength}, Received: ${chainCode.length}"
     )
+
+    override def equals(that: Any): Boolean = that match {
+      case that: PublicKey =>
+        (vk equals that.vk) && (chainCode sameElements that.chainCode)
+      case _ => false
+    }
   }
 
   /**

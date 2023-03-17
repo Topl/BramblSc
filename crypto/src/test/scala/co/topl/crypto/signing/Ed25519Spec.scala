@@ -7,7 +7,6 @@ import co.topl.crypto.utils.Hex.implicits._
 import co.topl.crypto.utils.{Hex, TestVector}
 import io.circe.generic.semiauto.deriveDecoder
 import io.circe.{Decoder, HCursor}
-import org.scalacheck.Arbitrary
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.propspec.AnyPropSpec
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
@@ -46,8 +45,7 @@ class Ed25519Spec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks with M
         val keyPair1 = ed25519.deriveKeyPairFromEntropy(entropy, None)
         val keyPair2 = ed25519.deriveKeyPairFromEntropy(entropy, None)
 
-        keyPair1.signingKey.bytes sameElements keyPair2.signingKey.bytes shouldBe true
-        keyPair1.verificationKey.bytes sameElements keyPair2.verificationKey.bytes shouldBe true
+        keyPair1 shouldBe keyPair2
       }
     }
   }
@@ -57,11 +55,12 @@ class Ed25519Spec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks with M
     val p = "topl"
     val specOutSK = "d8f0ad4d22ec1a143905af150e87c7f0dadd13749ef56fbd1bb380c37bc18cf8".hexStringToBytes
     val specOutVK = "8ecfec14ce183dd6e747724993a9ae30328058fd85fa1e3c6f996b61bb164fa8".hexStringToBytes
+    val specOut = KeyPair(Ed25519.SecretKey(specOutSK), Ed25519.PublicKey(specOutVK))
 
     val underTest = new Ed25519
     val keys = underTest.deriveKeyPairFromEntropy(e, Some(p))
-    keys.signingKey.bytes sameElements specOutSK
-    keys.verificationKey.bytes sameElements specOutVK
+
+    keys shouldBe specOut
   }
 
   Ed25519SpecHelper.testVectors.foreach { underTest =>
