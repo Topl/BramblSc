@@ -33,7 +33,7 @@ object Hex {
    * @return - the byte array if the string is a valid hex string, None otherwise
    */
   def hexStringToStrictBytes(hexString: String): Option[Array[Byte]] =
-    if(isValidHex(hexString))
+    if (isValidHex(hexString))
       decode(hexString).some
     else
       None

@@ -7,7 +7,6 @@ import co.topl.quivr.algebras.SignatureVerifier
 import co.topl.quivr.runtime.QuivrRuntimeError
 import co.topl.quivr.runtime.QuivrRuntimeErrors.ValidationError
 import quivr.models.{Message, SignatureVerification, VerificationKey, Witness}
-import scodec.bits.ByteVector
 
 /**
  * Validates that an Ed25519 signature is valid.

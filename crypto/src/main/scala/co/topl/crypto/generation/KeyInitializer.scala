@@ -48,7 +48,6 @@ trait KeyInitializer[SK <: SigningKey] {
       .map(fromEntropy(_, password))
       .leftMap(e => InitializationFailures.FailedToCreateEntropy(e))
 
-
   /**
    * Create a secret key from a Base16 Hex string.
    *
