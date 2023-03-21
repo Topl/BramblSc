@@ -20,7 +20,7 @@ object EntropyToSeed {
         val kdf = new Pbkdf2Sha512()
         kdf.generateKey(
           password.getOrElse("").getBytes(StandardCharsets.UTF_8),
-          entropy.value.toArray,
+          entropy.value,
           seedLength,
           4096
         )

@@ -5,7 +5,7 @@ import Ed25519.{PublicKey, SecretKey}
 /**
  * Implementation of Ed25519 elliptic curve signature
  */
-class Ed25519 extends EllipticCurveSignatureScheme[SecretKey, PublicKey](ExtendedEd25519.SeedLength) {
+class Ed25519 extends EllipticCurveSignatureScheme[SecretKey, PublicKey](Ed25519.SeedLength) {
   private val impl = Ed25519.Impl
   impl.precompute()
 
