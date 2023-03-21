@@ -83,6 +83,7 @@ lazy val crypto = project
     name := "crypto",
     commonSettings,
     publishSettings,
+    Test / publishArtifact := true,
     libraryDependencies ++=
       Dependencies.Crypto.sources ++
       Dependencies.Crypto.tests,
@@ -99,7 +100,8 @@ lazy val bramblSdk = project
     libraryDependencies ++=
       Dependencies.BramblSdk.sources ++
       Dependencies.BramblSdk.tests,
-    scalamacrosParadiseSettings
+    scalamacrosParadiseSettings,
+    dependencyOverrides ++= Dependencies.protobufSpecs
   )
   .dependsOn(crypto)
 

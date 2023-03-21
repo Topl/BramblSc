@@ -1,7 +1,8 @@
 package co.topl.brambl.dataApi
 
-import co.topl.brambl.models.box.Box
-import co.topl.brambl.models.{Indices, KnownIdentifier}
+import co.topl.brambl.models.{Indices, LockAddress, TransactionOutputAddress}
+import co.topl.brambl.models.box.{Box, Lock}
+import co.topl.brambl.models.transaction.UnspentTransactionOutput
 import co.topl.brambl.routines.signatures.Signing
 import quivr.models.{KeyPair, Preimage}
 
@@ -17,27 +18,37 @@ import quivr.models.{KeyPair, Preimage}
 trait DataApi {
 
   /**
-   * Return the indices associated to a known identifier.
-   * Simplifying assumption is that KnownIdentifier and Indices are 1 to 1
+   * Return the indices associated to a TransactionOutputAddress.
    *
-   * @param id The known identifier for which to retrieve the indices
+   * Simplifying assumption *for now* is that TransactionOutputAddress and Indices are 1 to 1. This assumption may
+   * change once more work is done to define the Cartesian Indexing scheme.
+   *
+   * TODO: Revisit this assumption once the Cartesian Indexing scheme is more fleshed out.
+   *
+   * @param address The TransactionOutputAddress for which to retrieve the indices
    * @return The indices associated to the known identifier if it exists. Else None
    */
-  def getIndicesByKnownIdentifier(id: KnownIdentifier): Option[Indices]
+  def getIndicesByTxoAddress(address: TransactionOutputAddress): Option[Indices]
 
   /**
-   * Return the box associated to a known identifier.
+   * Return the UTXO targeted by a TransactionOutputAddress.
    *
-   * A Box is created from a utxo. A KnownIdentifier combines an Identifier and an index. For the simple use-case,
-   * we are only considering the KnownIdentifiers that are already defined in our ecosystem; TransactionOutput32 and
-   * TransactionOutput64, both of which refer to a transaction output (i.e, utxo).
+   * A TransactionOutputAddress identifies an output (UTXO) of an existing transaction on the chain.
    *
-   * Therefore, we can make the simplifying assumption that Box and KnownIdentifier are 1 to 1
-   *
-   * @param id The known identifier for which to retrieve the box
-   * @return The box associated to the known identifier if it exists. Else None
+   * @param address The TransactionOutputAddress of the UTXO to retrieve
+   * @return The UTXO targeted by the given address, if it exists. Else None
    */
-  def getBoxByKnownIdentifier(id: KnownIdentifier): Option[Box]
+  def getUtxoByTxoAddress(address: TransactionOutputAddress): Option[UnspentTransactionOutput]
+
+  /**
+   * Return the Lock targeted by a LockAddress
+   *
+   * A LockAddress is meant to identify a Lock on chain.
+   *
+   * @param address The LockAddress for which to retrieve the Lock
+   * @return The Lock targeted by the given address, if it exists. Else None
+   */
+  def getLockByLockAddress(address: LockAddress): Option[Lock]
 
   /**
    * Return the preimage secret associated to indices.

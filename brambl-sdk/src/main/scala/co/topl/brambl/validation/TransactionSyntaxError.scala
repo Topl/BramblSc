@@ -1,8 +1,8 @@
 package co.topl.brambl.validation
 
-import co.topl.brambl.models.KnownIdentifier
+import co.topl.brambl.models.TransactionOutputAddress
 import co.topl.brambl.models.box.Value
-import co.topl.brambl.models.transaction.{Attestation, Schedule}
+import co.topl.brambl.models.transaction.Schedule
 import quivr.models.{Proof, Proposition}
 
 sealed abstract class TransactionSyntaxError extends ValidationError
@@ -17,7 +17,7 @@ object TransactionSyntaxError {
   /**
    * A Syntax error indicating that this transaction multiple inputs referring to the same KnownIdentifier.
    */
-  case class DuplicateInput(knownIdentifier: KnownIdentifier) extends TransactionSyntaxError
+  case class DuplicateInput(knownIdentifier: TransactionOutputAddress) extends TransactionSyntaxError
 
   /**
    * A Syntax error indicating that this transaction contains too many outputs.

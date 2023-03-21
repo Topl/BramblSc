@@ -2,10 +2,11 @@ package co.topl.brambl.validation
 
 import cats.Monad
 import cats.implicits._
+import co.topl.brambl.models.box.Attestation
 import co.topl.brambl.models.{Datum, Identifier}
-import co.topl.brambl.models.transaction.{Attestation, IoTransaction}
+import co.topl.brambl.models.transaction.IoTransaction
 import co.topl.quivr.api.Verifier
-import co.topl.quivr.runtime.{DynamicContext, QuivrRuntimeError}
+import co.topl.quivr.runtime.DynamicContext
 import quivr.models.{Proof, Proposition}
 import co.topl.brambl.validation.algebras.TransactionAuthorizationVerifier
 
@@ -18,6 +19,8 @@ object TransactionAuthorizationInterpreter {
   def make[F[_]: Monad]()(implicit verifier: Verifier[F, Datum]): TransactionAuthorizationVerifier[F] =
     new TransactionAuthorizationVerifier[F] {
 
+      // TODO: Fix cases of `challenges.map(_.getRevealed)`
+
       /**
        * Verifies each (Proposition, Proof) pair in the given Transaction
        */
@@ -29,29 +32,35 @@ object TransactionAuthorizationInterpreter {
             case (acc, (input, index)) =>
               input.attestation.value match {
                 case Attestation.Value.Predicate(p) =>
-                  predicateValidate(p.lock.challenges, p.lock.threshold, p.responses, context).map(r =>
-                    r.map(_ => transaction)
+                  predicateValidate(p.lock.challenges.map(_.getRevealed), p.lock.threshold, p.responses, context).map(
+                    r => r.map(_ => transaction)
                   )
 
                 case Attestation.Value.Image32(p) =>
-                  image32Validate(p.lock.leaves, p.lock.threshold, p.known, p.responses, context).map(r =>
-                    r.map(_ => transaction)
-                  )
+                  image32Validate(p.lock.leaves, p.lock.threshold, p.known.map(_.getRevealed), p.responses, context)
+                    .map(r => r.map(_ => transaction))
 
                 case Attestation.Value.Image64(p) =>
-                  image64Validate(p.lock.leaves, p.lock.threshold, p.known, p.responses, context).map(r =>
-                    r.map(_ => transaction)
-                  )
+                  image64Validate(p.lock.leaves, p.lock.threshold, p.known.map(_.getRevealed), p.responses, context)
+                    .map(r => r.map(_ => transaction))
 
                 case Attestation.Value.Commitment32(p) =>
-                  commitment32Validate(p.lock.root.get, p.lock.threshold, p.known, p.responses, context).map(r =>
-                    r.map(_ => transaction)
-                  )
+                  commitment32Validate(
+                    p.lock.root.get,
+                    p.lock.threshold,
+                    p.known.map(_.getRevealed),
+                    p.responses,
+                    context
+                  ).map(r => r.map(_ => transaction))
 
                 case Attestation.Value.Commitment64(p) =>
-                  commitment64Validate(p.lock.root.get, p.lock.threshold, p.known, p.responses, context).map(r =>
-                    r.map(_ => transaction)
-                  )
+                  commitment64Validate(
+                    p.lock.root.get,
+                    p.lock.threshold,
+                    p.known.map(_.getRevealed),
+                    p.responses,
+                    context
+                  ).map(r => r.map(_ => transaction))
               }
           }
 
@@ -118,7 +127,7 @@ object TransactionAuthorizationInterpreter {
         context:      DynamicContext[F, String, Datum]
       )(implicit verifier: Verifier[F, Datum]): F[Either[TransactionAuthorizationError, Boolean]] =
         if (threshold === 0) true.asRight[TransactionAuthorizationError].pure[F]
-        else if (threshold >= propositions.size)
+        else if (threshold > propositions.size)
           Either
             .left[TransactionAuthorizationError, Boolean](TransactionAuthorizationError.AuthorizationFailed())
             .pure[F]

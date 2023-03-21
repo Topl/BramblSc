@@ -2,7 +2,6 @@ package co.topl.brambl.wallet
 
 import cats.Monad
 import cats.implicits._
-import co.topl.brambl.models.transaction.Attestation
 import co.topl.brambl.models.transaction.IoTransaction
 import co.topl.brambl.models.transaction.SpentTransactionOutput
 import co.topl.brambl.routines.signatures.Ed25519Signature
@@ -18,6 +17,7 @@ import quivr.models.Proposition
 import quivr.models.SignableBytes
 import co.topl.brambl.models.Indices
 import cats.data.EitherT
+import co.topl.brambl.models.box.Attestation
 
 object CredentiallerInterpreter {
 
@@ -76,7 +76,7 @@ object CredentiallerInterpreter {
             .flatMap(r =>
               idx
                 .flatMap(i => dataApi.getKeyPair(i, r))
-                .flatMap(keyPair => keyPair.sk)
+                .map(keyPair => keyPair.sk)
                 .map(sk => Prover.signatureProver[F].prove(r.sign(sk, msg), msg))
             )
             .getOrElse(Proof().pure[F])
@@ -100,17 +100,20 @@ object CredentiallerInterpreter {
       input: SpentTransactionOutput,
       msg:   SignableBytes
     ): F[SpentTransactionOutput] = {
-      val idx: Option[Indices] = dataApi.getIndicesByKnownIdentifier(input.knownIdentifier)
+      // TODO: Revisit when Cartesian Indexing Scheme is more fleshed out
+      val idx: Option[Indices] = dataApi.getIndicesByTxoAddress(input.address)
       val attestation: F[Attestation] = input.attestation.value match {
         case Attestation.Value.Predicate(Attestation.Predicate(predLock, _, _)) =>
           predLock.challenges
+            // TODO: Fix .getRevealed
+            .map(_.getRevealed)
             .map(getProof(msg, _, idx))
             .sequence
             .map(proofs => Attestation().withPredicate(Attestation.Predicate(predLock, proofs)))
         // TODO: We are not handling other types of Attestations at this moment in time
         case _ => ???
       }
-      attestation.map(SpentTransactionOutput(input.knownIdentifier, _, input.value, input.datum, input.opts))
+      attestation.map(SpentTransactionOutput(input.address, _, input.value))
     }
   }
 }

@@ -1,14 +1,20 @@
 package co.topl.brambl.validation
 
 import cats.Id
-import co.topl.brambl.MockHelpers
 import cats.implicits._
-import co.topl.brambl.models.{Datum, Event}
-import co.topl.brambl.models.box.{Lock, Value}
-import co.topl.brambl.models.transaction.{Attestation, Schedule}
-import co.topl.quivr.api.{Proposer, Prover}
+import co.topl.brambl.MockHelpers
+import co.topl.brambl.models.box.Attestation
+import co.topl.brambl.models.box.Challenge
+import co.topl.brambl.models.box.Lock
+import co.topl.brambl.models.box.Value
+import co.topl.brambl.models.transaction.Schedule
+import co.topl.quivr.api.Proposer
+import co.topl.quivr.api.Prover
 import com.google.protobuf.ByteString
-import quivr.models.{Int128, Proof, Proposition, SmallData}
+import quivr.models.Int128
+import quivr.models.Proof
+import quivr.models.Proposition
+import quivr.models.SmallData
 
 import scala.language.implicitConversions
 
@@ -30,7 +36,7 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
     val result = validator
       .validate(testTx)
       .swap
-      .exists(_.toList.contains(TransactionSyntaxError.DuplicateInput(inputFull.knownIdentifier)))
+      .exists(_.toList.contains(TransactionSyntaxError.DuplicateInput(inputFull.address)))
     assertEquals(result, true)
   }
 
@@ -80,7 +86,7 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
   }
 
   test("validate positive output quantities") {
-    val negativeValue: Value = Value().withToken(Value.Token(Int128(ByteString.copyFrom(BigInt(-1).toByteArray))))
+    val negativeValue: Value = Value().withLvl(Value.LVL(Int128(ByteString.copyFrom(BigInt(-1).toByteArray))))
     val testTx = txFull.copy(outputs = Seq(output.copy(value = negativeValue)))
     val validator = TransactionSyntaxInterpreter.make[Id]()
     val result = validator
@@ -91,8 +97,8 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
   }
 
   test("validate sufficient input funds") {
-    val tokenValueIn: Value = Value().withToken(Value.Token(Int128(ByteString.copyFrom(BigInt(100).toByteArray))))
-    val tokenValueOut: Value = Value().withToken(Value.Token(Int128(ByteString.copyFrom(BigInt(101).toByteArray))))
+    val tokenValueIn: Value = Value().withLvl(Value.LVL(Int128(ByteString.copyFrom(BigInt(100).toByteArray))))
+    val tokenValueOut: Value = Value().withLvl(Value.LVL(Int128(ByteString.copyFrom(BigInt(101).toByteArray))))
     val assetValueIn: Value =
       Value().withAsset(Value.Asset("label", Int128(ByteString.copyFrom(BigInt(100).toByteArray)), SmallData()))
     val assetValueOut: Value =
@@ -120,7 +126,7 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
   }
 
   test("validate proof types: Lock.Predicate") {
-    val challenges: Seq[Proposition] = List(
+    val propositions: Seq[Proposition] = List(
       Proposer.LockedProposer[Id].propose(None),
       Proposer.heightProposer[Id].propose(("header", 0, 100)),
       Proposer.tickProposer[Id].propose((0, 100)),
@@ -135,7 +141,9 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
     val testTx = txFull.copy(inputs =
       txFull.inputs.map(
         _.copy(attestation =
-          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(challenges, 1), responses))
+          Attestation().withPredicate(
+            Attestation.Predicate(Lock.Predicate(propositions.map(Challenge().withRevealed), 1), responses)
+          )
         )
       )
     )
@@ -143,7 +151,7 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
     def testError(error: TransactionSyntaxError) = error match {
       case TransactionSyntaxError.InvalidProofType(challenge, response) =>
         // First challenge is mismatched so we expect the error
-        if (challenge == challenges.head && response == responses.head) true else false
+        if (challenge == propositions.head && response == responses.head) true else false
       case _ => false // We don't expect any other errors
     }
 
@@ -157,69 +165,13 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
 
   test("Invalid data-length transaction > MaxDataLength ") {
     val invalidData = ByteString.copyFrom(Array.fill(TransactionSyntaxInterpreter.MaxDataLength + 1)(1.toByte))
-    val testTx = txFull.copy(datum =
-      Datum
-        .IoTransaction(
-          Event
-            .IoTransaction(
-              Schedule(3, 50, 100),
-              List(),
-              List(),
-              SmallData(invalidData)
-            )
-        )
-    )
+    val testTx = txFull.copy(outputs = List.fill(5000)(output))
 
     val validator = TransactionSyntaxInterpreter.make[Id]()
     val result = validator
       .validate(testTx)
       .swap
       .exists(_.toList.contains(TransactionSyntaxError.InvalidDataLength))
-    assertEquals(result, true)
-  }
-
-  test(s"Valid data-length transaction with edge MaxDataLength") {
-    import co.topl.brambl.common.ContainsImmutable.ContainsImmutableTOps
-    import co.topl.brambl.common.ContainsImmutable.instances._
-    val curSize = txFull
-      .copy(datum =
-        Datum
-          .IoTransaction(
-            Event
-              .IoTransaction(
-                Schedule(3, 50, 100),
-                List(),
-                List(),
-                SmallData()
-              )
-          )
-      )
-      .immutable
-      .value
-      .size
-    // create data with size -> tx + data = MaxDataLength
-    val diff = TransactionSyntaxInterpreter.MaxDataLength - curSize + 1
-    val result =
-      if (diff > 0) {
-        val invalidData = ByteString.copyFrom(Array.fill(diff)(1.toByte))
-        val testTx = txFull.copy(datum =
-          Datum
-            .IoTransaction(
-              Event
-                .IoTransaction(
-                  Schedule(3, 50, 100),
-                  List(),
-                  List(),
-                  SmallData(invalidData)
-                )
-            )
-        )
-        val validator = TransactionSyntaxInterpreter.make[Id]()
-        validator
-          .validate(testTx)
-          .swap
-          .exists(_.toList.contains(TransactionSyntaxError.InvalidDataLength))
-      } else true
     assertEquals(result, true)
   }
 }

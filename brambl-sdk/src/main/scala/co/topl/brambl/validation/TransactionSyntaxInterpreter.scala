@@ -4,10 +4,11 @@ import cats.Applicative
 import cats.implicits._
 import cats.data.{Chain, NonEmptyChain, Validated, ValidatedNec}
 import co.topl.brambl.models.box.{Lock, Value}
-import co.topl.brambl.models.transaction.{Attestation, IoTransaction}
+import co.topl.brambl.models.transaction.IoTransaction
 import co.topl.brambl.validation.algebras.TransactionSyntaxVerifier
 import co.topl.brambl.common.ContainsImmutable.ContainsImmutableTOps
 import co.topl.brambl.common.ContainsImmutable.instances._
+import co.topl.brambl.models.box.Attestation
 import quivr.models.{Int128, Proof, Proposition}
 
 object TransactionSyntaxInterpreter {
@@ -54,7 +55,7 @@ object TransactionSyntaxInterpreter {
     NonEmptyChain
       .fromSeq(
         transaction.inputs
-          .groupBy(_.knownIdentifier)
+          .groupBy(_.address)
           .collect {
             case (knownIdentifier, inputs) if inputs.size > 1 =>
               TransactionSyntaxError.DuplicateInput(knownIdentifier)
@@ -107,7 +108,8 @@ object TransactionSyntaxInterpreter {
     transaction.outputs
       .foldMap[ValidatedNec[TransactionSyntaxError, Unit]](output =>
         (output.value.value match {
-          case Value.Value.Token(Value.Token(Int128(q, _), _))       => BigInt(q.toByteArray).some
+          case Value.Value.Lvl(v)                                    => BigInt(v.quantity.value.toByteArray).some
+          case Value.Value.Topl(v)                                   => BigInt(v.quantity.value.toByteArray).some
           case Value.Value.Asset(Value.Asset(_, Int128(q, _), _, _)) => BigInt(q.toByteArray).some
           case _                                                     => none
         }).foldMap((quantity: BigInt) =>
@@ -153,7 +155,8 @@ object TransactionSyntaxInterpreter {
   ): ValidatedNec[TransactionSyntaxError, Unit] =
     NonEmptyChain(
       // Extract all Token values and their quantities
-      f { case Value.Value.Token(Value.Token(Int128(q, _), _)) => BigInt(q.toByteArray) },
+      f { case Value.Value.Lvl(v) => BigInt(v.quantity.value.toByteArray) },
+      f { case Value.Value.Topl(v) => BigInt(v.quantity.value.toByteArray) },
       // Extract all Asset values and their quantities
       f { case Value.Value.Asset(Value.Asset(_, Int128(q, _), _, _)) => BigInt(q.toByteArray) }
     ).appendChain(
@@ -201,7 +204,8 @@ object TransactionSyntaxInterpreter {
     responses: Seq[Proof]
   ): ValidatedNec[TransactionSyntaxError, Unit] =
     (lock.challenges zip responses)
-      .map(challenge => proofTypeMatch(challenge._1, challenge._2))
+      // TODO: Fix `.getRevealed`
+      .map(challenge => proofTypeMatch(challenge._1.getRevealed, challenge._2))
       .combineAll
 
   /**

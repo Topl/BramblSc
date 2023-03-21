@@ -1,20 +1,15 @@
 package co.topl.brambl
 
-import cats.Id
-import co.topl.brambl.common.ContainsEvidence._
-import co.topl.brambl.common.ContainsImmutable.instances._
 import co.topl.brambl.dataApi.DataApi
 import co.topl.brambl.models._
-import co.topl.brambl.models.box.{Box, Lock, Value}
-import co.topl.brambl.models.transaction.{IoTransaction, Schedule}
-import co.topl.brambl.routines.digests.Blake2b256Digest
-import co.topl.brambl.routines.signatures.{Ed25519Signature, Signing}
-import co.topl.quivr.api.Proposer
+import co.topl.brambl.models.box.Lock
+import co.topl.brambl.models.box.Value
+import co.topl.brambl.models.transaction.UnspentTransactionOutput
+import co.topl.brambl.routines.signatures.Signing
 import com.google.protobuf.ByteString
 import quivr.models._
 
 /**
- * *
  * Mock Implementation of the DataApi
  */
 object MockDataApi extends DataApi with MockHelpers {
@@ -24,18 +19,27 @@ object MockDataApi extends DataApi with MockHelpers {
     Indices(0, 0, 0) -> inLockFull
   )
 
-  val idToIdx: Map[KnownIdentifier, Indices] = Map(
-    dummyTxIdentifier -> Indices(0, 0, 0)
-  ).map { case (o32, v) =>
-    KnownIdentifier().withTransactionOutput32(o32) -> v
-  }
-  override def getIndicesByKnownIdentifier(id: KnownIdentifier): Option[Indices] = idToIdx.get(id)
+  val txoAddrToIdx: Map[TransactionOutputAddress, Indices] = Map(
+    dummyTxoAddress -> Indices(0, 0, 0)
+  )
 
-  override def getBoxByKnownIdentifier(id: KnownIdentifier): Option[Box] = idToIdx
-    .get(id)
-    .flatMap(idxToLocks.get)
-    .map(Lock().withPredicate(_))
-    .map(Box(_, Value().withToken(Value.Token(Int128(ByteString.copyFrom(BigInt(1).toByteArray))))))
+  val txoAddrToTxo: Map[TransactionOutputAddress, UnspentTransactionOutput] = Map(
+    dummyTxoAddress -> UnspentTransactionOutput(
+      trivialInLockFullAddress,
+      Value.defaultInstance.withLvl(Value.LVL(Int128(ByteString.copyFrom(BigInt(1).toByteArray))))
+    )
+  )
+
+  val lockAddrToLock: Map[LockAddress, Lock] = Map(
+    trivialInLockFullAddress -> Lock().withPredicate(inLockFull)
+  )
+
+  override def getIndicesByTxoAddress(address: TransactionOutputAddress): Option[Indices] = txoAddrToIdx.get(address)
+
+  override def getUtxoByTxoAddress(address: TransactionOutputAddress): Option[UnspentTransactionOutput] =
+    txoAddrToTxo.get(address)
+
+  override def getLockByLockAddress(address: LockAddress): Option[Lock] = lockAddrToLock.get(address)
 
   override def getPreimage(idx: Indices): Option[Preimage] =
     if (

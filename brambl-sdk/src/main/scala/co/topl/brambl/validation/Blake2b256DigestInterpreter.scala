@@ -22,7 +22,7 @@ object Blake2b256DigestInterpreter {
      * @return The DigestVerification object if the digest is valid, otherwise an error
      */
     override def validate(t: DigestVerification): F[Either[QuivrRuntimeError, DigestVerification]] = t match {
-      case DigestVerification(Some(Digest(Digest.Value.Digest32(d), _)), Some(Preimage(p, salt, _)), _) =>
+      case DigestVerification(Digest(Digest.Value.Digest32(d), _), Preimage(p, salt, _), _) =>
         val testHash: ByteVector = (new Blake2b256).hash(ByteVector(p.toByteArray ++ salt.toByteArray))
         val expectedHash = ByteVector(d.value.toByteArray)
         if (testHash === expectedHash)
