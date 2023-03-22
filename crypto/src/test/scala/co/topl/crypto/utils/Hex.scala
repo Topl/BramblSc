@@ -1,7 +1,5 @@
 package co.topl.crypto.utils
 
-import cats.implicits.catsSyntaxOptionId
-
 object Hex {
 
   /**
@@ -20,23 +18,7 @@ object Hex {
   def decode(hexString: String): Array[Byte] =
     hexString.replaceAll("[^0-9A-Fa-f]", "").sliding(2, 2).toArray.map(Integer.parseInt(_, 16).toByte)
 
-  /**
-   * Checks if a string is a valid Base16 hex string
-   * @param hexString - string to check
-   * @return - true if the string is a valid hex string, false otherwise
-   */
-  def isValidHex(hexString: String): Boolean = hexString.matches("^[0-9A-Fa-f]+$")
-
-  /**
-   * Converts a hex string to a byte array. Returns None if the string is not a valid hex string
-   * @param hexString - hex string to convert
-   * @return - the byte array if the string is a valid hex string, None otherwise
-   */
-  def hexStringToStrictBytes(hexString: String): Option[Array[Byte]] =
-    if (isValidHex(hexString))
-      decode(hexString).some
-    else
-      None
+  def hexStringToStrictBytes(hexString: String): Array[Byte] = Hex.decode(hexString)
 
   object implicits {
 
