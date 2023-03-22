@@ -3,7 +3,6 @@ package co.topl.crypto.generation.mnemonic
 import cats.implicits._
 import co.topl.crypto.generation.mnemonic.EntropyFailures.InvalidByteSize
 import co.topl.crypto.generation.mnemonic.Language.LanguageWordList
-import scodec.bits.ByteVector
 
 import java.util.UUID
 
@@ -11,7 +10,7 @@ import java.util.UUID
  * Wrapper around the entropy contained represented by an array of bytes
  * @param value the underlying bytes of entropy
  */
-case class Entropy(value: ByteVector)
+case class Entropy(value: Array[Byte])
 
 object Entropy {
 
@@ -24,7 +23,7 @@ object Entropy {
     val numBytes = size.entropyLength / byteLen
     val r = new Array[Byte](numBytes)
     new java.security.SecureRandom().nextBytes(r) // overrides r
-    Entropy(ByteVector(r))
+    Entropy(r)
   }
 
   /**
@@ -64,12 +63,11 @@ object Entropy {
    */
   def fromUuid(uuid: UUID): Entropy =
     Entropy(
-      ByteVector(
-        uuid.toString
-          .filterNot("-".toSet)
-          .grouped(2)
-          .map(Integer.parseInt(_, 16).toByte)
-      )
+      uuid.toString
+        .filterNot("-".toSet)
+        .grouped(2)
+        .map(Integer.parseInt(_, 16).toByte)
+        .toArray
     )
 
   /**
@@ -77,8 +75,8 @@ object Entropy {
    * @param bytes the byte data to convert into entropy
    * @return either a `ValidationFailure` if the byte data is invalid or `Entropy` if it is valid
    */
-  def fromBytes(bytes: ByteVector): Either[EntropyFailure, Entropy] = for {
-    _ <- sizeFromEntropyLength(bytes.length.toInt)
+  def fromBytes(bytes: Array[Byte]): Either[EntropyFailure, Entropy] = for {
+    _ <- sizeFromEntropyLength(bytes.length)
     entropy = Entropy(bytes)
   } yield entropy
 
@@ -92,13 +90,12 @@ object Entropy {
    */
   private[mnemonic] def unsafeFromPhrase(phrase: Phrase): Entropy =
     Entropy(
-      ByteVector(
-        Phrase
-          .toBinaryString(phrase)
-          ._1 // extract the entropy from the Phrase
-          .grouped(byteLen) // group into bytes
-          .map(Integer.parseInt(_, 2).toByte) // interpret the binary string as a List[Byte]
-      )
+      Phrase
+        .toBinaryString(phrase)
+        ._1 // extract the entropy from the Phrase
+        .grouped(byteLen) // group into bytes
+        .map(Integer.parseInt(_, 2).toByte) // interpret the binary string as a List[Byte]
+        .toArray
     )
 
   private[mnemonic] def sizeFromEntropyLength(entropyByteLength: Int): Either[EntropyFailure, MnemonicSize] =

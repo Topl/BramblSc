@@ -8,7 +8,6 @@ import io.circe.{Decoder, HCursor}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.propspec.AnyPropSpec
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
-import scodec.bits.ByteVector
 
 class EntropyToSeedSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks with Matchers with EitherValues {
 
@@ -39,9 +38,9 @@ class EntropyToSeedSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks 
           .pbkdf2Sha512(96)
           .toSeed(underTest.inputs.entropy, underTest.inputs.password)
 
-      val expectedSeed = ByteVector(underTest.outputs.seed96)
+      val expectedSeed = underTest.outputs.seed96
 
-      (actualSeed == expectedSeed) shouldBe true
+      (actualSeed sameElements expectedSeed) shouldBe true
 
     }
   }

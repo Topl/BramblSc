@@ -2,27 +2,72 @@ package co.topl.crypto.signing
 
 import co.topl.crypto.generation.EntropyToSeed
 import co.topl.crypto.generation.mnemonic.Entropy
-import scodec.bits.ByteVector
 
 /* Forked from https://github.com/input-output-hk/scrypto */
 
-abstract private[signing] class EllipticCurveSignatureScheme(val seedLength: Int) {
+abstract private[signing] class EllipticCurveSignatureScheme[
+  SK <: SigningKey,
+  VK <: VerificationKey
+](seedLength: Int) {
 
-  val SignatureLength: Int
-  val KeyLength: Int
-
-  def deriveKeyPairFromEntropy(entropy: Entropy, password: Option[String])(implicit
+  /**
+   * Generate a key pair from a given entropy and password.
+   *
+   * @param entropy    the entropy
+   * @param passphrase the passphrase
+   * @return the key pair
+   */
+  def deriveKeyPairFromEntropy(entropy: Entropy, passphrase: Option[String])(implicit
     entropyToSeed: EntropyToSeed = EntropyToSeed.instances.pbkdf2Sha512(seedLength)
-  ): (ByteVector, ByteVector) = {
-    val seed = entropyToSeed.toSeed(entropy, password)
+  ): KeyPair[SK, VK] = {
+    val seed = entropyToSeed.toSeed(entropy, passphrase)
     deriveKeyPairFromSeed(seed)
   }
 
-  def deriveKeyPairFromSeed(seed: ByteVector): (ByteVector, ByteVector)
+  /**
+   * Derive a key pair from a seed.
+   *
+   * @param seed the seed
+   * @return the key pair
+   */
+  def deriveKeyPairFromSeed(seed: Array[Byte]): KeyPair[SK, VK] = {
+    val secretKey = deriveSecretKeyFromSeed(seed)
+    val verificationKey = getVerificationKey(secretKey)
+    KeyPair(secretKey, verificationKey)
+  }
 
-  def sign(privateKey: ByteVector, message: ByteVector): ByteVector
+  /**
+   * Derive a secret key from a seed.
+   *
+   * @param seed the seed
+   * @return the secret signing key
+   */
+  def deriveSecretKeyFromSeed(seed: Array[Byte]): SK
 
-  def verify(signature: ByteVector, message: ByteVector, verifyKey: ByteVector): Boolean
+  /**
+   * Sign a given message with a given signing key.
+   *
+   * @param privateKey The private signing key
+   * @param message    a message that the the signature will be generated for
+   * @return the signature
+   */
+  def sign(privateKey: SK, message: Array[Byte]): Array[Byte]
 
-  def getVerificationKey(privateKey: ByteVector): ByteVector
+  /**
+   * Verify a signature against a message using the public verification key.
+   *
+   * @param signature the signature to use for verification
+   * @param message   the message that the signature is expected to verify
+   * @param verifyKey The key to use for verification
+   * @return true if the signature is verified; otherwise false.
+   */
+  def verify(signature: Array[Byte], message: Array[Byte], verifyKey: VK): Boolean
+
+  /**
+   * Get the public key from the secret key
+   *
+   * @param privateKey the secret key
+   * @return the public verification key
+   */
+  def getVerificationKey(privateKey: SK): VK
 }
