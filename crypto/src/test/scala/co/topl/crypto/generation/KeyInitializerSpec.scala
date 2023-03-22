@@ -9,6 +9,7 @@ import io.circe.{Decoder, HCursor}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.propspec.AnyPropSpec
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+import co.topl.crypto.utils.Hex.implicits.Ops
 
 /**
  * test vectors adapted from multiple sources:
@@ -36,10 +37,14 @@ class KeyInitializerSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks
 
   implicit val outputsDecoder: Decoder[SpecOutputs] = (c: HCursor) =>
     for {
-      ed25519 <- c.get[String]("ed25519").map(ed25519Initializer.fromBase16String(_).value)
+      ed25519 <- c
+        .get[String]("ed25519")
+        .map(_.hexStringToBytes)
+        .map(ed25519Initializer.fromBytes)
       extendedEd25519 <- c
         .get[String]("extendedEd25519")
-        .map(extendedEd25519Initializer.fromBase16String(_).value)
+        .map(_.hexStringToBytes)
+        .map(extendedEd25519Initializer.fromBytes)
     } yield SpecOutputs(ed25519, extendedEd25519)
 
   implicit val testVectorDecoder: Decoder[KeyInitializorTestVector] = deriveDecoder[KeyInitializorTestVector]

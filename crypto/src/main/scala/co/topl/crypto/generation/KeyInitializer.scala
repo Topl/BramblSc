@@ -3,7 +3,6 @@ package co.topl.crypto.generation
 import cats.implicits._
 import co.topl.crypto.generation.mnemonic.{Entropy, EntropyFailure, Language}
 import co.topl.crypto.signing._
-import co.topl.crypto.utils.Hex
 
 import java.util.UUID
 
@@ -47,17 +46,6 @@ trait KeyInitializer[SK <: SigningKey] {
       .fromMnemonicString(mnemonicString, language)
       .map(fromEntropy(_, password))
       .leftMap(e => InitializationFailures.FailedToCreateEntropy(e))
-
-  /**
-   * Create a secret key from a Base16 Hex string.
-   *
-   * @param base16String The Hex string which encodes a Secret key
-   * @return The created secret key if base16String was a valid Base16 Hex String. Else an InitializationFailure error.
-   */
-  def fromBase16String(base16String: String): Either[InitializationFailure, SK] =
-    Either
-      .fromOption(Hex.hexStringToStrictBytes(base16String), InitializationFailures.InvalidBase16String)
-      .map(fromBytes)
 }
 
 object KeyInitializer {
@@ -98,6 +86,5 @@ object KeyInitializer {
 sealed abstract class InitializationFailure
 
 object InitializationFailures {
-  case object InvalidBase16String extends InitializationFailure
   case class FailedToCreateEntropy(entropyFailure: EntropyFailure) extends InitializationFailure
 }
