@@ -3,12 +3,8 @@ package co.topl.crypto.generation
 import cats.implicits._
 import co.topl.crypto.generation.mnemonic.{Entropy, EntropyFailure, Language}
 import co.topl.crypto.signing._
-import scodec.bits.BitVector
 
 import java.util.UUID
-import scala.annotation.unused
-
-// TODO: Scodec.BitVector will be removed from this file in TSDK-354
 
 /**
  * Provides functionality for creating secret keys
@@ -50,17 +46,6 @@ trait KeyInitializer[SK <: SigningKey] {
       .fromMnemonicString(mnemonicString, language)
       .map(fromEntropy(_, password))
       .leftMap(e => InitializationFailures.FailedToCreateEntropy(e))
-
-  @unused
-  def fromBase58String(base58String: String): Either[InitializationFailure, SK] =
-    Either
-      .fromOption(BitVector.fromBase58(base58String), InitializationFailures.InvalidBase58String)
-      .map(bits => fromBytes(bits.toByteArray))
-
-  def fromBase16String(base16String: String): Either[InitializationFailure, SK] =
-    Either
-      .fromOption(BitVector.fromHex(base16String), InitializationFailures.InvalidBase16String)
-      .map(bits => fromBytes(bits.toByteArray))
 }
 
 object KeyInitializer {
@@ -79,7 +64,6 @@ object KeyInitializer {
         override def fromBytes(bytes: Array[Byte]): Ed25519.SecretKey = Ed25519.SecretKey(bytes)
       }
 
-    // TODO: Remove Scodec.ByteVector from this file. This is added here now to allow tests to pass
     implicit def extendedEd25519Initializer(implicit
       extendedEd25519: ExtendedEd25519
     ): KeyInitializer[ExtendedEd25519.SecretKey] =
@@ -102,7 +86,5 @@ object KeyInitializer {
 sealed abstract class InitializationFailure
 
 object InitializationFailures {
-  case object InvalidBase58String extends InitializationFailure
-  case object InvalidBase16String extends InitializationFailure
   case class FailedToCreateEntropy(entropyFailure: EntropyFailure) extends InitializationFailure
 }
