@@ -7,6 +7,7 @@ import org.bouncycastle.crypto.generators.SCrypt
  * @see [[https://en.wikipedia.org/wiki/Scrypt]]
  */
 class Scrypt extends Kdf[Scrypt.ScryptParams] {
+
   /**
    * Derive a key from a secret.
    * @param secret secret to derive key from
@@ -18,12 +19,13 @@ class Scrypt extends Kdf[Scrypt.ScryptParams] {
 }
 
 object Scrypt {
+
   /**
    * Scrypt parameters.
    */
   trait ScryptParams extends Params {
     // salt
-    val salt : Array[Byte]
+    val salt: Array[Byte]
     // CPU/Memory cost parameter. Must be larger than 1, a power of 2 and less than 2^(128 * r / 8)
     val n: Int = scala.math.pow(2, 18).toInt
     // the block size, must be >= 1.

@@ -5,14 +5,17 @@ package co.topl.crypto.encryption
  * @see [[https://en.wikipedia.org/wiki/Cipher]]
  */
 package object cipher {
+
   /**
    * Cipher parameters.
    */
   trait Params
+
   /**
    * A Cipher.
    */
   trait Cipher[P <: Params] {
+
     /**
      * Encrypt data.
      * @param plainText data to encrypt
@@ -21,6 +24,7 @@ package object cipher {
      * @return encrypted data
      */
     def encrypt(plainText: Array[Byte], key: Array[Byte], params: P): Array[Byte]
+
     /**
      * Decrypt data.
      * @param cipherText data to decrypt

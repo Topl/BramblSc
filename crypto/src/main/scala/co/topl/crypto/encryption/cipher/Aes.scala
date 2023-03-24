@@ -10,7 +10,7 @@ import org.bouncycastle.crypto.params.{KeyParameter, ParametersWithIV}
  * Aes is a symmetric block cipher that can encrypt and decrypt data using the same key.
  * @see [[https://en.wikipedia.org/wiki/Advanced_Encryption_Standard]]
  */
-class Aes extends Cipher[Aes.AesParams]{
+class Aes extends Cipher[Aes.AesParams] {
 
   /**
    * Encrypt data.
@@ -49,7 +49,7 @@ class Aes extends Cipher[Aes.AesParams]{
     paddedBytes.slice(1, paddedBytes.length - paddedAmount)
   }
 
-  private def processAes(input:Array[Byte], key:Array[Byte], iv:Array[Byte], encrypt:Boolean): Array[Byte] = {
+  private def processAes(input: Array[Byte], key: Array[Byte], iv: Array[Byte], encrypt: Boolean): Array[Byte] = {
     val cipherParams = new ParametersWithIV(new KeyParameter(key), iv)
     val aesCtr = new BufferedBlockCipher(new SICBlockCipher(new AESEngine))
     aesCtr.init(encrypt, cipherParams)
@@ -63,6 +63,7 @@ class Aes extends Cipher[Aes.AesParams]{
 
 object Aes {
   val BlockSize: Int = 16
+
   /**
    * AES parameters.
    */
