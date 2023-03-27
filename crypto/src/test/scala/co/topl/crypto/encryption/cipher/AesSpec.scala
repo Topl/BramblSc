@@ -54,13 +54,13 @@ class AesSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks with Match
     // decrypting. We should test with different sizes of messages to ensure the padding is done correctly.
     List(
       7, // arbitrary < 16
-      15, // 1 less than 16
-      16, // a full block
-      17, // 1 more than 16
+      Aes.BlockSize - 1, // 1 less than a block
+      Aes.BlockSize, // a full block
+      Aes.BlockSize + 1, // 1 more than a block
       24, // arbitrary > 16 and < 32
-      31, // 1 less than 32
-      32, // a full multiple of a full block
-      33 // 1 more than 32
+      (Aes.BlockSize * 2) - 1, // 1 less than 2 blocks
+      Aes.BlockSize * 2, // a multiple of a block (i.e, 2 blocks)
+      (Aes.BlockSize * 2) + 1 // 1 more than 2 blocks
     ).map("message".getBytes.padTo(_, 0.toByte)).foreach { message =>
       val params = AesParams(Aes.generateIv)
       val key = "key".getBytes.padTo(16, 0.toByte)
