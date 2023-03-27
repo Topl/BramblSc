@@ -28,7 +28,7 @@ package object cipher {
     /**
      * Decrypt data.
      * @param cipherText data to decrypt
-     * @param key encryption key
+     * @param key decryption key
      * @param params cipher parameters
      * @return decrypted data
      */

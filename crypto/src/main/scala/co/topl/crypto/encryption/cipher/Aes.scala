@@ -40,7 +40,7 @@ object Aes extends Cipher[AesParams] {
    *       <16, only one byte is needed to store the amount padded.
    *
    * @param plainText data to encrypt
-   * @param key encryption key
+   * @param key the symmetric key for encryption and decryption
    *            Must be 128/192/256 bits or 16/24/32 bytes.
    * @param params cipher parameters
    * @return encrypted data
@@ -58,7 +58,7 @@ object Aes extends Cipher[AesParams] {
    * @note The preImage consists of [paddedAmount] ++ [data] ++ [padding]
    *
    * @param cipherText data to decrypt
-   * @param key encryption key
+   * @param key the symmetric key for encryption and decryption
    *            Must be 128/192/256 bits or 16/24/32 bytes.
    * @param params cipher parameters
    * @return decrypted data
