@@ -6,11 +6,30 @@ import org.bouncycastle.crypto.modes.SICBlockCipher
 import org.bouncycastle.crypto.params.{KeyParameter, ParametersWithIV}
 
 /**
+ * AES parameters.
+ *
+ * @param iv initialization vector
+ */
+case class AesParams(iv: Array[Byte]) extends Params
+
+/**
  * AES encryption.
  * Aes is a symmetric block cipher that can encrypt and decrypt data using the same key.
  * @see [[https://en.wikipedia.org/wiki/Advanced_Encryption_Standard]]
  */
-class Aes extends Cipher[Aes.AesParams] {
+object Aes extends Cipher[AesParams] {
+  val BlockSize: Int = 16
+
+  /**
+   * Generate a random initialization vector.
+   *
+   * @return a random initialization vector
+   */
+  def generateIv: Array[Byte] = {
+    val iv = new Array[Byte](BlockSize)
+    new java.util.Random().nextBytes(iv)
+    iv
+  }
 
   /**
    * Encrypt data.
@@ -22,10 +41,11 @@ class Aes extends Cipher[Aes.AesParams] {
    *
    * @param plainText data to encrypt
    * @param key encryption key
+   *            Must be 128/192/256 bits or 16/24/32 bytes.
    * @param params cipher parameters
    * @return encrypted data
    */
-  override def encrypt(plainText: Array[Byte], key: Array[Byte], params: Aes.AesParams): Array[Byte] = {
+  override def encrypt(plainText: Array[Byte], key: Array[Byte], params: AesParams): Array[Byte] = {
     // + 1 to account for the byte storing the amount padded. This value is guaranteed to be <16
     val amountPadded = (Aes.BlockSize - ((plainText.length + 1) % Aes.BlockSize)) % Aes.BlockSize
     val paddedBytes = amountPadded.toByte +: plainText ++: Array.fill[Byte](amountPadded)(0)
@@ -39,14 +59,15 @@ class Aes extends Cipher[Aes.AesParams] {
    *
    * @param cipherText data to decrypt
    * @param key encryption key
+   *            Must be 128/192/256 bits or 16/24/32 bytes.
    * @param params cipher parameters
    * @return decrypted data
    */
-  override def decrypt(cipherText: Array[Byte], key: Array[Byte], params: Aes.AesParams): Array[Byte] = {
+  override def decrypt(cipherText: Array[Byte], key: Array[Byte], params: AesParams): Array[Byte] = {
     val preImage = processAes(cipherText, key, params.iv, encrypt = false)
     val paddedAmount = preImage.head.toInt
     val paddedBytes = preImage.tail
-    paddedBytes.slice(1, paddedBytes.length - paddedAmount)
+    paddedBytes.slice(0, paddedBytes.length - paddedAmount)
   }
 
   private def processAes(input: Array[Byte], key: Array[Byte], iv: Array[Byte], encrypt: Boolean): Array[Byte] = {
@@ -59,25 +80,4 @@ class Aes extends Cipher[Aes.AesParams] {
     output
   }
 
-}
-
-object Aes {
-  val BlockSize: Int = 16
-
-  /**
-   * AES parameters.
-   */
-  trait AesParams extends Params {
-    val iv: Array[Byte] // initialization vector
-  }
-
-  /**
-   * Generate a random initialization vector.
-   * @return a random initialization vector
-   */
-  def generateIv: Array[Byte] = {
-    val iv = new Array[Byte](BlockSize)
-    new java.util.Random().nextBytes(iv)
-    iv
-  }
 }
