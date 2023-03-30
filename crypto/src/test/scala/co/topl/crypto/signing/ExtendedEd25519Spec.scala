@@ -81,6 +81,8 @@ class ExtendedEd25519Spec extends AnyPropSpec with ScalaCheckDrivenPropertyCheck
 
   ExtendedEd25519CKDSpecHelper.testVectors.foreach { underTest =>
     property(s"${underTest.description}") {
+      val derivedChild_keyPair =
+        extendedEd25519.deriveKeyPairFromChildPath(underTest.inputs.rootSecretKey, underTest.inputs.path.toList)
       val derivedChild_xsk =
         underTest.inputs.path.foldLeft(underTest.inputs.rootSecretKey)((xsk, ind) =>
           extendedEd25519.deriveChildSecretKey(xsk, ind)
@@ -96,11 +98,13 @@ class ExtendedEd25519Spec extends AnyPropSpec with ScalaCheckDrivenPropertyCheck
 
       derivedChild_xsk shouldBe underTest.outputs.childSecretKey
       fromDerivedChildSk_xvk shouldBe underTest.outputs.childVerificationKey
+      derivedChild_keyPair.signingKey shouldBe underTest.outputs.childSecretKey
 
       derivedChild_xvk.foreach { input_xvk =>
         input_xvk shouldBe underTest.outputs.childVerificationKey
         input_xvk shouldBe fromDerivedChildSk_xvk
       }
+      derivedChild_keyPair.verificationKey shouldBe underTest.outputs.childVerificationKey
     }
   }
 
