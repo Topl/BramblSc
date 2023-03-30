@@ -12,7 +12,7 @@ import java.nio.{ByteBuffer, ByteOrder}
  * Implementation of ExtendedEd25519 elliptic curve signature
  */
 class ExtendedEd25519 extends EllipticCurveSignatureScheme[SecretKey, PublicKey](ExtendedEd25519.SeedLength) {
-  private val impl = ExtendedEd25519.Impl
+  private val impl = new eddsa.Ed25519
   impl.precompute()
 
   /**

@@ -65,18 +65,17 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
     )
     val provenAttestation = provenTx.inputs.head.attestation.getPredicate
     assert(errs.tail.head.isInstanceOf[AuthorizationFailed], "AuthorizationFailed error is expected")
+    val authErrs = errs.tail.head.asInstanceOf[AuthorizationFailed].errors
     assert(
-      errs.tail.head.asInstanceOf[AuthorizationFailed].errors.length == 3,
-      "AuthorizationFailed error expects exactly 3 errors"
+      authErrs.length == 3,
+      s"AuthorizationFailed error expects exactly 3 errors. Received ${authErrs.length} errors. ${authErrs}"
     )
     assert(
-      errs.tail.head.asInstanceOf[AuthorizationFailed].errors.contains(LockedPropositionIsUnsatisfiable),
-      s"AuthorizationFailed error expects errors Locked error. Received: ${errs.tail.head.asInstanceOf[AuthorizationFailed].errors}"
+      authErrs.contains(LockedPropositionIsUnsatisfiable),
+      s"AuthorizationFailed error expects errors Locked error. Received: ${authErrs}"
     )
     assert(
-      errs.tail.head
-        .asInstanceOf[AuthorizationFailed]
-        .errors
+      authErrs
         // TODO: fix .getRevealed
         .contains(
           EvaluationAuthorizationFailed(
@@ -84,12 +83,10 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
             provenAttestation.responses(3)
           )
         ),
-      s"AuthorizationFailed error expects Height error. Received: ${errs.tail.head.asInstanceOf[AuthorizationFailed].errors}"
+      s"AuthorizationFailed error expects Height error. Received: ${authErrs}"
     )
     assert(
-      errs.tail.head
-        .asInstanceOf[AuthorizationFailed]
-        .errors
+      authErrs
         // TODO: fix .getRevealed
         .contains(
           EvaluationAuthorizationFailed(
@@ -97,7 +94,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
             provenAttestation.responses(4)
           )
         ),
-      s"AuthorizationFailed error expects Tick error. Received: ${errs.tail.head.asInstanceOf[AuthorizationFailed].errors}"
+      s"AuthorizationFailed error expects Tick error. Received: ${authErrs}"
     )
   }
 
