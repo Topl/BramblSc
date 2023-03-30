@@ -6,6 +6,7 @@ import org.bouncycastle.crypto.generators.PKCS5S2ParametersGenerator
 import org.bouncycastle.crypto.params.KeyParameter
 
 import java.nio.charset.StandardCharsets
+import scala.language.implicitConversions
 
 trait EntropyToSeed {
   def toSeed(entropy: Entropy, password: Option[String]): Array[Byte]
