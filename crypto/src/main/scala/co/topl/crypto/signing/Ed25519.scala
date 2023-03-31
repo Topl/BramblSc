@@ -6,7 +6,7 @@ import Ed25519.{PublicKey, SecretKey}
  * Implementation of Ed25519 elliptic curve signature
  */
 class Ed25519 extends EllipticCurveSignatureScheme[SecretKey, PublicKey](Ed25519.SeedLength) {
-  private val impl = Ed25519.Impl
+  private val impl = new eddsa.Ed25519
   impl.precompute()
 
   /**
@@ -102,11 +102,9 @@ class Ed25519 extends EllipticCurveSignatureScheme[SecretKey, PublicKey](Ed25519
 }
 
 object Ed25519 {
-  private val Impl = new eddsa.Ed25519
-
-  val SignatureLength: Int = Impl.SIGNATURE_SIZE
-  val KeyLength: Int = Impl.SECRET_KEY_SIZE
-  val PublicKeyLength: Int = Impl.PUBLIC_KEY_SIZE
+  val SignatureLength: Int = 64
+  val KeyLength: Int = 32
+  val PublicKeyLength: Int = 32
   val SeedLength: Int = 32
 
   case class SecretKey(bytes: Array[Byte]) extends SigningKey {
@@ -117,9 +115,11 @@ object Ed25519 {
     )
 
     override def equals(that: Any): Boolean = that match {
-      case that: SecretKey => bytes sameElements that.bytes
+      case that: SecretKey => java.util.Arrays.equals(bytes, that.bytes)
       case _               => false
     }
+
+    override def hashCode(): Int = java.util.Arrays.hashCode(bytes)
   }
 
   case class PublicKey(bytes: Array[Byte]) extends VerificationKey {
@@ -130,8 +130,10 @@ object Ed25519 {
     )
 
     override def equals(that: Any): Boolean = that match {
-      case that: PublicKey => bytes sameElements that.bytes
+      case that: PublicKey => java.util.Arrays.equals(bytes, that.bytes)
       case _               => false
     }
+
+    override def hashCode(): Int = java.util.Arrays.hashCode(bytes)
   }
 }

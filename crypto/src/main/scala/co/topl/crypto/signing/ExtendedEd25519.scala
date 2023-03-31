@@ -12,7 +12,7 @@ import java.nio.{ByteBuffer, ByteOrder}
  * Implementation of ExtendedEd25519 elliptic curve signature
  */
 class ExtendedEd25519 extends EllipticCurveSignatureScheme[SecretKey, PublicKey](ExtendedEd25519.SeedLength) {
-  private val impl = ExtendedEd25519.Impl
+  private val impl = new eddsa.Ed25519
   impl.precompute()
 
   /**
@@ -253,11 +253,10 @@ class ExtendedEd25519 extends EllipticCurveSignatureScheme[SecretKey, PublicKey]
 }
 
 object ExtendedEd25519 {
-  private val Impl = new eddsa.Ed25519
 
-  val SignatureLength: Int = Impl.SIGNATURE_SIZE
-  val KeyLength: Int = Impl.SECRET_KEY_SIZE
-  val PublicKeyLength: Int = Impl.PUBLIC_KEY_SIZE
+  val SignatureLength: Int = 64
+  val KeyLength: Int = 32
+  val PublicKeyLength: Int = 32
   val SeedLength: Int = 96
 
   case class SecretKey(leftKey: Array[Byte], rightKey: Array[Byte], chainCode: Array[Byte]) extends SigningKey {
@@ -279,11 +278,20 @@ object ExtendedEd25519 {
 
     override def equals(that: Any): Boolean = that match {
       case that: SecretKey =>
-        (leftKey sameElements that.leftKey) &&
-        (rightKey sameElements that.rightKey) &&
-        (chainCode sameElements that.chainCode)
+        java.util.Arrays.equals(leftKey, that.leftKey) &&
+        java.util.Arrays.equals(rightKey, that.rightKey) &&
+        java.util.Arrays.equals(chainCode, that.chainCode)
       case _ => false
     }
+
+    override def hashCode(): Int = {
+      var r = 1
+      r = 31 * r + java.util.Arrays.hashCode(leftKey)
+      r = 31 * r + java.util.Arrays.hashCode(rightKey)
+      r = 31 * r + java.util.Arrays.hashCode(chainCode)
+      r
+    }
+
   }
 
   case class PublicKey(vk: Ed25519.PublicKey, chainCode: Array[Byte]) extends VerificationKey {
@@ -295,8 +303,15 @@ object ExtendedEd25519 {
 
     override def equals(that: Any): Boolean = that match {
       case that: PublicKey =>
-        (vk equals that.vk) && (chainCode sameElements that.chainCode)
+        vk.equals(that.vk) && java.util.Arrays.equals(chainCode, that.chainCode)
       case _ => false
+    }
+
+    override def hashCode(): Int = {
+      var r = 1
+      r = 31 * r + vk.hashCode()
+      r = 31 * r + java.util.Arrays.hashCode(chainCode)
+      r
     }
   }
 
