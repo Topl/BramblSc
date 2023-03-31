@@ -9,12 +9,12 @@ package object kdf {
   /**
    * KDF parameters.
    */
-  trait Params
+  trait Params[F[_]]
 
   /**
    * A KDF.
    */
-  trait Kdf[P <: Params] {
+  trait Kdf[F[_], P <: Params[F]] {
 
     /**
      * Derive a key from a secret.
@@ -22,6 +22,6 @@ package object kdf {
      * @param params KDF parameters
      * @return derived key
      */
-    def deriveKey(secret: Array[Byte], params: P): Array[Byte]
+    def deriveKey(secret: Array[Byte], params: P): F[Array[Byte]]
   }
 }
