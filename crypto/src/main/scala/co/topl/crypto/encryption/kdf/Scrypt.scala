@@ -2,6 +2,7 @@ package co.topl.crypto.encryption.kdf
 
 import cats.Applicative
 import cats.implicits.catsSyntaxApplicativeId
+import io.circe.Json
 import org.bouncycastle.crypto.generators.SCrypt
 
 /**
@@ -39,7 +40,17 @@ object Scrypt {
     r:     Int = 8,
     p:     Int = 1,
     dkLen: Int = 32
-  ) extends Params[F]
+  ) extends Params[F] {
+
+    override def asJson: Json = Json.obj(
+      "salt"  -> Json.fromString(salt.map("%02x" format _).mkString),
+      "n"     -> Json.fromInt(n),
+      "r"     -> Json.fromInt(r),
+      "p"     -> Json.fromInt(p),
+      "dkLen" -> Json.fromInt(dkLen),
+      "kdf"   -> Json.fromString("scrypt")
+    )
+  }
 
   def make[F[_]: Applicative]: Kdf[F, Scrypt.ScryptParams[F]] = new Kdf[F, Scrypt.ScryptParams[F]] {
 

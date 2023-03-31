@@ -1,5 +1,7 @@
 package co.topl.crypto.encryption
 
+import io.circe.Json
+
 /**
  * Key derivation functions (KDFs) are used to derive a key from a password or passphrase.
  * @see [[https://en.wikipedia.org/wiki/Key_derivation_function]]
@@ -9,7 +11,9 @@ package object kdf {
   /**
    * KDF parameters.
    */
-  trait Params[F[_]]
+  trait Params[F[_]] {
+    def asJson: Json
+  }
 
   /**
    * A KDF.

@@ -1,5 +1,7 @@
 package co.topl.crypto.encryption
 
+import io.circe.Json
+
 /**
  * Ciphers are used to encrypt and decrypt data.
  * @see [[https://en.wikipedia.org/wiki/Cipher]]
@@ -9,7 +11,9 @@ package object cipher {
   /**
    * Cipher parameters.
    */
-  trait Params[F[_]]
+  trait Params[F[_]] {
+    def asJson: Json
+  }
 
   /**
    * A Cipher.

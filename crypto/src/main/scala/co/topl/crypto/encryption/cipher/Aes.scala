@@ -2,6 +2,7 @@ package co.topl.crypto.encryption.cipher
 
 import cats.Applicative
 import cats.implicits.catsSyntaxApplicativeId
+import io.circe.Json
 import org.bouncycastle.crypto.BufferedBlockCipher
 import org.bouncycastle.crypto.engines.AESEngine
 import org.bouncycastle.crypto.modes.SICBlockCipher
@@ -31,7 +32,13 @@ object Aes {
    *
    * @param iv initialization vector
    */
-  case class AesParams[F[_]](iv: Array[Byte]) extends Params[F]
+  case class AesParams[F[_]](iv: Array[Byte]) extends Params[F] {
+
+    override def asJson: Json = Json.obj(
+      "iv"     -> Json.fromString(iv.map("%02x" format _).mkString),
+      "cipher" -> Json.fromString("aes")
+    )
+  }
 
   /**
    * Create an instance of the AES cipher.

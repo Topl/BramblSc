@@ -74,6 +74,7 @@ object Dependencies {
 
     lazy val sources: Seq[ModuleID] =
       Seq("org.bouncycastle" % "bcprov-jdk18on" % "1.72") ++
+      circe ++
       scodec ++
       newType ++
       cats ++
@@ -81,7 +82,6 @@ object Dependencies {
 
     lazy val tests: Seq[ModuleID] =
       (
-        circe ++
           scalatest ++
           scalamock ++
           scalacheck
