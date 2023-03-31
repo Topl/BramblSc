@@ -41,6 +41,7 @@ object Scrypt {
     p:     Int = 1,
     dkLen: Int = 32
   ) extends Params[F] {
+    override val kdf: String = "scrypt"
 
     override def asJson: Json = Json.obj(
       "salt"  -> Json.fromString(salt.map("%02x" format _).mkString),
@@ -48,7 +49,7 @@ object Scrypt {
       "r"     -> Json.fromInt(r),
       "p"     -> Json.fromInt(p),
       "dkLen" -> Json.fromInt(dkLen),
-      "kdf"   -> Json.fromString("scrypt")
+      "kdf"   -> Json.fromString(kdf)
     )
   }
 

@@ -12,6 +12,8 @@ package object kdf {
    * KDF parameters.
    */
   trait Params[F[_]] {
+    // Label denoting which KDF to use
+    val kdf: String
     def asJson: Json
   }
 

@@ -33,10 +33,11 @@ object Aes {
    * @param iv initialization vector
    */
   case class AesParams[F[_]](iv: Array[Byte]) extends Params[F] {
+    override val cipher: String = "aes"
 
     override def asJson: Json = Json.obj(
       "iv"     -> Json.fromString(iv.map("%02x" format _).mkString),
-      "cipher" -> Json.fromString("aes")
+      "cipher" -> Json.fromString(cipher)
     )
   }
 

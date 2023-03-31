@@ -12,6 +12,8 @@ package object cipher {
    * Cipher parameters.
    */
   trait Params[F[_]] {
+    // Label denoting which cipher to use
+    val cipher: String
     def asJson: Json
   }
 
