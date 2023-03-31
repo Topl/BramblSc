@@ -9,12 +9,12 @@ package object cipher {
   /**
    * Cipher parameters.
    */
-  trait Params
+  trait Params[F[_]]
 
   /**
    * A Cipher.
    */
-  trait Cipher[P <: Params] {
+  trait Cipher[F[_], P <: Params[F]] {
 
     /**
      * Encrypt data.
@@ -23,7 +23,7 @@ package object cipher {
      * @param params cipher parameters
      * @return encrypted data
      */
-    def encrypt(plainText: Array[Byte], key: Array[Byte], params: P): Array[Byte]
+    def encrypt(plainText: Array[Byte], key: Array[Byte], params: P): F[Array[Byte]]
 
     /**
      * Decrypt data.
@@ -32,6 +32,6 @@ package object cipher {
      * @param params cipher parameters
      * @return decrypted data
      */
-    def decrypt(cipherText: Array[Byte], key: Array[Byte], params: P): Array[Byte]
+    def decrypt(cipherText: Array[Byte], key: Array[Byte], params: P): F[Array[Byte]]
   }
 }
