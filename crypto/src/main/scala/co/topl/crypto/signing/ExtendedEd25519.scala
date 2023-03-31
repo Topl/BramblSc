@@ -7,6 +7,7 @@ import org.bouncycastle.crypto.params.KeyParameter
 import ExtendedEd25519.{PublicKey, SecretKey}
 
 import java.nio.{ByteBuffer, ByteOrder}
+import scala.annotation.tailrec
 
 /**
  * Implementation of ExtendedEd25519 elliptic curve signature
@@ -250,6 +251,34 @@ class ExtendedEd25519 extends EllipticCurveSignatureScheme[SecretKey, PublicKey]
     ExtendedEd25519.clampBits(seed)
   }
 
+  /**
+   * Deterministically derives a child secret key located at a given path of indices.
+   *
+   * @note Precondition: the secret key must be a valid ExtendedEd25519 secret key
+   * @note Postcondition: the secret key must be a valid ExtendedEd25519 secret key
+   *
+   * @param secretKey the secret key to derive the child key from
+   * @param indices list of indices representing the path of the key to derive
+   * @return an extended secret key
+   */
+  @tailrec private def deriveSecretKeyFromChildPath(secretKey: SecretKey, indices: List[Bip32Index]): SecretKey =
+    if (indices.tail.isEmpty) deriveChildSecretKey(secretKey, indices.head)
+    else deriveSecretKeyFromChildPath(deriveChildSecretKey(secretKey, indices.head), indices.tail)
+
+  /**
+   * Deterministically derives a child key pair located at a given path of indices.
+   *
+   * @note Precondition: the secret key must be a valid ExtendedEd25519 secret key
+   * @note Postcondition: the key pair must be a valid ExtendedEd25519 key pair
+   *
+   * @param secretKey the secret key to derive the child key pair from
+   * @param indices   list of indices representing the path of the key pair to derive
+   * @return the key pair
+   */
+  def deriveKeyPairFromChildPath(secretKey: SecretKey, indices: List[Bip32Index]): KeyPair[SecretKey, PublicKey] = {
+    val derivedSecretKey = deriveSecretKeyFromChildPath(secretKey, indices)
+    KeyPair(derivedSecretKey, getVerificationKey(derivedSecretKey))
+  }
 }
 
 object ExtendedEd25519 {
