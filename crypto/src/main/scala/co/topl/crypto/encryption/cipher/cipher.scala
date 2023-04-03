@@ -48,7 +48,7 @@ package object cipher {
       override def apply(a: Cipher[F]): Json =
         Json
           .obj("cipher" -> Json.fromString(a.params.cipher))
-          .deepMerge(a match {
+          .deepMerge(a.params match {
             case aes: Aes.AesParams => Aes.Codecs.aesParamsToJson(aes)
             case _                  => Json.Null
           })

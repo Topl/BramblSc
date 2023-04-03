@@ -39,7 +39,7 @@ package object kdf {
       override def apply(a: Kdf[F]): Json =
         Json
           .obj("kdf" -> Json.fromString(a.params.kdf))
-          .deepMerge(a match {
+          .deepMerge(a.params match {
             case scrypt: SCrypt.SCryptParams => SCrypt.Codecs.sCryptParamsToJson(scrypt)
             case _                           => Json.Null
           })
