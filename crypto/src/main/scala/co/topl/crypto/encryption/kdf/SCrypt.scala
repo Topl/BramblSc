@@ -2,8 +2,9 @@ package co.topl.crypto.encryption.kdf
 
 import cats.Applicative
 import cats.implicits.catsSyntaxApplicativeId
-import io.circe.Json
+import io.circe.{Decoder, Encoder, HCursor, Json}
 import org.bouncycastle.crypto.generators.{SCrypt => SCryptImpl}
+import org.bouncycastle.util.Strings
 
 /**
  * Scrypt is a key derivation function.
@@ -40,20 +41,7 @@ object SCrypt {
     r:     Int = 8,
     p:     Int = 1,
     dkLen: Int = 32
-  ) extends Params {
-    override val kdf: String = "scrypt"
-
-    override def asJson[F[_]: Applicative]: F[Json] = Json
-      .obj(
-        "salt"  -> Json.fromString(salt.map("%02x" format _).mkString),
-        "n"     -> Json.fromInt(n),
-        "r"     -> Json.fromInt(r),
-        "p"     -> Json.fromInt(p),
-        "dkLen" -> Json.fromInt(dkLen),
-        "kdf"   -> Json.fromString(kdf)
-      )
-      .pure[F]
-  }
+  ) extends Params { override val kdf: String = "scrypt" }
 
   def make[F[_]: Applicative](sCryptParams: SCryptParams): Kdf[F] = new Kdf[F] {
     override val params: SCryptParams = sCryptParams
@@ -66,5 +54,30 @@ object SCrypt {
      */
     override def deriveKey(secret: Array[Byte]): F[Array[Byte]] =
       SCryptImpl.generate(secret, params.salt, params.n, params.r, params.p, params.dkLen).pure[F]
+  }
+
+  object Codecs {
+
+    implicit val sCryptParamsToJson: Encoder[SCryptParams] = new Encoder[SCryptParams] {
+
+      override def apply(a: SCryptParams): Json = Json.obj(
+        "salt"  -> Json.fromString(Strings.fromByteArray(a.salt)),
+        "n"     -> Json.fromInt(a.n),
+        "r"     -> Json.fromInt(a.r),
+        "p"     -> Json.fromInt(a.p),
+        "dkLen" -> Json.fromInt(a.dkLen)
+      )
+    }
+
+    implicit val sCryptParamsFromJson: Decoder[SCryptParams] = new Decoder[SCryptParams] {
+
+      override def apply(c: HCursor): Decoder.Result[SCryptParams] = for {
+        salt  <- c.downField("salt").as[String]
+        n     <- c.downField("n").as[Int]
+        r     <- c.downField("r").as[Int]
+        p     <- c.downField("p").as[Int]
+        dkLen <- c.downField("dkLen").as[Int]
+      } yield SCryptParams(salt = Strings.toByteArray(salt), n = n, r = r, p = p, dkLen = dkLen)
+    }
   }
 }

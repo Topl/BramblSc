@@ -1,7 +1,7 @@
 package co.topl.crypto.encryption
 
 import cats.Applicative
-import io.circe.Json
+import io.circe.{Decoder, DecodingFailure, Encoder, HCursor, Json}
 
 /**
  * Key derivation functions (KDFs) are used to derive a key from a password or passphrase.
@@ -15,7 +15,6 @@ package object kdf {
   trait Params {
     // Label denoting which KDF to use
     val kdf: String
-    def asJson[F[_]: Applicative]: F[Json]
   }
 
   /**
@@ -31,5 +30,28 @@ package object kdf {
      * @return derived key
      */
     def deriveKey(secret: Array[Byte]): F[Array[Byte]]
+  }
+
+  object Codecs {
+
+    implicit def kdfToJson[F[_]: Applicative]: Encoder[Kdf[F]] = new Encoder[Kdf[F]] {
+
+      override def apply(a: Kdf[F]): Json =
+        Json
+          .obj("kdf" -> Json.fromString(a.params.kdf))
+          .deepMerge(a match {
+            case scrypt: SCrypt.SCryptParams => SCrypt.Codecs.sCryptParamsToJson(scrypt)
+            case _                           => Json.Null
+          })
+    }
+
+    implicit def kdfFromJson[F[_]: Applicative]: Decoder[Kdf[F]] = new Decoder[Kdf[F]] {
+
+      override def apply(c: HCursor): Decoder.Result[Kdf[F]] =
+        c.downField("kdf").as[String] match {
+          case Right("scrypt") => SCrypt.Codecs.sCryptParamsFromJson(c).map(SCrypt.make[F](_))
+          case _               => Left(DecodingFailure("Unknown KDF", c.history))
+        }
+    }
   }
 }

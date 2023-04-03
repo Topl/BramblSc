@@ -2,11 +2,12 @@ package co.topl.crypto.encryption.cipher
 
 import cats.Applicative
 import cats.implicits.catsSyntaxApplicativeId
-import io.circe.Json
+import io.circe.{Decoder, Encoder, HCursor, Json}
 import org.bouncycastle.crypto.BufferedBlockCipher
 import org.bouncycastle.crypto.engines.AESEngine
 import org.bouncycastle.crypto.modes.SICBlockCipher
 import org.bouncycastle.crypto.params.{KeyParameter, ParametersWithIV}
+import org.bouncycastle.util.Strings
 
 /**
  * AES encryption.
@@ -34,13 +35,6 @@ object Aes {
    */
   case class AesParams(iv: Array[Byte]) extends Params {
     override val cipher: String = "aes"
-
-    override def asJson[F[_]: Applicative]: F[Json] = Json
-      .obj(
-        "iv"     -> Json.fromString(iv.map("%02x" format _).mkString),
-        "cipher" -> Json.fromString(cipher)
-      )
-      .pure[F]
   }
 
   /**
@@ -92,6 +86,23 @@ object Aes {
       aesCtr.processBytes(input, 0, input.length, output, 0)
       aesCtr.doFinal(output, 0)
       output
+    }
+  }
+
+  object Codecs {
+
+    implicit val aesParamsToJson: Encoder[AesParams] = new Encoder[AesParams] {
+
+      override def apply(a: AesParams): Json =
+        Json.obj("iv" -> Json.fromString(Strings.fromByteArray(a.iv)))
+    }
+
+    implicit val aesParamsFromJson: Decoder[AesParams] = new Decoder[AesParams] {
+
+      override def apply(c: HCursor): Decoder.Result[AesParams] =
+        for {
+          iv <- c.downField("iv").as[String]
+        } yield AesParams(iv = Strings.toByteArray(iv))
     }
   }
 }
