@@ -1,5 +1,6 @@
 package co.topl.crypto.encryption
 
+import cats.Applicative
 import io.circe.Json
 
 /**
@@ -14,7 +15,7 @@ package object kdf {
   trait Params {
     // Label denoting which KDF to use
     val kdf: String
-    def asJson: Json
+    def asJson[F[_]: Applicative]: F[Json]
   }
 
   /**

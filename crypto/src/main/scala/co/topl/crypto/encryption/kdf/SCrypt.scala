@@ -43,14 +43,16 @@ object SCrypt {
   ) extends Params {
     override val kdf: String = "scrypt"
 
-    override def asJson: Json = Json.obj(
-      "salt"  -> Json.fromString(salt.map("%02x" format _).mkString),
-      "n"     -> Json.fromInt(n),
-      "r"     -> Json.fromInt(r),
-      "p"     -> Json.fromInt(p),
-      "dkLen" -> Json.fromInt(dkLen),
-      "kdf"   -> Json.fromString(kdf)
-    )
+    override def asJson[F[_]: Applicative]: F[Json] = Json
+      .obj(
+        "salt"  -> Json.fromString(salt.map("%02x" format _).mkString),
+        "n"     -> Json.fromInt(n),
+        "r"     -> Json.fromInt(r),
+        "p"     -> Json.fromInt(p),
+        "dkLen" -> Json.fromInt(dkLen),
+        "kdf"   -> Json.fromString(kdf)
+      )
+      .pure[F]
   }
 
   def make[F[_]: Applicative](sCryptParams: SCryptParams): Kdf[F] = new Kdf[F] {
