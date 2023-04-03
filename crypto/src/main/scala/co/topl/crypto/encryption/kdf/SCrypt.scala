@@ -3,13 +3,13 @@ package co.topl.crypto.encryption.kdf
 import cats.Applicative
 import cats.implicits.catsSyntaxApplicativeId
 import io.circe.Json
-import org.bouncycastle.crypto.generators.SCrypt
+import org.bouncycastle.crypto.generators.{SCrypt => SCryptImpl}
 
 /**
  * Scrypt is a key derivation function.
  * @see [[https://en.wikipedia.org/wiki/Scrypt]]
  */
-object Scrypt {
+object SCrypt {
 
   /**
    * Generate a random salt.
@@ -34,13 +34,13 @@ object Scrypt {
    *              Must be a positive integer less than or equal to Integer.MAX_VALUE / (128 * r * 8). Defaults to 1.
    * @param dkLen length of derived key. Defaults to 32.
    */
-  case class ScryptParams[F[_]](
+  case class SCryptParams(
     salt:  Array[Byte],
     n:     Int = scala.math.pow(2, 18).toInt,
     r:     Int = 8,
     p:     Int = 1,
     dkLen: Int = 32
-  ) extends Params[F] {
+  ) extends Params {
     override val kdf: String = "scrypt"
 
     override def asJson: Json = Json.obj(
@@ -53,16 +53,16 @@ object Scrypt {
     )
   }
 
-  def make[F[_]: Applicative]: Kdf[F, Scrypt.ScryptParams[F]] = new Kdf[F, Scrypt.ScryptParams[F]] {
+  def make[F[_]: Applicative](sCryptParams: SCryptParams): Kdf[F] = new Kdf[F] {
+    override val params: SCryptParams = sCryptParams
 
     /**
      * Derive a key from a secret.
      *
      * @param secret secret to derive key from
-     * @param params KDF parameters
      * @return derived key
      */
-    override def deriveKey(secret: Array[Byte], params: Scrypt.ScryptParams[F]): F[Array[Byte]] =
-      SCrypt.generate(secret, params.salt, params.n, params.r, params.p, params.dkLen).pure[F]
+    override def deriveKey(secret: Array[Byte]): F[Array[Byte]] =
+      SCryptImpl.generate(secret, params.salt, params.n, params.r, params.p, params.dkLen).pure[F]
   }
 }

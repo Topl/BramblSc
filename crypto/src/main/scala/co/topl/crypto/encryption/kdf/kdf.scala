@@ -11,7 +11,7 @@ package object kdf {
   /**
    * KDF parameters.
    */
-  trait Params[F[_]] {
+  trait Params {
     // Label denoting which KDF to use
     val kdf: String
     def asJson: Json
@@ -20,14 +20,15 @@ package object kdf {
   /**
    * A KDF.
    */
-  trait Kdf[F[_], P <: Params[F]] {
+  trait Kdf[F[_]] {
+    // KDF parameters
+    val params: Params
 
     /**
      * Derive a key from a secret.
      * @param secret secret to derive key from
-     * @param params KDF parameters
      * @return derived key
      */
-    def deriveKey(secret: Array[Byte], params: P): F[Array[Byte]]
+    def deriveKey(secret: Array[Byte]): F[Array[Byte]]
   }
 }

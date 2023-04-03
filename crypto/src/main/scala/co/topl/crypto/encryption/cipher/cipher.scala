@@ -1,5 +1,6 @@
 package co.topl.crypto.encryption
 
+import cats.Applicative
 import io.circe.Json
 
 /**
@@ -11,7 +12,7 @@ package object cipher {
   /**
    * Cipher parameters.
    */
-  trait Params[F[_]] {
+  trait Params {
     // Label denoting which cipher to use
     val cipher: String
     def asJson: Json
@@ -20,24 +21,24 @@ package object cipher {
   /**
    * A Cipher.
    */
-  trait Cipher[F[_], P <: Params[F]] {
+  trait Cipher[F[_]] {
+    // Cipher parameters
+    val params: Params
 
     /**
      * Encrypt data.
      * @param plainText data to encrypt
      * @param key encryption key
-     * @param params cipher parameters
      * @return encrypted data
      */
-    def encrypt(plainText: Array[Byte], key: Array[Byte], params: P): F[Array[Byte]]
+    def encrypt(plainText: Array[Byte], key: Array[Byte]): F[Array[Byte]]
 
     /**
      * Decrypt data.
      * @param cipherText data to decrypt
      * @param key decryption key
-     * @param params cipher parameters
      * @return decrypted data
      */
-    def decrypt(cipherText: Array[Byte], key: Array[Byte], params: P): F[Array[Byte]]
+    def decrypt(cipherText: Array[Byte], key: Array[Byte]): F[Array[Byte]]
   }
 }

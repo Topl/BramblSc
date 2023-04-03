@@ -32,7 +32,7 @@ object Aes {
    *
    * @param iv initialization vector
    */
-  case class AesParams[F[_]](iv: Array[Byte]) extends Params[F] {
+  case class AesParams(iv: Array[Byte]) extends Params {
     override val cipher: String = "aes"
 
     override def asJson: Json = Json.obj(
@@ -44,7 +44,8 @@ object Aes {
   /**
    * Create an instance of the AES cipher.
    */
-  def make[F[_]: Applicative]: Cipher[F, Aes.AesParams[F]] = new Cipher[F, Aes.AesParams[F]] {
+  def make[F[_]: Applicative](aesParams: AesParams): Cipher[F] = new Cipher[F] {
+    override val params: AesParams = aesParams
 
     /**
      * Encrypt data.
@@ -56,10 +57,9 @@ object Aes {
      * @param plainText data to encrypt
      * @param key       the symmetric key for encryption and decryption
      *                  Must be 128/192/256 bits or 16/24/32 bytes.
-     * @param params    cipher parameters
      * @return encrypted data
      */
-    override def encrypt(plainText: Array[Byte], key: Array[Byte], params: Aes.AesParams[F]): F[Array[Byte]] = {
+    override def encrypt(plainText: Array[Byte], key: Array[Byte]): F[Array[Byte]] = {
       // + 1 to account for the byte storing the amount padded. This value is guaranteed to be <16
       val amountPadded = (Aes.BlockSize - ((plainText.length + 1) % Aes.BlockSize)) % Aes.BlockSize
       val paddedBytes = amountPadded.toByte +: plainText ++: Array.fill[Byte](amountPadded)(0)
@@ -73,10 +73,9 @@ object Aes {
      * @param cipherText data to decrypt
      * @param key        the symmetric key for encryption and decryption
      *                   Must be 128/192/256 bits or 16/24/32 bytes.
-     * @param params     cipher parameters
      * @return decrypted data
      */
-    override def decrypt(cipherText: Array[Byte], key: Array[Byte], params: Aes.AesParams[F]): F[Array[Byte]] = {
+    override def decrypt(cipherText: Array[Byte], key: Array[Byte]): F[Array[Byte]] = {
       val preImage = processAes(cipherText, key, params.iv, encrypt = false)
       val paddedAmount = preImage.head.toInt
       val paddedBytes = preImage.tail
