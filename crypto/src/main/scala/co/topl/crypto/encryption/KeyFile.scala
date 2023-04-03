@@ -1,17 +1,15 @@
 package co.topl.crypto.encryption
 
-import cats.{Applicative, Id, Monad}
-import cats.implicits.{catsSyntaxApplicativeId, catsSyntaxEitherId, toFlatMapOps, toFunctorOps}
+import cats.Monad
+import cats.implicits.{catsSyntaxEitherId, toFlatMapOps, toFunctorOps}
 import co.topl.crypto.encryption.cipher.Cipher
 import co.topl.crypto.encryption.kdf.Kdf
 import co.topl.crypto.encryption.kdf.Codecs._
 import co.topl.crypto.encryption.cipher.Codecs._
 import io.circe.Decoder.Result
-import io.circe.Json
+import io.circe.{Decoder, DecodingFailure, Encoder, HCursor, Json}
 import io.circe.generic.codec.DerivedAsObjectCodec.deriveCodec
 import io.circe.syntax._
-import io.circe.{Decoder, Encoder, HCursor, Json}
-import io.circe.generic.auto._
 import org.bouncycastle.util.Strings
 
 /**
@@ -21,23 +19,17 @@ import org.bouncycastle.util.Strings
  * @param cipherText cipher text
  * @param mac MAC
  */
-case class KeyFile[F[_]: Monad](
-  kdf:        Kdf[F],
-  cipher:     Cipher[F],
-  cipherText: Array[Byte],
-  mac:        Array[Byte]
-) {
-
-  /**
-   * Decode the cipher text of the KeyFile.
-   * @param password password to use to decrypt the cipher text
-   * @return the decrypted data if mac is valid, otherwise [[KeyFile.InvalidMac]]
-   */
-  def decodeCipher(password: Array[Byte]): F[Either[KeyFile.InvalidMac.type, Array[Byte]]] =
-    KeyFile.decodeCipher[F](this, password)
-}
+case class KeyFile[F[_]](kdf: Kdf[F], cipher: Cipher[F], cipherText: Array[Byte], mac: Array[Byte])
 
 object KeyFile {
+
+  /**
+   * Create a KeyFile instance from a JSON object.
+   * @param json the JSON object
+   * @return a KeyFile instance
+   */
+  def fromJson[F[_]: Monad](json: Json): Either[DecodingFailure, KeyFile[F]] =
+    Codecs.keyFileFromJson[F].decodeJson(json)
 
   /**
    * Decode a the cipher text of a KeyFile
@@ -50,21 +42,13 @@ object KeyFile {
   ): F[Either[InvalidMac.type, Array[Byte]]] =
     for {
       dKeyRaw     <- keyfile.kdf.deriveKey(password)
-      isDKeyValid <- Mac.make[F](dKeyRaw, keyfile.cipherText).validateMac(keyfile.mac)
+      isDKeyValid <- Mac.make(dKeyRaw, keyfile.cipherText).validateMac[F](keyfile.mac)
       decoded     <- keyfile.cipher.decrypt(keyfile.cipherText, dKeyRaw)
     } yield if (isDKeyValid) decoded.asRight else InvalidMac.asLeft
 
-  /**
-   * Decode a KeyFile from it's JSON representation.
-   *
-   * @param json JSON representation of the KeyFile
-   * @return the decoded KeyFile
-   */
-//  def apply[F[_]: Applicative](json: Json): KeyFile[F] = fromJson(json)
-
   object Codecs {
 
-    implicit def encodeKeyFile[F[_]: Monad]: Encoder[KeyFile[F]] = new Encoder[KeyFile[F]] {
+    implicit def keyFileToJson[F[_]: Monad]: Encoder[KeyFile[F]] = new Encoder[KeyFile[F]] {
 
       final override def apply(a: KeyFile[F]): Json = Json.obj(
         "kdf"        -> a.kdf.asJson,
@@ -74,7 +58,7 @@ object KeyFile {
       )
     }
 
-    implicit def decodeKeyFile[F[_]: Monad]: Decoder[KeyFile[F]] = new Decoder[KeyFile[F]] {
+    implicit def keyFileFromJson[F[_]: Monad]: Decoder[KeyFile[F]] = new Decoder[KeyFile[F]] {
 
       override def apply(c: HCursor): Result[KeyFile[F]] =
         for {
@@ -82,12 +66,7 @@ object KeyFile {
           cipher     <- c.downField("cipher").as[Cipher[F]]
           cipherText <- c.downField("cipherText").as[String]
           mac        <- c.downField("mac").as[String]
-        } yield KeyFile[F](
-          kdf = kdf,
-          cipher = cipher,
-          cipherText = Strings.toByteArray(cipherText),
-          mac = Strings.toByteArray(mac)
-        )
+        } yield KeyFile[F](kdf, cipher, Strings.toByteArray(cipherText), Strings.toByteArray(mac))
     }
   }
 

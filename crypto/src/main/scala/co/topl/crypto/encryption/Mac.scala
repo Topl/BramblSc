@@ -9,10 +9,10 @@ import co.topl.crypto.hash
  *
  * @see [[https://en.wikipedia.org/wiki/Message_authentication_code]]
  */
-trait Mac[F[_]] {
+trait Mac {
   // The MAC
-  val value: F[Array[Byte]]
-  def validateMac(expectedMac: Array[Byte]): F[Boolean]
+  val value: Array[Byte]
+  def validateMac[F[_]: Applicative](expectedMac: Array[Byte]): F[Boolean]
 }
 
 object Mac {
@@ -26,11 +26,12 @@ object Mac {
    * @param cipherText the cipher text
    * @return MAC
    */
-  def make[F[_]: Applicative](derivedKey: Array[Byte], cipherText: Array[Byte]): Mac[F] = new Mac[F] {
+  def make(derivedKey: Array[Byte], cipherText: Array[Byte]): Mac = new Mac {
     private def calculateMac(data: Array[Byte]): Array[Byte] = hash.blake2b256.hash(data).value
 
-    override val value: F[Array[Byte]] = calculateMac(derivedKey.takeRight(16) ++ cipherText).pure[F]
+    override val value: Array[Byte] = calculateMac(derivedKey.takeRight(16) ++ cipherText)
 
-    override def validateMac(expectedMac: Array[Byte]): F[Boolean] = value.map(java.util.Arrays.equals(_, expectedMac))
+    override def validateMac[F[_]: Applicative](expectedMac: Array[Byte]): F[Boolean] =
+      java.util.Arrays.equals(value, expectedMac).pure[F]
   }
 }
