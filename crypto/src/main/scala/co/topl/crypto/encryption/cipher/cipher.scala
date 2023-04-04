@@ -39,6 +39,13 @@ package object cipher {
      * @return decrypted data
      */
     def decrypt(cipherText: Array[Byte], key: Array[Byte]): F[Array[Byte]]
+
+    override def equals(that: Any): Boolean = that match {
+      case that: Cipher[_] => params == that.params
+      case _               => false
+    }
+
+    override def hashCode(): Int = params.hashCode
   }
 
   /**

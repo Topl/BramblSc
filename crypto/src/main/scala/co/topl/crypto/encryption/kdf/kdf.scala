@@ -30,6 +30,13 @@ package object kdf {
      * @return derived key
      */
     def deriveKey(secret: Array[Byte]): F[Array[Byte]]
+
+    override def equals(that: Any): Boolean = that match {
+      case that: Kdf[_] => params == that.params
+      case _            => false
+    }
+
+    override def hashCode(): Int = params.hashCode
   }
 
   /**

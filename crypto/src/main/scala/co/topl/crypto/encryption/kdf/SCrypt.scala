@@ -41,7 +41,22 @@ object SCrypt {
     r:     Int = 8,
     p:     Int = 1,
     dkLen: Int = 32
-  ) extends Params { override val kdf: String = "scrypt" }
+  ) extends Params {
+    override val kdf: String = "scrypt"
+
+    override def equals(that: Any): Boolean = that match {
+      case that: SCryptParams =>
+        java.util.Arrays.equals(salt, that.salt) &&
+        n == that.n &&
+        r == that.r &&
+        p == that.p &&
+        dkLen == that.dkLen
+      case _ => false
+    }
+
+    override def hashCode(): Int =
+      java.util.Arrays.hashCode(salt) + n.hashCode + r.hashCode + p.hashCode + dkLen.hashCode
+  }
 
   def make[F[_]: Applicative](sCryptParams: SCryptParams): Kdf[F] = new Kdf[F] {
     override val params: SCryptParams = sCryptParams

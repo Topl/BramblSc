@@ -10,7 +10,6 @@ import io.circe.Decoder.Result
 import io.circe.{Decoder, DecodingFailure, Encoder, HCursor, Json}
 import io.circe.generic.codec.DerivedAsObjectCodec.deriveCodec
 import io.circe.syntax._
-import io.circe.parser._
 import org.bouncycastle.util.Strings
 
 /**
@@ -21,7 +20,20 @@ import org.bouncycastle.util.Strings
  * @param cipherText cipher text
  * @param mac MAC to validate the data integrity
  */
-case class VaultStore[F[_]](kdf: Kdf[F], cipher: Cipher[F], cipherText: Array[Byte], mac: Array[Byte])
+case class VaultStore[F[_]](kdf: Kdf[F], cipher: Cipher[F], cipherText: Array[Byte], mac: Array[Byte]) {
+
+  override def equals(that: Any): Boolean = that match {
+    case that: VaultStore[_] =>
+      kdf == that.kdf &&
+      cipher == that.cipher &&
+      java.util.Arrays.equals(cipherText, that.cipherText) &&
+      java.util.Arrays.equals(mac, that.mac)
+    case _ => false
+  }
+
+  override def hashCode(): Int =
+    kdf.hashCode + cipher.hashCode + java.util.Arrays.hashCode(cipherText) + java.util.Arrays.hashCode(mac)
+}
 
 object VaultStore {
 

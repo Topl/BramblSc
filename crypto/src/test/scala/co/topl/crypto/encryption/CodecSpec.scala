@@ -44,7 +44,7 @@ class CodecSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks with Mat
     )
     val testParams = invalidJson.as[Aes.AesParams]
     testParams.isLeft shouldBe true
-    testParams shouldBe Left(DecodingFailure)
+    testParams.swap.toOption.get shouldBe a[DecodingFailure]
   }
 
   property("SCrypt Params > Encode and Decode") {
@@ -79,7 +79,7 @@ class CodecSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks with Mat
     )
     val testParams = invalidJson.as[SCrypt.SCryptParams]
     testParams.isLeft shouldBe true
-    testParams shouldBe Left(DecodingFailure)
+    testParams.swap.toOption.get shouldBe a[DecodingFailure]
   }
 
   property("Cipher > AES > Encode and Decode") {
@@ -110,7 +110,7 @@ class CodecSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks with Mat
 
     val testParams = invalidJson.as[cipher.Cipher[Id]]
     testParams.isLeft shouldBe true
-    testParams shouldBe Left(DecodingFailure)
+    testParams.swap.toOption.get shouldBe a[DecodingFailure]
   }
 
   property("Cipher > AES > Decode fails with invalid JSON") {
@@ -120,7 +120,7 @@ class CodecSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks with Mat
 
     val testParams = invalidJson.as[cipher.Cipher[Id]]
     testParams.isLeft shouldBe true
-    testParams shouldBe Left(DecodingFailure)
+    testParams.swap.toOption.get shouldBe a[DecodingFailure]
   }
 
   property("KDF > SCrypt > Encode and Decode") {
@@ -151,7 +151,7 @@ class CodecSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks with Mat
 
     val testParams = invalidJson.as[kdf.Kdf[Id]]
     testParams.isLeft shouldBe true
-    testParams shouldBe Left(DecodingFailure)
+    testParams.swap.toOption.get shouldBe a[DecodingFailure]
   }
 
   property("KDF > SCrypt > Decode fails with invalid JSON") {
@@ -163,7 +163,7 @@ class CodecSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks with Mat
 
     val testParams = invalidJson.as[kdf.Kdf[Id]]
     testParams.isLeft shouldBe true
-    testParams shouldBe Left(DecodingFailure)
+    testParams.swap.toOption.get shouldBe a[DecodingFailure]
   }
 
   property("VaultStore > Encode and Decode") {
@@ -200,7 +200,7 @@ class CodecSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks with Mat
 
     val testParams = invalidJson.as[kdf.Kdf[Id]]
     testParams.isLeft shouldBe true
-    testParams shouldBe Left(DecodingFailure)
+    testParams.swap.toOption.get shouldBe a[DecodingFailure]
   }
 
   property("VaultStore.fromJson utility behaves like json.as[VaultStore]") {

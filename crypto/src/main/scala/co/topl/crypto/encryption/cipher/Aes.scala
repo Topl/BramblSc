@@ -35,6 +35,13 @@ object Aes {
    */
   case class AesParams(iv: Array[Byte]) extends Params {
     override val cipher: String = "aes"
+
+    override def equals(that: Any): Boolean = that match {
+      case that: AesParams => java.util.Arrays.equals(iv, that.iv)
+      case _               => false
+    }
+
+    override def hashCode(): Int = java.util.Arrays.hashCode(iv)
   }
 
   /**
