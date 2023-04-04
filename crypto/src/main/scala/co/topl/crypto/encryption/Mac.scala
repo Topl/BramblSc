@@ -1,7 +1,7 @@
 package co.topl.crypto.encryption
 
 import cats.Applicative
-import cats.implicits.{catsSyntaxApplicativeId, toFunctorOps}
+import cats.implicits.catsSyntaxApplicativeId
 import co.topl.crypto.hash
 
 /**
@@ -12,6 +12,13 @@ import co.topl.crypto.hash
 trait Mac {
   // The MAC
   val value: Array[Byte]
+
+  /**
+   * Validate the MAC.
+   *
+   * @param expectedMac the expected MAC
+   * @return true if the MAC is valid, false otherwise
+   */
   def validateMac[F[_]: Applicative](expectedMac: Array[Byte]): F[Boolean]
 }
 

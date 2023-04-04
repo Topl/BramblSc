@@ -41,8 +41,14 @@ package object cipher {
     def decrypt(cipherText: Array[Byte], key: Array[Byte]): F[Array[Byte]]
   }
 
+  /**
+   * JSON codecs for a Cipher
+   */
   object Codecs {
 
+    /**
+     * JSON encoder for a Cipher
+     */
     implicit def cipherToJson[F[_]: Applicative]: Encoder[Cipher[F]] = new Encoder[Cipher[F]] {
 
       override def apply(a: Cipher[F]): Json =
@@ -54,6 +60,9 @@ package object cipher {
           })
     }
 
+    /**
+     * JSON decoder for a Cipher
+     */
     implicit def cipherFromJson[F[_]: Applicative]: Decoder[Cipher[F]] = new Decoder[Cipher[F]] {
 
       override def apply(c: HCursor): Decoder.Result[Cipher[F]] =

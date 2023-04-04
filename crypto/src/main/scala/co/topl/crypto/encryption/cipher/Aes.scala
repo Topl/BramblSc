@@ -39,6 +39,9 @@ object Aes {
 
   /**
    * Create an instance of the AES cipher.
+   *
+   * @param aesParams AES parameters
+   * @return an AES cipher
    */
   def make[F[_]: Applicative](aesParams: AesParams): Cipher[F] = new Cipher[F] {
     override val params: AesParams = aesParams
@@ -89,14 +92,17 @@ object Aes {
     }
   }
 
+  /** JSON codecs for AES parameters. */
   object Codecs {
 
+    /** JSON encoder for AES parameters. */
     implicit val aesParamsToJson: Encoder[AesParams] = new Encoder[AesParams] {
 
       override def apply(a: AesParams): Json =
         Json.obj("iv" -> Json.fromString(Strings.fromByteArray(a.iv)))
     }
 
+    /** JSON decoder for AES parameters. */
     implicit val aesParamsFromJson: Decoder[AesParams] = new Decoder[AesParams] {
 
       override def apply(c: HCursor): Decoder.Result[AesParams] =

@@ -56,8 +56,14 @@ object SCrypt {
       SCryptImpl.generate(secret, params.salt, params.n, params.r, params.p, params.dkLen).pure[F]
   }
 
+  /**
+   * JSON codecs for SCrypt parameters
+   */
   object Codecs {
 
+    /**
+     * JSON encoder for SCrypt parameters
+     */
     implicit val sCryptParamsToJson: Encoder[SCryptParams] = new Encoder[SCryptParams] {
 
       override def apply(a: SCryptParams): Json = Json.obj(
@@ -69,6 +75,9 @@ object SCrypt {
       )
     }
 
+    /**
+     * JSON decoder for SCrypt parameters
+     */
     implicit val sCryptParamsFromJson: Decoder[SCryptParams] = new Decoder[SCryptParams] {
 
       override def apply(c: HCursor): Decoder.Result[SCryptParams] = for {

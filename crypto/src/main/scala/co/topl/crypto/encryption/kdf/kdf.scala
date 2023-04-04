@@ -32,8 +32,14 @@ package object kdf {
     def deriveKey(secret: Array[Byte]): F[Array[Byte]]
   }
 
+  /**
+   * JSON codecs for a KDF
+   */
   object Codecs {
 
+    /**
+     * KDF JSON encoder
+     */
     implicit def kdfToJson[F[_]: Applicative]: Encoder[Kdf[F]] = new Encoder[Kdf[F]] {
 
       override def apply(a: Kdf[F]): Json =
@@ -45,6 +51,9 @@ package object kdf {
           })
     }
 
+    /**
+     * KDF JSON decoder
+     */
     implicit def kdfFromJson[F[_]: Applicative]: Decoder[Kdf[F]] = new Decoder[Kdf[F]] {
 
       override def apply(c: HCursor): Decoder.Result[Kdf[F]] =
