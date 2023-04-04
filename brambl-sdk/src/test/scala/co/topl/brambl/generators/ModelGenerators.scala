@@ -142,7 +142,7 @@ trait AttestationGenerator extends LockGenerator with ProofGenerator {
     )
 }
 
-trait EventGenerator extends TransactionOutputAddressGenerator {
+trait EventGenerator {
 
   implicit val arbitrarySchedule: Arbitrary[Schedule] =
     Arbitrary(
