@@ -10,6 +10,7 @@ import io.circe.Decoder.Result
 import io.circe.{Decoder, DecodingFailure, Encoder, HCursor, Json}
 import io.circe.generic.codec.DerivedAsObjectCodec.deriveCodec
 import io.circe.syntax._
+import io.circe.parser._
 import org.bouncycastle.util.Strings
 
 /**
