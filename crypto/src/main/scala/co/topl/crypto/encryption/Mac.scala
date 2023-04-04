@@ -16,10 +16,18 @@ trait Mac {
   /**
    * Validate the MAC.
    *
-   * @param expectedMac the expected MAC
+   * @param expectedMac the expected MAC value
    * @return true if the MAC is valid, false otherwise
    */
   def validateMac[F[_]: Applicative](expectedMac: Array[Byte]): F[Boolean]
+
+  /**
+   * Validate the MAC.
+   *
+   * @param expectedMac the expected MAC
+   * @return true if the MAC is valid, false otherwise
+   */
+  def validateMac[F[_]: Applicative](expectedMac: Mac): F[Boolean]
 }
 
 object Mac {
@@ -40,5 +48,7 @@ object Mac {
 
     override def validateMac[F[_]: Applicative](expectedMac: Array[Byte]): F[Boolean] =
       java.util.Arrays.equals(value, expectedMac).pure[F]
+
+    override def validateMac[F[_]: Applicative](expectedMac: Mac): F[Boolean] = validateMac(expectedMac.value)
   }
 }

@@ -4,11 +4,10 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.propspec.AnyPropSpec
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
-class VaultStoreSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks with Matchers{
-  property("Verify decodeCipher produces the plain text secret") {
-  }
-  property("Verify decodeCipher returns InvalidMac with a different password") {
-  }
+class VaultStoreSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks with Matchers {
+  property("Verify decodeCipher produces the plain text secret") {}
+  property("Verify decodeCipher returns InvalidMac with a different password") {}
+
   property("Verify decodeCipher returns InvalidMac with a corrupted VaultStore") {
     // VaultStore is corrupted by changing the cipher text
     // VaultStore is corrupted by changing the mac

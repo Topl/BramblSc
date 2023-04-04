@@ -8,7 +8,8 @@ import io.circe._
 import io.circe.parser._
 import io.circe.syntax.EncoderOps
 
-class CodecSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks with Matchers{
+class CodecSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks with Matchers {
+
   property("AES Params > Encode and Decode") {
     val expectParams: cipher.Aes.AesParams = ???
     val expectJsonStr: String =
@@ -39,15 +40,18 @@ class CodecSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks with Mat
   property("SCrypt Params > Decode fails with invalid JSON") {}
   property("Cipher > AES > Encode and Decode") {}
   property("Cipher > AES > Decode fails with invalid label") {}
+
   property("Cipher > AES > Decode fails with invalid JSON") {
     // verify if underlying piece fails, the whole decode fails
   }
   property("KDF > SCrypt > Encode and Decode") {}
   property("KDF > SCrypt > Decode fails with invalid label") {}
+
   property("KDF > SCrypt > Decode fails with invalid JSON") {
     // verify if underlying piece fails, the whole decode fails
   }
   property("VaultStore > Encode and Decode") {}
+
   property("VaultStore > Decode fails with invalid JSON") {
     // verify if underlying piece fails, the whole decode fails
   }
