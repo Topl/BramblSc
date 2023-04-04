@@ -7,7 +7,7 @@ import org.bouncycastle.crypto.generators.{SCrypt => SCryptImpl}
 import org.bouncycastle.util.Strings
 
 /**
- * Scrypt is a key derivation function.
+ * SCrypt is a key derivation function.
  * @see [[https://en.wikipedia.org/wiki/Scrypt]]
  */
 object SCrypt {
@@ -24,7 +24,7 @@ object SCrypt {
   }
 
   /**
-   * Scrypt parameters.
+   * SCrypt parameters.
    *
    * @param salt  salt
    * @param n     CPU/Memory cost parameter.

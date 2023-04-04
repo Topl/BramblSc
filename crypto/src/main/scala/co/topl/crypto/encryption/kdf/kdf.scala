@@ -46,7 +46,7 @@ package object kdf {
         Json
           .obj("kdf" -> Json.fromString(a.params.kdf))
           .deepMerge(a.params match {
-            case scrypt: SCrypt.SCryptParams => SCrypt.Codecs.sCryptParamsToJson(scrypt)
+            case sCrypt: SCrypt.SCryptParams => SCrypt.Codecs.sCryptParamsToJson(sCrypt)
             case _                           => Json.Null
           })
     }
