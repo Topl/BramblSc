@@ -74,6 +74,8 @@ trait DataApi[F[_]] {
   /**
    * Persist a VaultStore for the Topl Main Secret Key.
    *
+   * note: We are only supporting one Main Key VaultStore.
+   *
    * @param mainKeyVaultStore The VaultStore to persist
    * @return nothing if successful. If persisting fails due to an underlying cause, return a DataApiException
    */

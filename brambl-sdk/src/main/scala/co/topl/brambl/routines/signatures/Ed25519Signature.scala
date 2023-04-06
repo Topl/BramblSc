@@ -7,7 +7,7 @@ import quivr.models.{KeyPair, SignableBytes, SigningKey, VerificationKey, Witnes
 import quivr.models.SigningKey.Ed25519SigningKey
 import quivr.models.VerificationKey.Ed25519VerificationKey
 
-// TODO: This whole file may be removed
+// TODO: The whole routines package may be removed in TSDK-437
 object Ed25519Signature extends Signing {
   override val routine: String = "ed25519"
 
