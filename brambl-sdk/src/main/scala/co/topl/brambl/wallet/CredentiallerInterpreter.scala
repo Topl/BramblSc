@@ -21,7 +21,7 @@ import co.topl.brambl.models.box.Attestation
 
 object CredentiallerInterpreter {
 
-  def make[F[_]: Monad](dataApi: DataApi): Credentialler[F] = new Credentialler[F] {
+  def make[F[_]: Monad](dataApi: DataApi[F]): Credentialler[F] = new Credentialler[F] {
 
     override def prove(unprovenTx: IoTransaction): F[IoTransaction] = {
       val signable = unprovenTx.signable

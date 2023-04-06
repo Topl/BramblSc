@@ -68,7 +68,20 @@ object ContainsImmutable {
       case e                    => throw new MatchError(e)
     }
 
-    implicit val verificationKeyImmutable: ContainsImmutable[VerificationKey] = _.value.immutable
+    implicit val verificationKeyImmutable: ContainsImmutable[VerificationKey] = _.value match {
+      case VerificationKey.Value.Ed25519(v)         => v.immutable
+      case VerificationKey.Value.ExtendedEd25519(v) => v.immutable
+      case e                                        => throw new MatchError(e)
+    }
+
+    implicit val ed25519VerificationKeyImmutable: ContainsImmutable[VerificationKey.Ed25519VerificationKey] =
+      _.value.immutable
+
+    implicit val extendedEd25519VerificationKeyImmutable
+      : ContainsImmutable[VerificationKey.ExtendedEd25519VerificationKey] =
+      (vkey: VerificationKey.ExtendedEd25519VerificationKey) =>
+        vkey.vk.immutable ++
+        vkey.chainCode.immutable
 
     implicit val witnessImmutable: ContainsImmutable[Witness] = _.value.immutable
 

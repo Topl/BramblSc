@@ -1,18 +1,20 @@
 package co.topl.brambl
 
+import cats.Id
 import co.topl.brambl.dataApi.DataApi
 import co.topl.brambl.models._
 import co.topl.brambl.models.box.Lock
 import co.topl.brambl.models.box.Value
 import co.topl.brambl.models.transaction.UnspentTransactionOutput
 import co.topl.brambl.routines.signatures.Signing
+import co.topl.crypto.encryption.VaultStore
 import com.google.protobuf.ByteString
 import quivr.models._
 
 /**
  * Mock Implementation of the DataApi
  */
-object MockDataApi extends DataApi with MockHelpers {
+object MockDataApi extends DataApi[Id] with MockHelpers {
 
   // Static mappings to provide the Wallet with data
   val idxToLocks: Map[Indices, Lock.Predicate] = Map(
@@ -53,4 +55,9 @@ object MockDataApi extends DataApi with MockHelpers {
       Some(routine.createKeyPair(MockSecret))
     } else None
 
+  override def saveMainKeyVaultStore(
+    mainKeyVaultStore: VaultStore[Id]
+  ): Id[Either[MockDataApi.DataApiException, Unit]] = ???
+
+  override def getMainKeyVaultStore: Id[Either[MockDataApi.DataApiException, VaultStore[Id]]] = ???
 }

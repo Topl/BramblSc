@@ -17,7 +17,9 @@ import quivr.models.{KeyPair, Preimage}
  * TODO: Design and replace this interface with the actual interface that will be used by the rest of the system.
  */
 trait DataApi[F[_]] {
-  abstract class DataApiException(msg: String, cause: Option[Throwable] = None) extends RuntimeException(msg, cause.orNull)
+
+  abstract class DataApiException(msg: String, cause: Option[Throwable] = None)
+      extends RuntimeException(msg, cause.orNull)
 
   /**
    * Return the indices associated to a TransactionOutputAddress.
@@ -76,6 +78,7 @@ trait DataApi[F[_]] {
    * @return nothing if successful. If persisting fails due to an underlying cause, return a DataApiException
    */
   def saveMainKeyVaultStore(mainKeyVaultStore: VaultStore[F]): F[Either[DataApiException, Unit]]
+
   /**
    * Return the VaultStore for the Topl Main Secret Key.
    *
