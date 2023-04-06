@@ -14,20 +14,26 @@ trait Mac {
   val value: Array[Byte]
 
   /**
-   * Validate the MAC.
+   * Validate the MAC against a provided, expected, MAC.
+   *
+   * The main use case for this is to verify the integrity of decrypting a VaultStore. If the wrong password was
+   * supplied during decryption, the MAC will not match the expectedMac (stored in the VaultStore).
    *
    * @param expectedMac the expected MAC value
-   * @return true if the MAC is valid, false otherwise
+   * @return true if this MAC matches the expectedMac, false otherwise
    */
   def validateMac[F[_]: Applicative](expectedMac: Array[Byte]): F[Boolean]
 
   /**
-   * Validate the MAC.
+   * Validate the value of the MAC against a provided, expected, MAC value.
    *
-   * @param expectedMac the expected MAC
-   * @return true if the MAC is valid, false otherwise
+   * The main use case for this is to verify the integrity of decrypting a VaultStore. If the wrong password was
+   * supplied during decryption, the MAC will not match the expectedMac (stored in the VaultStore).
+   *
+   * @param expectedMacValue the expected MAC value
+   * @return true if the MAC value matches the expectedMacValue, false otherwise
    */
-  def validateMac[F[_]: Applicative](expectedMac: Mac): F[Boolean]
+  def validateMac[F[_]: Applicative](expectedMacValue: Mac): F[Boolean]
 }
 
 object Mac {
