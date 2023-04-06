@@ -13,29 +13,25 @@ import org.scalatest.propspec.AnyPropSpec
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import io.circe._
 import io.circe.syntax.EncoderOps
+import org.scalatest.EitherValues
 
-class CodecSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks with Matchers {
+class CodecSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks with Matchers with EitherValues {
 
   property("AES Params > Encode and Decode") {
     // Decode test
     val testParams = Helpers.ExpectedAesParams.json.as[Aes.AesParams]
-    testParams.isRight shouldBe true
-    testParams shouldBe (Right(Helpers.ExpectedAesParams.value))
+    testParams.value shouldBe Helpers.ExpectedAesParams.value
     // Encode test
     val testJson = Helpers.ExpectedAesParams.value.asJson
-    testJson.isNull shouldBe false
     testJson shouldBe Helpers.ExpectedAesParams.json
 
     // Decode then Encode test
-    val encodedFromDecoded = testParams.map(_.asJson).toOption
-    encodedFromDecoded.isDefined shouldBe true
-    encodedFromDecoded.get.isNull shouldBe false
-    encodedFromDecoded.get shouldBe Helpers.ExpectedAesParams.json
+    val encodedFromDecoded = testParams.value.asJson
+    encodedFromDecoded shouldBe Helpers.ExpectedAesParams.json
 
     // Encode then Decode test
     val decodedFromEncoded = testJson.as[Aes.AesParams]
-    decodedFromEncoded.isRight shouldBe true
-    decodedFromEncoded shouldBe Right(Helpers.ExpectedAesParams.value)
+    decodedFromEncoded.value shouldBe Helpers.ExpectedAesParams.value
   }
 
   property("AES Params > Decode fails with invalid JSON") {
@@ -43,30 +39,25 @@ class CodecSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks with Mat
       "iv" -> Json.fromInt(10) // IV should be a string
     )
     val testParams = invalidJson.as[Aes.AesParams]
-    testParams.isLeft shouldBe true
-    testParams.swap.toOption.get shouldBe a[DecodingFailure]
+    testParams.left.value shouldBe a[DecodingFailure]
   }
 
   property("SCrypt Params > Encode and Decode") {
     // Decode test
     val testParams = Helpers.ExpectedSCryptParams.json.as[SCrypt.SCryptParams]
-    testParams.isRight shouldBe true
-    testParams shouldBe Right(Helpers.ExpectedSCryptParams.value)
+    testParams.value shouldBe Helpers.ExpectedSCryptParams.value
+
     // Encode test
     val testJson = Helpers.ExpectedSCryptParams.value.asJson
-    testJson.isNull shouldBe false
     testJson shouldBe Helpers.ExpectedSCryptParams.json
 
     // Decode then Encode test
-    val encodedFromDecoded = testParams.map(_.asJson).toOption
-    encodedFromDecoded.isDefined shouldBe true
-    encodedFromDecoded.get.isNull shouldBe false
-    encodedFromDecoded.get shouldBe Helpers.ExpectedSCryptParams.json
+    val encodedFromDecoded = testParams.value.asJson
+    encodedFromDecoded shouldBe Helpers.ExpectedSCryptParams.json
 
     // Encode then Decode test
     val decodedFromEncoded = testJson.as[SCrypt.SCryptParams]
-    decodedFromEncoded.isRight shouldBe true
-    decodedFromEncoded shouldBe Right(Helpers.ExpectedSCryptParams.value)
+    decodedFromEncoded.value shouldBe Helpers.ExpectedSCryptParams.value
   }
 
   property("SCrypt Params > Decode fails with invalid JSON") {
@@ -78,30 +69,25 @@ class CodecSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks with Mat
       "dkLen" -> Json.fromInt(10)
     )
     val testParams = invalidJson.as[SCrypt.SCryptParams]
-    testParams.isLeft shouldBe true
-    testParams.swap.toOption.get shouldBe a[DecodingFailure]
+    testParams.left.value shouldBe a[DecodingFailure]
   }
 
   property("Cipher > AES > Encode and Decode") {
     // Decode test
     val testCipher = Helpers.ExpectedCipher.json.as[cipher.Cipher[Id]]
-    testCipher.isRight shouldBe true
-    testCipher shouldBe Right(Helpers.ExpectedCipher.value)
+    testCipher.value shouldBe Helpers.ExpectedCipher.value
+
     // Encode test
     val testJson = Helpers.ExpectedCipher.value.asJson
-    testJson.isNull shouldBe false
     testJson shouldBe Helpers.ExpectedCipher.json
 
     // Decode then Encode test
-    val encodedFromDecoded = testCipher.map(_.asJson).toOption
-    encodedFromDecoded.isDefined shouldBe true
-    encodedFromDecoded.get.isNull shouldBe false
-    encodedFromDecoded.get shouldBe Helpers.ExpectedCipher.json
+    val encodedFromDecoded = testCipher.value.asJson
+    encodedFromDecoded shouldBe Helpers.ExpectedCipher.json
 
     // Encode then Decode test
     val decodedFromEncoded = testJson.as[cipher.Cipher[Id]]
-    decodedFromEncoded.isRight shouldBe true
-    decodedFromEncoded shouldBe Right(Helpers.ExpectedCipher.value)
+    decodedFromEncoded.value shouldBe Helpers.ExpectedCipher.value
   }
 
   property("Cipher > AES > Decode fails with invalid label") {
@@ -109,8 +95,7 @@ class CodecSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks with Mat
     val invalidJson = Json.fromFields(fields)
 
     val testCipher = invalidJson.as[cipher.Cipher[Id]]
-    testCipher.isLeft shouldBe true
-    testCipher.swap.toOption.get shouldBe a[DecodingFailure]
+    testCipher.left.value shouldBe a[DecodingFailure]
   }
 
   property("Cipher > AES > Decode fails with invalid JSON") {
@@ -119,30 +104,25 @@ class CodecSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks with Mat
     val invalidJson = Json.fromFields(fields)
 
     val testCipher = invalidJson.as[cipher.Cipher[Id]]
-    testCipher.isLeft shouldBe true
-    testCipher.swap.toOption.get shouldBe a[DecodingFailure]
+    testCipher.left.value shouldBe a[DecodingFailure]
   }
 
   property("KDF > SCrypt > Encode and Decode") {
     // Decode test
     val testKdf = Helpers.ExpectedKdf.json.as[kdf.Kdf[Id]]
-    testKdf.isRight shouldBe true
-    testKdf shouldBe Right(Helpers.ExpectedKdf.value)
+    testKdf.value shouldBe Helpers.ExpectedKdf.value
+
     // Encode test
     val testJson = Helpers.ExpectedKdf.value.asJson
-    testJson.isNull shouldBe false
     testJson shouldBe Helpers.ExpectedKdf.json
 
     // Decode then Encode test
-    val encodedFromDecoded = testKdf.map(_.asJson).toOption
-    encodedFromDecoded.isDefined shouldBe true
-    encodedFromDecoded.get.isNull shouldBe false
-    encodedFromDecoded.get shouldBe Helpers.ExpectedKdf.json
+    val encodedFromDecoded = testKdf.value.asJson
+    encodedFromDecoded shouldBe Helpers.ExpectedKdf.json
 
     // Encode then Decode test
     val decodedFromEncoded = testJson.as[kdf.Kdf[Id]]
-    decodedFromEncoded.isRight shouldBe true
-    decodedFromEncoded shouldBe Right(Helpers.ExpectedKdf.value)
+    decodedFromEncoded.value shouldBe Helpers.ExpectedKdf.value
   }
 
   property("KDF > SCrypt > Decode fails with invalid label") {
@@ -150,8 +130,7 @@ class CodecSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks with Mat
     val invalidJson = Json.fromFields(fields)
 
     val testKdf = invalidJson.as[kdf.Kdf[Id]]
-    testKdf.isLeft shouldBe true
-    testKdf.swap.toOption.get shouldBe a[DecodingFailure]
+    testKdf.left.value shouldBe a[DecodingFailure]
   }
 
   property("KDF > SCrypt > Decode fails with invalid JSON") {
@@ -162,30 +141,25 @@ class CodecSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks with Mat
     val invalidJson = Json.fromFields(fields)
 
     val testKdf = invalidJson.as[kdf.Kdf[Id]]
-    testKdf.isLeft shouldBe true
-    testKdf.swap.toOption.get shouldBe a[DecodingFailure]
+    testKdf.left.value shouldBe a[DecodingFailure]
   }
 
   property("VaultStore > Encode and Decode") {
     // Decode test
     val testVaultStore = Helpers.ExpectedVaultStore.json.as[VaultStore[Id]]
-    testVaultStore.isRight shouldBe true
-    testVaultStore shouldBe Right(Helpers.ExpectedVaultStore.value)
+    testVaultStore.value shouldBe Helpers.ExpectedVaultStore.value
+
     // Encode test
     val testJson = Helpers.ExpectedVaultStore.value.asJson
-    testJson.isNull shouldBe false
     testJson shouldBe Helpers.ExpectedVaultStore.json
 
     // Decode then Encode test
-    val encodedFromDecoded = testVaultStore.map(_.asJson).toOption
-    encodedFromDecoded.isDefined shouldBe true
-    encodedFromDecoded.get.isNull shouldBe false
-    encodedFromDecoded.get shouldBe Helpers.ExpectedVaultStore.json
+    val encodedFromDecoded = testVaultStore.value.asJson
+    encodedFromDecoded shouldBe Helpers.ExpectedVaultStore.json
 
     // Encode then Decode test
     val decodedFromEncoded = testJson.as[VaultStore[Id]]
-    decodedFromEncoded.isRight shouldBe true
-    decodedFromEncoded shouldBe Right(Helpers.ExpectedVaultStore.value)
+    decodedFromEncoded.value shouldBe Helpers.ExpectedVaultStore.value
   }
 
   property("VaultStore > Decode fails with invalid JSON") {
@@ -199,8 +173,7 @@ class CodecSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks with Mat
     val invalidJson = Json.fromFields(fields)
 
     val testKdf = invalidJson.as[kdf.Kdf[Id]]
-    testKdf.isLeft shouldBe true
-    testKdf.swap.toOption.get shouldBe a[DecodingFailure]
+    testKdf.left.value shouldBe a[DecodingFailure]
   }
 
   property("VaultStore.fromJson utility behaves like json.as[VaultStore]") {

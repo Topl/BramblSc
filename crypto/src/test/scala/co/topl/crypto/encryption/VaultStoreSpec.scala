@@ -6,15 +6,13 @@ import org.scalatest.propspec.AnyPropSpec
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import co.topl.crypto.encryption.kdf.SCrypt
 import co.topl.crypto.encryption.cipher.Aes
+import org.scalatest.EitherValues
 
-class VaultStoreSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks with Matchers {
+class VaultStoreSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks with Matchers with EitherValues {
 
   private def generateVaultStore(sensitiveInformation: Array[Byte], password: Array[Byte]) = {
-    val kdfParams = SCrypt.SCryptParams(SCrypt.generateSalt)
-    val kdf = SCrypt.make[Id](kdfParams)
-
-    val cipherParams = Aes.AesParams(Aes.generateIv)
-    val cipher = Aes.make[Id](cipherParams)
+    val kdf = SCrypt.make[Id](SCrypt.SCryptParams(SCrypt.generateSalt))
+    val cipher = Aes.make[Id](Aes.AesParams(Aes.generateIv))
 
     val derivedKey = kdf.deriveKey(password)
 
@@ -31,8 +29,7 @@ class VaultStoreSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks wit
 
     val decoded = VaultStore.decodeCipher(vaultStore, password)
 
-    decoded.isRight shouldBe true
-    decoded.toOption.get shouldBe sensitiveInformation
+    decoded.value shouldBe sensitiveInformation
   }
 
   property("Verify decodeCipher returns InvalidMac with a different password") {
@@ -42,28 +39,27 @@ class VaultStoreSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks wit
 
     val decoded = VaultStore.decodeCipher(vaultStore, "this is a different password".getBytes)
 
-    decoded.isLeft shouldBe true
-    decoded.swap.toOption.get shouldBe VaultStore.InvalidMac
+    decoded.left.value shouldBe VaultStore.InvalidMac
   }
 
   property("Verify decodeCipher returns InvalidMac with a corrupted VaultStore") {
     val sensitiveInformation = "this is a secret".getBytes
     val password = "this is a password".getBytes
     val vaultStore = generateVaultStore(sensitiveInformation, password)
+
     // VaultStore is corrupted by changing the cipher text
     val decoded1 =
       VaultStore.decodeCipher[Id](vaultStore.copy(cipherText = "this is an invalid cipher text".getBytes), password)
-    decoded1.isLeft shouldBe true
-    decoded1.swap.toOption.get shouldBe VaultStore.InvalidMac
+    decoded1.left.value shouldBe VaultStore.InvalidMac
+
     // VaultStore is corrupted by changing the mac
     val decoded2 = VaultStore.decodeCipher[Id](vaultStore.copy(mac = "this is an invalid mac".getBytes), password)
-    decoded2.isLeft shouldBe true
-    decoded2.swap.toOption.get shouldBe VaultStore.InvalidMac
+    decoded2.left.value shouldBe VaultStore.InvalidMac
+
     // VaultStore is corrupted by changing some parameter in KdfParams
     val kdfParams = SCrypt.SCryptParams("invalid salt".getBytes)
     val wrongKdf = SCrypt.make[Id](kdfParams)
     val decoded3 = VaultStore.decodeCipher[Id](vaultStore.copy(kdf = wrongKdf), password)
-    decoded3.isLeft shouldBe true
-    decoded3.swap.toOption.get shouldBe VaultStore.InvalidMac
+    decoded3.left.value shouldBe VaultStore.InvalidMac
   }
 }
