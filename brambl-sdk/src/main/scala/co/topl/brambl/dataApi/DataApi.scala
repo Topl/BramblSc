@@ -4,6 +4,7 @@ import co.topl.brambl.models.{Indices, LockAddress, TransactionOutputAddress}
 import co.topl.brambl.models.box.{Box, Lock}
 import co.topl.brambl.models.transaction.UnspentTransactionOutput
 import co.topl.brambl.routines.signatures.Signing
+import co.topl.crypto.encryption.VaultStore
 import quivr.models.{KeyPair, Preimage}
 
 /**
@@ -15,7 +16,8 @@ import quivr.models.{KeyPair, Preimage}
  *
  * TODO: Design and replace this interface with the actual interface that will be used by the rest of the system.
  */
-trait DataApi {
+trait DataApi[F[_]] {
+  abstract class DataApiException(msg: String, cause: Option[Throwable] = None) extends RuntimeException(msg, cause.orNull)
 
   /**
    * Return the indices associated to a TransactionOutputAddress.
@@ -66,4 +68,18 @@ trait DataApi {
    * @return The key pair associated to the indices if it exists. Else None
    */
   def getKeyPair(idx: Indices, routine: Signing): Option[KeyPair]
+
+  /**
+   * Persist a VaultStore for the Topl Main Secret Key.
+   *
+   * @param mainKeyVaultStore The VaultStore to persist
+   * @return nothing if successful. If persisting fails due to an underlying cause, return a DataApiException
+   */
+  def saveMainKeyVaultStore(mainKeyVaultStore: VaultStore[F]): F[Either[DataApiException, Unit]]
+  /**
+   * Return the VaultStore for the Topl Main Secret Key.
+   *
+   * @return The VaultStore for the Topl Main Secret Key if it exists. If retrieving fails due to an underlying cause, return a DataApiException
+   */
+  def getMainKeyVaultStore: F[Either[DataApiException, VaultStore[F]]]
 }
