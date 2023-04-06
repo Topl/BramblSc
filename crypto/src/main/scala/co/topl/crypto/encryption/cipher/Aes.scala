@@ -24,7 +24,7 @@ object Aes {
    */
   def generateIv: Array[Byte] = {
     val iv = new Array[Byte](BlockSize)
-    new java.util.Random().nextBytes(iv)
+    new java.security.SecureRandom().nextBytes(iv)
     iv
   }
 

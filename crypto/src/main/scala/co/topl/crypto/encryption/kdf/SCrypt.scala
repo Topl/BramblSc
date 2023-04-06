@@ -19,7 +19,7 @@ object SCrypt {
    */
   def generateSalt: Array[Byte] = {
     val salt = new Array[Byte](32)
-    new java.util.Random().nextBytes(salt)
+    new java.security.SecureRandom().nextBytes(salt)
     salt
   }
 
