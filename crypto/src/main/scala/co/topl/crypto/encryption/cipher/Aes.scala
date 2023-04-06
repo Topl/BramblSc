@@ -1,23 +1,20 @@
 package co.topl.crypto.encryption.cipher
 
+import cats.Applicative
+import cats.implicits.catsSyntaxApplicativeId
+import io.circe.{Decoder, Encoder, HCursor, Json}
 import org.bouncycastle.crypto.BufferedBlockCipher
 import org.bouncycastle.crypto.engines.AESEngine
 import org.bouncycastle.crypto.modes.SICBlockCipher
 import org.bouncycastle.crypto.params.{KeyParameter, ParametersWithIV}
-
-/**
- * AES parameters.
- *
- * @param iv initialization vector
- */
-case class AesParams(iv: Array[Byte]) extends Params
+import org.bouncycastle.util.Strings
 
 /**
  * AES encryption.
  * Aes is a symmetric block cipher that can encrypt and decrypt data using the same key.
  * @see [[https://en.wikipedia.org/wiki/Advanced_Encryption_Standard]]
  */
-object Aes extends Cipher[AesParams] {
+object Aes {
   val BlockSize: Int = 16
 
   /**
@@ -27,57 +24,98 @@ object Aes extends Cipher[AesParams] {
    */
   def generateIv: Array[Byte] = {
     val iv = new Array[Byte](BlockSize)
-    new java.util.Random().nextBytes(iv)
+    new java.security.SecureRandom().nextBytes(iv)
     iv
   }
 
   /**
-   * Encrypt data.
+   * AES parameters.
    *
-   * @note AES block size is a multiple of 16, so the data must have a length multiple of 16.
-   *       Simply padding the bytes would make it impossible to determine the initial data bytes upon encryption.
-   *       The amount padded to the plaintext is prepended to the plaintext. Since we know the amount padded is
-   *       <16, only one byte is needed to store the amount padded.
-   *
-   * @param plainText data to encrypt
-   * @param key the symmetric key for encryption and decryption
-   *            Must be 128/192/256 bits or 16/24/32 bytes.
-   * @param params cipher parameters
-   * @return encrypted data
+   * @param iv initialization vector
    */
-  override def encrypt(plainText: Array[Byte], key: Array[Byte], params: AesParams): Array[Byte] = {
-    // + 1 to account for the byte storing the amount padded. This value is guaranteed to be <16
-    val amountPadded = (Aes.BlockSize - ((plainText.length + 1) % Aes.BlockSize)) % Aes.BlockSize
-    val paddedBytes = amountPadded.toByte +: plainText ++: Array.fill[Byte](amountPadded)(0)
-    processAes(paddedBytes, key, params.iv, encrypt = true)
+  case class AesParams(iv: Array[Byte]) extends Params {
+    override val cipher: String = "aes"
+
+    override def equals(that: Any): Boolean = that match {
+      case that: AesParams => java.util.Arrays.equals(iv, that.iv)
+      case _               => false
+    }
+
+    override def hashCode(): Int = java.util.Arrays.hashCode(iv)
   }
 
   /**
-   * Decrypt data.
+   * Create an instance of the AES cipher.
    *
-   * @note The preImage consists of [paddedAmount] ++ [data] ++ [padding]
-   *
-   * @param cipherText data to decrypt
-   * @param key the symmetric key for encryption and decryption
-   *            Must be 128/192/256 bits or 16/24/32 bytes.
-   * @param params cipher parameters
-   * @return decrypted data
+   * @param aesParams AES parameters
+   * @return an AES cipher
    */
-  override def decrypt(cipherText: Array[Byte], key: Array[Byte], params: AesParams): Array[Byte] = {
-    val preImage = processAes(cipherText, key, params.iv, encrypt = false)
-    val paddedAmount = preImage.head.toInt
-    val paddedBytes = preImage.tail
-    paddedBytes.slice(0, paddedBytes.length - paddedAmount)
+  def make[F[_]: Applicative](aesParams: AesParams): Cipher[F] = new Cipher[F] {
+    override val params: AesParams = aesParams
+
+    /**
+     * Encrypt data.
+     *
+     * @note AES block size is a multiple of 16, so the data must have a length multiple of 16.
+     *       Simply padding the bytes would make it impossible to determine the initial data bytes upon encryption.
+     *       The amount padded to the plaintext is prepended to the plaintext. Since we know the amount padded is
+     *       <16, only one byte is needed to store the amount padded.
+     * @param plainText data to encrypt
+     * @param key       the symmetric key for encryption and decryption
+     *                  Must be 128/192/256 bits or 16/24/32 bytes.
+     * @return encrypted data
+     */
+    override def encrypt(plainText: Array[Byte], key: Array[Byte]): F[Array[Byte]] = {
+      // + 1 to account for the byte storing the amount padded. This value is guaranteed to be <16
+      val amountPadded = (Aes.BlockSize - ((plainText.length + 1) % Aes.BlockSize)) % Aes.BlockSize
+      val paddedBytes = amountPadded.toByte +: plainText ++: Array.fill[Byte](amountPadded)(0)
+      processAes(paddedBytes, key, params.iv, encrypt = true).pure[F]
+    }
+
+    /**
+     * Decrypt data.
+     *
+     * @note The preImage consists of [paddedAmount] ++ [data] ++ [padding]
+     * @param cipherText data to decrypt
+     * @param key        the symmetric key for encryption and decryption
+     *                   Must be 128/192/256 bits or 16/24/32 bytes.
+     * @return decrypted data
+     */
+    override def decrypt(cipherText: Array[Byte], key: Array[Byte]): F[Array[Byte]] = {
+      val preImage = processAes(cipherText, key, params.iv, encrypt = false)
+      val paddedAmount = preImage.head.toInt
+      val paddedBytes = preImage.tail
+      paddedBytes.slice(0, paddedBytes.length - paddedAmount).pure[F]
+    }
+
+    private def processAes(input: Array[Byte], key: Array[Byte], iv: Array[Byte], encrypt: Boolean): Array[Byte] = {
+      val cipherParams = new ParametersWithIV(new KeyParameter(key), iv)
+      val aesCtr = new BufferedBlockCipher(new SICBlockCipher(new AESEngine))
+      aesCtr.init(encrypt, cipherParams)
+      val output = Array.fill[Byte](input.length)(1: Byte)
+      aesCtr.processBytes(input, 0, input.length, output, 0)
+      aesCtr.doFinal(output, 0)
+      output
+    }
   }
 
-  private def processAes(input: Array[Byte], key: Array[Byte], iv: Array[Byte], encrypt: Boolean): Array[Byte] = {
-    val cipherParams = new ParametersWithIV(new KeyParameter(key), iv)
-    val aesCtr = new BufferedBlockCipher(new SICBlockCipher(new AESEngine))
-    aesCtr.init(encrypt, cipherParams)
-    val output = Array.fill[Byte](input.length)(1: Byte)
-    aesCtr.processBytes(input, 0, input.length, output, 0)
-    aesCtr.doFinal(output, 0)
-    output
-  }
+  /** JSON codecs for AES parameters. */
+  object Codecs {
 
+    /** JSON encoder for AES parameters. */
+    implicit val aesParamsToJson: Encoder[AesParams] = new Encoder[AesParams] {
+
+      override def apply(a: AesParams): Json =
+        Json.obj("iv" -> Json.fromString(Strings.fromByteArray(a.iv)))
+    }
+
+    /** JSON decoder for AES parameters. */
+    implicit val aesParamsFromJson: Decoder[AesParams] = new Decoder[AesParams] {
+
+      override def apply(c: HCursor): Decoder.Result[AesParams] =
+        for {
+          iv <- c.downField("iv").as[String]
+        } yield AesParams(iv = Strings.toByteArray(iv))
+    }
+  }
 }
