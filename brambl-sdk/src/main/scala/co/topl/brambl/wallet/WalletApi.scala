@@ -35,7 +35,7 @@ trait WalletApi[F[_]] {
    */
   def createNewWallet(
     password:   Array[Byte],
-    passphrase: Option[String],
+    passphrase: Option[String] = None,
     mLen:       MnemonicSize = MnemonicSizes.words12
   ): F[Either[EntropyFailure, String]]
 
@@ -63,7 +63,7 @@ object WalletApi {
 
     override def createNewWallet(
       password:   Array[Byte],
-      passphrase: Option[String],
+      passphrase: Option[String] = None,
       mLen:       MnemonicSize = MnemonicSizes.words12
     ): F[Either[EntropyFailure, String]] = {
       val entropy = Entropy.generate(mLen)

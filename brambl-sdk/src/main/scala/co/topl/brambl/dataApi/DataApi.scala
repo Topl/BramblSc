@@ -18,8 +18,7 @@ import quivr.models.{KeyPair, Preimage}
  */
 trait DataApi[F[_]] {
 
-  abstract class DataApiException(msg: String, cause: Option[Throwable] = None)
-      extends RuntimeException(msg, cause.orNull)
+  abstract class DataApiException(msg: String, cause: Throwable = null) extends RuntimeException(msg, cause)
 
   /**
    * Return the indices associated to a TransactionOutputAddress.

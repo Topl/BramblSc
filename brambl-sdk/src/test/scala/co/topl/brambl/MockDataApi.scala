@@ -1,6 +1,7 @@
 package co.topl.brambl
 
 import cats.Id
+import cats.implicits.catsSyntaxOptionId
 import co.topl.brambl.dataApi.DataApi
 import co.topl.brambl.models._
 import co.topl.brambl.models.box.Lock
@@ -8,7 +9,10 @@ import co.topl.brambl.models.box.Value
 import co.topl.brambl.models.transaction.UnspentTransactionOutput
 import co.topl.brambl.routines.signatures.Signing
 import co.topl.crypto.encryption.VaultStore
+import co.topl.crypto.encryption.VaultStore.Codecs._
 import com.google.protobuf.ByteString
+import io.circe.Json
+import io.circe.syntax.EncoderOps
 import quivr.models._
 
 /**
@@ -55,9 +59,25 @@ object MockDataApi extends DataApi[Id] with MockHelpers {
       Some(routine.createKeyPair(MockSecret))
     } else None
 
+  var mainKeyVaultStoreInstance: Option[Json] = None
+  case object MainKeyVaultStoreNotInitialized extends DataApiException("MainKeyVaultStore not initialized")
+
+  case class MainKeyVaultInvalid(cause: Throwable = null)
+      extends DataApiException("Error decoding MainKeyVaultStore", cause)
+
   override def saveMainKeyVaultStore(
     mainKeyVaultStore: VaultStore[Id]
-  ): Id[Either[MockDataApi.DataApiException, Unit]] = ???
+  ): Id[Either[MockDataApi.DataApiException, Unit]] = {
+    mainKeyVaultStoreInstance = mainKeyVaultStore.asJson.some
+    Right(())
+  }
 
-  override def getMainKeyVaultStore: Id[Either[MockDataApi.DataApiException, VaultStore[Id]]] = ???
+  override def getMainKeyVaultStore: Id[Either[MockDataApi.DataApiException, VaultStore[Id]]] =
+    if (mainKeyVaultStoreInstance.getOrElse(Json.Null).isNull)
+      Left(MainKeyVaultStoreNotInitialized)
+    else
+      mainKeyVaultStoreInstance.get
+        .as[VaultStore[Id]]
+        .left
+        .map(MainKeyVaultInvalid(_))
 }
