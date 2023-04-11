@@ -4,6 +4,7 @@ import co.topl.brambl.models.{Indices, LockAddress, TransactionOutputAddress}
 import co.topl.brambl.models.box.{Box, Lock}
 import co.topl.brambl.models.transaction.UnspentTransactionOutput
 import co.topl.brambl.routines.signatures.Signing
+import co.topl.crypto.encryption.VaultStore
 import quivr.models.{KeyPair, Preimage}
 
 /**
@@ -15,7 +16,9 @@ import quivr.models.{KeyPair, Preimage}
  *
  * TODO: Design and replace this interface with the actual interface that will be used by the rest of the system.
  */
-trait DataApi {
+trait DataApi[F[_]] {
+
+  abstract class DataApiException(msg: String, cause: Throwable = null) extends RuntimeException(msg, cause)
 
   /**
    * Return the indices associated to a TransactionOutputAddress.
@@ -66,4 +69,25 @@ trait DataApi {
    * @return The key pair associated to the indices if it exists. Else None
    */
   def getKeyPair(idx: Indices, routine: Signing): Option[KeyPair]
+
+  /**
+   * Persist a VaultStore for the Topl Main Secret Key.
+   *
+   * @param mainKeyVaultStore The VaultStore to persist
+   * @param name              The name identifier of the VaultStore. This is used to manage multiple wallet identities.
+   *                          Most commonly, only one wallet identity will be used. It is the responsibility of the dApp
+   *                          to manage the names of the wallet identities if multiple will be used.
+   * @return nothing if successful. If persisting fails due to an underlying cause, return a DataApiException
+   */
+  def saveMainKeyVaultStore(mainKeyVaultStore: VaultStore[F], name: String): F[Either[DataApiException, Unit]]
+
+  /**
+   * Return the VaultStore for the Topl Main Secret Key.
+   *
+   * @param name The name identifier  of the VaultStore. This is used to manage multiple wallet identities.
+   *             Most commonly, only one wallet identity will be used. It is the responsibility of the dApp to manage
+   *             the names of the wallet identities if multiple will be used.
+   * @return The VaultStore for the Topl Main Secret Key if it exists. If retrieving fails due to an underlying cause, return a DataApiException
+   */
+  def getMainKeyVaultStore(name: String): F[Either[DataApiException, VaultStore[F]]]
 }

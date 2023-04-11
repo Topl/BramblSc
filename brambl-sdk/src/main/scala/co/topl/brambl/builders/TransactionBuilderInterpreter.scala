@@ -21,7 +21,7 @@ import quivr.models.SmallData
 
 object TransactionBuilderInterpreter {
 
-  def make[F[_]: Monad](dataApi: DataApi): TransactionBuilder[F] = new TransactionBuilder[F] {
+  def make[F[_]: Monad](dataApi: DataApi[F]): TransactionBuilder[F] = new TransactionBuilder[F] {
 
     override def constructUnprovenInput(
       data: InputBuildRequest
