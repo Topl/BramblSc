@@ -7,7 +7,7 @@ import co.topl.quivr.algebras.SignatureVerifier
 import co.topl.quivr.runtime.QuivrRuntimeError
 import co.topl.quivr.runtime.QuivrRuntimeErrors.ValidationError
 import quivr.models.{Message, SignatureVerification, VerificationKey, Witness}
-import quivr.models.VerificationKey.{Ed25519VerificationKey, Value}
+import quivr.models.VerificationKey._
 
 /**
  * Validates that an Ed25519 signature is valid.
@@ -23,7 +23,7 @@ object Ed25519SignatureInterpreter {
      */
     override def validate(t: SignatureVerification): F[Either[QuivrRuntimeError, SignatureVerification]] = t match {
       case SignatureVerification(
-            VerificationKey(Value.Ed25519(Ed25519VerificationKey(vk, _)), _),
+            VerificationKey(Vk.Ed25519(Ed25519Vk(vk, _)), _),
             Witness(sig, _),
             Message(msg, _),
             _

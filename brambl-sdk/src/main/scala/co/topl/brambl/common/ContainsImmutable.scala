@@ -10,6 +10,7 @@ import co.topl.consensus.models.StakingAddress
 import co.topl.quivr.Tokens
 import com.google.protobuf.ByteString
 import quivr.models._
+import quivr.models.VerificationKey._
 
 import java.nio.charset.StandardCharsets
 import scala.language.implicitConversions
@@ -68,18 +69,17 @@ object ContainsImmutable {
       case e                    => throw new MatchError(e)
     }
 
-    implicit val verificationKeyImmutable: ContainsImmutable[VerificationKey] = _.value match {
-      case VerificationKey.Value.Ed25519(v)         => v.immutable
-      case VerificationKey.Value.ExtendedEd25519(v) => v.immutable
-      case e                                        => throw new MatchError(e)
+    implicit val verificationKeyImmutable: ContainsImmutable[VerificationKey] = _.vk match {
+      case Vk.Ed25519(v)         => v.immutable
+      case Vk.ExtendedEd25519(v) => v.immutable
+      case e                     => throw new MatchError(e)
     }
 
-    implicit val ed25519VerificationKeyImmutable: ContainsImmutable[VerificationKey.Ed25519VerificationKey] =
+    implicit val ed25519VerificationKeyImmutable: ContainsImmutable[Ed25519Vk] =
       _.value.immutable
 
-    implicit val extendedEd25519VerificationKeyImmutable
-      : ContainsImmutable[VerificationKey.ExtendedEd25519VerificationKey] =
-      (vkey: VerificationKey.ExtendedEd25519VerificationKey) =>
+    implicit val extendedEd25519VerificationKeyImmutable: ContainsImmutable[ExtendedEd25519Vk] =
+      (vkey: ExtendedEd25519Vk) =>
         vkey.vk.immutable ++
         vkey.chainCode.immutable
 

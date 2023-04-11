@@ -20,8 +20,8 @@ class WalletApiSpec extends munit.FunSuite with MockHelpers {
     assert(vs.isDefined)
     val mainKey = vs.flatMap(VaultStore.decodeCipher[Id](_, password).toOption).map(KeyPair.parseFrom)
     assert(mainKey.isDefined)
-    assert(mainKey.get.vk.value.extendedEd25519.isDefined)
-    assert(mainKey.get.sk.value.extendedEd25519.isDefined)
+    assert(mainKey.get.vk.vk.extendedEd25519.isDefined)
+    assert(mainKey.get.sk.sk.extendedEd25519.isDefined)
   }
 
   test("createNewWallet: Specifying a valid mnemonic length returns a mnemonic of correct length") {

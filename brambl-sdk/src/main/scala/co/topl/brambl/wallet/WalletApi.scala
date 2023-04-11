@@ -16,6 +16,8 @@ import co.topl.crypto.signing.ExtendedEd25519
 import co.topl.crypto.signing
 import com.google.protobuf.ByteString
 import quivr.models._
+import quivr.models.VerificationKey._
+import quivr.models.SigningKey._
 
 import scala.language.implicitConversions
 
@@ -90,19 +92,19 @@ object WalletApi {
       keyPair: signing.KeyPair[ExtendedEd25519.SecretKey, ExtendedEd25519.PublicKey]
     ): KeyPair = {
       val skCrypto = keyPair.signingKey
-      val sk = SigningKey.ExtendedEd25519SigningKey(
+      val sk = ExtendedEd25519Sk(
         ByteString.copyFrom(skCrypto.leftKey),
         ByteString.copyFrom(skCrypto.rightKey),
         ByteString.copyFrom(skCrypto.chainCode)
       )
       val vkCrypto = keyPair.verificationKey
-      val vk = VerificationKey.ExtendedEd25519VerificationKey(
-        VerificationKey.Ed25519VerificationKey(ByteString.copyFrom(vkCrypto.vk.bytes)),
+      val vk = ExtendedEd25519Vk(
+        Ed25519Vk(ByteString.copyFrom(vkCrypto.vk.bytes)),
         ByteString.copyFrom(vkCrypto.chainCode)
       )
       KeyPair(
-        VerificationKey(VerificationKey.Value.ExtendedEd25519(vk)),
-        SigningKey(SigningKey.Value.ExtendedEd25519(sk))
+        VerificationKey(VerificationKey.Vk.ExtendedEd25519(vk)),
+        SigningKey(SigningKey.Sk.ExtendedEd25519(sk))
       )
     }
   }
