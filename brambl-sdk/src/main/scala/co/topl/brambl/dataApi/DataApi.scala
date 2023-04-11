@@ -73,17 +73,21 @@ trait DataApi[F[_]] {
   /**
    * Persist a VaultStore for the Topl Main Secret Key.
    *
-   * note: We are only supporting one Main Key VaultStore.
-   *
    * @param mainKeyVaultStore The VaultStore to persist
+   * @param name              The name identifier of the VaultStore. This is used to manage multiple wallet identities.
+   *                          Most commonly, only one wallet identity will be used. It is the responsibility of the dApp
+   *                          to manage the names of the wallet identities if multiple will be used.
    * @return nothing if successful. If persisting fails due to an underlying cause, return a DataApiException
    */
-  def saveMainKeyVaultStore(mainKeyVaultStore: VaultStore[F]): F[Either[DataApiException, Unit]]
+  def saveMainKeyVaultStore(mainKeyVaultStore: VaultStore[F], name: String): F[Either[DataApiException, Unit]]
 
   /**
    * Return the VaultStore for the Topl Main Secret Key.
    *
+   * @param name The name identifier  of the VaultStore. This is used to manage multiple wallet identities.
+   *             Most commonly, only one wallet identity will be used. It is the responsibility of the dApp to manage
+   *             the names of the wallet identities if multiple will be used.
    * @return The VaultStore for the Topl Main Secret Key if it exists. If retrieving fails due to an underlying cause, return a DataApiException
    */
-  def getMainKeyVaultStore: F[Either[DataApiException, VaultStore[F]]]
+  def getMainKeyVaultStore(name: String): F[Either[DataApiException, VaultStore[F]]]
 }

@@ -33,12 +33,16 @@ trait WalletApi[F[_]] {
    * @param password   The password to encrypt the wallet with
    * @param passphrase The passphrase to use to generate the main key from the mnemonic
    * @param mLen       The length of the mnemonic to generate
+   * @param name       A name used to identify a wallet in the DataApi. Defaults to "default". Most commonly, only one
+   *                   wallet identity will be used. It is the responsibility of the dApp to keep track of the names of
+   *                   the wallet identities if multiple will be used.
    * @return The mnemonic of the newly created wallet
    */
   def createNewWallet(
     password:   Array[Byte],
     passphrase: Option[String] = None,
-    mLen:       MnemonicSize = MnemonicSizes.words12
+    mLen:       MnemonicSize = MnemonicSizes.words12,
+    name:       String = "default"
   ): F[Either[EntropyFailure, String]]
 
 }
@@ -66,12 +70,13 @@ object WalletApi {
     override def createNewWallet(
       password:   Array[Byte],
       passphrase: Option[String] = None,
-      mLen:       MnemonicSize = MnemonicSizes.words12
+      mLen:       MnemonicSize = MnemonicSizes.words12,
+      name:       String = "default"
     ): F[Either[EntropyFailure, String]] = {
       val entropy = Entropy.generate(mLen)
       val mainKey: Array[Byte] = entropyToMainKey(entropy, passphrase).toByteArray
       val vaultStore = buildMainKeyVaultStore(mainKey, password)
-      vaultStore.map(vs => dataApi.saveMainKeyVaultStore(vs))
+      vaultStore.map(vs => dataApi.saveMainKeyVaultStore(vs, name))
       Entropy.toMnemonicString(entropy).pure[F]
     }
 

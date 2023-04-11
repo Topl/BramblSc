@@ -59,24 +59,27 @@ object MockDataApi extends DataApi[Id] with MockHelpers {
       Some(routine.createKeyPair(MockSecret))
     } else None
 
-  var mainKeyVaultStoreInstance: Option[Json] = None
+  var mainKeyVaultStoreInstance: Map[String, Json] = Map()
   case object MainKeyVaultStoreNotInitialized extends DataApiException("MainKeyVaultStore not initialized")
 
   case class MainKeyVaultInvalid(cause: Throwable = null)
       extends DataApiException("Error decoding MainKeyVaultStore", cause)
 
   override def saveMainKeyVaultStore(
-    mainKeyVaultStore: VaultStore[Id]
+    mainKeyVaultStore: VaultStore[Id],
+    name:              String = "default"
   ): Id[Either[MockDataApi.DataApiException, Unit]] = {
-    mainKeyVaultStoreInstance = mainKeyVaultStore.asJson.some
+    mainKeyVaultStoreInstance += (name -> mainKeyVaultStore.asJson)
     Right(())
   }
 
-  override def getMainKeyVaultStore: Id[Either[MockDataApi.DataApiException, VaultStore[Id]]] =
-    if (mainKeyVaultStoreInstance.getOrElse(Json.Null).isNull)
+  override def getMainKeyVaultStore(
+    name: String = "default"
+  ): Id[Either[MockDataApi.DataApiException, VaultStore[Id]]] =
+    if (mainKeyVaultStoreInstance.getOrElse(name, Json.Null).isNull)
       Left(MainKeyVaultStoreNotInitialized)
     else
-      mainKeyVaultStoreInstance.get
+      mainKeyVaultStoreInstance(name)
         .as[VaultStore[Id]]
         .left
         .map(MainKeyVaultInvalid(_))
