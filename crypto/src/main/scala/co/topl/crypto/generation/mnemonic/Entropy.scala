@@ -33,12 +33,14 @@ object Entropy {
    * @param language The language of the mnemonic string
    * @return
    */
-  def toMnemonicString(entropy: Entropy, language: Language = Language.English): Either[EntropyFailure, String] =
+  def toMnemonicString(
+    entropy:  Entropy,
+    language: Language = Language.English
+  ): Either[EntropyFailure, IndexedSeq[String]] =
     for {
       size   <- sizeFromEntropyLength(entropy.value.length.toInt)
       phrase <- Phrase.fromEntropy(entropy, size, language).leftMap(EntropyFailures.PhraseToEntropyFailure)
-      mnemonicString = phrase.value.mkString(" ")
-    } yield mnemonicString
+    } yield phrase.value
 
   /**
    * Instantiates an 'Entropy' value from a string by validating the string to a mnemonic phrase and then deriving

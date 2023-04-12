@@ -48,6 +48,7 @@ class EntropySpec
       val entropy1 = Entropy.generate(mnemonicSize)
       val entropy2 = Entropy
         .toMnemonicString(entropy1, Language.English)
+        .map(_.mkString(" "))
         .flatMap { mnemonicString =>
           Entropy.fromMnemonicString(mnemonicString, Language.English)
         }

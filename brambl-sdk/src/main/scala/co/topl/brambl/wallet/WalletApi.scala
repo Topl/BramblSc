@@ -43,7 +43,7 @@ trait WalletApi[F[_]] {
     passphrase: Option[String] = None,
     mLen:       MnemonicSize = MnemonicSizes.words12,
     name:       String = "default"
-  ): F[Either[EntropyFailure, String]]
+  ): F[Either[EntropyFailure, IndexedSeq[String]]]
 
 }
 
@@ -72,7 +72,7 @@ object WalletApi {
       passphrase: Option[String] = None,
       mLen:       MnemonicSize = MnemonicSizes.words12,
       name:       String = "default"
-    ): F[Either[EntropyFailure, String]] = {
+    ): F[Either[EntropyFailure, IndexedSeq[String]]] = {
       val entropy = Entropy.generate(mLen)
       val mainKey: Array[Byte] = entropyToMainKey(entropy, passphrase).toByteArray
       val vaultStore = buildMainKeyVaultStore(mainKey, password)
