@@ -4,9 +4,9 @@ import co.topl.crypto.accumulators.{LeafData, Side}
 import co.topl.crypto.hash.Hash
 import co.topl.crypto.hash.digest.Digest
 import co.topl.crypto.hash.digest.implicits._
-import scodec.bits.ByteVector
 
 import scala.annotation.tailrec
+import scala.collection.immutable.ArraySeq
 
 /* Forked from https://github.com/input-output-hk/scrypto */
 
@@ -14,7 +14,7 @@ import scala.annotation.tailrec
 /* NOTE: Use of mutable.WrappedArray.ofByte for Scala 2.12 compatibility */
 class MerkleTree[H, D: Digest](
   topNode:           Option[Node[D]],
-  elementsHashIndex: Map[ByteVector, Int]
+  elementsHashIndex: Map[ArraySeq[Byte], Int]
 )(implicit h: Hash[H, D]) {
 
   private lazy val emptyRootHash: D = Digest[D].empty
@@ -29,7 +29,7 @@ class MerkleTree[H, D: Digest](
   def proofByElement(element: Leaf[H, D]): Option[MerkleProof[H, D]] = proofByElementHash(element.hash)
 
   def proofByElementHash(hash: D): Option[MerkleProof[H, D]] =
-    elementsHashIndex.get(ByteVector(hash.bytes)).flatMap(i => proofByIndex(i))
+    elementsHashIndex.get(ArraySeq.from(hash.bytes)).flatMap(i => proofByIndex(i))
 
   def proofByIndex(index: Int): Option[MerkleProof[H, D]] = if (index >= 0 && index < length) {
 
@@ -83,8 +83,8 @@ object MerkleTree {
 
     val elementsToIndex =
       leafs.zipWithIndex
-        .foldLeft(Map[ByteVector, Int]()) { case (elements, (leaf, leafIndex)) =>
-          elements + (ByteVector(leaf.hash.bytes) -> leafIndex)
+        .foldLeft(Map[ArraySeq[Byte], Int]()) { case (elements, (leaf, leafIndex)) =>
+          elements + (ArraySeq.from(leaf.hash.bytes) -> leafIndex)
         }
 
     val topNode = calcTopNode[H, D](leafs)
