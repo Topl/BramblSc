@@ -15,7 +15,7 @@ class WalletApiSpec extends munit.FunSuite with MockHelpers {
     val password = "password".getBytes
     val res = walletApi.createNewWallet(password)
     assert(res.isRight)
-    assert(res.toOption.get.length == 12)
+    assert(res.toOption.get.mnemonic.length == 12)
     val vs = MockDataApi.getMainKeyVaultStore().toOption
     assert(vs.isDefined)
     val mainKey = vs.flatMap(VaultStore.decodeCipher[Id](_, password).toOption).map(KeyPair.parseFrom)
@@ -29,6 +29,6 @@ class WalletApiSpec extends munit.FunSuite with MockHelpers {
     val password = "password".getBytes
     val res = walletApi.createNewWallet(password, mLen = MnemonicSizes.words24)
     assert(res.isRight)
-    assert(res.toOption.get.length == 24)
+    assert(res.toOption.get.mnemonic.length == 24)
   }
 }

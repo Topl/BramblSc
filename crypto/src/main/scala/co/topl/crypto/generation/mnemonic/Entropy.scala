@@ -111,7 +111,7 @@ object Entropy {
     }
 }
 
-sealed trait EntropyFailure
+sealed trait EntropyFailure extends RuntimeException
 
 /**
  * Enumeration of errors that can be produced when creating a mnemonic from entropy.

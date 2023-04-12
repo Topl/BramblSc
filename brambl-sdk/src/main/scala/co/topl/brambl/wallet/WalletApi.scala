@@ -1,11 +1,10 @@
 package co.topl.brambl.wallet
 
-import co.topl.crypto.generation.mnemonic.{EntropyFailure, MnemonicSize, MnemonicSizes}
-import cats.{Applicative, Monad}
-import cats.implicits.{catsSyntaxApplicativeId, toFlatMapOps, toFunctorOps}
+import co.topl.crypto.generation.mnemonic.{Entropy, EntropyFailure, MnemonicSize, MnemonicSizes}
+import cats.Monad
+import cats.implicits.{toFlatMapOps, toFunctorOps}
 import co.topl.brambl.dataApi.DataApi
 import co.topl.crypto.generation.{Bip32Index, Bip32Indexes, KeyInitializer}
-import co.topl.crypto.generation.mnemonic.{Entropy, EntropyFailure, MnemonicSize, MnemonicSizes}
 import KeyInitializer.Instances.extendedEd25519Initializer
 import co.topl.crypto.encryption.{Mac, VaultStore}
 import co.topl.crypto.encryption.kdf.Kdf
@@ -18,6 +17,7 @@ import com.google.protobuf.ByteString
 import quivr.models._
 import quivr.models.VerificationKey._
 import quivr.models.SigningKey._
+import cats.implicits._
 
 import scala.language.implicitConversions
 
@@ -36,14 +36,14 @@ trait WalletApi[F[_]] {
    * @param name       A name used to identify a wallet in the DataApi. Defaults to "default". Most commonly, only one
    *                   wallet identity will be used. It is the responsibility of the dApp to keep track of the names of
    *                   the wallet identities if multiple will be used.
-   * @return The mnemonic of the newly created wallet
+   * @return The mnemonic and VaultStore of the newly created wallet, if successful. Else an error
    */
   def createNewWallet(
     password:   Array[Byte],
     passphrase: Option[String] = None,
     mLen:       MnemonicSize = MnemonicSizes.words12,
     name:       String = "default"
-  ): F[Either[EntropyFailure, IndexedSeq[String]]]
+  ): F[Either[WalletApi.FailedToInitializeWallet, WalletApi.NewWalletResult[F]]]
 
 }
 
@@ -72,12 +72,15 @@ object WalletApi {
       passphrase: Option[String] = None,
       mLen:       MnemonicSize = MnemonicSizes.words12,
       name:       String = "default"
-    ): F[Either[EntropyFailure, IndexedSeq[String]]] = {
-      val entropy = Entropy.generate(mLen)
-      val mainKey: Array[Byte] = entropyToMainKey(entropy, passphrase).toByteArray
-      val vaultStore = buildMainKeyVaultStore(mainKey, password)
-      vaultStore.map(vs => dataApi.saveMainKeyVaultStore(vs, name))
-      Entropy.toMnemonicString(entropy).pure[F]
+    ): F[Either[FailedToInitializeWallet, NewWalletResult[F]]] = for {
+      entropy: Entropy                          <- Monad[F].pure(Entropy.generate(mLen))
+      mainKey: Array[Byte]                      <- Monad[F].pure(entropyToMainKey(entropy, passphrase).toByteArray)
+      vaultStore: VaultStore[F]                 <- buildMainKeyVaultStore(mainKey, password)
+      saveRes: Option[DataApi.DataApiException] <- dataApi.saveMainKeyVaultStore(vaultStore, name).map(_.swap.toOption)
+      mnemonic: Either[EntropyFailure, IndexedSeq[String]] <- Monad[F].pure(Entropy.toMnemonicString(entropy))
+    } yield saveRes match {
+      case Some(saveErr) => FailedToInitializeWallet(mnemonic.swap.toList :+ saveErr).asLeft
+      case None => mnemonic.leftMap(mErr => FailedToInitializeWallet(List(mErr))).map(NewWalletResult(_, vaultStore))
     }
 
     private def buildMainKeyVaultStore(mainKey: Array[Byte], password: Array[Byte]): F[VaultStore[F]] = for {
@@ -113,4 +116,9 @@ object WalletApi {
       )
     }
   }
+
+  case class NewWalletResult[F[_]](mnemonic: IndexedSeq[String], mainKeyVaultStore: VaultStore[F])
+
+  trait WalletApiFailure
+  case class FailedToInitializeWallet(errs: List[Throwable] = List()) extends WalletApiFailure
 }
