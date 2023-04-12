@@ -33,17 +33,42 @@ trait WalletApi[F[_]] {
    * @param password   The password to encrypt the wallet with
    * @param passphrase The passphrase to use to generate the main key from the mnemonic
    * @param mLen       The length of the mnemonic to generate
-   * @param name       A name used to identify a wallet in the DataApi. Defaults to "default". Most commonly, only one
-   *                   wallet identity will be used. It is the responsibility of the dApp to keep track of the names of
-   *                   the wallet identities if multiple will be used.
    * @return The mnemonic and VaultStore of the newly created wallet, if successful. Else an error
    */
   def createNewWallet(
     password:   Array[Byte],
     passphrase: Option[String] = None,
+    mLen:       MnemonicSize = MnemonicSizes.words12
+  ): F[Either[WalletApi.FailedToInitializeWallet, WalletApi.NewWalletResult[F]]]
+
+  /**
+   * Save a wallet
+   *
+   * @param vaultStore The VaultStore of the wallet to save
+   * @param name A name used to identify a wallet in the DataApi. Defaults to "default". Most commonly, only one
+   *             wallet identity will be used. It is the responsibility of the dApp to keep track of the names of
+   *             the wallet identities if multiple will be used.
+   * @return An error if unsuccessful.
+   */
+  def saveWallet(vaultStore: VaultStore[F], name: String = "default"): F[Either[WalletApi.FailedToSaveWallet, Unit]]
+
+  /**
+   * Create a new wallet and then save it
+   *
+   * @param password   The password to encrypt the wallet with
+   * @param passphrase The passphrase to use to generate the main key from the mnemonic
+   * @param mLen       The length of the mnemonic to generate
+   * @param name       A name used to identify a wallet in the DataApi. Defaults to "default". Most commonly, only one
+   *                   wallet identity will be used. It is the responsibility of the dApp to keep track of the names of
+   *                   the wallet identities if multiple will be used.
+   * @return The mnemonic and VaultStore of the newly created wallet, if creation and save successful. Else an error
+   */
+  def createAndSaveNewWallet(
+    password:   Array[Byte],
+    passphrase: Option[String] = None,
     mLen:       MnemonicSize = MnemonicSizes.words12,
     name:       String = "default"
-  ): F[Either[WalletApi.FailedToInitializeWallet, WalletApi.NewWalletResult[F]]]
+  ): F[Either[WalletApi.WalletApiFailure, WalletApi.NewWalletResult[F]]]
 
 }
 
@@ -70,17 +95,30 @@ object WalletApi {
     override def createNewWallet(
       password:   Array[Byte],
       passphrase: Option[String] = None,
+      mLen:       MnemonicSize = MnemonicSizes.words12
+    ): F[Either[FailedToInitializeWallet, NewWalletResult[F]]] = for {
+      entropy: Entropy          <- Monad[F].pure(Entropy.generate(mLen))
+      mainKey: Array[Byte]      <- Monad[F].pure(entropyToMainKey(entropy, passphrase).toByteArray)
+      vaultStore: VaultStore[F] <- buildMainKeyVaultStore(mainKey, password)
+      mnemonic: Either[EntropyFailure, IndexedSeq[String]] <- Monad[F].pure(Entropy.toMnemonicString(entropy))
+    } yield mnemonic.leftMap(FailedToInitializeWallet(_)).map(NewWalletResult(_, vaultStore))
+
+    override def saveWallet(vaultStore: VaultStore[F], name: String = "default"): F[Either[FailedToSaveWallet, Unit]] =
+      dataApi.saveMainKeyVaultStore(vaultStore, name).map(res => res.leftMap(FailedToSaveWallet(_)))
+
+    override def createAndSaveNewWallet(
+      password:   Array[Byte],
+      passphrase: Option[String] = None,
       mLen:       MnemonicSize = MnemonicSizes.words12,
       name:       String = "default"
-    ): F[Either[FailedToInitializeWallet, NewWalletResult[F]]] = for {
-      entropy: Entropy                          <- Monad[F].pure(Entropy.generate(mLen))
-      mainKey: Array[Byte]                      <- Monad[F].pure(entropyToMainKey(entropy, passphrase).toByteArray)
-      vaultStore: VaultStore[F]                 <- buildMainKeyVaultStore(mainKey, password)
-      saveRes: Option[DataApi.DataApiException] <- dataApi.saveMainKeyVaultStore(vaultStore, name).map(_.swap.toOption)
-      mnemonic: Either[EntropyFailure, IndexedSeq[String]] <- Monad[F].pure(Entropy.toMnemonicString(entropy))
-    } yield saveRes match {
-      case Some(saveErr) => FailedToInitializeWallet(mnemonic.swap.toList :+ saveErr).asLeft
-      case None => mnemonic.leftMap(mErr => FailedToInitializeWallet(List(mErr))).map(NewWalletResult(_, vaultStore))
+    ): F[Either[WalletApi.WalletApiFailure, WalletApi.NewWalletResult[F]]] = for {
+      walletRes: Either[FailedToInitializeWallet, NewWalletResult[F]] <- createNewWallet(password, passphrase, mLen)
+      createAndSaveRes: Either[FailedToInitializeWallet, Either[FailedToSaveWallet, NewWalletResult[F]]] <-
+        walletRes.map(wRes => saveWallet(wRes.mainKeyVaultStore).map(saveRes => saveRes.map(_ => wRes))).sequence
+    } yield createAndSaveRes match {
+      case Left(f)                    => Left(f)
+      case Right(Right(newWalletRes)) => Right(newWalletRes)
+      case Right(Left(f))             => Left(f)
     }
 
     private def buildMainKeyVaultStore(mainKey: Array[Byte], password: Array[Byte]): F[VaultStore[F]] = for {
@@ -120,5 +158,6 @@ object WalletApi {
   case class NewWalletResult[F[_]](mnemonic: IndexedSeq[String], mainKeyVaultStore: VaultStore[F])
 
   trait WalletApiFailure
-  case class FailedToInitializeWallet(errs: List[Throwable] = List()) extends WalletApiFailure
+  case class FailedToInitializeWallet(err: Throwable = null) extends WalletApiFailure
+  case class FailedToSaveWallet(err: Throwable = null) extends WalletApiFailure
 }
