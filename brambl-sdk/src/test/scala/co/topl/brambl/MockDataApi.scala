@@ -3,6 +3,7 @@ package co.topl.brambl
 import cats.Id
 import cats.implicits.catsSyntaxOptionId
 import co.topl.brambl.dataApi.DataApi
+import co.topl.brambl.dataApi.DataApi.DataApiException
 import co.topl.brambl.models._
 import co.topl.brambl.models.box.Lock
 import co.topl.brambl.models.box.Value
@@ -68,14 +69,14 @@ object MockDataApi extends DataApi[Id] with MockHelpers {
   override def saveMainKeyVaultStore(
     mainKeyVaultStore: VaultStore[Id],
     name:              String = "default"
-  ): Id[Either[MockDataApi.DataApiException, Unit]] = {
+  ): Id[Either[DataApiException, Unit]] = {
     mainKeyVaultStoreInstance += (name -> mainKeyVaultStore.asJson)
     Right(())
   }
 
   override def getMainKeyVaultStore(
     name: String = "default"
-  ): Id[Either[MockDataApi.DataApiException, VaultStore[Id]]] =
+  ): Id[Either[DataApiException, VaultStore[Id]]] =
     if (mainKeyVaultStoreInstance.getOrElse(name, Json.Null).isNull)
       Left(MainKeyVaultStoreNotInitialized)
     else

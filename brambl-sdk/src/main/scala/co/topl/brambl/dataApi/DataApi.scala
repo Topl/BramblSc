@@ -1,5 +1,6 @@
 package co.topl.brambl.dataApi
 
+import co.topl.brambl.dataApi.DataApi._
 import co.topl.brambl.models.{Indices, LockAddress, TransactionOutputAddress}
 import co.topl.brambl.models.box.{Box, Lock}
 import co.topl.brambl.models.transaction.UnspentTransactionOutput
@@ -17,8 +18,6 @@ import quivr.models.{KeyPair, Preimage}
  * TODO: Design and replace this interface with the actual interface that will be used by the rest of the system.
  */
 trait DataApi[F[_]] {
-
-  abstract class DataApiException(msg: String, cause: Throwable = null) extends RuntimeException(msg, cause)
 
   /**
    * Return the indices associated to a TransactionOutputAddress.
@@ -90,4 +89,8 @@ trait DataApi[F[_]] {
    * @return The VaultStore for the Topl Main Secret Key if it exists. If retrieving fails due to an underlying cause, return a DataApiException
    */
   def getMainKeyVaultStore(name: String): F[Either[DataApiException, VaultStore[F]]]
+}
+
+object DataApi {
+  abstract class DataApiException(msg: String, cause: Throwable = null) extends RuntimeException(msg, cause)
 }
