@@ -5,6 +5,7 @@ import co.topl.brambl.{MockDataApi, MockHelpers}
 import co.topl.crypto.encryption.VaultStore
 import co.topl.crypto.generation.mnemonic.MnemonicSizes
 import quivr.models.KeyPair
+import cats.arrow.FunctionK
 
 class WalletApiSpec extends munit.FunSuite with MockHelpers {
 
@@ -13,7 +14,11 @@ class WalletApiSpec extends munit.FunSuite with MockHelpers {
   ) {
     val walletApi = WalletApi.make[Id](MockDataApi)
     val password = "password".getBytes
-    val res = walletApi.createAndSaveNewWallet(password)
+    // import implicit instances for natural transformations
+    import cats.arrow._
+    import cats.~>
+    implicit val idToId = FunctionK.id[Id]
+    val res = walletApi.createAndSaveNewWallet[Id](password)
     assert(res.isRight)
     assert(res.toOption.get.mnemonic.length == 12)
     val vs = res.toOption.get.mainKeyVaultStore
