@@ -18,14 +18,19 @@ import quivr.models._
 import quivr.models.VerificationKey._
 import quivr.models.SigningKey._
 import cats.implicits._
+import cats._
 
 import scala.language.implicitConversions
+import cats.data.EitherT
+import cats.arrow.FunctionK
 
 /**
  * Defines a Wallet API.
  * A Wallet is responsible for managing the user's keys
  */
 trait WalletApi[F[_]] {
+
+  type ToMonad[G[_]] = FunctionK[F, G]
 
   /**
    * Create a new wallet
@@ -39,7 +44,7 @@ trait WalletApi[F[_]] {
     password:   Array[Byte],
     passphrase: Option[String] = None,
     mLen:       MnemonicSize = MnemonicSizes.words12
-  ): F[Either[WalletApi.FailedToInitializeWallet, WalletApi.NewWalletResult[F]]]
+  ): F[Either[WalletApi.WalletApiFailure, WalletApi.NewWalletResult[F]]]
 
   /**
    * Save a wallet
@@ -50,7 +55,7 @@ trait WalletApi[F[_]] {
    *             the wallet identities if multiple will be used.
    * @return An error if unsuccessful.
    */
-  def saveWallet(vaultStore: VaultStore[F], name: String = "default"): F[Either[WalletApi.FailedToSaveWallet, Unit]]
+  def saveWallet(vaultStore: VaultStore[F], name: String = "default"): F[Either[WalletApi.WalletApiFailure, Unit]]
 
   /**
    * Create a new wallet and then save it
@@ -63,12 +68,19 @@ trait WalletApi[F[_]] {
    *                   the wallet identities if multiple will be used.
    * @return The mnemonic and VaultStore of the newly created wallet, if creation and save successful. Else an error
    */
-  def createAndSaveNewWallet(
+  def createAndSaveNewWallet[G[_]: Monad: ToMonad](
     password:   Array[Byte],
     passphrase: Option[String] = None,
     mLen:       MnemonicSize = MnemonicSizes.words12,
     name:       String = "default"
-  ): F[Either[WalletApi.WalletApiFailure, WalletApi.NewWalletResult[F]]]
+  ): G[Either[WalletApi.WalletApiFailure, WalletApi.NewWalletResult[F]]] = {
+    val t = implicitly[ToMonad[G]]
+    (for {
+      walletRes <- EitherT(t(createNewWallet(password, passphrase, mLen)))
+      createAndSaveRes <-
+        EitherT(t(saveWallet(walletRes.mainKeyVaultStore)))
+    } yield walletRes).value
+  }
 
 }
 
@@ -96,30 +108,15 @@ object WalletApi {
       password:   Array[Byte],
       passphrase: Option[String] = None,
       mLen:       MnemonicSize = MnemonicSizes.words12
-    ): F[Either[FailedToInitializeWallet, NewWalletResult[F]]] = for {
+    ): F[Either[WalletApiFailure, NewWalletResult[F]]] = for {
       entropy: Entropy          <- Monad[F].pure(Entropy.generate(mLen))
       mainKey: Array[Byte]      <- Monad[F].pure(entropyToMainKey(entropy, passphrase).toByteArray)
       vaultStore: VaultStore[F] <- buildMainKeyVaultStore(mainKey, password)
       mnemonic: Either[EntropyFailure, IndexedSeq[String]] <- Monad[F].pure(Entropy.toMnemonicString(entropy))
     } yield mnemonic.leftMap(FailedToInitializeWallet(_)).map(NewWalletResult(_, vaultStore))
 
-    override def saveWallet(vaultStore: VaultStore[F], name: String = "default"): F[Either[FailedToSaveWallet, Unit]] =
+    override def saveWallet(vaultStore: VaultStore[F], name: String = "default"): F[Either[WalletApiFailure, Unit]] =
       dataApi.saveMainKeyVaultStore(vaultStore, name).map(res => res.leftMap(FailedToSaveWallet(_)))
-
-    override def createAndSaveNewWallet(
-      password:   Array[Byte],
-      passphrase: Option[String] = None,
-      mLen:       MnemonicSize = MnemonicSizes.words12,
-      name:       String = "default"
-    ): F[Either[WalletApi.WalletApiFailure, WalletApi.NewWalletResult[F]]] = for {
-      walletRes: Either[FailedToInitializeWallet, NewWalletResult[F]] <- createNewWallet(password, passphrase, mLen)
-      createAndSaveRes: Either[FailedToInitializeWallet, Either[FailedToSaveWallet, NewWalletResult[F]]] <-
-        walletRes.map(wRes => saveWallet(wRes.mainKeyVaultStore).map(saveRes => saveRes.map(_ => wRes))).sequence
-    } yield createAndSaveRes match {
-      case Left(f)                    => Left(f)
-      case Right(Right(newWalletRes)) => Right(newWalletRes)
-      case Right(Left(f))             => Left(f)
-    }
 
     private def buildMainKeyVaultStore(mainKey: Array[Byte], password: Array[Byte]): F[VaultStore[F]] = for {
       derivedKey: Array[Byte] <- kdf.deriveKey(password)
