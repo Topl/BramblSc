@@ -17,7 +17,7 @@ class WalletApiSpec extends munit.FunSuite with MockHelpers {
     // import implicit instances for natural transformations
     import cats.arrow._
     import cats.~>
-    implicit val idToId: Id ~> Id = FunctionK.id[Id]
+    implicit val idToId = FunctionK.id[Id]
     val res = walletApi.createAndSaveNewWallet[Id](password)
     assert(res.isRight)
     assert(res.toOption.get.mnemonic.length == 12)

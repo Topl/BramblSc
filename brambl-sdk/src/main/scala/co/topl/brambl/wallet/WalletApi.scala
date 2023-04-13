@@ -74,11 +74,11 @@ trait WalletApi[F[_]] {
     mLen:       MnemonicSize = MnemonicSizes.words12,
     name:       String = "default"
   ): G[Either[WalletApi.WalletApiFailure, WalletApi.NewWalletResult[F]]] = {
-    val t = implicitly[ToMonad[G]]
+    val toMonad = implicitly[ToMonad[G]]
     (for {
-      walletRes <- EitherT(t(createNewWallet(password, passphrase, mLen)))
+      walletRes <- EitherT(toMonad(createNewWallet(password, passphrase, mLen)))
       createAndSaveRes <-
-        EitherT(t(saveWallet(walletRes.mainKeyVaultStore)))
+        EitherT(toMonad(saveWallet(walletRes.mainKeyVaultStore)))
     } yield walletRes).value
   }
 
@@ -109,25 +109,25 @@ object WalletApi {
       passphrase: Option[String] = None,
       mLen:       MnemonicSize = MnemonicSizes.words12
     ): F[Either[WalletApiFailure, NewWalletResult[F]]] = for {
-      entropy: Entropy          <- Monad[F].pure(Entropy.generate(mLen))
-      mainKey: Array[Byte]      <- Monad[F].pure(entropyToMainKey(entropy, passphrase).toByteArray)
-      vaultStore: VaultStore[F] <- buildMainKeyVaultStore(mainKey, password)
-      mnemonic: Either[EntropyFailure, IndexedSeq[String]] <- Monad[F].pure(Entropy.toMnemonicString(entropy))
+      entropy    <- Monad[F].pure(Entropy.generate(mLen))
+      mainKey    <- Monad[F].pure(entropyToMainKey(entropy, passphrase).toByteArray)
+      vaultStore <- buildMainKeyVaultStore(mainKey, password)
+      mnemonic   <- Monad[F].pure(Entropy.toMnemonicString(entropy))
     } yield mnemonic.leftMap(FailedToInitializeWallet(_)).map(NewWalletResult(_, vaultStore))
 
     override def saveWallet(vaultStore: VaultStore[F], name: String = "default"): F[Either[WalletApiFailure, Unit]] =
       dataApi.saveMainKeyVaultStore(vaultStore, name).map(res => res.leftMap(FailedToSaveWallet(_)))
 
     private def buildMainKeyVaultStore(mainKey: Array[Byte], password: Array[Byte]): F[VaultStore[F]] = for {
-      derivedKey: Array[Byte] <- kdf.deriveKey(password)
-      cipherText: Array[Byte] <- cipher.encrypt(mainKey, derivedKey)
-      mac: Array[Byte] = Mac.make(derivedKey, cipherText).value
+      derivedKey <- kdf.deriveKey(password)
+      cipherText <- cipher.encrypt(mainKey, derivedKey)
+      mac = Mac.make(derivedKey, cipherText).value
     } yield VaultStore[F](kdf, cipher, cipherText, mac)
 
     private def entropyToMainKey(entropy: Entropy, passphrase: Option[String]): KeyPair = {
-      val rootKey: ExtendedEd25519.SecretKey = extendedEd25519Initializer.fromEntropy(entropy, passphrase)
-      val purpose: Bip32Index = Bip32Indexes.HardenedIndex(Purpose) // following CIP-1852
-      val coinType: Bip32Index = Bip32Indexes.HardenedIndex(CoinType) // Topl coin type registered with SLIP-0044
+      val rootKey = extendedEd25519Initializer.fromEntropy(entropy, passphrase)
+      val purpose = Bip32Indexes.HardenedIndex(Purpose) // following CIP-1852
+      val coinType = Bip32Indexes.HardenedIndex(CoinType) // Topl coin type registered with SLIP-0044
       extendedEd25519Instance.deriveKeyPairFromChildPath(rootKey, List(purpose, coinType))
     }
 
