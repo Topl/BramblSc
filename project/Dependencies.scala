@@ -56,12 +56,6 @@ object Dependencies {
     "org.typelevel" %% "simulacrum" % simulacrumVersion
   )
 
-  val scodec: Seq[ModuleID] = Seq(
-    "org.scodec" %% "scodec-core" % "1.11.10",
-    "org.scodec" %% "scodec-bits" % "1.1.37",
-    "org.scodec" %% "scodec-cats" % "1.2.0"
-  )
-
   val protobufSpecs: Seq[ModuleID] = Seq(
     "com.github.Topl" % "protobuf-specs" % protobufSpecsVersion
   )
@@ -75,7 +69,6 @@ object Dependencies {
     lazy val sources: Seq[ModuleID] =
       Seq("org.bouncycastle" % "bcprov-jdk18on" % "1.72") ++
       circe ++
-      scodec ++
       newType ++
       cats ++
       simulacrum

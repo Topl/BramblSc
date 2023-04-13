@@ -6,7 +6,6 @@ import co.topl.quivr.algebras.DigestVerifier
 import co.topl.quivr.runtime.QuivrRuntimeError
 import co.topl.quivr.runtime.QuivrRuntimeErrors.ValidationError
 import quivr.models.{Digest, DigestVerification, Preimage}
-import scodec.bits.ByteVector
 import cats.implicits.{catsSyntaxApplicativeId, catsSyntaxEitherObject}
 
 /**
@@ -23,9 +22,9 @@ object Blake2b256DigestInterpreter {
      */
     override def validate(t: DigestVerification): F[Either[QuivrRuntimeError, DigestVerification]] = t match {
       case DigestVerification(Digest(Digest.Value.Digest32(d), _), Preimage(p, salt, _), _) =>
-        val testHash: ByteVector = (new Blake2b256).hash(ByteVector(p.toByteArray ++ salt.toByteArray))
-        val expectedHash = ByteVector(d.value.toByteArray)
-        if (testHash === expectedHash)
+        val testHash: Array[Byte] = (new Blake2b256).hash(p.toByteArray ++ salt.toByteArray)
+        val expectedHash: Array[Byte] = d.value.toByteArray
+        if (java.util.Arrays.equals(testHash, expectedHash))
           Either.right[QuivrRuntimeError, DigestVerification](t).pure[F]
         else // TODO: replace with correct error. Verification failed.
           Either.left[QuivrRuntimeError, DigestVerification](ValidationError.LockedPropositionIsUnsatisfiable).pure[F]
