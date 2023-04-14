@@ -154,7 +154,7 @@ object WalletApi {
 
   case class NewWalletResult[F[_]](mnemonic: IndexedSeq[String], mainKeyVaultStore: VaultStore[F])
 
-  trait WalletApiFailure
-  case class FailedToInitializeWallet(err: Throwable = null) extends WalletApiFailure
-  case class FailedToSaveWallet(err: Throwable = null) extends WalletApiFailure
+  abstract class WalletApiFailure(err: Throwable = null) extends RuntimeException(err)
+  case class FailedToInitializeWallet(err: Throwable = null) extends WalletApiFailure(err)
+  case class FailedToSaveWallet(err: Throwable = null) extends WalletApiFailure(err)
 }
