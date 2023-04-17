@@ -1,10 +1,10 @@
 package co.topl.brambl.wallet
 
-import co.topl.crypto.generation.mnemonic.{Entropy, EntropyFailure, MnemonicSize, MnemonicSizes}
+import co.topl.crypto.generation.mnemonic.{Entropy, MnemonicSize, MnemonicSizes}
 import cats.Monad
 import cats.implicits.{toFlatMapOps, toFunctorOps}
 import co.topl.brambl.dataApi.DataApi
-import co.topl.crypto.generation.{Bip32Index, Bip32Indexes, KeyInitializer}
+import co.topl.crypto.generation.{Bip32Indexes, KeyInitializer}
 import KeyInitializer.Instances.extendedEd25519Initializer
 import co.topl.crypto.encryption.{Mac, VaultStore}
 import co.topl.crypto.encryption.kdf.Kdf
@@ -83,6 +83,16 @@ trait WalletApi[F[_]] {
   def saveWallet(vaultStore: VaultStore[F], name: String = "default"): F[Either[WalletApi.WalletApiFailure, Unit]]
 
   /**
+   * Save a wallet
+   *
+   * @param name       A name used to identify a wallet in the DataApi. Defaults to "default". Most commonly, only one
+   *                   wallet identity will be used. It is the responsibility of the dApp to keep track of the names of
+   *                   the wallet identities if multiple will be used.
+   * @return The wallet's VaultStore if successful. An error if unsuccessful.
+   */
+  def loadWallet(name: String = "default"): F[Either[WalletApi.WalletApiFailure, VaultStore[F]]]
+
+  /**
    * Create a new wallet and then save it
    *
    * @param password   The password to encrypt the wallet with
@@ -105,6 +115,26 @@ trait WalletApi[F[_]] {
       createAndSaveRes <-
         EitherT(toMonad(saveWallet(walletRes.mainKeyVaultStore)))
     } yield walletRes).value
+  }
+
+  /**
+   * Load a wallet and then extract the main key pair
+   *
+   * @param password The password to decrypt the wallet with
+   * @param name     A name used to identify a wallet in the DataApi. Defaults to "default". Most commonly, only one
+   *                 wallet identity will be used. It is the responsibility of the dApp to keep track of the names of
+   *                 the wallet identities if multiple will be used.
+   * @return The main key pair of the wallet, if successful. Else an error
+   */
+  def loadAndExtractMainKey[G[_]: Monad: ToMonad](
+    password: Array[Byte],
+    name:     String = "default"
+  ): G[Either[WalletApi.WalletApiFailure, KeyPair]] = {
+    val toMonad = implicitly[ToMonad[G]]
+    (for {
+      walletRes <- EitherT(toMonad(loadWallet(name)))
+      keyPair   <- EitherT(toMonad(extractMainKey(walletRes, password)))
+    } yield keyPair).value
   }
 
 }
@@ -167,6 +197,9 @@ object WalletApi {
 
     override def saveWallet(vaultStore: VaultStore[F], name: String = "default"): F[Either[WalletApiFailure, Unit]] =
       dataApi.saveMainKeyVaultStore(vaultStore, name).map(res => res.leftMap(FailedToSaveWallet(_)))
+
+    override def loadWallet(name: String = "default"): F[Either[WalletApiFailure, VaultStore[F]]] =
+      dataApi.getMainKeyVaultStore(name).map(res => res.leftMap(FailedToSaveWallet(_)))
 
     private def buildMainKeyVaultStore(mainKey: Array[Byte], password: Array[Byte]): F[VaultStore[F]] = for {
       derivedKey <- kdf.deriveKey(password)
