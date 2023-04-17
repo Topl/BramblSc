@@ -1,10 +1,10 @@
 package co.topl.brambl.wallet
 
-import co.topl.crypto.generation.mnemonic.{Entropy, EntropyFailure, MnemonicSize, MnemonicSizes}
+import co.topl.crypto.generation.mnemonic.{Entropy, MnemonicSize, MnemonicSizes}
 import cats.Monad
 import cats.implicits.{toFlatMapOps, toFunctorOps}
 import co.topl.brambl.dataApi.DataApi
-import co.topl.crypto.generation.{Bip32Index, Bip32Indexes, KeyInitializer}
+import co.topl.crypto.generation.{Bip32Indexes, KeyInitializer}
 import KeyInitializer.Instances.extendedEd25519Initializer
 import co.topl.crypto.encryption.{Mac, VaultStore}
 import co.topl.crypto.encryption.kdf.Kdf
@@ -18,11 +18,13 @@ import quivr.models._
 import quivr.models.VerificationKey._
 import quivr.models.SigningKey._
 import cats.implicits._
-import cats._
 
 import scala.language.implicitConversions
 import cats.data.EitherT
 import cats.arrow.FunctionK
+import co.topl.brambl.models.Indices
+
+import scala.util.Try
 
 /**
  * Defines a Wallet API.
@@ -47,6 +49,29 @@ trait WalletApi[F[_]] {
   ): F[Either[WalletApi.WalletApiFailure, WalletApi.NewWalletResult[F]]]
 
   /**
+   * Extract the Main Key Pair from a wallet.
+   *
+   * @param vaultStore The VaultStore of the wallet to extract the keys from
+   * @return The protobuf encoded keys of the wallet, if successful. Else an error
+   */
+  def extractMainKey(
+    vaultStore: VaultStore[F],
+    password:   Array[Byte]
+  ): F[Either[WalletApi.WalletApiFailure, KeyPair]]
+
+  /**
+   * Derive a child key pair from a Main Key Pair.
+   *
+   * @param keyPair The Main Key Pair to derive the child key pair from
+   * @param idx     The path indices of the child key pair to derive
+   * @return        The protobuf encoded keys of the child key pair, if successful. Else an error
+   */
+  def deriveChildKeys(
+    keyPair: KeyPair,
+    idx:     Indices
+  ): F[KeyPair]
+
+  /**
    * Save a wallet
    *
    * @param vaultStore The VaultStore of the wallet to save
@@ -56,6 +81,16 @@ trait WalletApi[F[_]] {
    * @return An error if unsuccessful.
    */
   def saveWallet(vaultStore: VaultStore[F], name: String = "default"): F[Either[WalletApi.WalletApiFailure, Unit]]
+
+  /**
+   * Save a wallet
+   *
+   * @param name       A name used to identify a wallet in the DataApi. Defaults to "default". Most commonly, only one
+   *                   wallet identity will be used. It is the responsibility of the dApp to keep track of the names of
+   *                   the wallet identities if multiple will be used.
+   * @return The wallet's VaultStore if successful. An error if unsuccessful.
+   */
+  def loadWallet(name: String = "default"): F[Either[WalletApi.WalletApiFailure, VaultStore[F]]]
 
   /**
    * Create a new wallet and then save it
@@ -82,6 +117,26 @@ trait WalletApi[F[_]] {
     } yield walletRes).value
   }
 
+  /**
+   * Load a wallet and then extract the main key pair
+   *
+   * @param password The password to decrypt the wallet with
+   * @param name     A name used to identify a wallet in the DataApi. Defaults to "default". Most commonly, only one
+   *                 wallet identity will be used. It is the responsibility of the dApp to keep track of the names of
+   *                 the wallet identities if multiple will be used.
+   * @return The main key pair of the wallet, if successful. Else an error
+   */
+  def loadAndExtractMainKey[G[_]: Monad: ToMonad](
+    password: Array[Byte],
+    name:     String = "default"
+  ): G[Either[WalletApi.WalletApiFailure, KeyPair]] = {
+    val toMonad = implicitly[ToMonad[G]]
+    (for {
+      walletRes <- EitherT(toMonad(loadWallet(name)))
+      keyPair   <- EitherT(toMonad(extractMainKey(walletRes, password)))
+    } yield keyPair).value
+  }
+
 }
 
 object WalletApi {
@@ -104,6 +159,31 @@ object WalletApi {
     val kdf: Kdf[F] = SCrypt.make[F](SCrypt.SCryptParams(SCrypt.generateSalt))
     val cipher: Cipher[F] = Aes.make[F](Aes.AesParams(Aes.generateIv))
 
+    override def extractMainKey(
+      vaultStore: VaultStore[F],
+      password:   Array[Byte]
+    ): F[Either[WalletApi.WalletApiFailure, KeyPair]] =
+      (for {
+        decoded <- EitherT[F, WalletApi.WalletApiFailure, Array[Byte]](
+          VaultStore.decodeCipher[F](vaultStore, password).map(_.left.map(FailedToDecodeWallet(_)))
+        )
+        keyPair <- EitherT[F, WalletApi.WalletApiFailure, KeyPair](
+          Monad[F].pure(Try(KeyPair.parseFrom(decoded)).toEither.leftMap(x => new FailedToDecodeWallet(x)))
+        )
+      } yield keyPair).value
+
+    override def deriveChildKeys(
+      keyPair: KeyPair,
+      idx:     Indices
+    ): F[KeyPair] = for {
+      xCoordinate <- Monad[F].pure(Bip32Indexes.HardenedIndex(idx.x))
+      yCoordinate <- Monad[F].pure(Bip32Indexes.SoftIndex(idx.y))
+      zCoordinate <- Monad[F].pure(Bip32Indexes.SoftIndex(idx.z))
+    } yield extendedEd25519Instance.deriveKeyPairFromChildPath(
+      keyPair.signingKey,
+      List(xCoordinate, yCoordinate, zCoordinate)
+    )
+
     override def createNewWallet(
       password:   Array[Byte],
       passphrase: Option[String] = None,
@@ -118,6 +198,9 @@ object WalletApi {
     override def saveWallet(vaultStore: VaultStore[F], name: String = "default"): F[Either[WalletApiFailure, Unit]] =
       dataApi.saveMainKeyVaultStore(vaultStore, name).map(res => res.leftMap(FailedToSaveWallet(_)))
 
+    override def loadWallet(name: String = "default"): F[Either[WalletApiFailure, VaultStore[F]]] =
+      dataApi.getMainKeyVaultStore(name).map(res => res.leftMap(FailedToSaveWallet(_)))
+
     private def buildMainKeyVaultStore(mainKey: Array[Byte], password: Array[Byte]): F[VaultStore[F]] = for {
       derivedKey <- kdf.deriveKey(password)
       cipherText <- cipher.encrypt(mainKey, derivedKey)
@@ -130,6 +213,23 @@ object WalletApi {
       val coinType = Bip32Indexes.HardenedIndex(CoinType) // Topl coin type registered with SLIP-0044
       extendedEd25519Instance.deriveKeyPairFromChildPath(rootKey, List(purpose, coinType))
     }
+
+    implicit private def pbKeyPairToCryotoKeyPair(
+      pbKeyPair: KeyPair
+    ): signing.KeyPair[ExtendedEd25519.SecretKey, ExtendedEd25519.PublicKey] =
+      signing.KeyPair(
+        ExtendedEd25519.SecretKey(
+          pbKeyPair.sk.sk.extendedEd25519.get.leftKey.toByteArray,
+          pbKeyPair.sk.sk.extendedEd25519.get.rightKey.toByteArray,
+          pbKeyPair.sk.sk.extendedEd25519.get.chainCode.toByteArray
+        ),
+        ExtendedEd25519.PublicKey(
+          signing.Ed25519.PublicKey(
+            pbKeyPair.vk.vk.extendedEd25519.get.vk.value.toByteArray
+          ),
+          pbKeyPair.vk.vk.extendedEd25519.get.chainCode.toByteArray
+        )
+      )
 
     implicit private def cryptoToPbKeyPair(
       keyPair: signing.KeyPair[ExtendedEd25519.SecretKey, ExtendedEd25519.PublicKey]
@@ -157,4 +257,5 @@ object WalletApi {
   abstract class WalletApiFailure(err: Throwable = null) extends RuntimeException(err)
   case class FailedToInitializeWallet(err: Throwable = null) extends WalletApiFailure(err)
   case class FailedToSaveWallet(err: Throwable = null) extends WalletApiFailure(err)
+  case class FailedToDecodeWallet(err: Throwable = null) extends WalletApiFailure(err)
 }
