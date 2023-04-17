@@ -23,6 +23,7 @@ import cats._
 import scala.language.implicitConversions
 import cats.data.EitherT
 import cats.arrow.FunctionK
+import scala.util.Try
 
 /**
  * Defines a Wallet API.
@@ -45,6 +46,24 @@ trait WalletApi[F[_]] {
     passphrase: Option[String] = None,
     mLen:       MnemonicSize = MnemonicSizes.words12
   ): F[Either[WalletApi.WalletApiFailure, WalletApi.NewWalletResult[F]]]
+
+  /**
+   * Extract the keys from a wallet.
+   *
+   * @param vaultStore The VaultStore of the wallet to extract the keys from
+   * @return The protobuf encoded keys of the wallet, if successful. Else an error
+   */
+  def extractMainKey(
+    vaultStore: VaultStore[F],
+    password:   Array[Byte]
+  ): F[Either[WalletApi.WalletApiFailure, KeyPair]]
+
+  def deriveChildKeys(
+    keyPair: KeyPair,
+    x:       Long,
+    y:       Long,
+    z:       Long
+  )(implicit instance: ExtendedEd25519): F[KeyPair]
 
   /**
    * Save a wallet
@@ -104,6 +123,38 @@ object WalletApi {
     val kdf: Kdf[F] = SCrypt.make[F](SCrypt.SCryptParams(SCrypt.generateSalt))
     val cipher: Cipher[F] = Aes.make[F](Aes.AesParams(Aes.generateIv))
 
+    override def extractMainKey(
+      vaultStore: VaultStore[F],
+      password:   Array[Byte]
+    ): F[Either[WalletApi.WalletApiFailure, KeyPair]] =
+      (for {
+        decoded <- EitherT[F, WalletApi.WalletApiFailure, Array[Byte]](
+          VaultStore.decodeCipher[F](vaultStore, password).map(_.left.map(FailedToDecodeWallet(_)))
+        )
+        keyPair <- EitherT[F, WalletApi.WalletApiFailure, KeyPair](
+          Monad[F].pure(Try(KeyPair.parseFrom(decoded)).toEither.leftMap(x => new FailedToDecodeWallet(x)))
+        )
+      } yield keyPair).value
+
+    def deriveChildKeys(
+      keyPair: KeyPair,
+      x:       Long,
+      y:       Long,
+      z:       Long
+    )(implicit instance: ExtendedEd25519) = {
+      import cats.implicits._
+      for {
+        xCoordinate <- Monad[F].pure(Bip32Indexes.HardenedIndex(x))
+        yCoordinate <- Monad[F].pure(Bip32Indexes.SoftIndex(y))
+        zCoordinate <- Monad[F].pure(Bip32Indexes.SoftIndex(z))
+      } yield cryptoToPbKeyPair(
+        instance.deriveKeyPairFromChildPath(
+          pbKeyPairToCryotoKeyPair(keyPair).signingKey,
+          List(xCoordinate, yCoordinate, zCoordinate)
+        )
+      )
+    }
+
     override def createNewWallet(
       password:   Array[Byte],
       passphrase: Option[String] = None,
@@ -131,6 +182,23 @@ object WalletApi {
       extendedEd25519Instance.deriveKeyPairFromChildPath(rootKey, List(purpose, coinType))
     }
 
+    def pbKeyPairToCryotoKeyPair(
+      pbKeyPair: KeyPair
+    ): signing.KeyPair[ExtendedEd25519.SecretKey, ExtendedEd25519.PublicKey] =
+      signing.KeyPair(
+        ExtendedEd25519.SecretKey(
+          pbKeyPair.sk.sk.extendedEd25519.get.leftKey.toByteArray(),
+          pbKeyPair.sk.sk.extendedEd25519.get.rightKey.toByteArray(),
+          pbKeyPair.sk.sk.extendedEd25519.get.chainCode.toByteArray()
+        ),
+        ExtendedEd25519.PublicKey(
+          signing.Ed25519.PublicKey(
+            pbKeyPair.vk.vk.extendedEd25519.get.vk.value.toByteArray()
+          ),
+          pbKeyPair.vk.vk.extendedEd25519.get.chainCode.toByteArray()
+        )
+      )
+
     implicit private def cryptoToPbKeyPair(
       keyPair: signing.KeyPair[ExtendedEd25519.SecretKey, ExtendedEd25519.PublicKey]
     ): KeyPair = {
@@ -157,4 +225,5 @@ object WalletApi {
   abstract class WalletApiFailure(err: Throwable = null) extends RuntimeException(err)
   case class FailedToInitializeWallet(err: Throwable = null) extends WalletApiFailure(err)
   case class FailedToSaveWallet(err: Throwable = null) extends WalletApiFailure(err)
+  case class FailedToDecodeWallet(err: Throwable = null) extends WalletApiFailure(err)
 }
