@@ -94,6 +94,6 @@ object VaultStore {
     }
   }
 
-  sealed trait InvalidVaultStoreFailure extends  Throwable
+  sealed trait InvalidVaultStoreFailure extends Throwable
   case object InvalidMac extends InvalidVaultStoreFailure
 }

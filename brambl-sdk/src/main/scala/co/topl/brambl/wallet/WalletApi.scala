@@ -18,11 +18,12 @@ import quivr.models._
 import quivr.models.VerificationKey._
 import quivr.models.SigningKey._
 import cats.implicits._
-import cats._
 
 import scala.language.implicitConversions
 import cats.data.EitherT
 import cats.arrow.FunctionK
+import co.topl.brambl.models.Indices
+
 import scala.util.Try
 
 /**
@@ -48,7 +49,7 @@ trait WalletApi[F[_]] {
   ): F[Either[WalletApi.WalletApiFailure, WalletApi.NewWalletResult[F]]]
 
   /**
-   * Extract the keys from a wallet.
+   * Extract the Main Key Pair from a wallet.
    *
    * @param vaultStore The VaultStore of the wallet to extract the keys from
    * @return The protobuf encoded keys of the wallet, if successful. Else an error
@@ -58,12 +59,17 @@ trait WalletApi[F[_]] {
     password:   Array[Byte]
   ): F[Either[WalletApi.WalletApiFailure, KeyPair]]
 
+  /**
+   * Derive a child key pair from a Main Key Pair.
+   *
+   * @param keyPair The Main Key Pair to derive the child key pair from
+   * @param idx     The path indices of the child key pair to derive
+   * @return        The protobuf encoded keys of the child key pair, if successful. Else an error
+   */
   def deriveChildKeys(
     keyPair: KeyPair,
-    x:       Long,
-    y:       Long,
-    z:       Long
-  )(implicit instance: ExtendedEd25519): F[KeyPair]
+    idx:     Indices
+  ): F[KeyPair]
 
   /**
    * Save a wallet
@@ -136,24 +142,17 @@ object WalletApi {
         )
       } yield keyPair).value
 
-    def deriveChildKeys(
+    override def deriveChildKeys(
       keyPair: KeyPair,
-      x:       Long,
-      y:       Long,
-      z:       Long
-    )(implicit instance: ExtendedEd25519) = {
-      import cats.implicits._
-      for {
-        xCoordinate <- Monad[F].pure(Bip32Indexes.HardenedIndex(x))
-        yCoordinate <- Monad[F].pure(Bip32Indexes.SoftIndex(y))
-        zCoordinate <- Monad[F].pure(Bip32Indexes.SoftIndex(z))
-      } yield cryptoToPbKeyPair(
-        instance.deriveKeyPairFromChildPath(
-          pbKeyPairToCryotoKeyPair(keyPair).signingKey,
-          List(xCoordinate, yCoordinate, zCoordinate)
-        )
-      )
-    }
+      idx:     Indices
+    ): F[KeyPair] = for {
+      xCoordinate <- Monad[F].pure(Bip32Indexes.HardenedIndex(idx.x))
+      yCoordinate <- Monad[F].pure(Bip32Indexes.SoftIndex(idx.y))
+      zCoordinate <- Monad[F].pure(Bip32Indexes.SoftIndex(idx.z))
+    } yield extendedEd25519Instance.deriveKeyPairFromChildPath(
+      keyPair.signingKey,
+      List(xCoordinate, yCoordinate, zCoordinate)
+    )
 
     override def createNewWallet(
       password:   Array[Byte],
@@ -182,20 +181,20 @@ object WalletApi {
       extendedEd25519Instance.deriveKeyPairFromChildPath(rootKey, List(purpose, coinType))
     }
 
-    def pbKeyPairToCryotoKeyPair(
+    implicit private def pbKeyPairToCryotoKeyPair(
       pbKeyPair: KeyPair
     ): signing.KeyPair[ExtendedEd25519.SecretKey, ExtendedEd25519.PublicKey] =
       signing.KeyPair(
         ExtendedEd25519.SecretKey(
-          pbKeyPair.sk.sk.extendedEd25519.get.leftKey.toByteArray(),
-          pbKeyPair.sk.sk.extendedEd25519.get.rightKey.toByteArray(),
-          pbKeyPair.sk.sk.extendedEd25519.get.chainCode.toByteArray()
+          pbKeyPair.sk.sk.extendedEd25519.get.leftKey.toByteArray,
+          pbKeyPair.sk.sk.extendedEd25519.get.rightKey.toByteArray,
+          pbKeyPair.sk.sk.extendedEd25519.get.chainCode.toByteArray
         ),
         ExtendedEd25519.PublicKey(
           signing.Ed25519.PublicKey(
-            pbKeyPair.vk.vk.extendedEd25519.get.vk.value.toByteArray()
+            pbKeyPair.vk.vk.extendedEd25519.get.vk.value.toByteArray
           ),
-          pbKeyPair.vk.vk.extendedEd25519.get.chainCode.toByteArray()
+          pbKeyPair.vk.vk.extendedEd25519.get.chainCode.toByteArray
         )
       )
 
