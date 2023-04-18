@@ -21,11 +21,11 @@ object MockDataApi extends DataApi[Id] with MockHelpers {
 
   // Static mappings to provide the Wallet with data
   val idxToLocks: Map[Indices, Lock.Predicate] = Map(
-    Indices(0, 0, 0) -> inLockFull
+    MockIndices -> inLockFull
   )
 
   val txoAddrToIdx: Map[TransactionOutputAddress, Indices] = Map(
-    dummyTxoAddress -> Indices(0, 0, 0)
+    dummyTxoAddress -> MockIndices
   )
 
   val txoAddrToTxo: Map[TransactionOutputAddress, UnspentTransactionOutput] = Map(

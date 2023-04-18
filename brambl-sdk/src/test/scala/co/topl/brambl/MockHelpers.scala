@@ -12,14 +12,13 @@ import co.topl.brambl.models.box.Challenge
 import co.topl.brambl.models.box.Lock
 import co.topl.brambl.models.box.Value
 import co.topl.brambl.models.transaction._
-import co.topl.brambl.wallet.WalletApi
 import co.topl.crypto.hash.Blake2b256
 import co.topl.quivr.api.Proposer
 import co.topl.quivr.api.Prover
 import com.google.protobuf.ByteString
 import quivr.models.{Digest, Int128, KeyPair, Preimage, SignableBytes, SmallData}
 import co.topl.brambl.wallet.WalletApi.{cryptoToPbKeyPair, pbKeyPairToCryotoKeyPair}
-import co.topl.crypto.generation.{Bip32Indexes, KeyInitializer}
+import co.topl.crypto.generation.Bip32Indexes
 import co.topl.crypto.generation.mnemonic.Entropy
 import co.topl.crypto.signing.ExtendedEd25519
 
@@ -37,7 +36,7 @@ trait MockHelpers {
     )
   )
 
-  val MockSecret: Array[Byte] = "A mock secret".getBytes
+  private val MockSecret: Array[Byte] = "A mock secret".getBytes
   val MockPreimage: Preimage = Preimage(ByteString.copyFrom(MockSecret), ByteString.copyFromUtf8("salt"))
 
   private val MockDigest = Digest().withDigest32(

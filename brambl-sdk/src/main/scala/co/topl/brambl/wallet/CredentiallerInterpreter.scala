@@ -13,7 +13,7 @@ import co.topl.quivr.api.Prover
 import co.topl.quivr.api.Verifier.instances.verifierInstance
 import quivr.models.{KeyPair, Proof, Proposition, SignableBytes, Witness}
 import co.topl.brambl.models.Indices
-import cats.data.EitherT
+import cats.data.{Chain, EitherT}
 import co.topl.brambl.models.box.Attestation
 import co.topl.crypto.signing.ExtendedEd25519
 import com.google.protobuf.ByteString
@@ -32,13 +32,14 @@ object CredentiallerInterpreter {
         .map(IoTransaction(_, unprovenTx.outputs, unprovenTx.datum))
     }
 
-    override def validate(tx: IoTransaction, ctx: Context[F]): F[List[ValidationError]] = {
-      val combinedErrs = for {
-        syntaxErrs <- EitherT(TransactionSyntaxInterpreter.make[F]().validate(tx)).swap
-        authErr    <- EitherT(TransactionAuthorizationInterpreter.make[F]().validate(ctx)(tx)).swap
-      } yield syntaxErrs.toList :+ authErr
-      combinedErrs.getOrElse(List.empty)
-    }
+    override def validate(tx: IoTransaction, ctx: Context[F]): F[List[ValidationError]] = for {
+      syntaxErrs <- EitherT(TransactionSyntaxInterpreter.make[F]().validate(tx)).swap
+        .map(_.toList)
+        .valueOr(_ => List.empty)
+      authErrs <- EitherT(TransactionAuthorizationInterpreter.make[F]().validate(ctx)(tx)).swap
+        .map(List(_))
+        .valueOr(_ => List.empty)
+    } yield syntaxErrs ++ authErrs
 
     override def proveAndValidate(
       unprovenTx: IoTransaction,
