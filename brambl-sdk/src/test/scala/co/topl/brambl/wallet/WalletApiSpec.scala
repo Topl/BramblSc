@@ -55,4 +55,9 @@ class WalletApiSpec extends munit.FunSuite with MockHelpers {
     assert(stored2.isDefined)
     assert(stored2.get == w2)
   }
+
+  test("extractMainKey: XXX") {}
+  test("deriveChildKeys: XXX") {}
+  test("loadWallet: XXX") {}
+  test("loadAndExtractMainKey: XXX") {}
 }

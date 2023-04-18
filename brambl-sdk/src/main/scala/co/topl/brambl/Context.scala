@@ -6,7 +6,7 @@ import co.topl.brambl.models.Datum
 import co.topl.brambl.models.transaction.IoTransaction
 import co.topl.brambl.common.ContainsSignable.ContainsSignableTOps
 import co.topl.brambl.common.ContainsSignable.instances._
-import co.topl.brambl.validation.{Blake2b256DigestInterpreter, Ed25519SignatureInterpreter}
+import co.topl.brambl.validation.{Blake2b256DigestInterpreter, ExtendedEd25519SignatureInterpreter}
 import co.topl.common.ParsableDataInterface
 import co.topl.quivr.runtime.DynamicContext
 import co.topl.quivr.algebras.{DigestVerifier, SignatureVerifier}
@@ -18,10 +18,10 @@ case class Context[F[_]: Monad](tx: IoTransaction, curTick: Long, heightDatums: 
     extends DynamicContext[F, String, Datum] {
 
   override val hashingRoutines: Map[String, DigestVerifier[F]] =
-    Map("blake2b256" -> Blake2b256DigestInterpreter.make())
+    Map("Blake2b256" -> Blake2b256DigestInterpreter.make())
 
   override val signingRoutines: Map[String, SignatureVerifier[F]] =
-    Map("ed25519" -> Ed25519SignatureInterpreter.make())
+    Map("ExtendedEd25519" -> ExtendedEd25519SignatureInterpreter.make())
 
   override val interfaces: Map[String, ParsableDataInterface] = Map() // Arbitrary
 

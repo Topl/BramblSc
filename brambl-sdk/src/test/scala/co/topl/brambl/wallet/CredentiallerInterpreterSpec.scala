@@ -18,7 +18,7 @@ import quivr.models.Int128
 class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
 
   test("prove: Single Input Transaction with Attestation.Predicate > Provable propositions have non-empty proofs") {
-    val provenTx: IoTransaction = CredentiallerInterpreter.make[Id](MockDataApi).prove(txFull)
+    val provenTx: IoTransaction = CredentiallerInterpreter.make[Id](MockDataApi, MockMainKeyPair).prove(txFull)
     val provenPredicate = provenTx.inputs.head.attestation.getPredicate
     val sameLen = provenPredicate.lock.challenges.length == provenPredicate.responses.length
     val nonEmpty = provenPredicate.responses.forall(proof => !proof.value.isEmpty)
@@ -30,7 +30,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
     // Secrets are not available for this TransactionOutputAddress
     val unknownKnownId = dummyTxoAddress.copy(network = 1, ledger = 1, index = 1)
     val testTx = txFull.copy(inputs = txFull.inputs.map(stxo => stxo.copy(address = unknownKnownId)))
-    val provenTx: IoTransaction = CredentiallerInterpreter.make[Id](MockDataApi).prove(testTx)
+    val provenTx: IoTransaction = CredentiallerInterpreter.make[Id](MockDataApi, MockMainKeyPair).prove(testTx)
     val provenPredicate = provenTx.inputs.head.attestation.getPredicate
     val sameLen = provenPredicate.lock.challenges.length == provenPredicate.responses.length
     val numEmpty = provenPredicate.responses.count(_.value.isEmpty) == 2 // Digest and Signature proofs are empty
@@ -39,7 +39,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
   }
 
   test("validate: Single Input Transaction with Attestation.Predicate > Validation successful") {
-    val credentialler = CredentiallerInterpreter.make[Id](MockDataApi)
+    val credentialler = CredentiallerInterpreter.make[Id](MockDataApi, MockMainKeyPair)
     val provenTx: IoTransaction = credentialler.prove(txFull)
     val ctx = Context[Id](txFull, 50, _ => None) // Tick satisfies a proposition
     val errsNum = credentialler.validate(provenTx, ctx).length
@@ -52,7 +52,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
     val negativeValue: Value =
       Value.defaultInstance.withLvl(Value.LVL(Int128(ByteString.copyFrom(BigInt(-1).toByteArray))))
     val testTx = txFull.copy(outputs = Seq(output.copy(value = negativeValue)))
-    val credentialler = CredentiallerInterpreter.make[Id](MockDataApi)
+    val credentialler = CredentiallerInterpreter.make[Id](MockDataApi, MockMainKeyPair)
     val provenTx: IoTransaction = credentialler.prove(testTx)
     val ctx = Context[Id](testTx, 500, _ => None) // Tick does not satisfies proposition
     val errs = credentialler.validate(provenTx, ctx)
@@ -102,7 +102,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
   }
 
   test("proveAndValidate: Single Input Transaction with Attestation.Predicate > Validation successful") {
-    val credentialler = CredentiallerInterpreter.make[Id](MockDataApi)
+    val credentialler = CredentiallerInterpreter.make[Id](MockDataApi, MockMainKeyPair)
     val ctx = Context[Id](txFull, 50, _ => None) // Tick satisfies a proposition
     val res = credentialler.proveAndValidate(txFull, ctx)
 
@@ -111,7 +111,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
 
   test("proveAndValidate: Single Input Transaction with Attestation.Predicate > Validation failed") {
     val negativeValue: Value = Value().withLvl(Value.LVL(Int128(ByteString.copyFrom(BigInt(-1).toByteArray))))
-    val credentialler = CredentiallerInterpreter.make[Id](MockDataApi)
+    val credentialler = CredentiallerInterpreter.make[Id](MockDataApi, MockMainKeyPair)
     val testTx = txFull.copy(outputs = Seq(output.copy(value = negativeValue)))
     val ctx = Context[Id](testTx, 500, _ => None) // Tick does not satisfies proposition
     val res = credentialler.proveAndValidate(testTx, ctx)

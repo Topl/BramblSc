@@ -1,14 +1,12 @@
 package co.topl.brambl
 
 import cats.Id
-import cats.implicits.catsSyntaxOptionId
 import co.topl.brambl.dataApi.DataApi
 import co.topl.brambl.dataApi.DataApi.DataApiException
 import co.topl.brambl.models._
 import co.topl.brambl.models.box.Lock
 import co.topl.brambl.models.box.Value
 import co.topl.brambl.models.transaction.UnspentTransactionOutput
-import co.topl.brambl.routines.signatures.Signing
 import co.topl.crypto.encryption.VaultStore
 import co.topl.crypto.encryption.VaultStore.Codecs._
 import com.google.protobuf.ByteString
@@ -54,11 +52,6 @@ object MockDataApi extends DataApi[Id] with MockHelpers {
     ) // Mocking that we only have access to secrets associated with a specific index
       Some(MockPreimage)
     else None
-
-  override def getKeyPair(idx: Indices, routine: Signing): Option[KeyPair] =
-    if (idx.x == 0 && idx.y == 0 && idx.z == 0) { // Mocking that we only have access to secrets associated with a specific index
-      Some(routine.createKeyPair(MockSecret))
-    } else None
 
   var mainKeyVaultStoreInstance: Map[String, Json] = Map()
   case object MainKeyVaultStoreNotInitialized extends DataApiException("MainKeyVaultStore not initialized")
