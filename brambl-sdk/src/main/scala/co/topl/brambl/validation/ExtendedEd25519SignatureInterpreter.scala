@@ -2,7 +2,7 @@ package co.topl.brambl.validation
 
 import cats.implicits.{catsSyntaxApplicativeId, catsSyntaxEitherObject}
 import cats.Monad
-import co.topl.crypto.signing.Ed25519
+import co.topl.crypto.signing.{Ed25519, ExtendedEd25519}
 import co.topl.quivr.algebras.SignatureVerifier
 import co.topl.quivr.runtime.QuivrRuntimeError
 import co.topl.quivr.runtime.QuivrRuntimeErrors.ValidationError
@@ -12,7 +12,7 @@ import quivr.models.VerificationKey._
 /**
  * Validates that an Ed25519 signature is valid.
  */
-object Ed25519SignatureInterpreter {
+object ExtendedEd25519SignatureInterpreter {
 
   def make[F[_]: Monad](): SignatureVerifier[F] = new SignatureVerifier[F] {
 
@@ -23,12 +23,13 @@ object Ed25519SignatureInterpreter {
      */
     override def validate(t: SignatureVerification): F[Either[QuivrRuntimeError, SignatureVerification]] = t match {
       case SignatureVerification(
-            VerificationKey(Vk.Ed25519(Ed25519Vk(vk, _)), _),
+            VerificationKey(Vk.ExtendedEd25519(ExtendedEd25519Vk(Ed25519Vk(vk, _), chainCode, _)), _),
             Witness(sig, _),
             Message(msg, _),
             _
           ) =>
-        if ((new Ed25519).verify(sig.toByteArray, msg.toByteArray, Ed25519.PublicKey(vk.toByteArray)))
+        val extendedVk = ExtendedEd25519.PublicKey(Ed25519.PublicKey(vk.toByteArray), chainCode.toByteArray)
+        if ((new ExtendedEd25519).verify(sig.toByteArray, msg.toByteArray, extendedVk))
           Either.right[QuivrRuntimeError, SignatureVerification](t).pure[F]
         else // TODO: replace with correct error. Verification failed.
           Either

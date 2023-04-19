@@ -5,6 +5,7 @@ import co.topl.brambl.models.transaction.IoTransaction
 import co.topl.brambl.{Context, MockDataApi, MockHelpers}
 import co.topl.brambl.common.ContainsSignable.ContainsSignableTOps
 import co.topl.brambl.common.ContainsSignable.instances._
+import co.topl.brambl.models.Indices
 import co.topl.brambl.models.box.Value
 import co.topl.brambl.validation.TransactionAuthorizationError.AuthorizationFailed
 import co.topl.brambl.validation.TransactionSyntaxError
@@ -13,12 +14,12 @@ import co.topl.quivr.runtime.QuivrRuntimeErrors.ValidationError.{
   LockedPropositionIsUnsatisfiable
 }
 import com.google.protobuf.ByteString
-import quivr.models.Int128
+import quivr.models.{Int128, Proposition}
 
 class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
 
   test("prove: Single Input Transaction with Attestation.Predicate > Provable propositions have non-empty proofs") {
-    val provenTx: IoTransaction = CredentiallerInterpreter.make[Id](MockDataApi).prove(txFull)
+    val provenTx: IoTransaction = CredentiallerInterpreter.make[Id](MockDataApi, MockMainKeyPair).prove(txFull)
     val provenPredicate = provenTx.inputs.head.attestation.getPredicate
     val sameLen = provenPredicate.lock.challenges.length == provenPredicate.responses.length
     val nonEmpty = provenPredicate.responses.forall(proof => !proof.value.isEmpty)
@@ -30,7 +31,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
     // Secrets are not available for this TransactionOutputAddress
     val unknownKnownId = dummyTxoAddress.copy(network = 1, ledger = 1, index = 1)
     val testTx = txFull.copy(inputs = txFull.inputs.map(stxo => stxo.copy(address = unknownKnownId)))
-    val provenTx: IoTransaction = CredentiallerInterpreter.make[Id](MockDataApi).prove(testTx)
+    val provenTx: IoTransaction = CredentiallerInterpreter.make[Id](MockDataApi, MockMainKeyPair).prove(testTx)
     val provenPredicate = provenTx.inputs.head.attestation.getPredicate
     val sameLen = provenPredicate.lock.challenges.length == provenPredicate.responses.length
     val numEmpty = provenPredicate.responses.count(_.value.isEmpty) == 2 // Digest and Signature proofs are empty
@@ -39,7 +40,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
   }
 
   test("validate: Single Input Transaction with Attestation.Predicate > Validation successful") {
-    val credentialler = CredentiallerInterpreter.make[Id](MockDataApi)
+    val credentialler = CredentiallerInterpreter.make[Id](MockDataApi, MockMainKeyPair)
     val provenTx: IoTransaction = credentialler.prove(txFull)
     val ctx = Context[Id](txFull, 50, _ => None) // Tick satisfies a proposition
     val errsNum = credentialler.validate(provenTx, ctx).length
@@ -52,7 +53,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
     val negativeValue: Value =
       Value.defaultInstance.withLvl(Value.LVL(Int128(ByteString.copyFrom(BigInt(-1).toByteArray))))
     val testTx = txFull.copy(outputs = Seq(output.copy(value = negativeValue)))
-    val credentialler = CredentiallerInterpreter.make[Id](MockDataApi)
+    val credentialler = CredentiallerInterpreter.make[Id](MockDataApi, MockMainKeyPair)
     val provenTx: IoTransaction = credentialler.prove(testTx)
     val ctx = Context[Id](testTx, 500, _ => None) // Tick does not satisfies proposition
     val errs = credentialler.validate(provenTx, ctx)
@@ -102,7 +103,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
   }
 
   test("proveAndValidate: Single Input Transaction with Attestation.Predicate > Validation successful") {
-    val credentialler = CredentiallerInterpreter.make[Id](MockDataApi)
+    val credentialler = CredentiallerInterpreter.make[Id](MockDataApi, MockMainKeyPair)
     val ctx = Context[Id](txFull, 50, _ => None) // Tick satisfies a proposition
     val res = credentialler.proveAndValidate(txFull, ctx)
 
@@ -110,12 +111,38 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
   }
 
   test("proveAndValidate: Single Input Transaction with Attestation.Predicate > Validation failed") {
-    val negativeValue: Value = Value().withLvl(Value.LVL(Int128(ByteString.copyFrom(BigInt(-1).toByteArray))))
-    val credentialler = CredentiallerInterpreter.make[Id](MockDataApi)
+    val negativeValue: Value =
+      Value.defaultInstance.withLvl(Value.LVL(Int128(ByteString.copyFrom(BigInt(-1).toByteArray))))
+    val credentialler = CredentiallerInterpreter.make[Id](MockDataApi, MockMainKeyPair)
     val testTx = txFull.copy(outputs = Seq(output.copy(value = negativeValue)))
     val ctx = Context[Id](testTx, 500, _ => None) // Tick does not satisfies proposition
     val res = credentialler.proveAndValidate(testTx, ctx)
     assertEquals(res.isLeft, true)
     assertEquals(res.swap.getOrElse(List.empty).length, 2)
+  }
+
+  test(
+    "proveAndValidate: Credentialler initialized with a main key different than used to create Single Input Transaction with Attestation.Predicate > Validation Failed"
+  ) {
+    val differentKeyPair = WalletApi.make[Id](MockDataApi).deriveChildKeys(MockMainKeyPair, Indices(0, 0, 1))
+    val credentialler = CredentiallerInterpreter.make[Id](MockDataApi, differentKeyPair)
+    // Tick satisfies its proposition. Height does not.
+    val ctx = Context[Id](txFull, 50, _ => None)
+    val res = credentialler.proveAndValidate(txFull, ctx)
+
+    assert(res.isLeft, s"Result expecting to be left. Received ${res}")
+    // The DigitalSignature proof fails. Including Locked and Height failure, 3 errors are expected
+    val errs = res.left.getOrElse(List.empty).head.asInstanceOf[AuthorizationFailed].errors
+    assert(
+      errs.length == 3,
+      s"AuthorizationFailed errors expects exactly 3 errors. Received: ${errs.length}"
+    )
+    assert(
+      errs.exists {
+        case EvaluationAuthorizationFailed(Proposition(Proposition.Value.DigitalSignature(_), _), _) => true
+        case _                                                                                       => false
+      },
+      s"AuthorizationFailed errors expects a DigitalSignature error. Received: ${errs}"
+    )
   }
 }

@@ -2,11 +2,10 @@ package co.topl.brambl.dataApi
 
 import co.topl.brambl.dataApi.DataApi._
 import co.topl.brambl.models.{Indices, LockAddress, TransactionOutputAddress}
-import co.topl.brambl.models.box.{Box, Lock}
+import co.topl.brambl.models.box.Lock
 import co.topl.brambl.models.transaction.UnspentTransactionOutput
-import co.topl.brambl.routines.signatures.Signing
 import co.topl.crypto.encryption.VaultStore
-import quivr.models.{KeyPair, Preimage}
+import quivr.models.Preimage
 
 /**
  * Defines a storage API for fetching and storing keys and states.
@@ -59,15 +58,6 @@ trait DataApi[F[_]] {
    * @return The preimage secret associated to the indices if it exists. Else None
    */
   def getPreimage(idx: Indices): Option[Preimage]
-
-  /**
-   * Return the key pair associated to indices.
-   *
-   * @param idx     The indices for which to retrieve the key pair
-   * @param routine The signing routine to use to generate the key pair
-   * @return The key pair associated to the indices if it exists. Else None
-   */
-  def getKeyPair(idx: Indices, routine: Signing): Option[KeyPair]
 
   /**
    * Persist a VaultStore for the Topl Main Secret Key.

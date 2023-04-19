@@ -113,7 +113,7 @@ trait WalletApi[F[_]] {
     (for {
       walletRes <- EitherT(toMonad(createNewWallet(password, passphrase, mLen)))
       createAndSaveRes <-
-        EitherT(toMonad(saveWallet(walletRes.mainKeyVaultStore)))
+        EitherT(toMonad(saveWallet(walletRes.mainKeyVaultStore, name)))
     } yield walletRes).value
   }
 
@@ -175,14 +175,18 @@ object WalletApi {
     override def deriveChildKeys(
       keyPair: KeyPair,
       idx:     Indices
-    ): F[KeyPair] = for {
-      xCoordinate <- Monad[F].pure(Bip32Indexes.HardenedIndex(idx.x))
-      yCoordinate <- Monad[F].pure(Bip32Indexes.SoftIndex(idx.y))
-      zCoordinate <- Monad[F].pure(Bip32Indexes.SoftIndex(idx.z))
-    } yield extendedEd25519Instance.deriveKeyPairFromChildPath(
-      keyPair.signingKey,
-      List(xCoordinate, yCoordinate, zCoordinate)
-    )
+    ): F[KeyPair] = {
+      require(keyPair.vk.vk.isExtendedEd25519, "keyPair must be an extended Ed25519 key")
+      require(keyPair.sk.sk.isExtendedEd25519, "keyPair must be an extended Ed25519 key")
+      for {
+        xCoordinate <- Monad[F].pure(Bip32Indexes.HardenedIndex(idx.x))
+        yCoordinate <- Monad[F].pure(Bip32Indexes.SoftIndex(idx.y))
+        zCoordinate <- Monad[F].pure(Bip32Indexes.SoftIndex(idx.z))
+      } yield extendedEd25519Instance.deriveKeyPairFromChildPath(
+        keyPair.signingKey,
+        List(xCoordinate, yCoordinate, zCoordinate)
+      )
+    }
 
     override def createNewWallet(
       password:   Array[Byte],
@@ -213,43 +217,43 @@ object WalletApi {
       val coinType = Bip32Indexes.HardenedIndex(CoinType) // Topl coin type registered with SLIP-0044
       extendedEd25519Instance.deriveKeyPairFromChildPath(rootKey, List(purpose, coinType))
     }
+  }
 
-    implicit private def pbKeyPairToCryotoKeyPair(
-      pbKeyPair: KeyPair
-    ): signing.KeyPair[ExtendedEd25519.SecretKey, ExtendedEd25519.PublicKey] =
-      signing.KeyPair(
-        ExtendedEd25519.SecretKey(
-          pbKeyPair.sk.sk.extendedEd25519.get.leftKey.toByteArray,
-          pbKeyPair.sk.sk.extendedEd25519.get.rightKey.toByteArray,
-          pbKeyPair.sk.sk.extendedEd25519.get.chainCode.toByteArray
+  implicit def pbKeyPairToCryotoKeyPair(
+    pbKeyPair: KeyPair
+  ): signing.KeyPair[ExtendedEd25519.SecretKey, ExtendedEd25519.PublicKey] =
+    signing.KeyPair(
+      ExtendedEd25519.SecretKey(
+        pbKeyPair.sk.sk.extendedEd25519.get.leftKey.toByteArray,
+        pbKeyPair.sk.sk.extendedEd25519.get.rightKey.toByteArray,
+        pbKeyPair.sk.sk.extendedEd25519.get.chainCode.toByteArray
+      ),
+      ExtendedEd25519.PublicKey(
+        signing.Ed25519.PublicKey(
+          pbKeyPair.vk.vk.extendedEd25519.get.vk.value.toByteArray
         ),
-        ExtendedEd25519.PublicKey(
-          signing.Ed25519.PublicKey(
-            pbKeyPair.vk.vk.extendedEd25519.get.vk.value.toByteArray
-          ),
-          pbKeyPair.vk.vk.extendedEd25519.get.chainCode.toByteArray
-        )
+        pbKeyPair.vk.vk.extendedEd25519.get.chainCode.toByteArray
       )
+    )
 
-    implicit private def cryptoToPbKeyPair(
-      keyPair: signing.KeyPair[ExtendedEd25519.SecretKey, ExtendedEd25519.PublicKey]
-    ): KeyPair = {
-      val skCrypto = keyPair.signingKey
-      val sk = ExtendedEd25519Sk(
-        ByteString.copyFrom(skCrypto.leftKey),
-        ByteString.copyFrom(skCrypto.rightKey),
-        ByteString.copyFrom(skCrypto.chainCode)
-      )
-      val vkCrypto = keyPair.verificationKey
-      val vk = ExtendedEd25519Vk(
-        Ed25519Vk(ByteString.copyFrom(vkCrypto.vk.bytes)),
-        ByteString.copyFrom(vkCrypto.chainCode)
-      )
-      KeyPair(
-        VerificationKey(VerificationKey.Vk.ExtendedEd25519(vk)),
-        SigningKey(SigningKey.Sk.ExtendedEd25519(sk))
-      )
-    }
+  implicit def cryptoToPbKeyPair(
+    keyPair: signing.KeyPair[ExtendedEd25519.SecretKey, ExtendedEd25519.PublicKey]
+  ): KeyPair = {
+    val skCrypto = keyPair.signingKey
+    val sk = ExtendedEd25519Sk(
+      ByteString.copyFrom(skCrypto.leftKey),
+      ByteString.copyFrom(skCrypto.rightKey),
+      ByteString.copyFrom(skCrypto.chainCode)
+    )
+    val vkCrypto = keyPair.verificationKey
+    val vk = ExtendedEd25519Vk(
+      Ed25519Vk(ByteString.copyFrom(vkCrypto.vk.bytes)),
+      ByteString.copyFrom(vkCrypto.chainCode)
+    )
+    KeyPair(
+      VerificationKey(VerificationKey.Vk.ExtendedEd25519(vk)),
+      SigningKey(SigningKey.Sk.ExtendedEd25519(sk))
+    )
   }
 
   case class NewWalletResult[F[_]](mnemonic: IndexedSeq[String], mainKeyVaultStore: VaultStore[F])

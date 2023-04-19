@@ -4,7 +4,6 @@ import cats.Monad
 import cats.implicits._
 import co.topl.brambl.models.transaction.IoTransaction
 import co.topl.brambl.models.transaction.SpentTransactionOutput
-import co.topl.brambl.routines.signatures.Ed25519Signature
 import co.topl.brambl.validation.{TransactionAuthorizationInterpreter, TransactionSyntaxInterpreter, ValidationError}
 import co.topl.brambl.Context
 import co.topl.brambl.common.ContainsSignable.ContainsSignableTOps
@@ -12,16 +11,18 @@ import co.topl.brambl.common.ContainsSignable.instances._
 import co.topl.brambl.dataApi.DataApi
 import co.topl.quivr.api.Prover
 import co.topl.quivr.api.Verifier.instances.verifierInstance
-import quivr.models.Proof
-import quivr.models.Proposition
-import quivr.models.SignableBytes
+import quivr.models.{KeyPair, Proof, Proposition, SignableBytes, Witness}
 import co.topl.brambl.models.Indices
-import cats.data.EitherT
+import cats.data.{Chain, EitherT}
 import co.topl.brambl.models.box.Attestation
+import co.topl.crypto.signing.ExtendedEd25519
+import com.google.protobuf.ByteString
 
 object CredentiallerInterpreter {
 
-  def make[F[_]: Monad](dataApi: DataApi[F]): Credentialler[F] = new Credentialler[F] {
+  def make[F[_]: Monad](dataApi: DataApi[F], mainKey: KeyPair): Credentialler[F] = new Credentialler[F] {
+    require(mainKey.vk.vk.isExtendedEd25519, "mainKey must be an extended Ed25519 key")
+    require(mainKey.sk.sk.isExtendedEd25519, "mainKey must be an extended Ed25519 key")
 
     override def prove(unprovenTx: IoTransaction): F[IoTransaction] = {
       val signable = unprovenTx.signable
@@ -31,13 +32,14 @@ object CredentiallerInterpreter {
         .map(IoTransaction(_, unprovenTx.outputs, unprovenTx.datum))
     }
 
-    override def validate(tx: IoTransaction, ctx: Context[F]): F[List[ValidationError]] = {
-      val combinedErrs = for {
-        syntaxErrs <- EitherT(TransactionSyntaxInterpreter.make[F]().validate(tx)).swap
-        authErr    <- EitherT(TransactionAuthorizationInterpreter.make[F]().validate(ctx)(tx)).swap
-      } yield syntaxErrs.toList :+ authErr
-      combinedErrs.getOrElse(List.empty)
-    }
+    override def validate(tx: IoTransaction, ctx: Context[F]): F[List[ValidationError]] = for {
+      syntaxErrs <- EitherT(TransactionSyntaxInterpreter.make[F]().validate(tx)).swap
+        .map(_.toList)
+        .valueOr(_ => List.empty)
+      authErrs <- EitherT(TransactionAuthorizationInterpreter.make[F]().validate(ctx)(tx)).swap
+        .map(List(_))
+        .valueOr(_ => List.empty)
+    } yield syntaxErrs ++ authErrs
 
     override def proveAndValidate(
       unprovenTx: IoTransaction,
@@ -61,29 +63,45 @@ object CredentiallerInterpreter {
      * @param idx         Indices for which the proof's secret data can be obtained from
      * @return The Proof
      */
-    private def getProof(msg: SignableBytes, proposition: Proposition, idx: Option[Indices]): F[Proof] = {
-      // TODO: Temporary until we have a way to map routines strings to the actual Routine
-      val signingRoutines = Map(
-        Ed25519Signature.routine -> Ed25519Signature
-      )
-      proposition.value match {
-        case _: Proposition.Value.Locked => Prover.lockedProver[F].prove((), msg)
-        case _: Proposition.Value.Digest =>
-          idx.flatMap(dataApi.getPreimage(_).map(Prover.digestProver[F].prove(_, msg))).getOrElse(Proof().pure[F])
-        case Proposition.Value.DigitalSignature(p) =>
-          signingRoutines
-            .get(p.routine)
-            .flatMap(r =>
-              idx
-                .flatMap(i => dataApi.getKeyPair(i, r))
-                .map(keyPair => keyPair.sk)
-                .map(sk => Prover.signatureProver[F].prove(r.sign(sk, msg), msg))
-            )
-            .getOrElse(Proof().pure[F])
-        case _: Proposition.Value.HeightRange => Prover.heightProver[F].prove((), msg)
-        case _: Proposition.Value.TickRange   => Prover.tickProver[F].prove((), msg)
-        case _                                => Proof().pure[F]
+    private def getProof(msg: SignableBytes, proposition: Proposition, idxOpt: Option[Indices]): F[Proof] =
+      (proposition.value, idxOpt) match {
+        case (_: Proposition.Value.Locked, _) => Prover.lockedProver[F].prove((), msg)
+        case (_: Proposition.Value.Digest, Some(idx)) =>
+          dataApi.getPreimage(idx).map(Prover.digestProver[F].prove(_, msg)).getOrElse(Proof().pure[F])
+        case (Proposition.Value.DigitalSignature(Proposition.DigitalSignature(routine, _, _)), Some(idx)) =>
+          getSignatureProof(routine, idx, msg)
+        case (_: Proposition.Value.HeightRange, _) => Prover.heightProver[F].prove((), msg)
+        case (_: Proposition.Value.TickRange, _)   => Prover.tickProver[F].prove((), msg)
+        case _                                     => Proof().pure[F]
       }
+
+    /**
+     * Return a Signature Proof that will satisfy a Signature Proposition, if possible.
+     * Otherwise return [[Proof.Value.Empty]]
+     *
+     * It may not be possible to generate a signature proof if the signature routine is not supported. We currently
+     * support only ExtendedEd25519.
+     *
+     * @param routine     Signature routine to use
+     * @param idx         Indices for which the proof's secret data can be obtained from
+     * @param msg         Signable bytes to bind to the proof
+     * @return The Proof
+     */
+    private def getSignatureProof(routine: String, idx: Indices, msg: SignableBytes): F[Proof] = routine match {
+      case "ExtendedEd25519" =>
+        WalletApi
+          .make[F](dataApi)
+          .deriveChildKeys(mainKey, idx)
+          .map(WalletApi.pbKeyPairToCryotoKeyPair)
+          .flatMap(kp =>
+            Prover
+              .signatureProver[F]
+              .prove(
+                Witness(ByteString.copyFrom((new ExtendedEd25519).sign(kp.signingKey, msg.value.toByteArray))),
+                msg
+              )
+          )
+      case _ => Proof().pure[F]
     }
 
     /**
