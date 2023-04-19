@@ -35,6 +35,15 @@ trait WalletApi[F[_]] {
   type ToMonad[G[_]] = FunctionK[F, G]
 
   /**
+   * Build a VaultStore for the wallet from a main key encrypted with a password
+   *
+   * @param mainKey    The main key to use to generate the wallet
+   * @param password   The password to encrypt the wallet with
+   * @return The mnemonic and VaultStore of the newly created wallet, if successful. Else an error
+   */
+  def buildMainKeyVaultStore(mainKey: Array[Byte], password: Array[Byte]): F[VaultStore[F]]
+
+  /**
    * Create a new wallet
    *
    * @param password   The password to encrypt the wallet with
@@ -91,6 +100,50 @@ trait WalletApi[F[_]] {
    * @return The wallet's VaultStore if successful. An error if unsuccessful.
    */
   def loadWallet(name: String = "default"): F[Either[WalletApi.WalletApiFailure, VaultStore[F]]]
+
+  /**
+   * Update a wallet
+   *
+   * @param newWallet The new VaultStore of the wallet
+   * @param name A name used to identify a wallet in the DataApi. Defaults to "default". Most commonly, only one
+   *             wallet identity will be used. It is the responsibility of the dApp to keep track of the names of
+   *             the wallet identities if multiple will be used.
+   * @return The wallet's VaultStore if update was successful. An error if unsuccessful.
+   */
+  def updateWallet(newWallet: VaultStore[F], name: String = "default"): F[Either[WalletApi.WalletApiFailure, Unit]]
+
+  /**
+   * Update the password of a wallet
+   *
+   * @param oldPassword The old password of the wallet
+   * @param newPassword The new password to encrypt the wallet with
+   * @param name A name used to identify a wallet in the DataApi. Defaults to "default". Most commonly, only one
+   *             wallet identity will be used. It is the responsibility of the dApp to keep track of the names of
+   *             the wallet identities if multiple will be used.
+   * @return The wallet's new VaultStore if creation and save was successful. An error if unsuccessful.
+   */
+  def updateWalletPassword[G[_]: Monad: ToMonad](
+    oldPassword: Array[Byte],
+    newPassword: Array[Byte],
+    name:        String = "default"
+  ): G[Either[WalletApi.WalletApiFailure, VaultStore[F]]] = {
+    val toMonad = implicitly[ToMonad[G]]
+    for {
+      oldWallet <- toMonad(loadWallet(name))
+      mainKey <- oldWallet match {
+        case Right(wallet) => toMonad(extractMainKey(wallet, oldPassword))
+        case Left(err)     => Monad[G].pure(Left(err))
+      }
+      newWallet <- mainKey match {
+        case Right(keyPair) => toMonad(buildMainKeyVaultStore(keyPair.toByteArray, newPassword)).map(Right(_))
+        case Left(err)      => Monad[G].pure(Left(err))
+      }
+      updateRes <- newWallet match {
+        case Right(wallet) => toMonad(updateWallet(wallet, name)).map(_.map(_ => wallet))
+        case Left(err)     => Monad[G].pure(Left(err))
+      }
+    } yield updateRes
+  }
 
   /**
    * Create a new wallet and then save it
@@ -203,9 +256,12 @@ object WalletApi {
       dataApi.saveMainKeyVaultStore(vaultStore, name).map(res => res.leftMap(FailedToSaveWallet(_)))
 
     override def loadWallet(name: String = "default"): F[Either[WalletApiFailure, VaultStore[F]]] =
-      dataApi.getMainKeyVaultStore(name).map(res => res.leftMap(FailedToSaveWallet(_)))
+      dataApi.getMainKeyVaultStore(name).map(res => res.leftMap(FailedToLoadWallet(_)))
 
-    private def buildMainKeyVaultStore(mainKey: Array[Byte], password: Array[Byte]): F[VaultStore[F]] = for {
+    override def updateWallet(newWallet: VaultStore[F], name: String = "default"): F[Either[WalletApiFailure, Unit]] =
+      dataApi.updateMainKeyVaultStore(newWallet, name).map(res => res.leftMap(FailedToUpdateWallet(_)))
+
+    override def buildMainKeyVaultStore(mainKey: Array[Byte], password: Array[Byte]): F[VaultStore[F]] = for {
       derivedKey <- kdf.deriveKey(password)
       cipherText <- cipher.encrypt(mainKey, derivedKey)
       mac = Mac.make(derivedKey, cipherText).value
@@ -261,5 +317,7 @@ object WalletApi {
   abstract class WalletApiFailure(err: Throwable = null) extends RuntimeException(err)
   case class FailedToInitializeWallet(err: Throwable = null) extends WalletApiFailure(err)
   case class FailedToSaveWallet(err: Throwable = null) extends WalletApiFailure(err)
+  case class FailedToLoadWallet(err: Throwable = null) extends WalletApiFailure(err)
+  case class FailedToUpdateWallet(err: Throwable = null) extends WalletApiFailure(err)
   case class FailedToDecodeWallet(err: Throwable = null) extends WalletApiFailure(err)
 }
