@@ -113,7 +113,7 @@ trait WalletApi[F[_]] {
     (for {
       walletRes <- EitherT(toMonad(createNewWallet(password, passphrase, mLen)))
       createAndSaveRes <-
-        EitherT(toMonad(saveWallet(walletRes.mainKeyVaultStore)))
+        EitherT(toMonad(saveWallet(walletRes.mainKeyVaultStore, name)))
     } yield walletRes).value
   }
 
