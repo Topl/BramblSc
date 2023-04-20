@@ -51,7 +51,7 @@ object Entropy {
    */
   def fromMnemonicString(
     mnemonic: String,
-    language: Language
+    language: Language = Language.English
   ): Either[EntropyFailure, Entropy] =
     Phrase
       .validated(mnemonic, language)
