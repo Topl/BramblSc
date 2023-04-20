@@ -59,13 +59,17 @@ object MockDataApi extends DataApi[Id] with MockHelpers {
   case class MainKeyVaultInvalid(cause: Throwable = null)
       extends DataApiException("Error decoding MainKeyVaultStore", cause)
 
+  case object MainKeyVaultSaveFailure extends DataApiException("Error saving MainKeyVaultStore")
+
   override def saveMainKeyVaultStore(
     mainKeyVaultStore: VaultStore[Id],
     name:              String = "default"
-  ): Id[Either[DataApiException, Unit]] = {
-    mainKeyVaultStoreInstance += (name -> mainKeyVaultStore.asJson)
-    Right(())
-  }
+  ): Id[Either[DataApiException, Unit]] =
+    if ("error".equals(name)) Left(MainKeyVaultSaveFailure) // Mocking a save failure
+    else {
+      mainKeyVaultStoreInstance += (name -> mainKeyVaultStore.asJson)
+      Right(())
+    }
 
   override def getMainKeyVaultStore(
     name: String = "default"
@@ -77,4 +81,14 @@ object MockDataApi extends DataApi[Id] with MockHelpers {
         .as[VaultStore[Id]]
         .left
         .map(MainKeyVaultInvalid(_))
+
+  override def updateMainKeyVaultStore(
+    mainKeyVaultStore: VaultStore[Id],
+    name:              String = "default"
+  ): Id[Either[DataApiException, Unit]] =
+    if (
+      mainKeyVaultStoreInstance.getOrElse(name, Json.Null).isNull
+    ) // not using getMainKeyVaultStore since it's okay if the existing VaultStore is invalid
+      Left(MainKeyVaultStoreNotInitialized) // if the existing VaultStore does not exist, return an error
+    else saveMainKeyVaultStore(mainKeyVaultStore, name)
 }

@@ -128,21 +128,14 @@ trait WalletApi[F[_]] {
     name:        String = "default"
   ): G[Either[WalletApi.WalletApiFailure, VaultStore[F]]] = {
     val toMonad = implicitly[ToMonad[G]]
-    for {
-      oldWallet <- toMonad(loadWallet(name))
-      mainKey <- oldWallet match {
-        case Right(wallet) => toMonad(extractMainKey(wallet, oldPassword))
-        case Left(err)     => Monad[G].pure(Left(err))
-      }
-      newWallet <- mainKey match {
-        case Right(keyPair) => toMonad(buildMainKeyVaultStore(keyPair.toByteArray, newPassword)).map(Right(_))
-        case Left(err)      => Monad[G].pure(Left(err))
-      }
-      updateRes <- newWallet match {
-        case Right(wallet) => toMonad(updateWallet(wallet, name)).map(_.map(_ => wallet))
-        case Left(err)     => Monad[G].pure(Left(err))
-      }
-    } yield updateRes
+    (for {
+      oldWallet <- EitherT(toMonad(loadWallet(name)))
+      mainKey   <- EitherT(toMonad(extractMainKey(oldWallet, oldPassword)))
+      newWallet <- EitherT(
+        toMonad(buildMainKeyVaultStore(mainKey.toByteArray, newPassword)).map(_.asRight[WalletApi.WalletApiFailure])
+      )
+      updateRes <- EitherT(toMonad(updateWallet(newWallet, name)).map(_.map(_ => newWallet)))
+    } yield updateRes).value
   }
 
   /**
