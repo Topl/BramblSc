@@ -1,8 +1,6 @@
 package co.topl.brambl.wallet
 
-import cats._
 import cats.implicits.catsSyntaxApplicativeId
-import cats.implicits.toFlatMapOps
 import co.topl.crypto.generation.mnemonic.{Entropy, MnemonicSize, MnemonicSizes}
 import cats.Monad
 import cats.implicits.{toFlatMapOps, toFunctorOps}
@@ -26,7 +24,6 @@ import scala.language.implicitConversions
 import cats.data.EitherT
 import cats.arrow.FunctionK
 import co.topl.brambl.models.Indices
-import sun.security.util.Password
 
 import scala.util.Try
 

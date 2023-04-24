@@ -10,6 +10,8 @@ import co.topl.brambl.models.Indices
 import co.topl.crypto.signing.ExtendedEd25519
 import io.circe.syntax.EncoderOps
 import co.topl.crypto.encryption.VaultStore.Codecs._
+import co.topl.crypto.generation.mnemonic.EntropyFailures.PhraseToEntropyFailure
+import co.topl.crypto.generation.mnemonic.PhraseFailures.InvalidWordLength
 
 class WalletApiSpec extends munit.FunSuite with MockHelpers {
   implicit val idToId: FunctionK[Id, Id] = FunctionK.id[Id]
@@ -239,6 +241,17 @@ class WalletApiSpec extends munit.FunSuite with MockHelpers {
     assert(signingInstance.verify(signature, testMsg, WalletApi.pbKeyPairToCryotoKeyPair(testMainKey).verificationKey))
     assert(signingInstance.verify(testSignature, testMsg, WalletApi.pbKeyPairToCryotoKeyPair(mainKey).verificationKey))
 
+  }
+
+  test("importWallet: an invalid mnemonic produces correct error") {
+    val password = "password".getBytes
+    val wallet = walletApi.createNewWallet(password).toOption.get
+    val mnemonic = wallet.mnemonic :+ "extraWord"
+    val importedWallet = walletApi.importWallet(mnemonic, password)
+    assert(importedWallet.isLeft)
+    assert(
+      importedWallet.left.toOption.get == WalletApi.FailedToInitializeWallet(PhraseToEntropyFailure(InvalidWordLength))
+    )
   }
 
   test("importWalletAndSave: verify a save failure returns the correct error") {
