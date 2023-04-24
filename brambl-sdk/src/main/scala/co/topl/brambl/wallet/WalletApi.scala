@@ -1,5 +1,6 @@
 package co.topl.brambl.wallet
 
+import cats.implicits.catsSyntaxApplicativeId
 import co.topl.crypto.generation.mnemonic.{Entropy, MnemonicSize, MnemonicSizes}
 import cats.Monad
 import cats.implicits.{toFlatMapOps, toFunctorOps}
@@ -183,6 +184,70 @@ trait WalletApi[F[_]] {
     } yield keyPair).value
   }
 
+  /**
+   * Import a wallet from a mnemonic.
+   *
+   * @note This method does not persist the imported wallet. It simply generates and returns the VaultStore
+   *       corresponding to the mnemonic. See [[importWalletAndSave]]
+   *
+   * @param mnemonic The mnemonic to import
+   * @param password The password to encrypt the wallet with
+   * @param passphrase The passphrase to use to generate the main key from the mnemonic
+   * @return The wallet's VaultStore if import and save was successful. An error if unsuccessful.
+   */
+  def importWallet(
+    mnemonic:   IndexedSeq[String],
+    password:   Array[Byte],
+    passphrase: Option[String] = None
+  ): F[Either[WalletApi.WalletApiFailure, VaultStore[F]]]
+
+  /**
+   * Recover and persist wallet information from the VaultStore and optionally a snapshot.
+   *
+   * @note Without the snapshot, the wallet can only be partially recovered. The recoverable data includes only address
+   *       and fund information for simple 1-of-1 signature transactions. For more complex transactions, the snapshot is
+   *       required.
+   *
+   * @param mainKeyVaultStore The VaultStore containing the main key of the wallet to recover
+   * @param password The password to decrypt the VaultStore
+   * @param name A name used to identify a wallet in the DataApi. Defaults to "default". Most commonly, only one
+   *             wallet identity will be used. It is the responsibility of the dApp to keep track of the names of
+   *             the wallet identities if multiple will be used.
+   * @param snapshot The snapshot to recover the wallet from
+   * @return The wallet's VaultStore if import and save was successful. An error if unsuccessful.
+   */
+  def recoverWallet(
+    mainKeyVaultStore: VaultStore[F],
+    password:          Array[Byte],
+    name:              String = "default",
+    snapshot:          Option[Any] = None
+  ): F[Either[WalletApi.WalletApiFailure, Unit]]
+
+  /**
+   * Import a wallet from a mnemonic and save it.
+   *
+   * @param mnemonic   The mnemonic to import
+   * @param password   The password to encrypt the wallet with
+   * @param passphrase The passphrase to use to generate the main key from the mnemonic
+   * @param name       A name used to identify a wallet in the DataApi. Defaults to "default". Most commonly, only one
+   *                   wallet identity will be used. It is the responsibility of the dApp to keep track of the names of
+   *                   the wallet identities if multiple will be used.
+   * @return The wallet's VaultStore if import and save was successful. An error if unsuccessful.
+   */
+  def importWalletAndSave[G[_]: Monad: ToMonad](
+    mnemonic:   IndexedSeq[String],
+    password:   Array[Byte],
+    passphrase: Option[String] = None,
+    name:       String = "default"
+  ): G[Either[WalletApi.WalletApiFailure, VaultStore[F]]] = {
+    val toMonad = implicitly[ToMonad[G]]
+    (for {
+      walletRes  <- EitherT(toMonad(importWallet(mnemonic, password, passphrase)))
+      saveRes    <- EitherT(toMonad(saveWallet(walletRes, name)))
+      recoverRes <- EitherT(toMonad(recoverWallet(walletRes, password, name)))
+    } yield walletRes).value
+  }
+
 }
 
 object WalletApi {
@@ -244,6 +309,76 @@ object WalletApi {
       vaultStore <- buildMainKeyVaultStore(mainKey, password)
       mnemonic   <- Monad[F].pure(Entropy.toMnemonicString(entropy))
     } yield mnemonic.leftMap(FailedToInitializeWallet(_)).map(NewWalletResult(_, vaultStore))
+
+    override def importWallet(
+      mnemonic:   IndexedSeq[String],
+      password:   Array[Byte],
+      passphrase: Option[String] = None
+    ): F[Either[WalletApiFailure, VaultStore[F]]] = (for {
+      entropy <- EitherT(
+        Monad[F].pure(Entropy.fromMnemonicString(mnemonic.mkString(" ")).leftMap(FailedToInitializeWallet(_)))
+      )
+      mainKey    <- EitherT(Monad[F].pure(entropyToMainKey(entropy, passphrase).toByteArray.asRight[WalletApiFailure]))
+      vaultStore <- EitherT(buildMainKeyVaultStore(mainKey, password).map(_.asRight[WalletApiFailure]))
+    } yield vaultStore).value
+
+    override def recoverWallet(
+      mainKeyVaultStore: VaultStore[F],
+      password:          Array[Byte],
+      name:              String = "default",
+      snapshot:          Option[Any] = None
+    ): F[Either[WalletApiFailure, Unit]] = (for {
+      // recover 1-of-1 simple information (build lock addresses for each key pair in 0/0/z)
+      mainKey    <- EitherT(extractMainKey(mainKeyVaultStore, password))
+      recoverRes <- EitherT(recoverFromMainKey(mainKey, name))
+      // recover complex information from snapshot
+      snapshotRes <- EitherT(snapshot.map(recoverFromSnapshot(_, name)).getOrElse(().asRight[WalletApiFailure].pure[F]))
+    } yield snapshotRes.combine(recoverRes)).value
+
+    /**
+     * Recover wallet information from a provided snapshot
+     *
+     * TODO: To be implemented when the recovery from snapshot process has been fleshed out
+     *
+     * At a high level, the snapshot should be parsed and then the contained information should be stored in the DataApi
+     * associated with the wallet of name `name`.
+     *
+     * TODO: What should the type of snapshot be?
+     *
+     * @param snapshot The snapshot to recover the wallet from
+     * @param name The name of the wallet to recover
+     * @return A unit value if the recovery was successful, otherwise a WalletApiFailure
+     */
+    private def recoverFromSnapshot(snapshot: Any, name: String): F[Either[WalletApiFailure, Unit]] =
+      ().asRight[WalletApiFailure].pure[F]
+
+    /**
+     * Recover partial wallet information from the main key
+     *
+     * TODO: Revisit this when the recovery process has been fleshed out and AddressBuilder is implemented
+     *
+     * @note This function only recovers information about 1-of-1 Signature Locks derived from the main key.
+     *
+     * @param mainKey The main key to recover the wallet from
+     * @param name The name of the wallet to recover
+     * @return A unit value if the recovery was successful, otherwise a WalletApiFailure
+     */
+    private def recoverFromMainKey(mainKey: KeyPair, name: String): F[Either[WalletApiFailure, Unit]] = {
+      require(mainKey.vk.vk.isExtendedEd25519, "keyPair must be an extended Ed25519 key")
+      require(mainKey.sk.sk.isExtendedEd25519, "keyPair must be an extended Ed25519 key")
+
+      /**
+       * The process:
+       * 1. Iterate through children keys of the main key for related to 1-of-1 signature locks;
+       *    I.e, for all z in path 0/0/z
+       *    TODO: Do we need to iterate through all 2^32^? Can we assume if there is a big gap we can stop early?
+       * 2. For each child key, derive the 1-of-1 signature lock and it's address
+       *    TODO: This will be straightforward once AddressBuilder is implemented
+       * 3. For each address, query DataApi/Genus to see if for Txos to see if the address has been used
+       * 4. If the address has been used, store the address, the lock, with the indices to track the usage
+       */
+      ().asRight[WalletApiFailure].pure[F]
+    }
 
     override def saveWallet(vaultStore: VaultStore[F], name: String = "default"): F[Either[WalletApiFailure, Unit]] =
       dataApi.saveMainKeyVaultStore(vaultStore, name).map(res => res.leftMap(FailedToSaveWallet(_)))

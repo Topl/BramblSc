@@ -10,6 +10,8 @@ import co.topl.brambl.models.Indices
 import co.topl.crypto.signing.ExtendedEd25519
 import io.circe.syntax.EncoderOps
 import co.topl.crypto.encryption.VaultStore.Codecs._
+import co.topl.crypto.generation.mnemonic.EntropyFailures.PhraseToEntropyFailure
+import co.topl.crypto.generation.mnemonic.PhraseFailures.InvalidWordLength
 
 class WalletApiSpec extends munit.FunSuite with MockHelpers {
   implicit val idToId: FunctionK[Id, Id] = FunctionK.id[Id]
@@ -211,10 +213,54 @@ class WalletApiSpec extends munit.FunSuite with MockHelpers {
     MockDataApi.mainKeyVaultStoreInstance += ("error" -> oldVaultStore.asJson)
     val updateRes = walletApi.updateWalletPassword[Id](password, "newPassword".getBytes, "error")
     assert(updateRes.isLeft)
-    println(updateRes.left.toOption.get)
     assert(updateRes.left.toOption.get == WalletApi.FailedToUpdateWallet(MockDataApi.MainKeyVaultSaveFailure))
     // verify the wallet is still accessible with the old password
     val loadedWallet = walletApi.loadAndExtractMainKey[Id](password, "error")
     assert(loadedWallet.isRight)
   }
+
+  test("importWallet: import using mnemonic from createNewWallet > Same Main Key") {
+    val oldPassword = "old-password".getBytes
+    val wallet = walletApi.createNewWallet(oldPassword).toOption.get
+    val mnemonic = wallet.mnemonic
+    val mainKey = walletApi.extractMainKey(wallet.mainKeyVaultStore, oldPassword).toOption.get
+    val newPassword = "new-password".getBytes
+    val importedWallet = walletApi.importWallet(mnemonic, newPassword)
+    assert(importedWallet.isRight)
+    assert(wallet.mainKeyVaultStore != importedWallet.toOption.get) // Should be different due to password
+    val importedMainKey = walletApi.extractMainKey(importedWallet.toOption.get, newPassword)
+    assert(importedMainKey.isRight)
+    val testMainKey = importedMainKey.toOption.get
+    // Verify the main key is the same
+    assert(mainKey == testMainKey)
+    val signingInstance: ExtendedEd25519 = new ExtendedEd25519
+    val signature = signingInstance.sign(WalletApi.pbKeyPairToCryotoKeyPair(mainKey).signingKey, testMsg)
+    val testSignature = signingInstance.sign(WalletApi.pbKeyPairToCryotoKeyPair(testMainKey).signingKey, testMsg)
+    assert(java.util.Arrays.equals(signature, testSignature))
+
+    assert(signingInstance.verify(signature, testMsg, WalletApi.pbKeyPairToCryotoKeyPair(testMainKey).verificationKey))
+    assert(signingInstance.verify(testSignature, testMsg, WalletApi.pbKeyPairToCryotoKeyPair(mainKey).verificationKey))
+
+  }
+
+  test("importWallet: an invalid mnemonic produces correct error") {
+    val password = "password".getBytes
+    val wallet = walletApi.createNewWallet(password).toOption.get
+    val mnemonic = wallet.mnemonic :+ "extraWord"
+    val importedWallet = walletApi.importWallet(mnemonic, password)
+    assert(importedWallet.isLeft)
+    assert(
+      importedWallet.left.toOption.get == WalletApi.FailedToInitializeWallet(PhraseToEntropyFailure(InvalidWordLength))
+    )
+  }
+
+  test("importWalletAndSave: verify a save failure returns the correct error") {
+    val password = "password".getBytes
+    val wallet = walletApi.createNewWallet(password).toOption.get
+    val importedWallet = walletApi.importWalletAndSave[Id](wallet.mnemonic, password, name = "error")
+    assert(importedWallet.isLeft)
+    assert(importedWallet.left.toOption.get == WalletApi.FailedToSaveWallet(MockDataApi.MainKeyVaultSaveFailure))
+  }
+
+  test("recoverWallet: TBD when recovery is fleshed out".ignore) {}
 }
