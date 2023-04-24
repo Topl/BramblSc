@@ -2,8 +2,10 @@ package co.topl.brambl.validation
 
 import cats.Monad
 import cats.implicits._
+import co.topl.brambl.models.AccumulatorRootId
+import co.topl.brambl.models.LockId
 import co.topl.brambl.models.box.Attestation
-import co.topl.brambl.models.{Datum, Identifier}
+import co.topl.brambl.models.Datum
 import co.topl.brambl.models.transaction.IoTransaction
 import co.topl.quivr.api.Verifier
 import co.topl.quivr.runtime.DynamicContext
@@ -36,25 +38,12 @@ object TransactionAuthorizationInterpreter {
                     r => r.map(_ => transaction)
                   )
 
-                case Attestation.Value.Image32(p) =>
-                  image32Validate(p.lock.leaves, p.lock.threshold, p.known.map(_.getRevealed), p.responses, context)
+                case Attestation.Value.Image(p) =>
+                  imageValidate(p.lock.leaves, p.lock.threshold, p.known.map(_.getRevealed), p.responses, context)
                     .map(r => r.map(_ => transaction))
 
-                case Attestation.Value.Image64(p) =>
-                  image64Validate(p.lock.leaves, p.lock.threshold, p.known.map(_.getRevealed), p.responses, context)
-                    .map(r => r.map(_ => transaction))
-
-                case Attestation.Value.Commitment32(p) =>
-                  commitment32Validate(
-                    p.lock.root.get,
-                    p.lock.threshold,
-                    p.known.map(_.getRevealed),
-                    p.responses,
-                    context
-                  ).map(r => r.map(_ => transaction))
-
-                case Attestation.Value.Commitment64(p) =>
-                  commitment64Validate(
+                case Attestation.Value.Commitment(p) =>
+                  commitmentValidate(
                     p.lock.root.get,
                     p.lock.threshold,
                     p.known.map(_.getRevealed),
@@ -72,8 +61,8 @@ object TransactionAuthorizationInterpreter {
       ): F[Either[TransactionAuthorizationError, Boolean]] =
         thresholdVerifier(challenges, responses, threshold, context)
 
-      private def image32Validate(
-        leaves:    Seq[Identifier.Lock32],
+      private def imageValidate(
+        leaves:    Seq[LockId],
         threshold: Int,
         known:     Seq[Proposition],
         responses: Seq[Proof],
@@ -82,27 +71,9 @@ object TransactionAuthorizationInterpreter {
         // check that the known Propositions match the leaves?
         thresholdVerifier(known, responses, threshold, context)
 
-      private def image64Validate(
-        leaves:    Seq[Identifier.Lock64],
-        threshold: Int,
-        known:     Seq[Proposition],
-        responses: Seq[Proof],
-        context:   DynamicContext[F, String, Datum]
-      ): F[Either[TransactionAuthorizationError, Boolean]] =
-        thresholdVerifier(known, responses, threshold, context)
-
       // commitments need an additional proof of membership to be provided with the proposition
-      private def commitment32Validate(
-        root:      Identifier.AccumulatorRoot32,
-        threshold: Int,
-        known:     Seq[Proposition],
-        responses: Seq[Proof],
-        context:   DynamicContext[F, String, Datum]
-      ): F[Either[TransactionAuthorizationError, Boolean]] =
-        thresholdVerifier(known, responses, threshold, context)
-
-      private def commitment64Validate(
-        root:      Identifier.AccumulatorRoot64,
+      private def commitmentValidate(
+        root:      AccumulatorRootId,
         threshold: Int,
         known:     Seq[Proposition],
         responses: Seq[Proof],

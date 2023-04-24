@@ -38,11 +38,9 @@ trait MockHelpers {
   private val MockSecret: Array[Byte] = "A mock secret".getBytes
   val MockPreimage: Preimage = Preimage(ByteString.copyFrom(MockSecret), ByteString.copyFromUtf8("salt"))
 
-  private val MockDigest = Digest().withDigest32(
-    Digest.Digest32(
-      ByteString.copyFrom(
-        (new Blake2b256).hash(MockPreimage.input.toByteArray ++ MockPreimage.salt.toByteArray)
-      )
+  private val MockDigest = Digest(
+    ByteString.copyFrom(
+      (new Blake2b256).hash(MockPreimage.input.toByteArray ++ MockPreimage.salt.toByteArray)
     )
   )
 
@@ -57,14 +55,14 @@ trait MockHelpers {
   // Arbitrary Transaction that any new transaction can reference
   val dummyTx: IoTransaction = IoTransaction(datum = txDatum)
 
-  val dummyTxIdentifier: Identifier.IoTransaction32 = Identifier.IoTransaction32(dummyTx.sized32Evidence)
+  val dummyTxIdentifier: TransactionId = TransactionId(dummyTx.sizedEvidence.digest.value)
 
   val dummyTxoAddress: TransactionOutputAddress =
     TransactionOutputAddress(
       0,
       0,
       0,
-      TransactionOutputAddress.Id.IoTransaction32(dummyTxIdentifier)
+      dummyTxIdentifier
     )
 
   val value: Value =
@@ -74,7 +72,7 @@ trait MockHelpers {
     Lock().withPredicate(Lock.Predicate(List(Challenge().withRevealed(Proposer.tickProposer[Id].propose(5, 15))), 1))
 
   val trivialLockAddress: LockAddress =
-    LockAddress(0, 0, LockAddress.Id.Lock32(Identifier.Lock32(trivialOutLock.sized32Evidence)))
+    LockAddress(0, 0, LockId(trivialOutLock.sizedEvidence.digest.value))
 
   val inLockFull: Lock.Predicate = Lock.Predicate(
     List(
@@ -93,7 +91,7 @@ trait MockHelpers {
   )
 
   val trivialInLockFullAddress: LockAddress =
-    LockAddress(0, 0, LockAddress.Id.Lock32(Identifier.Lock32(inLockFull.sized32Evidence)))
+    LockAddress(0, 0, LockId(inLockFull.sizedEvidence.digest.value))
 
   val fakeMsgBind: SignableBytes = "transaction binding".getBytes.immutable.signable
 

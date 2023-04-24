@@ -63,11 +63,7 @@ object ContainsImmutable {
 
     implicit val smallDataImmutable: ContainsImmutable[SmallData] = _.value.immutable
 
-    implicit val rootImmutable: ContainsImmutable[Root] = _.value match {
-      case Root.Value.Root32(v) => v.immutable
-      case Root.Value.Root64(v) => v.immutable
-      case e                    => throw new MatchError(e)
-    }
+    implicit val rootImmutable: ContainsImmutable[Root] = _.value.immutable
 
     implicit val verificationKeyImmutable: ContainsImmutable[VerificationKey] = _.vk match {
       case Vk.Ed25519(v)         => v.immutable
@@ -131,74 +127,28 @@ object ContainsImmutable {
       case Value.Value.Empty           => Array[Byte](0).immutable
     }
 
-    implicit val addressImmutable: ContainsImmutable[Address] = (address: Address) =>
-      address.network.immutable ++
-      address.ledger.immutable ++
-      address.id.immutable
-
-    implicit val size32EvidenceImmutable: ContainsImmutable[Evidence.Sized32] =
+    implicit val evidenceImmutable: ContainsImmutable[Evidence] =
       ev => ev.digest.immutable
 
-    implicit val size64EvidenceImmutable: ContainsImmutable[Evidence.Sized64] =
-      ev => ev.digest.immutable
-
-    implicit val evidenceImmutable: ContainsImmutable[Evidence] = _.value match {
-      case Evidence.Value.Sized32(e) => size32EvidenceImmutable.immutableBytes(e)
-      case Evidence.Value.Sized64(e) => size64EvidenceImmutable.immutableBytes(e)
-      case e                         => throw new MatchError(e)
-    }
-
-    implicit val digest32Immutable: ContainsImmutable[Digest.Digest32] = _.value.immutable
-    implicit val digest64Immutable: ContainsImmutable[Digest.Digest64] = _.value.immutable
-
-    implicit val digestImmutable: ContainsImmutable[Digest] = _.value match {
-      case Digest.Value.Digest32(v) => v.immutable
-      case Digest.Value.Digest64(v) => v.immutable
-      case e                        => throw new MatchError(e)
-    }
+    implicit val digestImmutable: ContainsImmutable[Digest] = _.value.immutable
 
     implicit val preimageImmutable: ContainsImmutable[Preimage] = (pre: Preimage) =>
       pre.input.immutable ++ pre.salt.immutable
 
-    implicit val accumulatorRoot32IdentifierImmutable: ContainsImmutable[Identifier.AccumulatorRoot32] =
+    implicit val accumulatorRoot32IdentifierImmutable: ContainsImmutable[AccumulatorRootId] =
       id =>
         Tags.Identifier.AccumulatorRoot32.immutable ++
-        id.evidence.immutable
+        id.value.immutable
 
-    implicit val accumulatorRoot64IdentifierImmutable: ContainsImmutable[Identifier.AccumulatorRoot64] =
-      id =>
-        Tags.Identifier.AccumulatorRoot64.immutable ++
-        id.evidence.immutable
-
-    implicit val boxLock32IdentifierImmutable: ContainsImmutable[Identifier.Lock32] =
+    implicit val boxLock32IdentifierImmutable: ContainsImmutable[LockId] =
       id =>
         Tags.Identifier.Lock32.immutable ++
-        id.evidence.immutable
+        id.value.immutable
 
-    implicit val boxLock64IdentifierImmutable: ContainsImmutable[Identifier.Lock64] =
-      id =>
-        Tags.Identifier.Lock64.immutable ++
-        id.evidence.immutable
-
-    implicit val ioTransaction32IdentifierImmutable: ContainsImmutable[Identifier.IoTransaction32] =
+    implicit val transactionIdentifierImmutable: ContainsImmutable[TransactionId] =
       id =>
         Tags.Identifier.IoTransaction32.immutable ++
-        id.evidence.immutable
-
-    implicit val ioTransaction64IdentifierImmutable: ContainsImmutable[Identifier.IoTransaction64] =
-      id =>
-        Tags.Identifier.IoTransaction64.immutable ++
-        id.evidence.immutable
-
-    implicit val identifiersImmutable: ContainsImmutable[Identifier] = _.value match {
-      case Identifier.Value.AccumulatorRoot32(i) => accumulatorRoot32IdentifierImmutable.immutableBytes(i)
-      case Identifier.Value.AccumulatorRoot64(i) => accumulatorRoot64IdentifierImmutable.immutableBytes(i)
-      case Identifier.Value.Lock32(i)            => boxLock32IdentifierImmutable.immutableBytes(i)
-      case Identifier.Value.Lock64(i)            => boxLock64IdentifierImmutable.immutableBytes(i)
-      case Identifier.Value.IoTransaction32(i)   => ioTransaction32IdentifierImmutable.immutableBytes(i)
-      case Identifier.Value.IoTransaction64(i)   => ioTransaction64IdentifierImmutable.immutableBytes(i)
-      case e                                     => throw new MatchError(e)
-    }
+        id.value.immutable
 
     implicit val transactionOutputAddressImmutable: ContainsImmutable[TransactionOutputAddress] =
       v =>
@@ -207,23 +157,11 @@ object ContainsImmutable {
         v.index.immutable ++
         v.id.immutable
 
-    implicit val transactionOutputAddressIdImmutable: ContainsImmutable[TransactionOutputAddress.Id] = {
-      case TransactionOutputAddress.Id.IoTransaction32(id) => id.immutable
-      case TransactionOutputAddress.Id.IoTransaction64(id) => id.immutable
-      case e                                               => throw new MatchError(e)
-    }
-
     implicit val lockAddressImmutable: ContainsImmutable[LockAddress] =
       v =>
         v.network.immutable ++
         v.ledger.immutable ++
         v.id.immutable
-
-    implicit val lockAddressIdImmutable: ContainsImmutable[LockAddress.Id] = {
-      case LockAddress.Id.Lock32(id) => id.immutable
-      case LockAddress.Id.Lock64(id) => id.immutable
-      case e                         => throw new MatchError(e)
-    }
 
     implicit val lvlValueImmutable: ContainsImmutable[Value.LVL] =
       _.quantity.immutable
@@ -259,31 +197,20 @@ object ContainsImmutable {
       predicate.threshold.immutable ++
       predicate.challenges.immutable
 
-    implicit val image32LockImmutable: ContainsImmutable[Lock.Image32] = (image: Lock.Image32) =>
+    implicit val imageLockImmutable: ContainsImmutable[Lock.Image] = (image: Lock.Image) =>
       image.threshold.immutable ++
       image.leaves.immutable
 
-    implicit val image64LockImmutable: ContainsImmutable[Lock.Image64] = (image: Lock.Image64) =>
-      image.threshold.immutable ++
-      image.leaves.immutable
-
-    implicit val commitment32LockImmutable: ContainsImmutable[Lock.Commitment32] = (commitment: Lock.Commitment32) =>
-      commitment.threshold.immutable ++
-      commitment.root.size.immutable ++
-      commitment.root.immutable
-
-    implicit val commitment64LockImmutable: ContainsImmutable[Lock.Commitment64] = (commitment: Lock.Commitment64) =>
+    implicit val commitmentLockImmutable: ContainsImmutable[Lock.Commitment] = (commitment: Lock.Commitment) =>
       commitment.threshold.immutable ++
       commitment.root.size.immutable ++
       commitment.root.immutable
 
     implicit val lockImmutable: ContainsImmutable[Lock] = _.value match {
-      case Lock.Value.Predicate(l)    => predicateLockImmutable.immutableBytes(l)
-      case Lock.Value.Image32(l)      => image32LockImmutable.immutableBytes(l)
-      case Lock.Value.Image64(l)      => image64LockImmutable.immutableBytes(l)
-      case Lock.Value.Commitment32(l) => commitment32LockImmutable.immutableBytes(l)
-      case Lock.Value.Commitment64(l) => commitment64LockImmutable.immutableBytes(l)
-      case e                          => throw new MatchError(e)
+      case Lock.Value.Predicate(l)  => predicateLockImmutable.immutableBytes(l)
+      case Lock.Value.Image(l)      => imageLockImmutable.immutableBytes(l)
+      case Lock.Value.Commitment(l) => commitmentLockImmutable.immutableBytes(l)
+      case e                        => throw new MatchError(e)
     }
 
     implicit val predicateAttestationImmutable: ContainsImmutable[Attestation.Predicate] =
@@ -291,43 +218,23 @@ object ContainsImmutable {
         attestation.lock.immutable ++
         attestation.responses.immutable
 
-    implicit val image32AttestationImmutable: ContainsImmutable[Attestation.Image32] =
+    implicit val imageAttestationImmutable: ContainsImmutable[Attestation.Image] =
       attestation =>
         attestation.lock.immutable ++
         attestation.known.immutable ++
         attestation.responses.immutable
 
-    implicit val image64AttestationImmutable: ContainsImmutable[Attestation.Image64] =
-      attestation =>
-        attestation.lock.immutable ++
-        attestation.known.immutable ++
-        attestation.responses.immutable
-
-    implicit val commitment32AttestationImmutable: ContainsImmutable[Attestation.Commitment32] =
-      attestation =>
-        attestation.lock.immutable ++
-        attestation.known.immutable ++
-        attestation.responses.immutable
-
-    implicit val commitment64AttestationImmutable: ContainsImmutable[Attestation.Commitment64] =
+    implicit val commitmentAttestationImmutable: ContainsImmutable[Attestation.Commitment] =
       attestation =>
         attestation.lock.immutable ++
         attestation.known.immutable ++
         attestation.responses.immutable
 
     implicit val attestationImmutable: ContainsImmutable[Attestation] = _.value match {
-      case Attestation.Value.Predicate(a)    => predicateAttestationImmutable.immutableBytes(a)
-      case Attestation.Value.Image32(a)      => image32AttestationImmutable.immutableBytes(a)
-      case Attestation.Value.Image64(a)      => image64AttestationImmutable.immutableBytes(a)
-      case Attestation.Value.Commitment32(a) => commitment32AttestationImmutable.immutableBytes(a)
-      case Attestation.Value.Commitment64(a) => commitment64AttestationImmutable.immutableBytes(a)
-      case e                                 => throw new MatchError(e)
-    }
-
-    implicit val transactionInputAddressIdContainsImmutable: ContainsImmutable[TransactionInputAddress.Id] = {
-      case TransactionInputAddress.Id.IoTransaction32(id) => id.immutable
-      case TransactionInputAddress.Id.IoTransaction64(id) => id.immutable
-      case e                                              => throw new MatchError(e)
+      case Attestation.Value.Predicate(a)  => predicateAttestationImmutable.immutableBytes(a)
+      case Attestation.Value.Image(a)      => imageAttestationImmutable.immutableBytes(a)
+      case Attestation.Value.Commitment(a) => commitmentAttestationImmutable.immutableBytes(a)
+      case e                               => throw new MatchError(e)
     }
 
     implicit val transactionInputAddressContainsImmutable: ContainsImmutable[TransactionInputAddress] =

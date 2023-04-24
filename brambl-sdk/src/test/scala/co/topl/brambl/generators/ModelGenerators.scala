@@ -1,20 +1,9 @@
 package co.topl.brambl.generators
 
-import co.topl.brambl.models.LockAddress
-import co.topl.brambl.models.TransactionOutputAddress
-import co.topl.brambl.models.box.Attestation
-import co.topl.brambl.models.box.Lock
-import co.topl.brambl.models.box.Value
-import co.topl.brambl.models.transaction.IoTransaction
-import co.topl.brambl.models.transaction.Schedule
-import co.topl.brambl.models.transaction.SpentTransactionOutput
-import co.topl.brambl.models.transaction.UnspentTransactionOutput
-import co.topl.brambl.models.Datum
-import co.topl.brambl.models.Event
-import co.topl.brambl.models.Evidence
-import co.topl.brambl.models.Identifier
-import co.topl.quivr.generators.ModelGenerators.arbitraryDigest32
-import co.topl.quivr.generators.ModelGenerators.arbitraryDigest64
+import co.topl.brambl.models.box._
+import co.topl.brambl.models.transaction._
+import co.topl.brambl.models._
+import co.topl.quivr.generators.ModelGenerators.arbitraryDigest
 import com.google.protobuf.ByteString
 import org.scalacheck.Arbitrary
 import org.scalacheck.Gen
@@ -25,63 +14,35 @@ import java.util.Random
 
 trait EvidenceGenerator {
 
-  implicit val arbitraryEvidenceSized32: Arbitrary[Evidence.Sized32] =
+  implicit val arbitraryEvidenceSized: Arbitrary[Evidence] =
     Arbitrary(
       for {
-        digest <- arbitraryDigest32.arbitrary
-      } yield Evidence.Sized32.of(digest)
-    )
-
-  implicit val arbitraryEvidenceSized64: Arbitrary[Evidence.Sized64] =
-    Arbitrary(
-      for {
-        digest <- arbitraryDigest64.arbitrary
-      } yield Evidence.Sized64.of(digest)
+        digest <- arbitraryDigest.arbitrary
+      } yield Evidence(digest)
     )
 }
 
 trait IdentifierGenerator extends EvidenceGenerator {
 
-  implicit val arbitraryLock32: Arbitrary[Identifier.Lock32] =
+  implicit val arbitraryLockId: Arbitrary[LockId] =
     Arbitrary(
       for {
-        evidence <- arbitraryEvidenceSized32.arbitrary
-      } yield Identifier.Lock32.of(evidence)
+        evidence <- arbitraryEvidenceSized.arbitrary
+      } yield LockId(evidence.digest.value)
     )
 
-  implicit val arbitraryLock64: Arbitrary[Identifier.Lock64] =
+  implicit val arbitraryTransactionId: Arbitrary[TransactionId] =
     Arbitrary(
       for {
-        evidence <- arbitraryEvidenceSized64.arbitrary
-      } yield Identifier.Lock64.of(evidence)
+        evidence <- arbitraryEvidenceSized.arbitrary
+      } yield TransactionId(evidence.digest.value)
     )
 
-  implicit val arbitraryIoTransaction32: Arbitrary[Identifier.IoTransaction32] =
+  implicit val arbitraryAccumulatorRootId: Arbitrary[AccumulatorRootId] =
     Arbitrary(
       for {
-        evidence <- arbitraryEvidenceSized32.arbitrary
-      } yield Identifier.IoTransaction32.of(evidence)
-    )
-
-  implicit val arbitraryIoTransaction64: Arbitrary[Identifier.IoTransaction64] =
-    Arbitrary(
-      for {
-        evidence <- arbitraryEvidenceSized64.arbitrary
-      } yield Identifier.IoTransaction64.of(evidence)
-    )
-
-  implicit val arbitraryAccumulatorRoot32: Arbitrary[Identifier.AccumulatorRoot32] =
-    Arbitrary(
-      for {
-        evidence <- arbitraryEvidenceSized32.arbitrary
-      } yield Identifier.AccumulatorRoot32.of(evidence)
-    )
-
-  implicit val arbitraryAccumulatorRoot64: Arbitrary[Identifier.AccumulatorRoot64] =
-    Arbitrary(
-      for {
-        evidence <- arbitraryEvidenceSized64.arbitrary
-      } yield Identifier.AccumulatorRoot64.of(evidence)
+        evidence <- arbitraryEvidenceSized.arbitrary
+      } yield AccumulatorRootId(evidence.digest.value)
     )
 }
 
@@ -92,8 +53,8 @@ trait LockAddressGenerator extends IdentifierGenerator {
       for {
         network <- Gen.chooseNum(0, 50)
         ledger  <- Gen.chooseNum(0, 50)
-        id      <- arbitraryLock32.arbitrary
-      } yield LockAddress(network, ledger, LockAddress.Id.Lock32(id))
+        id      <- arbitraryLockId.arbitrary
+      } yield LockAddress(network, ledger, id)
     )
 }
 
@@ -105,8 +66,8 @@ trait TransactionOutputAddressGenerator extends IdentifierGenerator {
         network <- Gen.chooseNum(0, 50)
         ledger  <- Gen.chooseNum(0, 50)
         index   <- Gen.chooseNum(0, 50)
-        id      <- arbitraryIoTransaction32.arbitrary
-      } yield TransactionOutputAddress(network, ledger, index, TransactionOutputAddress.Id.IoTransaction32(id))
+        id      <- arbitraryTransactionId.arbitrary
+      } yield TransactionOutputAddress(network, ledger, index, id)
     )
 
 }

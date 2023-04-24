@@ -36,11 +36,9 @@ object ContainsSignable {
       stxo.copy(
         attestation = stxo.attestation.copy(
           value = stxo.attestation.value match {
-            case p: Attestation.Value.Predicate      => p.copy(p.value.copy(responses = Seq.empty))
-            case i32: Attestation.Value.Image32      => i32.copy(i32.value.copy(responses = Seq.empty))
-            case i64: Attestation.Value.Image64      => i64.copy(i64.value.copy(responses = Seq.empty))
-            case c32: Attestation.Value.Commitment32 => c32.copy(c32.value.copy(responses = Seq.empty))
-            case c64: Attestation.Value.Commitment64 => c64.copy(c64.value.copy(responses = Seq.empty))
+            case p: Attestation.Value.Predicate  => p.copy(p.value.copy(responses = Seq.empty))
+            case i: Attestation.Value.Image      => i.copy(i.value.copy(responses = Seq.empty))
+            case c: Attestation.Value.Commitment => c.copy(c.value.copy(responses = Seq.empty))
           }
         )
       )
