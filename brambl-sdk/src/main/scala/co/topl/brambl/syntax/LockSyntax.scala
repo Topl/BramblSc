@@ -19,7 +19,7 @@ trait LockSyntax {
 
 class LockSyntaxOps(val lock: Lock) extends AnyVal {
 
-  def address(network: Int, ledger: Int): LockAddress =
+  def lockAddress(network: Int, ledger: Int): LockAddress =
     LockAddress(
       network,
       ledger,
@@ -31,7 +31,7 @@ class LockSyntaxOps(val lock: Lock) extends AnyVal {
 
 class PredicateLockSyntaxOps(val lock: Lock.Predicate) extends AnyVal {
 
-  def address(network: Int, ledger: Int): LockAddress =
+  def lockAddress(network: Int, ledger: Int): LockAddress =
     LockAddress(
       network,
       ledger,
