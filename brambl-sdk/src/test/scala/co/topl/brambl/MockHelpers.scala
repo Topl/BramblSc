@@ -23,11 +23,10 @@ import co.topl.crypto.generation.mnemonic.Entropy
 import co.topl.crypto.signing.ExtendedEd25519
 
 trait MockHelpers {
-  private val ExtendedEd25519Instance: ExtendedEd25519 = new ExtendedEd25519
   val MockIndices: Indices = Indices(0, 0, 0)
-  val MockMainKeyPair: KeyPair = ExtendedEd25519Instance.deriveKeyPairFromEntropy(Entropy.generate(), None)
+  val MockMainKeyPair: KeyPair = (new ExtendedEd25519).deriveKeyPairFromEntropy(Entropy.generate(), None)
 
-  val MockChildKeyPair: KeyPair = ExtendedEd25519Instance.deriveKeyPairFromChildPath(
+  val MockChildKeyPair: KeyPair = (new ExtendedEd25519).deriveKeyPairFromChildPath(
     pbKeyPairToCryotoKeyPair(MockMainKeyPair).signingKey,
     List(
       Bip32Indexes.HardenedIndex(MockIndices.x),
