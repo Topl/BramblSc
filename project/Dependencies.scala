@@ -7,8 +7,8 @@ object Dependencies {
     val catsCoreVersion = "2.9.0"
     val simulacrumVersion = "1.0.1"
     val circeVersion = "0.14.5"
-    val quivr4sVersion = "ef50d78" // scala-steward:off
-    val protobufSpecsVersion = "110e109" // scala-steward:off
+    val quivr4sVersion = "1c87858" // scala-steward:off
+    val protobufSpecsVersion = "ba616f0" // scala-steward:off
     val mUnitTeVersion = "0.7.29"
   }
 
