@@ -63,9 +63,19 @@ trait WalletApi[F[_]] {
    * @param name      A name used to identify a wallet in the DataApi. Defaults to "default". Most commonly, only one
    *                  wallet identity will be used. It is the responsibility of the dApp to keep track of the names of
    *                  the wallet identities if multiple will be used.
-   * @return The wallet's VaultStore if update was successful. An error if unsuccessful.
+   * @return An error if unsuccessful.
    */
   def updateWallet(newWallet: VaultStore[F], name: String = "default"): F[Either[WalletApi.WalletApiFailure, Unit]]
+
+  /**
+   * Delete a wallet
+   *
+   * @param name A name used to identify the wallet in the DataApi. Defaults to "default". Most commonly, only one
+   *             wallet identity will be used. It is the responsibility of the dApp to keep track of the names of
+   *             the wallet identities if multiple will be used.
+   * @return  An error if unsuccessful.
+   */
+  def deleteWallet(name: String = "default"): F[Either[WalletApi.WalletApiFailure, Unit]]
 
   /**
    * Build a VaultStore for the wallet from a main key encrypted with a password
@@ -389,6 +399,9 @@ object WalletApi {
     override def updateWallet(newWallet: VaultStore[F], name: String = "default"): F[Either[WalletApiFailure, Unit]] =
       dataApi.updateMainKeyVaultStore(newWallet, name).map(res => res.leftMap(FailedToUpdateWallet(_)))
 
+    override def deleteWallet(name: String = "default"): F[Either[WalletApiFailure, Unit]] =
+      dataApi.deleteMainKeyVaultStore(name).map(res => res.leftMap(FailedToDeleteWallet(_)))
+
     override def buildMainKeyVaultStore(mainKey: Array[Byte], password: Array[Byte]): F[VaultStore[F]] = for {
       derivedKey <- kdf.deriveKey(password)
       cipherText <- cipher.encrypt(mainKey, derivedKey)
@@ -447,5 +460,6 @@ object WalletApi {
   case class FailedToSaveWallet(err: Throwable = null) extends WalletApiFailure(err)
   case class FailedToLoadWallet(err: Throwable = null) extends WalletApiFailure(err)
   case class FailedToUpdateWallet(err: Throwable = null) extends WalletApiFailure(err)
+  case class FailedToDeleteWallet(err: Throwable = null) extends WalletApiFailure(err)
   case class FailedToDecodeWallet(err: Throwable = null) extends WalletApiFailure(err)
 }

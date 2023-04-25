@@ -89,6 +89,16 @@ trait DataApi[F[_]] {
    * @return nothing if successful. If the update fails due to an underlying cause (for ex does not exist), return a DataApiException
    */
   def updateMainKeyVaultStore(mainKeyVaultStore: VaultStore[F], name: String): F[Either[DataApiException, Unit]]
+
+  /**
+   * Delete a persisted VaultStore for the Topl Main Secret Key.
+   *
+   * @param name The name identifier of the VaultStore to delete. This is used to manage multiple wallet identities.
+   *             Most commonly, only one wallet identity will be used. It is the responsibility of the dApp
+   *             to manage the names of the wallet identities if multiple will be used.
+   * @return nothing if successful. If the deletion fails due to an underlying cause (for ex does not exist), return a DataApiException
+   */
+  def deleteMainKeyVaultStore(name: String): F[Either[DataApiException, Unit]]
 }
 
 object DataApi {

@@ -151,6 +151,28 @@ class WalletApiSpec extends munit.FunSuite with MockHelpers {
   }
 
   test(
+    "deleteWallet: Deleting a wallet when a wallet of that name does not exist > Error"
+  ) {
+    val deleteRes = walletApi.deleteWallet("name")
+    assert(deleteRes.isLeft)
+    assert(deleteRes.left.toOption.get == WalletApi.FailedToDeleteWallet(MockDataApi.MainKeyVaultDeleteFailure))
+  }
+
+  test(
+    "deleteWallet: Deleting a wallet > Verify wallet no longer exists at the specified name"
+  ) {
+    val saveRes = walletApi.createAndSaveNewWallet[Id]("password".getBytes, name = "name")
+    assert(saveRes.isRight)
+    val beforeDelete = walletApi.loadWallet("name")
+    assert(beforeDelete.isRight)
+    val deleteRes = walletApi.deleteWallet("name")
+    assert(deleteRes.isRight)
+    val afterDelete = walletApi.loadWallet("name")
+    assert(afterDelete.isLeft)
+    assert(afterDelete.left.toOption.get == WalletApi.FailedToLoadWallet(MockDataApi.MainKeyVaultStoreNotInitialized))
+  }
+
+  test(
     "updateWallet: Updating a wallet when a wallet of that name does not exist > Error"
   ) {
     val vs = walletApi.buildMainKeyVaultStore("dummyKeyPair".getBytes, "password".getBytes)
