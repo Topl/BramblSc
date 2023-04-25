@@ -36,6 +36,38 @@ trait WalletApi[F[_]] {
   type ToMonad[G[_]] = FunctionK[F, G]
 
   /**
+   * Save a wallet
+   *
+   * @param vaultStore The VaultStore of the wallet to save
+   * @param name       A name used to identify a wallet in the DataApi. Defaults to "default". Most commonly, only one
+   *                   wallet identity will be used. It is the responsibility of the dApp to keep track of the names of
+   *                   the wallet identities if multiple will be used.
+   * @return An error if unsuccessful.
+   */
+  def saveWallet(vaultStore: VaultStore[F], name: String = "default"): F[Either[WalletApi.WalletApiFailure, Unit]]
+
+  /**
+   * Save a wallet
+   *
+   * @param name A name used to identify a wallet in the DataApi. Defaults to "default". Most commonly, only one
+   *             wallet identity will be used. It is the responsibility of the dApp to keep track of the names of
+   *             the wallet identities if multiple will be used.
+   * @return The wallet's VaultStore if successful. An error if unsuccessful.
+   */
+  def loadWallet(name: String = "default"): F[Either[WalletApi.WalletApiFailure, VaultStore[F]]]
+
+  /**
+   * Update a wallet
+   *
+   * @param newWallet The new VaultStore of the wallet
+   * @param name      A name used to identify a wallet in the DataApi. Defaults to "default". Most commonly, only one
+   *                  wallet identity will be used. It is the responsibility of the dApp to keep track of the names of
+   *                  the wallet identities if multiple will be used.
+   * @return The wallet's VaultStore if update was successful. An error if unsuccessful.
+   */
+  def updateWallet(newWallet: VaultStore[F], name: String = "default"): F[Either[WalletApi.WalletApiFailure, Unit]]
+
+  /**
    * Build a VaultStore for the wallet from a main key encrypted with a password
    *
    * @param mainKey    The main key to use to generate the wallet
@@ -57,87 +89,6 @@ trait WalletApi[F[_]] {
     passphrase: Option[String] = None,
     mLen:       MnemonicSize = MnemonicSizes.words12
   ): F[Either[WalletApi.WalletApiFailure, WalletApi.NewWalletResult[F]]]
-
-  /**
-   * Extract the Main Key Pair from a wallet.
-   *
-   * @param vaultStore The VaultStore of the wallet to extract the keys from
-   * @return The protobuf encoded keys of the wallet, if successful. Else an error
-   */
-  def extractMainKey(
-    vaultStore: VaultStore[F],
-    password:   Array[Byte]
-  ): F[Either[WalletApi.WalletApiFailure, KeyPair]]
-
-  /**
-   * Derive a child key pair from a Main Key Pair.
-   *
-   * @param keyPair The Main Key Pair to derive the child key pair from
-   * @param idx     The path indices of the child key pair to derive
-   * @return        The protobuf encoded keys of the child key pair, if successful. Else an error
-   */
-  def deriveChildKeys(
-    keyPair: KeyPair,
-    idx:     Indices
-  ): F[KeyPair]
-
-  /**
-   * Save a wallet
-   *
-   * @param vaultStore The VaultStore of the wallet to save
-   * @param name A name used to identify a wallet in the DataApi. Defaults to "default". Most commonly, only one
-   *             wallet identity will be used. It is the responsibility of the dApp to keep track of the names of
-   *             the wallet identities if multiple will be used.
-   * @return An error if unsuccessful.
-   */
-  def saveWallet(vaultStore: VaultStore[F], name: String = "default"): F[Either[WalletApi.WalletApiFailure, Unit]]
-
-  /**
-   * Save a wallet
-   *
-   * @param name       A name used to identify a wallet in the DataApi. Defaults to "default". Most commonly, only one
-   *                   wallet identity will be used. It is the responsibility of the dApp to keep track of the names of
-   *                   the wallet identities if multiple will be used.
-   * @return The wallet's VaultStore if successful. An error if unsuccessful.
-   */
-  def loadWallet(name: String = "default"): F[Either[WalletApi.WalletApiFailure, VaultStore[F]]]
-
-  /**
-   * Update a wallet
-   *
-   * @param newWallet The new VaultStore of the wallet
-   * @param name A name used to identify a wallet in the DataApi. Defaults to "default". Most commonly, only one
-   *             wallet identity will be used. It is the responsibility of the dApp to keep track of the names of
-   *             the wallet identities if multiple will be used.
-   * @return The wallet's VaultStore if update was successful. An error if unsuccessful.
-   */
-  def updateWallet(newWallet: VaultStore[F], name: String = "default"): F[Either[WalletApi.WalletApiFailure, Unit]]
-
-  /**
-   * Update the password of a wallet
-   *
-   * @param oldPassword The old password of the wallet
-   * @param newPassword The new password to encrypt the wallet with
-   * @param name A name used to identify a wallet in the DataApi. Defaults to "default". Most commonly, only one
-   *             wallet identity will be used. It is the responsibility of the dApp to keep track of the names of
-   *             the wallet identities if multiple will be used.
-   * @return The wallet's new VaultStore if creation and save was successful. An error if unsuccessful.
-   */
-  def updateWalletPassword[G[_]: Monad: ToMonad](
-    oldPassword: Array[Byte],
-    newPassword: Array[Byte],
-    name:        String = "default"
-  ): G[Either[WalletApi.WalletApiFailure, VaultStore[F]]] = {
-    val toMonad = implicitly[ToMonad[G]]
-    (for {
-      oldWallet <- EitherT(toMonad(loadWallet(name)))
-      mainKey   <- EitherT(toMonad(extractMainKey(oldWallet, oldPassword)))
-      newWallet <- EitherT(
-        toMonad(buildMainKeyVaultStore(mainKey.toByteArray, newPassword)).map(_.asRight[WalletApi.WalletApiFailure])
-      )
-      updateRes <- EitherT(toMonad(updateWallet(newWallet, name)).map(_.map(_ => newWallet)))
-    } yield updateRes).value
-  }
 
   /**
    * Create a new wallet and then save it
@@ -165,6 +116,29 @@ trait WalletApi[F[_]] {
   }
 
   /**
+   * Extract the Main Key Pair from a wallet.
+   *
+   * @param vaultStore The VaultStore of the wallet to extract the keys from
+   * @return The protobuf encoded keys of the wallet, if successful. Else an error
+   */
+  def extractMainKey(
+    vaultStore: VaultStore[F],
+    password:   Array[Byte]
+  ): F[Either[WalletApi.WalletApiFailure, KeyPair]]
+
+  /**
+   * Derive a child key pair from a Main Key Pair.
+   *
+   * @param keyPair The Main Key Pair to derive the child key pair from
+   * @param idx     The path indices of the child key pair to derive
+   * @return        The protobuf encoded keys of the child key pair, if successful. Else an error
+   */
+  def deriveChildKeys(
+    keyPair: KeyPair,
+    idx:     Indices
+  ): F[KeyPair]
+
+  /**
    * Load a wallet and then extract the main key pair
    *
    * @param password The password to decrypt the wallet with
@@ -182,6 +156,32 @@ trait WalletApi[F[_]] {
       walletRes <- EitherT(toMonad(loadWallet(name)))
       keyPair   <- EitherT(toMonad(extractMainKey(walletRes, password)))
     } yield keyPair).value
+  }
+
+  /**
+   * Update the password of a wallet
+   *
+   * @param oldPassword The old password of the wallet
+   * @param newPassword The new password to encrypt the wallet with
+   * @param name A name used to identify a wallet in the DataApi. Defaults to "default". Most commonly, only one
+   *             wallet identity will be used. It is the responsibility of the dApp to keep track of the names of
+   *             the wallet identities if multiple will be used.
+   * @return The wallet's new VaultStore if creation and save was successful. An error if unsuccessful.
+   */
+  def updateWalletPassword[G[_]: Monad: ToMonad](
+    oldPassword: Array[Byte],
+    newPassword: Array[Byte],
+    name:        String = "default"
+  ): G[Either[WalletApi.WalletApiFailure, VaultStore[F]]] = {
+    val toMonad = implicitly[ToMonad[G]]
+    (for {
+      oldWallet <- EitherT(toMonad(loadWallet(name)))
+      mainKey   <- EitherT(toMonad(extractMainKey(oldWallet, oldPassword)))
+      newWallet <- EitherT(
+        toMonad(buildMainKeyVaultStore(mainKey.toByteArray, newPassword)).map(_.asRight[WalletApi.WalletApiFailure])
+      )
+      updateRes <- EitherT(toMonad(updateWallet(newWallet, name)).map(_.map(_ => newWallet)))
+    } yield updateRes).value
   }
 
   /**
