@@ -1,7 +1,7 @@
 name: Maven Central Release
 on:
-  release:
-    types: [published]
+  push:
+      branches: [ BN-997-tsdk-deployment-tooling ]
 
 jobs:
   maven_release:
