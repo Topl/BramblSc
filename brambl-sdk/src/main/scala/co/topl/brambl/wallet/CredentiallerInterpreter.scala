@@ -13,10 +13,12 @@ import co.topl.quivr.api.Prover
 import co.topl.quivr.api.Verifier.instances.verifierInstance
 import quivr.models.{KeyPair, Proof, Proposition, SignableBytes, Witness}
 import co.topl.brambl.models.Indices
-import cats.data.{Chain, EitherT}
+import cats.data.EitherT
 import co.topl.brambl.models.box.Attestation
 import co.topl.crypto.signing.ExtendedEd25519
 import com.google.protobuf.ByteString
+import co.topl.brambl.common.ContainsEvidence.Ops
+import co.topl.brambl.common.ContainsImmutable.instances._
 
 object CredentiallerInterpreter {
 
@@ -56,24 +58,27 @@ object CredentiallerInterpreter {
      *
      * It may not be possible to retrieve a proof if
      * - The proposition type is not yet supported (not one of Locked, Digest, Signature, Height and Tick)
-     * - The secret data required for the proof is not available at idx (or idx not provided)
+     * - The secret data required for the proof is not available (idx for signature, preimage for digest)
+     * - The signature routine is not supported (not ExtendedEd25519)
      *
      * @param msg         Signable bytes to bind to the proof
      * @param proposition Proposition in which the Proof should satisfy
-     * @param idx         Indices for which the proof's secret data can be obtained from
      * @return The Proof
      */
-    private def getProof(msg: SignableBytes, proposition: Proposition, idxOpt: Option[Indices]): F[Proof] =
-      (proposition.value, idxOpt) match {
-        case (_: Proposition.Value.Locked, _) => Prover.lockedProver[F].prove((), msg)
-        case (_: Proposition.Value.Digest, Some(idx)) =>
-          dataApi.getPreimage(idx).map(Prover.digestProver[F].prove(_, msg)).getOrElse(Proof().pure[F])
-        case (Proposition.Value.DigitalSignature(Proposition.DigitalSignature(routine, _, _)), Some(idx)) =>
-          getSignatureProof(routine, idx, msg)
-        case (_: Proposition.Value.HeightRange, _) => Prover.heightProver[F].prove((), msg)
-        case (_: Proposition.Value.TickRange, _)   => Prover.tickProver[F].prove((), msg)
-        case _                                     => Proof().pure[F]
-      }
+    private def getProof(msg: SignableBytes, proposition: Proposition): F[Proof] = proposition.value match {
+      case _: Proposition.Value.Locked => Prover.lockedProver[F].prove((), msg)
+      case _: Proposition.Value.Digest =>
+        dataApi
+          .getPreimage(proposition.sizedEvidence)
+          .map(_.toOption.map(preimage => Prover.digestProver[F].prove(preimage, msg)).getOrElse(Proof().pure[F]))
+      case Proposition.Value.DigitalSignature(Proposition.DigitalSignature(routine, _, _)) =>
+        dataApi
+          .getIndices(proposition.sizedEvidence)
+          .map(_.toOption.map(idx => getSignatureProof(routine, idx, msg)).getOrElse(Proof().pure[F]))
+      case _: Proposition.Value.HeightRange => Prover.heightProver[F].prove((), msg)
+      case _: Proposition.Value.TickRange   => Prover.tickProver[F].prove((), msg)
+      case _                                => Proof().pure[F]
+    }
 
     /**
      * Return a Signature Proof that will satisfy a Signature Proposition, if possible.
@@ -118,14 +123,12 @@ object CredentiallerInterpreter {
       input: SpentTransactionOutput,
       msg:   SignableBytes
     ): F[SpentTransactionOutput] = {
-      // TODO: Revisit when Cartesian Indexing Scheme is more fleshed out
-      val idx: Option[Indices] = dataApi.getIndicesByTxoAddress(input.address)
       val attestation: F[Attestation] = input.attestation.value match {
         case Attestation.Value.Predicate(Attestation.Predicate(predLock, _, _)) =>
           predLock.challenges
             // TODO: Fix .getRevealed
             .map(_.getRevealed)
-            .map(getProof(msg, _, idx))
+            .map(getProof(msg, _))
             .sequence
             .map(proofs => Attestation().withPredicate(Attestation.Predicate(predLock, proofs)))
         // TODO: We are not handling other types of Attestations at this moment in time
