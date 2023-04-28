@@ -5,96 +5,149 @@ import co.topl.brambl.models.LockId
 import com.google.protobuf.ByteString
 import co.topl.brambl.utils.Encoding
 import co.topl.brambl.constants.NetworkConstants
+import scala.util.Random
 
-class AddressCodecsSpec extends munit.FunSuite {
+class AddressCodecsSpec extends munit.FunSuite with AddressCodecTestCases {
+
+  def checkEquality(
+    address:     String,
+    lockAddress: LockAddress
+  ): Boolean =
+    AddressCodecs
+      .decodeAddress(address)
+      .toOption
+      .get
+      .id
+      .value
+      .toByteArray()
+      .zip(lockAddress.id.value.toByteArray())
+      .map(x => x._1 == x._2)
+      .fold(true)(_ && _)
 
   test("Main Network Main Ledger Zero Test") {
     assertEquals(
       AddressCodecs.encodeAddress(
-        LockAddress(
-          NetworkConstants.MAIN_NETWORK_ID,
-          NetworkConstants.MAIN_LEDGER_ID,
-          LockId(
-            ByteString.copyFrom(Array.fill(32)(0.toByte))
-          )
-        )
+        testMainLockZeroLockAddress
       ),
-      "mtetmain1y1Rqvj9PiHrsoF4VRHKscLPArgdWe44ogoiKoxwfevERNVgxLLh"
+      testMainLockZeroLockAddressEncoded
+    )
+  }
+
+  test("Main Network Main Ledger Zero Test Decode") {
+    assert(
+      checkEquality(
+        testMainLockZeroLockAddressEncoded,
+        testMainLockZeroLockAddress
+      )
     )
   }
 
   test("Valhalla Network Main Ledger Zero Test") {
     assertEquals(
       AddressCodecs.encodeAddress(
-        LockAddress(
-          NetworkConstants.TEST_NETWORK_ID,
-          NetworkConstants.MAIN_LEDGER_ID,
-          LockId(
-            ByteString.copyFrom(Array.fill(32)(0.toByte))
-          )
-        )
+        testTestLockZeroLockAddress
       ),
-      "vtetDGydU3EhwSbcRVFiuHmyP37Y57BwpmmutR7ZPYdD8BYssHEj3FRhr2Y8"
+      testTestLockZeroLockAddressEncoded
+    )
+  }
+
+  test("Valhalla Network Main Ledger Zero Test Decode") {
+    assert(
+      checkEquality(
+        testTestLockZeroLockAddressEncoded,
+        testTestLockZeroLockAddress
+      )
     )
   }
 
   test("Private Network Main Ledger Zero Test") {
     assertEquals(
       AddressCodecs.encodeAddress(
-        LockAddress(
-          NetworkConstants.PRIVATE_NETWORK_ID,
-          NetworkConstants.MAIN_LEDGER_ID,
-          LockId(
-            ByteString.copyFrom(Array.fill(32)(0.toByte))
-          )
-        )
+        testPrivateLockZeroLockAddress
       ),
-      "ptetP7jshHTuV9bmPmtVLm6PtUzBMZ8iYRvAxvbGTJ5VgiEPHqCCnZ8MLLdi"
+      testPrivateLockZeroLockAddressEncoded
+    )
+  }
+
+  test("Private Network Main Ledger Zero Test Decode") {
+    assert(
+      checkEquality(
+        testPrivateLockZeroLockAddressEncoded,
+        testPrivateLockZeroLockAddress
+      )
     )
   }
 
   test("Main Network Main Ledger All One Test") {
     assertEquals(
       AddressCodecs.encodeAddress(
-        LockAddress(
-          NetworkConstants.MAIN_NETWORK_ID,
-          NetworkConstants.MAIN_LEDGER_ID,
-          LockId(
-            ByteString.copyFrom(Array.fill(32)(255.toByte))
-          )
-        )
+        testMainLockAllOneLockAddress
       ),
-      "mtetmain1y3Nb6xbRZiY6w4eCKrwsZeywmoFEHkugUSnS47dZeaEos36pZwb"
+      testMainLockAllOneLockAddressEncoded
+    )
+  }
+
+  test("Main Network Main Ledger All One Test Decode") {
+    assert(
+      checkEquality(
+        testMainLockAllOneLockAddressEncoded,
+        testMainLockAllOneLockAddress
+      )
     )
   }
 
   test("Valhalla Network Main Ledger All One Test") {
     assertEquals(
       AddressCodecs.encodeAddress(
-        LockAddress(
-          NetworkConstants.TEST_NETWORK_ID,
-          NetworkConstants.MAIN_LEDGER_ID,
-          LockId(
-            ByteString.copyFrom(Array.fill(32)(255.toByte))
-          )
-        )
+        testTestLockAllOneLockAddress
       ),
-      "vtetDGydU3Gegcq4TLgQ8RbZ5whA54WYbgtXc4pQGLGHERhZmGtjRjwruMj7"
+      testTestLockAllOneLockAddressEncoded
+    )
+  }
+
+  test("Valhalla Network Main Ledger All One Test Decode") {
+    assert(
+      checkEquality(
+        testTestLockAllOneLockAddressEncoded,
+        testTestLockAllOneLockAddress
+      )
     )
   }
 
   test("Private Network Main Ledger All One Test") {
     assertEquals(
       AddressCodecs.encodeAddress(
-        LockAddress(
-          NetworkConstants.PRIVATE_NETWORK_ID,
-          NetworkConstants.MAIN_LEDGER_ID,
-          LockId(
-            ByteString.copyFrom(Array.fill(32)(255.toByte))
-          )
-        )
+        testPrivateLockAllOneLockAddress
       ),
-      "ptetP7jshHVrEKqDRdKAZtuybPZoMWTKKM2ngaJ7L5iZnxP5BprDB3hGJEFr"
+      testPrivateLockAllOneLockAddressEncoded
+    )
+  }
+
+  test("Private Network Main Ledger All One Test Decode") {
+    assert(
+      checkEquality(
+        testPrivateLockAllOneLockAddressEncoded,
+        testPrivateLockAllOneLockAddress
+      )
+    )
+  }
+
+  test("Test random encode and decode") {
+    val randomLockAddress = LockAddress(
+      NetworkConstants.MAIN_NETWORK_ID,
+      NetworkConstants.MAIN_LEDGER_ID,
+      LockId(
+        ByteString.copyFrom(Random.nextBytes(32))
+      )
+    )
+    val encoded = AddressCodecs.encodeAddress(
+      randomLockAddress
+    )
+    assert(
+      checkEquality(
+        encoded,
+        randomLockAddress
+      )
     )
   }
 
