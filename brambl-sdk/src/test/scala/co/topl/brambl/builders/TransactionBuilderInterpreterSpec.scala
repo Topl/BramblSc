@@ -1,9 +1,11 @@
 package co.topl.brambl.builders
 
 import cats.Id
+import co.topl.brambl.models.{TransactionId, TransactionOutputAddress}
 import co.topl.brambl.{MockDataApi, MockHelpers}
 import co.topl.brambl.models.builders.{InputBuildRequest, OutputBuildRequest}
 import co.topl.brambl.models.transaction.IoTransaction
+import com.google.protobuf.ByteString
 
 class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers {
 
@@ -24,5 +26,28 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
     // Verify the input has a lock and value
     assert(res.inputs.head.value.value.isDefined)
     assert(res.inputs.head.attestation.value.isDefined)
+  }
+
+  test("Test error building unproven input") {
+    // both LockAddress and Value are trivial for this test
+    val outputRequests = List(OutputBuildRequest(trivialLockAddress, value))
+    // Does *not* point to an existing Transaction Output
+    val inputRequests = List(
+      InputBuildRequest(TransactionOutputAddress(0, 0, 0, TransactionId(ByteString.copyFrom(Array.fill(32)(0: Byte)))))
+    )
+    val txBuilder: TransactionBuilder[Id] = TransactionBuilderInterpreter.make[Id](MockDataApi)
+
+    val unprovenTx = txBuilder.constructUnprovenTransaction(inputRequests, outputRequests)
+
+    // Verify the correct error is returned
+    assert(unprovenTx.isLeft)
+    val res = unprovenTx.left.getOrElse(List.empty)
+    assert(res.length == 1)
+    assert(
+      res.head == BuilderError.InputBuilderError(
+        "Unable to construct proven input",
+        MockDataApi.UnspentTransactionOutputNotFound
+      )
+    )
   }
 }

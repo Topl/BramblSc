@@ -70,11 +70,11 @@ object CredentiallerInterpreter {
       case _: Proposition.Value.Digest =>
         dataApi
           .getPreimage(proposition.sizedEvidence)
-          .map(_.toOption.map(preimage => Prover.digestProver[F].prove(preimage, msg)).getOrElse(Proof().pure[F]))
+          .flatMap(_.toOption.map(preimage => Prover.digestProver[F].prove(preimage, msg)).getOrElse(Proof().pure[F]))
       case Proposition.Value.DigitalSignature(Proposition.DigitalSignature(routine, _, _)) =>
         dataApi
           .getIndices(proposition.sizedEvidence)
-          .map(_.toOption.map(idx => getSignatureProof(routine, idx, msg)).getOrElse(Proof().pure[F]))
+          .flatMap(_.toOption.map(idx => getSignatureProof(routine, idx, msg)).getOrElse(Proof().pure[F]))
       case _: Proposition.Value.HeightRange => Prover.heightProver[F].prove((), msg)
       case _: Proposition.Value.TickRange   => Prover.tickProver[F].prove((), msg)
       case _                                => Proof().pure[F]

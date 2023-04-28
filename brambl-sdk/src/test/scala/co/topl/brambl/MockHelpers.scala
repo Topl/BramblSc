@@ -16,7 +16,7 @@ import co.topl.crypto.hash.Blake2b256
 import co.topl.quivr.api.Proposer
 import co.topl.quivr.api.Prover
 import com.google.protobuf.ByteString
-import quivr.models.{Digest, Int128, KeyPair, Preimage, SignableBytes, SmallData}
+import quivr.models.{Digest, Int128, KeyPair, Preimage, Proposition, SignableBytes, SmallData}
 import co.topl.brambl.wallet.WalletApi.{cryptoToPbKeyPair, pbKeyPairToCryotoKeyPair}
 import co.topl.crypto.generation.Bip32Indexes
 import co.topl.crypto.generation.mnemonic.Entropy
@@ -24,6 +24,7 @@ import co.topl.crypto.signing.ExtendedEd25519
 
 trait MockHelpers {
   val MockIndices: Indices = Indices(0, 0, 0)
+  // Hardcoding ExtendedEd25519
   val MockMainKeyPair: KeyPair = (new ExtendedEd25519).deriveKeyPairFromEntropy(Entropy.generate(), None)
 
   val MockChildKeyPair: KeyPair = (new ExtendedEd25519).deriveKeyPairFromChildPath(
@@ -35,14 +36,15 @@ trait MockHelpers {
     )
   )
 
-  private val MockSecret: Array[Byte] = "A mock secret".getBytes
-  val MockPreimage: Preimage = Preimage(ByteString.copyFrom(MockSecret), ByteString.copyFromUtf8("salt"))
+  val MockSignatureProposition: Id[Proposition] =
+    Proposer.signatureProposer[Id].propose(("ExtendedEd25519", MockChildKeyPair.vk))
 
-  private val MockDigest = Digest(
-    ByteString.copyFrom(
-      (new Blake2b256).hash(MockPreimage.input.toByteArray ++ MockPreimage.salt.toByteArray)
-    )
-  )
+  val MockPreimage: Preimage = Preimage(ByteString.copyFrom("secret".getBytes), ByteString.copyFromUtf8("salt"))
+
+  // Hardcoding Blake2b256
+  private val MockDigest =
+    Digest(ByteString.copyFrom((new Blake2b256).hash(MockPreimage.input.toByteArray ++ MockPreimage.salt.toByteArray)))
+  val MockDigestProposition: Id[Proposition] = Proposer.digestProposer[Id].propose(("Blake2b256", MockDigest))
 
   val txDatum: Datum.IoTransaction = Datum.IoTransaction(
     Event
@@ -74,15 +76,11 @@ trait MockHelpers {
   val trivialLockAddress: LockAddress =
     LockAddress(0, 0, LockId(trivialOutLock.sizedEvidence.digest.value))
 
-  val inLockFull: Lock.Predicate = Lock.Predicate(
+  val inPredicateLockFull: Lock.Predicate = Lock.Predicate(
     List(
       Proposer.LockedProposer[Id].propose(None),
-      Proposer
-        .digestProposer[Id]
-        .propose(("Blake2b256", MockDigest)), // Hardcoding Blake2b256Digest
-      Proposer
-        .signatureProposer[Id]
-        .propose(("ExtendedEd25519", MockChildKeyPair.vk)), // Hardcoding Ed25519Signature
+      MockDigestProposition,
+      MockSignatureProposition,
       Proposer.heightProposer[Id].propose(("header", 0, 100)),
       Proposer.tickProposer[Id].propose((0, 100))
     )
@@ -90,14 +88,15 @@ trait MockHelpers {
     3
   )
 
-  val trivialInLockFullAddress: LockAddress =
-    LockAddress(0, 0, LockId(inLockFull.sizedEvidence.digest.value))
+  val inLockFull: Lock = Lock().withPredicate(inPredicateLockFull)
+  val inLockFullId: LockId = LockId(inLockFull.sizedEvidence.digest.value)
+  val inLockFullAddress: LockAddress = LockAddress(0, 0, inLockFullId)
 
   val fakeMsgBind: SignableBytes = "transaction binding".getBytes.immutable.signable
 
   val nonEmptyAttestation: Attestation = Attestation().withPredicate(
     Attestation.Predicate(
-      inLockFull,
+      inPredicateLockFull,
       List(
         Prover.lockedProver[Id].prove((), fakeMsgBind),
         Prover.heightProver[Id].prove((), fakeMsgBind),
@@ -108,7 +107,7 @@ trait MockHelpers {
 
   val output: UnspentTransactionOutput = UnspentTransactionOutput(trivialLockAddress, value)
 
-  val attFull: Attestation = Attestation().withPredicate(Attestation.Predicate(inLockFull, List()))
+  val attFull: Attestation = Attestation().withPredicate(Attestation.Predicate(inPredicateLockFull, List()))
 
   val inputFull: SpentTransactionOutput = SpentTransactionOutput(dummyTxoAddress, attFull, value)
 

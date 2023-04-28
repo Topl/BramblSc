@@ -33,7 +33,7 @@ object TransactionBuilderInterpreter {
         } yield (constructUnprovenAttestation(lock), utxo.value)
       ).value map {
         case Left(err) =>
-          BuilderError.InputBuilderError("Unable to construct Attestation", err).asLeft[SpentTransactionOutput]
+          BuilderError.InputBuilderError("Unable to construct proven input", err).asLeft[SpentTransactionOutput]
         case Right((Left(err), _)) => err.asLeft[SpentTransactionOutput]
         case Right((Right(att), value)) =>
           SpentTransactionOutput(data.address, att, value).asRight[BuilderError.InputBuilderError]

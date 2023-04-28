@@ -13,55 +13,45 @@ import com.google.protobuf.ByteString
 import io.circe.Json
 import io.circe.syntax.EncoderOps
 import quivr.models._
+import co.topl.brambl.common.ContainsEvidence.Ops
+import co.topl.brambl.common.ContainsImmutable.instances._
 
 /**
  * Mock Implementation of the DataApi
  */
 object MockDataApi extends DataApi[Id] with MockHelpers {
 
-  // Static mappings to provide the Wallet with data
-  val idxToLocks: Map[Indices, Lock.Predicate] = Map(
-    MockIndices -> inLockFull
-  )
-
-  val txoAddrToIdx: Map[TransactionOutputAddress, Indices] = Map(
-    dummyTxoAddress -> MockIndices
-  )
+  var mainKeyVaultStoreInstance: Map[String, Json] = Map()
 
   val txoAddrToTxo: Map[TransactionOutputAddress, UnspentTransactionOutput] = Map(
     dummyTxoAddress -> UnspentTransactionOutput(
-      trivialInLockFullAddress,
+      inLockFullAddress,
       Value.defaultInstance.withLvl(Value.LVL(Int128(ByteString.copyFrom(BigInt(1).toByteArray))))
     )
   )
 
-  val lockAddrToLock: Map[LockAddress, Lock] = Map(
-    trivialInLockFullAddress -> Lock().withPredicate(inLockFull)
+  val lockIdToLock: Map[LockId, Lock] = Map(inLockFullId -> inLockFull)
+
+  val propEvidenceToPreimage: Map[Evidence, Preimage] = Map(
+    MockDigestProposition.sizedEvidence -> MockPreimage
   )
 
-  override def getIndicesByTxoAddress(address: TransactionOutputAddress): Option[Indices] = txoAddrToIdx.get(address)
+  val propEvidenceToIdx: Map[Evidence, Indices] = Map(
+    MockSignatureProposition.sizedEvidence -> MockIndices
+  )
 
-  override def getUtxoByTxoAddress(address: TransactionOutputAddress): Option[UnspentTransactionOutput] =
-    txoAddrToTxo.get(address)
+  override def getUtxoByTxoAddress(
+    address: TransactionOutputAddress
+  ): Either[DataApiException, UnspentTransactionOutput] =
+    txoAddrToTxo.get(address).toRight(UnspentTransactionOutputNotFound)
 
-  override def getLockByLockAddress(address: LockAddress): Option[Lock] = lockAddrToLock.get(address)
+  override def getLock(lockId: LockId): Either[DataApiException, Lock] = lockIdToLock.get(lockId).toRight(LockNotFound)
 
-  override def getPreimage(idx: Indices): Option[Preimage] =
-    if (
-      idx.x == 0 && idx.y == 0 && idx.z == 0
-    ) // Mocking that we only have access to secrets associated with a specific index
-      Some(MockPreimage)
-    else None
+  override def getPreimage(propositionEvidence: Evidence): Either[DataApiException, Preimage] =
+    propEvidenceToPreimage.get(propositionEvidence).toRight(PreimageNotFound)
 
-  var mainKeyVaultStoreInstance: Map[String, Json] = Map()
-  case object MainKeyVaultStoreNotInitialized extends DataApiException("MainKeyVaultStore not initialized")
-
-  case class MainKeyVaultInvalid(cause: Throwable = null)
-      extends DataApiException("Error decoding MainKeyVaultStore", cause)
-
-  case object MainKeyVaultSaveFailure extends DataApiException("Error saving MainKeyVaultStore")
-
-  case object MainKeyVaultDeleteFailure extends DataApiException("Error deleting MainKeyVaultStore")
+  override def getIndices(propositionEvidence: Evidence): Either[DataApiException, Indices] =
+    propEvidenceToIdx.get(propositionEvidence).toRight(IndicesNotFound)
 
   override def saveMainKeyVaultStore(
     mainKeyVaultStore: VaultStore[Id],
@@ -104,4 +94,15 @@ object MockDataApi extends DataApi[Id] with MockHelpers {
       mainKeyVaultStoreInstance -= name
       Right(())
     }
+
+  case object IndicesNotFound extends DataApiException("Indices not found for SignatureProposition")
+  case object PreimageNotFound extends DataApiException("Preimage not found for DigestProposition")
+  case object LockNotFound extends DataApiException("Lock not found for LockId")
+  case object UnspentTransactionOutputNotFound extends DataApiException("UTXO not found")
+  case object MainKeyVaultStoreNotInitialized extends DataApiException("MainKeyVaultStore not initialized")
+
+  case class MainKeyVaultInvalid(cause: Throwable = null)
+      extends DataApiException("Error decoding MainKeyVaultStore", cause)
+  case object MainKeyVaultSaveFailure extends DataApiException("Error saving MainKeyVaultStore")
+  case object MainKeyVaultDeleteFailure extends DataApiException("Error deleting MainKeyVaultStore")
 }
