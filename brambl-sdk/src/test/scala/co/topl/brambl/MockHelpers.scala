@@ -89,8 +89,7 @@ trait MockHelpers {
   )
 
   val inLockFull: Lock = Lock().withPredicate(inPredicateLockFull)
-  val inLockFullId: LockId = LockId(inLockFull.sizedEvidence.digest.value)
-  val inLockFullAddress: LockAddress = LockAddress(0, 0, inLockFullId)
+  val inLockFullAddress: LockAddress = LockAddress(0, 0, LockId(inLockFull.sizedEvidence.digest.value))
 
   val fakeMsgBind: SignableBytes = "transaction binding".getBytes.immutable.signable
 

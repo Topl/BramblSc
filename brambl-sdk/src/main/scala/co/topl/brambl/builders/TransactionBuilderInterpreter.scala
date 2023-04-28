@@ -29,7 +29,7 @@ object TransactionBuilderInterpreter {
       (
         for {
           utxo <- EitherT(dataApi.getUtxoByTxoAddress(data.address))
-          lock <- EitherT(dataApi.getLock(utxo.address.id))
+          lock <- EitherT(dataApi.getLockByLockAddress(utxo.address))
         } yield (constructUnprovenAttestation(lock), utxo.value)
       ).value map {
         case Left(err) =>

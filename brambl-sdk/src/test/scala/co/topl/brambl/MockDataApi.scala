@@ -30,7 +30,7 @@ object MockDataApi extends DataApi[Id] with MockHelpers {
     )
   )
 
-  val lockIdToLock: Map[LockId, Lock] = Map(inLockFullId -> inLockFull)
+  val lockAddrToLock: Map[LockAddress, Lock] = Map(inLockFullAddress -> inLockFull)
 
   val propEvidenceToPreimage: Map[Evidence, Preimage] = Map(
     MockDigestProposition.sizedEvidence -> MockPreimage
@@ -45,7 +45,8 @@ object MockDataApi extends DataApi[Id] with MockHelpers {
   ): Either[DataApiException, UnspentTransactionOutput] =
     txoAddrToTxo.get(address).toRight(UnspentTransactionOutputNotFound)
 
-  override def getLock(lockId: LockId): Either[DataApiException, Lock] = lockIdToLock.get(lockId).toRight(LockNotFound)
+  override def getLockByLockAddress(address: LockAddress): Either[DataApiException, Lock] =
+    lockAddrToLock.get(address).toRight(LockNotFound)
 
   override def getPreimage(propositionEvidence: Evidence): Either[DataApiException, Preimage] =
     propEvidenceToPreimage.get(propositionEvidence).toRight(PreimageNotFound)

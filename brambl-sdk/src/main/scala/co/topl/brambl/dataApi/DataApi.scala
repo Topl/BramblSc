@@ -1,7 +1,7 @@
 package co.topl.brambl.dataApi
 
 import co.topl.brambl.dataApi.DataApi._
-import co.topl.brambl.models.{Evidence, Indices, LockId, TransactionOutputAddress}
+import co.topl.brambl.models.{Evidence, Indices, LockAddress, TransactionOutputAddress}
 import co.topl.brambl.models.box.Lock
 import co.topl.brambl.models.transaction.UnspentTransactionOutput
 import co.topl.crypto.encryption.VaultStore
@@ -29,14 +29,14 @@ trait DataApi[F[_]] {
   def getUtxoByTxoAddress(address: TransactionOutputAddress): F[Either[DataApiException, UnspentTransactionOutput]]
 
   /**
-   * Return the Lock targeted by a LockId. A LockId is the evidence of a Lock's immutable nytes/
+   * Return the Lock targeted by a LockAddress.
    *
    * A LockAddress is meant to identify a Lock on chain.
    *
-   * @param lockId The LockId for which to retrieve the Lock
-   * @return The Lock targeted by the given lockId, if it exists. Else a DataApiException
+   * @param address The LockAddress for which to retrieve the Lock
+   * @return The Lock targeted by the given address, if it exists. Else a DataApiException
    */
-  def getLock(lockId: LockId): F[Either[DataApiException, Lock]]
+  def getLockByLockAddress(address: LockAddress): F[Either[DataApiException, Lock]]
 
   /**
    * Return the preimage secret associated to a digest proposition.
