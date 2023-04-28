@@ -6,9 +6,10 @@ import co.topl.brambl.{Context, MockDataApi, MockHelpers}
 import co.topl.brambl.common.ContainsSignable.ContainsSignableTOps
 import co.topl.brambl.common.ContainsSignable.instances._
 import co.topl.brambl.models.Indices
-import co.topl.brambl.models.box.Value
+import co.topl.brambl.models.box.{Attestation, Challenge, Lock, Value}
 import co.topl.brambl.validation.TransactionAuthorizationError.AuthorizationFailed
 import co.topl.brambl.validation.TransactionSyntaxError
+import co.topl.quivr.api.Proposer
 import co.topl.quivr.runtime.QuivrRuntimeErrors.ValidationError.{
   EvaluationAuthorizationFailed,
   LockedPropositionIsUnsatisfiable
@@ -23,19 +24,33 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
     val provenPredicate = provenTx.inputs.head.attestation.getPredicate
     val sameLen = provenPredicate.lock.challenges.length == provenPredicate.responses.length
     val nonEmpty = provenPredicate.responses.forall(proof => !proof.value.isEmpty)
-    assertEquals(sameLen && nonEmpty, true)
+    assert(sameLen && nonEmpty)
     assertEquals(provenTx.signable.value, txFull.signable.value)
   }
 
   test("prove: Single Input Transaction with Attestation.Predicate > Unprovable propositions have empty proofs") {
-    // Secrets are not available for this TransactionOutputAddress
-    val unknownKnownId = dummyTxoAddress.copy(network = 1, ledger = 1, index = 1)
-    val testTx = txFull.copy(inputs = txFull.inputs.map(stxo => stxo.copy(address = unknownKnownId)))
+    // Secrets are not available for the updated Signature and Digest propositions
+    val testSignatureProposition = Proposer.signatureProposer[Id].propose(("invalid-routine", MockChildKeyPair.vk))
+    val testDigestProposition = Proposer.digestProposer[Id].propose(("invalid-routine", MockDigest))
+    val testAttestation = Attestation().withPredicate(
+      Attestation.Predicate(
+        Lock.Predicate(
+          List(
+            Challenge().withRevealed(testSignatureProposition),
+            Challenge().withRevealed(testDigestProposition)
+          ),
+          2
+        ),
+        List()
+      )
+    )
+    val testTx = txFull.copy(inputs = txFull.inputs.map(stxo => stxo.copy(attestation = testAttestation)))
     val provenTx: IoTransaction = CredentiallerInterpreter.make[Id](MockDataApi, MockMainKeyPair).prove(testTx)
     val provenPredicate = provenTx.inputs.head.attestation.getPredicate
     val sameLen = provenPredicate.lock.challenges.length == provenPredicate.responses.length
-    val numEmpty = provenPredicate.responses.count(_.value.isEmpty) == 2 // Digest and Signature proofs are empty
-    assertEquals(sameLen && numEmpty, true)
+    val correctLen = provenPredicate.lock.challenges.length == 2
+    val allEmpty = provenPredicate.responses.forall(_.value.isEmpty) // Digest and Signature proofs are empty
+    assert(sameLen && correctLen && allEmpty)
     assertEquals(provenTx.signable.value, testTx.signable.value)
   }
 

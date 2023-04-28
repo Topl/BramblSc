@@ -25,7 +25,7 @@ import co.topl.crypto.signing.ExtendedEd25519
 trait MockHelpers {
   val MockIndices: Indices = Indices(0, 0, 0)
   // Hardcoding ExtendedEd25519
-  val MockMainKeyPair: KeyPair = (new ExtendedEd25519).deriveKeyPairFromEntropy(Entropy.generate(), None)
+  val MockMainKeyPair: KeyPair = (new ExtendedEd25519).deriveKeyPairFromSeed(Array.fill(96)(0: Byte))
 
   val MockChildKeyPair: KeyPair = (new ExtendedEd25519).deriveKeyPairFromChildPath(
     pbKeyPairToCryotoKeyPair(MockMainKeyPair).signingKey,
@@ -42,7 +42,7 @@ trait MockHelpers {
   val MockPreimage: Preimage = Preimage(ByteString.copyFrom("secret".getBytes), ByteString.copyFromUtf8("salt"))
 
   // Hardcoding Blake2b256
-  private val MockDigest =
+  val MockDigest: Digest =
     Digest(ByteString.copyFrom((new Blake2b256).hash(MockPreimage.input.toByteArray ++ MockPreimage.salt.toByteArray)))
   val MockDigestProposition: Id[Proposition] = Proposer.digestProposer[Id].propose(("Blake2b256", MockDigest))
 
