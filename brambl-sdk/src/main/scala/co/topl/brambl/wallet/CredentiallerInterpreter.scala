@@ -67,14 +67,16 @@ object CredentiallerInterpreter {
      */
     private def getProof(msg: SignableBytes, proposition: Proposition): F[Proof] = proposition.value match {
       case _: Proposition.Value.Locked => Prover.lockedProver[F].prove((), msg)
-      case _: Proposition.Value.Digest =>
+      case digest: Proposition.Value.Digest =>
         dataApi
-          .getPreimage(proposition.sizedEvidence)
+          .getPreimage(digest.value)
           .flatMap(_.toOption.map(preimage => Prover.digestProver[F].prove(preimage, msg)).getOrElse(Proof().pure[F]))
-      case Proposition.Value.DigitalSignature(Proposition.DigitalSignature(routine, _, _)) =>
+      case signature: Proposition.Value.DigitalSignature =>
         dataApi
-          .getIndices(proposition.sizedEvidence)
-          .flatMap(_.toOption.map(idx => getSignatureProof(routine, idx, msg)).getOrElse(Proof().pure[F]))
+          .getIndices(signature.value)
+          .flatMap(
+            _.toOption.map(idx => getSignatureProof(signature.value.routine, idx, msg)).getOrElse(Proof().pure[F])
+          )
       case _: Proposition.Value.HeightRange => Prover.heightProver[F].prove((), msg)
       case _: Proposition.Value.TickRange   => Prover.tickProver[F].prove((), msg)
       case _                                => Proof().pure[F]

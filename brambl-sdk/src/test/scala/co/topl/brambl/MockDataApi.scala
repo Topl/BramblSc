@@ -33,11 +33,11 @@ object MockDataApi extends DataApi[Id] with MockHelpers {
   val lockAddrToLock: Map[LockAddress, Lock] = Map(inLockFullAddress -> inLockFull)
 
   val propEvidenceToPreimage: Map[Evidence, Preimage] = Map(
-    MockDigestProposition.sizedEvidence -> MockPreimage
+    MockDigestProposition.value.digest.get.sizedEvidence -> MockPreimage
   )
 
   val propEvidenceToIdx: Map[Evidence, Indices] = Map(
-    MockSignatureProposition.sizedEvidence -> MockIndices
+    MockSignatureProposition.value.digitalSignature.get.sizedEvidence -> MockIndices
   )
 
   override def getUtxoByTxoAddress(
@@ -48,11 +48,11 @@ object MockDataApi extends DataApi[Id] with MockHelpers {
   override def getLockByLockAddress(address: LockAddress): Either[DataApiException, Lock] =
     lockAddrToLock.get(address).toRight(LockNotFound)
 
-  override def getPreimage(propositionEvidence: Evidence): Either[DataApiException, Preimage] =
-    propEvidenceToPreimage.get(propositionEvidence).toRight(PreimageNotFound)
+  override def getPreimage(digestProposition: Proposition.Digest): Either[DataApiException, Preimage] =
+    propEvidenceToPreimage.get(digestProposition.sizedEvidence).toRight(PreimageNotFound)
 
-  override def getIndices(propositionEvidence: Evidence): Either[DataApiException, Indices] =
-    propEvidenceToIdx.get(propositionEvidence).toRight(IndicesNotFound)
+  override def getIndices(signatureProposition: Proposition.DigitalSignature): Either[DataApiException, Indices] =
+    propEvidenceToIdx.get(signatureProposition.sizedEvidence).toRight(IndicesNotFound)
 
   override def saveMainKeyVaultStore(
     mainKeyVaultStore: VaultStore[Id],

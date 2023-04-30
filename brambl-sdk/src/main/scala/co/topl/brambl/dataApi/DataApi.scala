@@ -5,7 +5,7 @@ import co.topl.brambl.models.{Evidence, Indices, LockAddress, TransactionOutputA
 import co.topl.brambl.models.box.Lock
 import co.topl.brambl.models.transaction.UnspentTransactionOutput
 import co.topl.crypto.encryption.VaultStore
-import quivr.models.Preimage
+import quivr.models.{Preimage, Proposition}
 
 /**
  * Defines a storage API for fetching and storing keys and states.
@@ -41,20 +41,20 @@ trait DataApi[F[_]] {
   /**
    * Return the preimage secret associated to a digest proposition.
    *
-   * @param propositionEvidence The evidence of the Digest Proposition for which to retrieve the preimage secret for
-   * @return The preimage secret associated to the Digest Proposition evidence if it exists. Else a DataApiException
+   * @param digestProposition The Digest Proposition for which to retrieve the preimage secret for
+   * @return The preimage secret associated to the Digest Proposition if it exists. Else a DataApiException
    */
-  def getPreimage(propositionEvidence: Evidence): F[Either[DataApiException, Preimage]]
+  def getPreimage(digestProposition: Proposition.Digest): F[Either[DataApiException, Preimage]]
 
   /**
    * Return the indices (x/y/z) associated to a signature proposition. A Signature Proposition is created with a
    * verification and must be signed with the corresponding signing key. The verification and signing key pair is
    * derived from the indices.
    *
-   * @param propositionEvidence The evidence of the Signature Proposition for which to retrieve the indices for
-   * @return The indices associated to the Signature Proposition evidence if it exists. Else a DataApiException
+   * @param signatureProposition The Signature Proposition for which to retrieve the indices for
+   * @return The indices associated to the Signature Proposition if it exists. Else a DataApiException
    */
-  def getIndices(propositionEvidence: Evidence): F[Either[DataApiException, Indices]]
+  def getIndices(signatureProposition: Proposition.DigitalSignature): F[Either[DataApiException, Indices]]
 
   /**
    * Persist a VaultStore for the Topl Main Secret Key.
