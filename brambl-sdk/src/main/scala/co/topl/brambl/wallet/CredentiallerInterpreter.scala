@@ -66,20 +66,18 @@ object CredentiallerInterpreter {
      * @return The Proof
      */
     private def getProof(msg: SignableBytes, proposition: Proposition): F[Proof] = proposition.value match {
-      case _: Proposition.Value.Locked => Prover.lockedProver[F].prove((), msg)
-      case digest: Proposition.Value.Digest =>
-        dataApi
-          .getPreimage(digest.value)
-          .flatMap(_.toOption.map(preimage => Prover.digestProver[F].prove(preimage, msg)).getOrElse(Proof().pure[F]))
-      case signature: Proposition.Value.DigitalSignature =>
-        dataApi
-          .getIndices(signature.value)
-          .flatMap(
-            _.toOption.map(idx => getSignatureProof(signature.value.routine, idx, msg)).getOrElse(Proof().pure[F])
-          )
+      case _: Proposition.Value.Locked      => Prover.lockedProver[F].prove((), msg)
       case _: Proposition.Value.HeightRange => Prover.heightProver[F].prove((), msg)
       case _: Proposition.Value.TickRange   => Prover.tickProver[F].prove((), msg)
-      case _                                => Proof().pure[F]
+      case Proposition.Value.Digest(digest) =>
+        dataApi
+          .getPreimage(digest)
+          .flatMap(_.toOption.map(preimage => Prover.digestProver[F].prove(preimage, msg)).getOrElse(Proof().pure[F]))
+      case Proposition.Value.DigitalSignature(signature) =>
+        dataApi
+          .getIndices(signature)
+          .flatMap(_.toOption.map(idx => getSignatureProof(signature.routine, idx, msg)).getOrElse(Proof().pure[F]))
+      case _ => Proof().pure[F]
     }
 
     /**
