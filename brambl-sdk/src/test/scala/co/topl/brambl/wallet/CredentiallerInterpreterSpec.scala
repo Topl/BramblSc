@@ -160,4 +160,41 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
       s"AuthorizationFailed errors expects a DigitalSignature error. Received: ${errs}"
     )
   }
+
+  test("prove: Transaction with Threshold Proposition > Threshold Proof is correctly generated") {
+  }
+
+  test("prove: Transaction with And Proposition > And Proof is correctly generated") {
+  }
+
+  test("prove: Transaction with Or Proposition > Or Proof is correctly generated") {
+  }
+
+  test("prove: Transaction with Not Proposition > Not Proof is correctly generated") {
+  }
+
+  test("proveAndValidate: Transaction with Threshold Proposition > Unmet Threshold fails validation") {
+  }
+
+  test("proveAndValidate: Transaction with And Proposition > If one inner proof fails, the And proof fails") {
+  }
+
+  test("proveAndValidate: Transaction with Or Proposition > If both inner proofs fail, the Or proof fails") {
+  }
+
+  test("proveAndValidate: Transaction with Not Proposition > If inner proof succeeds, the Not proof fails") {
+  }
+  test("proveAndValidate: Transaction with Threshold Proposition > Threshold met passes validation") {
+  }
+
+  test("proveAndValidate: Transaction with And Proposition > If both inner proofs pass, the And proof passes") {
+  }
+
+  test("proveAndValidate: Transaction with Or Proposition > If only one inner proof passes, the Or proof passes") {
+  }
+
+  test("proveAndValidate: Transaction with Not Proposition > If inner proof fails with error, the Not proof succeeds") {
+  }
+  test("proveAndValidate: Transaction with Not Proposition > If inner proof fails with `false`, the Not proof succeeds") {
+  }
 }
