@@ -1,6 +1,6 @@
 package co.topl.brambl.wallet
 
-import cats.Monad
+import cats.{Applicative, Monad}
 import cats.implicits._
 import co.topl.brambl.models.transaction.IoTransaction
 import co.topl.brambl.models.transaction.SpentTransactionOutput
@@ -57,7 +57,8 @@ object CredentiallerInterpreter {
      * Otherwise return [[Proof.Value.Empty]]
      *
      * It may not be possible to retrieve a proof if
-     * - The proposition type is not yet supported (not one of Locked, Digest, Signature, Height and Tick)
+     * - The proposition type is not yet supported
+     *      (not one of Locked, Digest, Signature, Height, Tick, Threshold, And, Or, and Not)
      * - The secret data required for the proof is not available (idx for signature, preimage for digest)
      * - The signature routine is not supported (not ExtendedEd25519)
      *
@@ -77,7 +78,20 @@ object CredentiallerInterpreter {
         dataApi
           .getIndices(signature)
           .flatMap(_.toOption.map(idx => getSignatureProof(signature.routine, idx, msg)).getOrElse(Proof().pure[F]))
-      case _ => Proof().pure[F]
+      case Proposition.Value.Not(Proposition.Not(not, _)) =>
+        getProof(msg, not)
+          .flatMap(Prover.notProver[F].prove(_, msg))
+      case Proposition.Value.And(Proposition.And(left, right, _)) =>
+        Applicative[F]
+          .map2(getProof(msg, left), getProof(msg, right))(
+            (leftProof, rightProof) => Prover.andProver[F].prove((leftProof, rightProof), msg)
+          ).flatten
+      case Proposition.Value.Or(Proposition.Or(left, right, _)) =>
+        Applicative[F]
+          .map2(getProof(msg, left), getProof(msg, right))(
+            (leftProof, rightProof) => Prover.andProver[F].prove((leftProof, rightProof), msg)
+          ).flatten
+      case _                                => Proof().pure[F]
     }
 
     /**
