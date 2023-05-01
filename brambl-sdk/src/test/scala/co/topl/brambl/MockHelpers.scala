@@ -46,6 +46,10 @@ trait MockHelpers {
     Digest(ByteString.copyFrom((new Blake2b256).hash(MockPreimage.input.toByteArray ++ MockPreimage.salt.toByteArray)))
   val MockDigestProposition: Id[Proposition] = Proposer.digestProposer[Id].propose(("Blake2b256", MockDigest))
 
+  val MockTickProposition: Id[Proposition] = Proposer.tickProposer[Id].propose((0, 100))
+
+  val MockLockedProposition: Id[Proposition] = Proposer.LockedProposer[Id].propose(None)
+
   val txDatum: Datum.IoTransaction = Datum.IoTransaction(
     Event
       .IoTransaction(
@@ -78,11 +82,11 @@ trait MockHelpers {
 
   val inPredicateLockFull: Lock.Predicate = Lock.Predicate(
     List(
-      Proposer.LockedProposer[Id].propose(None),
+      MockLockedProposition,
       MockDigestProposition,
       MockSignatureProposition,
       Proposer.heightProposer[Id].propose(("header", 0, 100)),
-      Proposer.tickProposer[Id].propose((0, 100))
+      MockTickProposition
     )
       .map(Challenge().withRevealed),
     3

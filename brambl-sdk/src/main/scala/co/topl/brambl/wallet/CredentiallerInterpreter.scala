@@ -81,20 +81,22 @@ object CredentiallerInterpreter {
           .flatMap(Prover.notProver[F].prove(_, msg))
       case Proposition.Value.And(Proposition.And(left, right, _)) =>
         Applicative[F]
-          .map2(getProof(msg, left), getProof(msg, right))(
-            (leftProof, rightProof) => Prover.andProver[F].prove((leftProof, rightProof), msg)
-          ).flatten
+          .map2(getProof(msg, left), getProof(msg, right))((leftProof, rightProof) =>
+            Prover.andProver[F].prove((leftProof, rightProof), msg)
+          )
+          .flatten
       case Proposition.Value.Or(Proposition.Or(left, right, _)) =>
         Applicative[F]
-          .map2(getProof(msg, left), getProof(msg, right))(
-            (leftProof, rightProof) => Prover.andProver[F].prove((leftProof, rightProof), msg)
-          ).flatten
+          .map2(getProof(msg, left), getProof(msg, right))((leftProof, rightProof) =>
+            Prover.andProver[F].prove((leftProof, rightProof), msg)
+          )
+          .flatten
       case Proposition.Value.Threshold(Proposition.Threshold(challenges, _, _)) =>
         challenges
           .map(getProof(msg, _))
           .sequence
           .flatMap(proofs => Prover.thresholdProver[F].prove(proofs.toSet, msg))
-      case _                                => Proof().pure[F]
+      case _ => Proof().pure[F]
     }
 
     /**
