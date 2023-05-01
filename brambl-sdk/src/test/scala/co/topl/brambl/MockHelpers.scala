@@ -116,5 +116,6 @@ trait MockHelpers {
 
   val inputFull: SpentTransactionOutput = SpentTransactionOutput(dummyTxoAddress, attFull, value)
 
-  val txFull: IoTransaction = IoTransaction(List(inputFull), List(output), txDatum)
+  val txFull: IoTransaction =
+    IoTransaction.defaultInstance.withInputs(List(inputFull)).withOutputs(List(output)).withDatum(txDatum)
 }

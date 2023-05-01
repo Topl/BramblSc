@@ -29,7 +29,7 @@ object CredentiallerInterpreter {
       unprovenTx.inputs
         .map(proveInput(_, signable))
         .sequence
-        .map(IoTransaction(_, unprovenTx.outputs, unprovenTx.datum))
+        .map(IoTransaction.defaultInstance.withInputs(_).withOutputs(unprovenTx.outputs).withDatum(unprovenTx.datum))
     }
 
     override def validate(tx: IoTransaction, ctx: Context[F]): F[List[ValidationError]] = for {
