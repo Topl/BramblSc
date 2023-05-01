@@ -48,6 +48,8 @@ trait MockHelpers {
 
   val MockTickProposition: Id[Proposition] = Proposer.tickProposer[Id].propose((0, 100))
 
+  val MockHeightProposition: Id[Proposition] = Proposer.heightProposer[Id].propose(("header", 0, 100))
+
   val MockLockedProposition: Id[Proposition] = Proposer.LockedProposer[Id].propose(None)
 
   val txDatum: Datum.IoTransaction = Datum.IoTransaction(
@@ -85,7 +87,7 @@ trait MockHelpers {
       MockLockedProposition,
       MockDigestProposition,
       MockSignatureProposition,
-      Proposer.heightProposer[Id].propose(("header", 0, 100)),
+      MockHeightProposition,
       MockTickProposition
     )
       .map(Challenge().withRevealed),

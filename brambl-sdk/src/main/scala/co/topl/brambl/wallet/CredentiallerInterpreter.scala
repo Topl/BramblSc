@@ -88,7 +88,7 @@ object CredentiallerInterpreter {
       case Proposition.Value.Or(Proposition.Or(left, right, _)) =>
         Applicative[F]
           .map2(getProof(msg, left), getProof(msg, right))((leftProof, rightProof) =>
-            Prover.andProver[F].prove((leftProof, rightProof), msg)
+            Prover.orProver[F].prove((leftProof, rightProof), msg)
           )
           .flatten
       case Proposition.Value.Threshold(Proposition.Threshold(challenges, _, _)) =>
