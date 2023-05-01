@@ -17,8 +17,6 @@ import cats.data.EitherT
 import co.topl.brambl.models.box.Attestation
 import co.topl.crypto.signing.ExtendedEd25519
 import com.google.protobuf.ByteString
-import co.topl.brambl.common.ContainsEvidence.Ops
-import co.topl.brambl.common.ContainsImmutable.instances._
 
 object CredentiallerInterpreter {
 
@@ -91,6 +89,11 @@ object CredentiallerInterpreter {
           .map2(getProof(msg, left), getProof(msg, right))(
             (leftProof, rightProof) => Prover.andProver[F].prove((leftProof, rightProof), msg)
           ).flatten
+      case Proposition.Value.Threshold(Proposition.Threshold(challenges, _, _)) =>
+        challenges
+          .map(getProof(msg, _))
+          .sequence
+          .flatMap(proofs => Prover.thresholdProver[F].prove(proofs.toSet, msg))
       case _                                => Proof().pure[F]
     }
 
