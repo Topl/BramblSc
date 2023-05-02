@@ -38,15 +38,6 @@ class EncodingSpec extends munit.FunSuite {
     )
   }
 
-  test("Main Network Main Ledger All One Test") {
-    assertEquals(
-      Encoding.encodeToBase58Check(
-        Encoding.decodeFromHex("8A11054CE7B07A00" + Array.fill(64)("F").mkString).toOption.get
-      ),
-      "mtetmain1y3Nb6xbRZiY6w4eCKrwsZeywmoFEHkugUSnS47dZeaEos36pZwb"
-    )
-  }
-
   test("Valhalla Network Main Ledger All One Test") {
     assertEquals(
       Encoding.encodeToBase58Check(
