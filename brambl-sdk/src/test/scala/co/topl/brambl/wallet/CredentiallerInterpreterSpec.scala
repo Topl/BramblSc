@@ -5,7 +5,7 @@ import co.topl.brambl.models.transaction.IoTransaction
 import co.topl.brambl.{Context, MockDataApi, MockHelpers}
 import co.topl.brambl.common.ContainsSignable.ContainsSignableTOps
 import co.topl.brambl.common.ContainsSignable.instances._
-import co.topl.brambl.models.Indices
+import co.topl.brambl.models.{Datum, Event, Indices}
 import co.topl.brambl.models.box.{Attestation, Challenge, Lock, Value}
 import co.topl.brambl.validation.TransactionAuthorizationError.AuthorizationFailed
 import co.topl.brambl.validation.TransactionSyntaxError
@@ -159,5 +159,312 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
       },
       s"AuthorizationFailed errors expects a DigitalSignature error. Received: ${errs}"
     )
+  }
+
+  test("prove: Transaction with Threshold Proposition > Threshold Proof is correctly generated") {
+    val testProposition =
+      Challenge().withRevealed(
+        Proposer.thresholdProposer[Id].propose((Set(MockTickProposition, MockHeightProposition), 2))
+      )
+    val testTx = txFull.copy(inputs =
+      List(
+        inputFull.copy(attestation =
+          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List()))
+        )
+      )
+    )
+    val provenTx: IoTransaction = CredentiallerInterpreter.make[Id](MockDataApi, MockMainKeyPair).prove(testTx)
+    val provenPredicate = provenTx.inputs.head.attestation.getPredicate
+    assert(provenPredicate.responses.length == 1)
+    val threshProof = provenPredicate.responses.head
+    assert(!threshProof.value.isEmpty)
+    assert(threshProof.value.isThreshold)
+    val innerProofs = threshProof.value.threshold.get.responses
+    assert(innerProofs.length == 2)
+    assert(innerProofs.head.value.isTickRange)
+    assert(innerProofs(1).value.isHeightRange)
+    assertEquals(provenTx.signable.value, testTx.signable.value)
+  }
+
+  test("prove: Transaction with And Proposition > And Proof is correctly generated") {
+    val testProposition =
+      Challenge().withRevealed(Proposer.andProposer[Id].propose((MockTickProposition, MockHeightProposition)))
+    val testTx = txFull.copy(inputs =
+      List(
+        inputFull.copy(attestation =
+          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List()))
+        )
+      )
+    )
+    val provenTx: IoTransaction = CredentiallerInterpreter.make[Id](MockDataApi, MockMainKeyPair).prove(testTx)
+    val provenPredicate = provenTx.inputs.head.attestation.getPredicate
+    assert(provenPredicate.responses.length == 1)
+    val andProof = provenPredicate.responses.head
+    assert(!andProof.value.isEmpty)
+    assert(andProof.value.isAnd)
+    assert(andProof.value.and.get.left.value.isTickRange)
+    assert(andProof.value.and.get.right.value.isHeightRange)
+    assertEquals(provenTx.signable.value, testTx.signable.value)
+  }
+
+  test("prove: Transaction with Or Proposition > Or Proof is correctly generated") {
+    val testProposition =
+      Challenge().withRevealed(Proposer.orProposer[Id].propose((MockTickProposition, MockHeightProposition)))
+    val testTx = txFull.copy(inputs =
+      List(
+        inputFull.copy(attestation =
+          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List()))
+        )
+      )
+    )
+    val provenTx: IoTransaction = CredentiallerInterpreter.make[Id](MockDataApi, MockMainKeyPair).prove(testTx)
+    val provenPredicate = provenTx.inputs.head.attestation.getPredicate
+    assert(provenPredicate.responses.length == 1)
+    val orProof = provenPredicate.responses.head
+    assert(!orProof.value.isEmpty)
+    assert(orProof.value.isOr)
+    assert(orProof.value.or.get.left.value.isTickRange)
+    assert(orProof.value.or.get.right.value.isHeightRange)
+    assertEquals(provenTx.signable.value, testTx.signable.value)
+  }
+
+  test("prove: Transaction with Not Proposition > Not Proof is correctly generated") {
+    val testProposition = Challenge().withRevealed(Proposer.notProposer[Id].propose(MockTickProposition))
+    val testTx = txFull.copy(inputs =
+      List(
+        inputFull.copy(attestation =
+          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List()))
+        )
+      )
+    )
+    val provenTx: IoTransaction = CredentiallerInterpreter.make[Id](MockDataApi, MockMainKeyPair).prove(testTx)
+    val provenPredicate = provenTx.inputs.head.attestation.getPredicate
+    assert(provenPredicate.responses.length == 1)
+    val notProof = provenPredicate.responses.head
+    assert(!notProof.value.isEmpty)
+    assert(notProof.value.isNot)
+    assert(notProof.value.not.get.proof.value.isTickRange)
+    assertEquals(provenTx.signable.value, testTx.signable.value)
+  }
+
+  test("proveAndValidate: Transaction with Threshold Proposition > Unmet Threshold fails validation") {
+    val testProposition =
+      Challenge().withRevealed(
+        Proposer.thresholdProposer[Id].propose(Set(MockTickProposition, MockHeightProposition), 2)
+      )
+    val testTx = txFull.copy(inputs =
+      List(
+        inputFull.copy(attestation =
+          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List()))
+        )
+      )
+    )
+    val ctx = Context[Id](testTx, 50, _ => None) // Tick should pass, height should fail
+    val res = CredentiallerInterpreter.make[Id](MockDataApi, MockMainKeyPair).proveAndValidate(testTx, ctx)
+    assert(res.isLeft)
+    val validationErrs = res.swap.getOrElse(List.empty)
+    assert(validationErrs.length == 1)
+    val quivrErrs = validationErrs.head.asInstanceOf[AuthorizationFailed].errors
+    assert(quivrErrs.length == 1)
+    assert(quivrErrs.head.isInstanceOf[EvaluationAuthorizationFailed])
+    val err = quivrErrs.head.asInstanceOf[EvaluationAuthorizationFailed]
+    assert(err.proposition == testProposition.getRevealed)
+    assert(err.proof.value.isThreshold)
+    assert(err.proof.value.threshold.get.responses.head.value.isTickRange)
+    assert(err.proof.value.threshold.get.responses(1).value.isHeightRange)
+  }
+
+  test("proveAndValidate: Transaction with And Proposition > If one inner proof fails, the And proof fails") {
+    val testProposition =
+      Challenge().withRevealed(Proposer.andProposer[Id].propose((MockTickProposition, MockHeightProposition)))
+    val testTx = txFull.copy(inputs =
+      List(
+        inputFull.copy(attestation =
+          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List()))
+        )
+      )
+    )
+    val ctx = Context[Id](testTx, 50, _ => None) // Tick should pass, height should fail
+    val res = CredentiallerInterpreter.make[Id](MockDataApi, MockMainKeyPair).proveAndValidate(testTx, ctx)
+    assert(res.isLeft)
+    val validationErrs = res.swap.getOrElse(List.empty)
+    assert(validationErrs.length == 1)
+    val quivrErrs = validationErrs.head.asInstanceOf[AuthorizationFailed].errors
+    assert(quivrErrs.length == 1)
+    assert(quivrErrs.head.isInstanceOf[EvaluationAuthorizationFailed])
+    // If an AND proposition fails, the error of the failed inner proof is returned. In this case it is the Height
+    assert(quivrErrs.head.asInstanceOf[EvaluationAuthorizationFailed].proposition == MockHeightProposition)
+    assert(quivrErrs.head.asInstanceOf[EvaluationAuthorizationFailed].proof.value.isHeightRange)
+  }
+
+  test("proveAndValidate: Transaction with Or Proposition > If both inner proofs fail, the Or proof fails") {
+    val testProposition =
+      Challenge().withRevealed(Proposer.orProposer[Id].propose((MockTickProposition, MockHeightProposition)))
+    val testTx = txFull.copy(inputs =
+      List(
+        inputFull.copy(attestation =
+          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List()))
+        )
+      )
+    )
+    val ctx = Context[Id](testTx, 500, _ => None) // Tick and height should fail
+    val res = CredentiallerInterpreter.make[Id](MockDataApi, MockMainKeyPair).proveAndValidate(testTx, ctx)
+    assert(res.isLeft)
+    val validationErrs = res.swap.getOrElse(List.empty)
+    assert(validationErrs.length == 1)
+    val quivrErrs = validationErrs.head.asInstanceOf[AuthorizationFailed].errors
+    assert(quivrErrs.length == 1)
+    assert(quivrErrs.head.isInstanceOf[EvaluationAuthorizationFailed])
+    val err = quivrErrs.head.asInstanceOf[EvaluationAuthorizationFailed]
+    assert(err.proposition == testProposition.getRevealed)
+    assert(err.proof.value.isOr)
+    assert(err.proof.value.or.get.left.value.isTickRange)
+    assert(err.proof.value.or.get.right.value.isHeightRange)
+  }
+
+  test("proveAndValidate: Transaction with Not Proposition > If inner proof succeeds, the Not proof fails") {
+    val testProposition = Challenge().withRevealed(Proposer.notProposer[Id].propose(MockTickProposition))
+    val testTx = txFull.copy(inputs =
+      List(
+        inputFull.copy(attestation =
+          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List()))
+        )
+      )
+    )
+    val ctx = Context[Id](testTx, 50, _ => None) // Tick should pass
+    val res = CredentiallerInterpreter.make[Id](MockDataApi, MockMainKeyPair).proveAndValidate(testTx, ctx)
+    assert(res.isLeft)
+    val validationErrs = res.swap.getOrElse(List.empty)
+    assert(validationErrs.length == 1)
+    val quivrErrs = validationErrs.head.asInstanceOf[AuthorizationFailed].errors
+    assert(quivrErrs.length == 1)
+    assert(quivrErrs.head.isInstanceOf[EvaluationAuthorizationFailed])
+    val err = quivrErrs.head.asInstanceOf[EvaluationAuthorizationFailed]
+    assert(err.proposition == testProposition.getRevealed)
+    assert(err.proof.value.isNot)
+    assert(err.proof.value.not.get.proof.value.isTickRange)
+  }
+
+  test("proveAndValidate: Transaction with Threshold Proposition > Threshold met passes validation") {
+    val testProposition =
+      Challenge().withRevealed(
+        Proposer.thresholdProposer[Id].propose(Set(MockTickProposition, MockHeightProposition), 2)
+      )
+    val testTx = txFull.copy(inputs =
+      List(
+        inputFull.copy(attestation =
+          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List()))
+        )
+      )
+    )
+    // Both Tick and Height should pass
+    val ctx = Context[Id](testTx, 50, Map("header" -> Datum().withHeader(Datum.Header(Event.Header(50)))).lift)
+    val res = CredentiallerInterpreter.make[Id](MockDataApi, MockMainKeyPair).proveAndValidate(testTx, ctx)
+    assert(res.isRight)
+    val provenTx: IoTransaction = res.toOption.get
+    val provenPredicate = provenTx.inputs.head.attestation.getPredicate
+    assert(provenPredicate.responses.length == 1)
+    val threshProof = provenPredicate.responses.head
+    assert(!threshProof.value.isEmpty)
+    assert(threshProof.value.isThreshold)
+    assert(threshProof.value.threshold.get.responses.head.value.isTickRange)
+    assert(threshProof.value.threshold.get.responses(1).value.isHeightRange)
+    assertEquals(provenTx.signable.value, testTx.signable.value)
+  }
+
+  test("proveAndValidate: Transaction with And Proposition > If both inner proofs pass, the And proof passes") {
+    val testProposition =
+      Challenge().withRevealed(Proposer.andProposer[Id].propose((MockTickProposition, MockHeightProposition)))
+    val testTx = txFull.copy(inputs =
+      List(
+        inputFull.copy(attestation =
+          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List()))
+        )
+      )
+    )
+    // Both Tick and Height should pass
+    val ctx = Context[Id](testTx, 50, Map("header" -> Datum().withHeader(Datum.Header(Event.Header(50)))).lift)
+    val res = CredentiallerInterpreter.make[Id](MockDataApi, MockMainKeyPair).proveAndValidate(testTx, ctx)
+    assert(res.isRight)
+    val provenTx: IoTransaction = res.toOption.get
+    val provenPredicate = provenTx.inputs.head.attestation.getPredicate
+    assert(provenPredicate.responses.length == 1)
+    val andProof = provenPredicate.responses.head
+    assert(!andProof.value.isEmpty)
+    assert(andProof.value.isAnd)
+    assert(andProof.value.and.get.left.value.isTickRange)
+    assert(andProof.value.and.get.right.value.isHeightRange)
+    assertEquals(provenTx.signable.value, testTx.signable.value)
+  }
+
+  test("proveAndValidate: Transaction with Or Proposition > If only one inner proof passes, the Or proof passes") {
+    val testProposition =
+      Challenge().withRevealed(Proposer.orProposer[Id].propose((MockTickProposition, MockHeightProposition)))
+    val testTx = txFull.copy(inputs =
+      List(
+        inputFull.copy(attestation =
+          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List()))
+        )
+      )
+    )
+    val ctx = Context[Id](testTx, 50, _ => None) // Tick should pass, height should fail
+    val res = CredentiallerInterpreter.make[Id](MockDataApi, MockMainKeyPair).proveAndValidate(testTx, ctx)
+    assert(res.isRight)
+    val provenTx: IoTransaction = res.toOption.get
+    val provenPredicate = provenTx.inputs.head.attestation.getPredicate
+    assert(provenPredicate.responses.length == 1)
+    val orProof = provenPredicate.responses.head
+    assert(!orProof.value.isEmpty)
+    assert(orProof.value.isOr)
+    assert(orProof.value.or.get.left.value.isTickRange)
+    assert(orProof.value.or.get.right.value.isHeightRange)
+    assertEquals(provenTx.signable.value, testTx.signable.value)
+  }
+
+  test("proveAndValidate: Transaction with Not Proposition > If inner proof fails with error, the Not proof succeeds") {
+    // Locked should cause quivr runtime error
+    val testProposition = Challenge().withRevealed(Proposer.notProposer[Id].propose(MockLockedProposition))
+    val testTx = txFull.copy(inputs =
+      List(
+        inputFull.copy(attestation =
+          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List()))
+        )
+      )
+    )
+    val ctx = Context[Id](testTx, 50, _ => None)
+    val res = CredentiallerInterpreter.make[Id](MockDataApi, MockMainKeyPair).proveAndValidate(testTx, ctx)
+    assert(res.isRight)
+    val provenTx: IoTransaction = res.toOption.get
+    val provenPredicate = provenTx.inputs.head.attestation.getPredicate
+    assert(provenPredicate.responses.length == 1)
+    val notProof = provenPredicate.responses.head
+    assert(!notProof.value.isEmpty)
+    assert(notProof.value.isNot)
+    assert(notProof.value.not.get.proof.value.isLocked)
+    assertEquals(provenTx.signable.value, testTx.signable.value)
+  }
+
+  test(
+    "proveAndValidate: Transaction with Not Proposition > If inner proof fails with `false`, the Not proof succeeds"
+  ) {
+    val testProposition = Challenge().withRevealed(Proposer.notProposer[Id].propose(MockTickProposition))
+    val testTx = txFull.copy(inputs =
+      List(
+        inputFull.copy(attestation =
+          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List()))
+        )
+      )
+    )
+    val ctx = Context[Id](testTx, 500, _ => None) // Tick should fail
+    val res = CredentiallerInterpreter.make[Id](MockDataApi, MockMainKeyPair).proveAndValidate(testTx, ctx)
+    assert(res.isRight)
+    val provenTx: IoTransaction = res.toOption.get
+    val provenPredicate = provenTx.inputs.head.attestation.getPredicate
+    assert(provenPredicate.responses.length == 1)
+    val notProof = provenPredicate.responses.head
+    assert(!notProof.value.isEmpty)
+    assert(notProof.value.isNot)
+    assert(notProof.value.not.get.proof.value.isTickRange)
+    assertEquals(provenTx.signable.value, testTx.signable.value)
   }
 }
