@@ -25,25 +25,19 @@ object TransactionBuilderInterpreter {
 
     override def constructUnprovenInput(
       data: InputBuildRequest
-    ): F[Either[BuilderError.InputBuilderError, SpentTransactionOutput]] = {
-      val utxo = dataApi.getUtxoByTxoAddress(data.address)
-      val attestation = utxo.map(_.address).flatMap(dataApi.getLockByLockAddress).map(constructUnprovenAttestation)
-      val value = utxo.map(_.value)
-      (attestation, value) match {
-        case (Some(Right(att)), Some(boxVal)) =>
-          SpentTransactionOutput(data.address, att, boxVal)
-            .asRight[BuilderError.InputBuilderError]
-            .pure[F]
-        case (Some(Left(err)), _) => err.asLeft[SpentTransactionOutput].pure[F]
-        case _ =>
-          BuilderError
-            .InputBuilderError(
-              s"Could not construct input. Id=${data.address}, Attestation=${attestation}, Value=${value}"
-            )
-            .asLeft[SpentTransactionOutput]
-            .pure[F]
+    ): F[Either[BuilderError.InputBuilderError, SpentTransactionOutput]] =
+      (
+        for {
+          utxo <- EitherT(dataApi.getUtxoByTxoAddress(data.address))
+          lock <- EitherT(dataApi.getLockByLockAddress(utxo.address))
+        } yield (constructUnprovenAttestation(lock), utxo.value)
+      ).value map {
+        case Left(err) =>
+          BuilderError.InputBuilderError("Unable to construct proven input", err).asLeft[SpentTransactionOutput]
+        case Right((Left(err), _)) => err.asLeft[SpentTransactionOutput]
+        case Right((Right(att), value)) =>
+          SpentTransactionOutput(data.address, att, value).asRight[BuilderError.InputBuilderError]
       }
-    }
 
     override def constructOutput(
       data: OutputBuildRequest

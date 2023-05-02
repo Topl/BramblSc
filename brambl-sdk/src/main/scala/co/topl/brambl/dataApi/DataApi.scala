@@ -1,11 +1,11 @@
 package co.topl.brambl.dataApi
 
 import co.topl.brambl.dataApi.DataApi._
-import co.topl.brambl.models.{Indices, LockAddress, TransactionOutputAddress}
+import co.topl.brambl.models.{Evidence, Indices, LockAddress, TransactionOutputAddress}
 import co.topl.brambl.models.box.Lock
 import co.topl.brambl.models.transaction.UnspentTransactionOutput
 import co.topl.crypto.encryption.VaultStore
-import quivr.models.Preimage
+import quivr.models.{Preimage, Proposition}
 
 /**
  * Defines a storage API for fetching and storing keys and states.
@@ -19,45 +19,42 @@ import quivr.models.Preimage
 trait DataApi[F[_]] {
 
   /**
-   * Return the indices associated to a TransactionOutputAddress.
-   *
-   * Simplifying assumption *for now* is that TransactionOutputAddress and Indices are 1 to 1. This assumption may
-   * change once more work is done to define the Cartesian Indexing scheme.
-   *
-   * TODO: Revisit this assumption once the Cartesian Indexing scheme is more fleshed out.
-   *
-   * @param address The TransactionOutputAddress for which to retrieve the indices
-   * @return The indices associated to the known identifier if it exists. Else None
-   */
-  def getIndicesByTxoAddress(address: TransactionOutputAddress): Option[Indices]
-
-  /**
    * Return the UTXO targeted by a TransactionOutputAddress.
    *
    * A TransactionOutputAddress identifies an output (UTXO) of an existing transaction on the chain.
    *
    * @param address The TransactionOutputAddress of the UTXO to retrieve
-   * @return The UTXO targeted by the given address, if it exists. Else None
+   * @return The UTXO targeted by the given address, if it exists. Else a DataApiException
    */
-  def getUtxoByTxoAddress(address: TransactionOutputAddress): Option[UnspentTransactionOutput]
+  def getUtxoByTxoAddress(address: TransactionOutputAddress): F[Either[DataApiException, UnspentTransactionOutput]]
 
   /**
-   * Return the Lock targeted by a LockAddress
+   * Return the Lock targeted by a LockAddress.
    *
    * A LockAddress is meant to identify a Lock on chain.
    *
    * @param address The LockAddress for which to retrieve the Lock
-   * @return The Lock targeted by the given address, if it exists. Else None
+   * @return The Lock targeted by the given address, if it exists. Else a DataApiException
    */
-  def getLockByLockAddress(address: LockAddress): Option[Lock]
+  def getLockByLockAddress(address: LockAddress): F[Either[DataApiException, Lock]]
 
   /**
-   * Return the preimage secret associated to indices.
+   * Return the preimage secret associated to a digest proposition.
    *
-   * @param idx The indices for which to retrieve the preimage secret
-   * @return The preimage secret associated to the indices if it exists. Else None
+   * @param digestProposition The Digest Proposition for which to retrieve the preimage secret for
+   * @return The preimage secret associated to the Digest Proposition if it exists. Else a DataApiException
    */
-  def getPreimage(idx: Indices): Option[Preimage]
+  def getPreimage(digestProposition: Proposition.Digest): F[Either[DataApiException, Preimage]]
+
+  /**
+   * Return the indices (x/y/z) associated to a signature proposition. A Signature Proposition is created with a
+   * verification and must be signed with the corresponding signing key. The verification and signing key pair is
+   * derived from the indices.
+   *
+   * @param signatureProposition The Signature Proposition for which to retrieve the indices for
+   * @return The indices associated to the Signature Proposition if it exists. Else a DataApiException
+   */
+  def getIndices(signatureProposition: Proposition.DigitalSignature): F[Either[DataApiException, Indices]]
 
   /**
    * Persist a VaultStore for the Topl Main Secret Key.

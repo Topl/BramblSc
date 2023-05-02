@@ -6,7 +6,7 @@ package co.topl.brambl.builders
  *
  * @param message The error message
  */
-abstract class BuilderError(val message: String)
+abstract class BuilderError(message: String, cause: Throwable = null) extends RuntimeException(message, cause)
 
 object BuilderError {
 
@@ -17,7 +17,7 @@ object BuilderError {
    *
    * @param message The error message indicating why the build is unsuccessful
    */
-  case class InputBuilderError(override val message: String) extends BuilderError(message)
+  case class InputBuilderError(message: String, cause: Throwable = null) extends BuilderError(message, cause)
 
   /**
    * A Builder error indicating that a IoTransaction's output
@@ -26,5 +26,5 @@ object BuilderError {
    *
    * @param message The error message indicating why the build is unsuccessful
    */
-  case class OutputBuilderError(override val message: String) extends BuilderError(message)
+  case class OutputBuilderError(message: String, cause: Throwable = null) extends BuilderError(message, cause)
 }
