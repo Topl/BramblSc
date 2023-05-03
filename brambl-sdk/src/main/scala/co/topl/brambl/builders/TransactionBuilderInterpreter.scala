@@ -80,7 +80,7 @@ object TransactionBuilderInterpreter {
               metadata.getOrElse(SmallData())
             )
           )
-          IoTransaction(i, o, datum).asRight[List[BuilderError]]
+          IoTransaction.defaultInstance.withInputs(i).withOutputs(o).withDatum(datum).asRight[List[BuilderError]]
         case (Validated.Invalid(errsI), Validated.Invalid(errsO)) =>
           (errsI.toList ++ errsO.toList).asLeft[IoTransaction]
         case (Validated.Invalid(errs), _) => errs.toList.asLeft[IoTransaction]
