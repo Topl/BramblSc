@@ -52,7 +52,9 @@ object CredentiallerInterpreter {
 
     /**
      * Return a Proof that will satisfy a Proposition and signable bytes, if possible.
-     * Otherwise return [[Proof.Value.Empty]]
+     * Any unprovable leaf (non-composite) Propositions will result in a [[Proof.Value.Empty]].
+     * Leaf/Atomic/Non-composite Propositions are: Locked, Digest, Signature, Height, and Tick
+     * If there are valid existing proofs for any leaf Propositions, they should not be overwritten.
      *
      * It may not be possible to retrieve a proof if
      * - The proposition type is not yet supported
@@ -62,42 +64,71 @@ object CredentiallerInterpreter {
      *
      * @param msg         Signable bytes to bind to the proof
      * @param proposition Proposition in which the Proof should satisfy
+     * @param existingProof    Existing proof of the proposition
      * @return The Proof
      */
-    private def getProof(msg: SignableBytes, proposition: Proposition): F[Proof] = proposition.value match {
-      case _: Proposition.Value.Locked      => Prover.lockedProver[F].prove((), msg)
-      case _: Proposition.Value.HeightRange => Prover.heightProver[F].prove((), msg)
-      case _: Proposition.Value.TickRange   => Prover.tickProver[F].prove((), msg)
-      case Proposition.Value.Digest(digest) =>
-        dataApi
-          .getPreimage(digest)
-          .flatMap(_.toOption.map(preimage => Prover.digestProver[F].prove(preimage, msg)).getOrElse(Proof().pure[F]))
-      case Proposition.Value.DigitalSignature(signature) =>
-        dataApi
-          .getIndices(signature)
-          .flatMap(_.toOption.map(idx => getSignatureProof(signature.routine, idx, msg)).getOrElse(Proof().pure[F]))
-      case Proposition.Value.Not(Proposition.Not(not, _)) =>
-        getProof(msg, not)
-          .flatMap(Prover.notProver[F].prove(_, msg))
-      case Proposition.Value.And(Proposition.And(left, right, _)) =>
-        Applicative[F]
-          .map2(getProof(msg, left), getProof(msg, right))((leftProof, rightProof) =>
-            Prover.andProver[F].prove((leftProof, rightProof), msg)
-          )
-          .flatten
-      case Proposition.Value.Or(Proposition.Or(left, right, _)) =>
-        Applicative[F]
-          .map2(getProof(msg, left), getProof(msg, right))((leftProof, rightProof) =>
-            Prover.orProver[F].prove((leftProof, rightProof), msg)
-          )
-          .flatten
-      case Proposition.Value.Threshold(Proposition.Threshold(challenges, _, _)) =>
-        challenges
-          .map(getProof(msg, _))
-          .sequence
-          .flatMap(proofs => Prover.thresholdProver[F].prove(proofs.toSet, msg))
-      case _ => Proof().pure[F]
-    }
+    private def getProof(msg: SignableBytes, proposition: Proposition, existingProof: Proof): F[Proof] =
+      proposition.value match {
+        // Atomic/leaf propositions; if a non-empty same type proof is provided, return it. If not, try to generate one
+        case Proposition.Value.Locked(_) =>
+          if (existingProof.value.isLocked) existingProof.pure[F] else Prover.lockedProver[F].prove((), msg)
+        case Proposition.Value.HeightRange(_) =>
+          if (existingProof.value.isHeightRange) existingProof.pure[F] else Prover.heightProver[F].prove((), msg)
+        case Proposition.Value.TickRange(_) =>
+          if (existingProof.value.isTickRange) existingProof.pure[F] else Prover.tickProver[F].prove((), msg)
+        case Proposition.Value.Digest(digest) =>
+          if (existingProof.value.isDigest) existingProof.pure[F]
+          else
+            dataApi
+              .getPreimage(digest)
+              .flatMap(
+                _.toOption.map(preimage => Prover.digestProver[F].prove(preimage, msg)).getOrElse(Proof().pure[F])
+              )
+        case Proposition.Value.DigitalSignature(signature) =>
+          if (existingProof.value.isDigitalSignature) existingProof.pure[F]
+          else
+            dataApi
+              .getIndices(signature)
+              .flatMap(_.toOption.map(idx => getSignatureProof(signature.routine, idx, msg)).getOrElse(Proof().pure[F]))
+        // Composite propositions; even if a correct-type outer proof is provided, the inner propositions may need to be proven
+        case Proposition.Value.Not(Proposition.Not(not, _)) =>
+          val innerProof = existingProof.value match {
+            case Proof.Value.Not(Proof.Not(_, p, _)) => p
+            case _                                   => Proof()
+          }
+          getProof(msg, not, innerProof).flatMap(Prover.notProver[F].prove(_, msg))
+        case Proposition.Value.And(Proposition.And(left, right, _)) =>
+          val (leftProof, rightProof) = existingProof.value match {
+            case Proof.Value.And(Proof.And(_, leftProof, rightProof, _)) => (leftProof, rightProof)
+            case _                                                       => (Proof(), Proof())
+          }
+          Applicative[F]
+            .map2(getProof(msg, left, leftProof), getProof(msg, right, rightProof))((leftProof, rightProof) =>
+              Prover.andProver[F].prove((leftProof, rightProof), msg)
+            )
+            .flatten
+        case Proposition.Value.Or(Proposition.Or(left, right, _)) =>
+          val (leftProof, rightProof) = existingProof.value match {
+            case Proof.Value.Or(Proof.Or(_, leftProof, rightProof, _)) => (leftProof, rightProof)
+            case _                                                     => (Proof(), Proof())
+          }
+          Applicative[F]
+            .map2(getProof(msg, left, leftProof), getProof(msg, right, rightProof))((leftProof, rightProof) =>
+              Prover.orProver[F].prove((leftProof, rightProof), msg)
+            )
+            .flatten
+        case Proposition.Value.Threshold(Proposition.Threshold(challenges, _, _)) =>
+          val responses = existingProof.value match {
+            case Proof.Value.Threshold(Proof.Threshold(_, responses, _)) => responses
+            case _                                                       => List.fill(challenges.length)(Proof())
+          }
+          challenges
+            .zip(responses)
+            .map(pair => getProof(msg, pair._1, pair._2))
+            .sequence
+            .flatMap(proofs => Prover.thresholdProver[F].prove(proofs.toSet, msg))
+        case _ => Proof().pure[F]
+      }
 
     /**
      * Return a Signature Proof that will satisfy a Signature Proposition, if possible.
@@ -143,11 +174,12 @@ object CredentiallerInterpreter {
       msg:   SignableBytes
     ): F[SpentTransactionOutput] = {
       val attestation: F[Attestation] = input.attestation.value match {
-        case Attestation.Value.Predicate(Attestation.Predicate(predLock, _, _)) =>
+        case Attestation.Value.Predicate(Attestation.Predicate(predLock, proofs, _)) =>
           predLock.challenges
             // TODO: Fix .getRevealed
             .map(_.getRevealed)
-            .map(getProof(msg, _))
+            .zip(proofs)
+            .map(pair => getProof(msg, pair._1, pair._2))
             .sequence
             .map(proofs => Attestation().withPredicate(Attestation.Predicate(predLock, proofs)))
         // TODO: We are not handling other types of Attestations at this moment in time
