@@ -32,7 +32,7 @@ trait MockHelpers {
     List(
       Bip32Indexes.HardenedIndex(MockIndices.x),
       Bip32Indexes.SoftIndex(MockIndices.y),
-      Bip32Indexes.SoftIndex(MockIndices.y)
+      Bip32Indexes.SoftIndex(MockIndices.z)
     )
   )
 
