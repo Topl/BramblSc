@@ -42,6 +42,10 @@ class TransactionCostCalculatorInterpreterSpec extends munit.FunSuite with MockH
       1L +
       // Cost of locked proof
       1L +
+      // Cost of digest proof
+      50L + 50L +
+      // Cost of signature proof
+      50L + 100L +
       // Cost of height proof
       50L + 5L +
       // Cost of tick proof

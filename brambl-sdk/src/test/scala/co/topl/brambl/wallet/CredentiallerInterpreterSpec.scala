@@ -16,7 +16,10 @@ import co.topl.brambl.validation.TransactionSyntaxError
 import co.topl.crypto.generation.Bip32Indexes
 import co.topl.crypto.signing.ExtendedEd25519
 import co.topl.quivr.api.Proposer
-import co.topl.quivr.runtime.QuivrRuntimeErrors.ValidationError.{EvaluationAuthorizationFailed, LockedPropositionIsUnsatisfiable}
+import co.topl.quivr.runtime.QuivrRuntimeErrors.ValidationError.{
+  EvaluationAuthorizationFailed,
+  LockedPropositionIsUnsatisfiable
+}
 import com.google.protobuf.ByteString
 import quivr.models.{Int128, KeyPair, Preimage, Proof, Proposition}
 import co.topl.brambl.wallet.WalletApi.{cryptoToPbKeyPair, pbKeyPairToCryotoKeyPair}
@@ -48,7 +51,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
           ),
           2
         ),
-        List()
+        List(Proof(), Proof())
       )
     )
     val testTx = txFull.copy(inputs = txFull.inputs.map(stxo => stxo.copy(attestation = testAttestation)))
@@ -176,7 +179,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
     val testTx = txFull.copy(inputs =
       List(
         inputFull.copy(attestation =
-          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List()))
+          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof())))
         )
       )
     )
@@ -199,7 +202,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
     val testTx = txFull.copy(inputs =
       List(
         inputFull.copy(attestation =
-          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List()))
+          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof())))
         )
       )
     )
@@ -220,7 +223,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
     val testTx = txFull.copy(inputs =
       List(
         inputFull.copy(attestation =
-          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List()))
+          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof())))
         )
       )
     )
@@ -240,7 +243,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
     val testTx = txFull.copy(inputs =
       List(
         inputFull.copy(attestation =
-          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List()))
+          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof())))
         )
       )
     )
@@ -262,7 +265,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
     val testTx = txFull.copy(inputs =
       List(
         inputFull.copy(attestation =
-          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List()))
+          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof())))
         )
       )
     )
@@ -287,7 +290,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
     val testTx = txFull.copy(inputs =
       List(
         inputFull.copy(attestation =
-          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List()))
+          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof())))
         )
       )
     )
@@ -310,7 +313,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
     val testTx = txFull.copy(inputs =
       List(
         inputFull.copy(attestation =
-          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List()))
+          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof())))
         )
       )
     )
@@ -334,7 +337,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
     val testTx = txFull.copy(inputs =
       List(
         inputFull.copy(attestation =
-          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List()))
+          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof())))
         )
       )
     )
@@ -360,7 +363,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
     val testTx = txFull.copy(inputs =
       List(
         inputFull.copy(attestation =
-          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List()))
+          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof())))
         )
       )
     )
@@ -385,7 +388,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
     val testTx = txFull.copy(inputs =
       List(
         inputFull.copy(attestation =
-          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List()))
+          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof())))
         )
       )
     )
@@ -410,7 +413,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
     val testTx = txFull.copy(inputs =
       List(
         inputFull.copy(attestation =
-          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List()))
+          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof())))
         )
       )
     )
@@ -434,7 +437,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
     val testTx = txFull.copy(inputs =
       List(
         inputFull.copy(attestation =
-          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List()))
+          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof())))
         )
       )
     )
@@ -458,7 +461,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
     val testTx = txFull.copy(inputs =
       List(
         inputFull.copy(attestation =
-          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List()))
+          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof())))
         )
       )
     )
@@ -492,22 +495,36 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
     )
     val bobSignatureProposition = Proposer.signatureProposer[Id].propose(("ExtendedEd25519", bobChildKey.vk))
     // To Mock someone else's DataApi
-    object NewDataApi extends DataApi[Id]{
+    object NewDataApi extends DataApi[Id] {
       case object Invalid extends DataApi.DataApiException("Invalid Call. Should not reach here.")
 
       // The only relevant call is getIndices
-      override def getIndices(signatureProposition: Proposition.DigitalSignature): Id[Either[DataApi.DataApiException, Indices]] =
+      override def getIndices(
+        signatureProposition: Proposition.DigitalSignature
+      ): Id[Either[DataApi.DataApiException, Indices]] =
         Map(
           bobSignatureProposition.value.digitalSignature.get.sizedEvidence -> bobIndices
         ).get(signatureProposition.sizedEvidence).toRight(Invalid)
 
-      override def getUtxoByTxoAddress(address: TransactionOutputAddress): Id[Either[DataApi.DataApiException, UnspentTransactionOutput]] = Invalid.asLeft[UnspentTransactionOutput]
-      override def getLockByLockAddress(address: LockAddress): Id[Either[DataApi.DataApiException, Lock]] = Invalid.asLeft[Lock]
-      override def getPreimage(digestProposition: Proposition.Digest): Id[Either[DataApi.DataApiException, Preimage]] = Invalid.asLeft[Preimage]
-      override def saveMainKeyVaultStore(mainKeyVaultStore: VaultStore[Id], name: String): Id[Either[DataApi.DataApiException, Unit]] = Invalid.asLeft[Unit]
-      override def getMainKeyVaultStore(name: String): Id[Either[DataApi.DataApiException, VaultStore[Id]]] = Invalid.asLeft[VaultStore[Id]]
-      override def updateMainKeyVaultStore(mainKeyVaultStore: VaultStore[Id], name: String): Id[Either[DataApi.DataApiException, Unit]] = Invalid.asLeft[Unit]
-      override def deleteMainKeyVaultStore(name: String): Id[Either[DataApi.DataApiException, Unit]] = Invalid.asLeft[Unit]
+      override def getUtxoByTxoAddress(
+        address: TransactionOutputAddress
+      ): Id[Either[DataApi.DataApiException, UnspentTransactionOutput]] = Invalid.asLeft[UnspentTransactionOutput]
+      override def getLockByLockAddress(address: LockAddress): Id[Either[DataApi.DataApiException, Lock]] =
+        Invalid.asLeft[Lock]
+      override def getPreimage(digestProposition: Proposition.Digest): Id[Either[DataApi.DataApiException, Preimage]] =
+        Invalid.asLeft[Preimage]
+      override def saveMainKeyVaultStore(
+        mainKeyVaultStore: VaultStore[Id],
+        name:              String
+      ): Id[Either[DataApi.DataApiException, Unit]] = Invalid.asLeft[Unit]
+      override def getMainKeyVaultStore(name: String): Id[Either[DataApi.DataApiException, VaultStore[Id]]] =
+        Invalid.asLeft[VaultStore[Id]]
+      override def updateMainKeyVaultStore(
+        mainKeyVaultStore: VaultStore[Id],
+        name:              String
+      ): Id[Either[DataApi.DataApiException, Unit]] = Invalid.asLeft[Unit]
+      override def deleteMainKeyVaultStore(name: String): Id[Either[DataApi.DataApiException, Unit]] =
+        Invalid.asLeft[Unit]
     }
     val aliceDataApi = MockDataApi
     val bobDataApi = NewDataApi
@@ -519,12 +536,20 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
     val testTx = txFull.copy(inputs =
       List(
         inputFull.copy(attestation =
-          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(
-            List(
-              Proposer.thresholdProposer[Id].propose((innerPropositions.toSet, innerPropositions.length)),
-              Proposer.thresholdProposer[Id].propose(((innerPropositions :+ bobSignatureProposition).toSet, innerPropositions.length + 1))
-            ).map(Challenge().withRevealed)
-            , 2), List.fill(2)(Proof())))
+          Attestation().withPredicate(
+            Attestation.Predicate(
+              Lock.Predicate(
+                List(
+                  Proposer.thresholdProposer[Id].propose((innerPropositions.toSet, innerPropositions.length)),
+                  Proposer
+                    .thresholdProposer[Id]
+                    .propose(((innerPropositions :+ bobSignatureProposition).toSet, innerPropositions.length + 1))
+                ).map(Challenge().withRevealed),
+                2
+              ),
+              List.fill(2)(Proof())
+            )
+          )
         )
       )
     )
