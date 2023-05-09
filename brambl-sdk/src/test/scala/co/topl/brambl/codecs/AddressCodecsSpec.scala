@@ -22,7 +22,17 @@ class AddressCodecsSpec extends munit.FunSuite with AddressCodecTestCases {
       .toByteArray()
       .zip(lockAddress.id.value.toByteArray())
       .map(x => x._1 == x._2)
-      .fold(true)(_ && _)
+      .fold(true)(_ && _) &&
+    AddressCodecs
+      .decodeAddress(address)
+      .toOption
+      .get
+      .ledger == lockAddress.ledger &&
+    AddressCodecs
+      .decodeAddress(address)
+      .toOption
+      .get
+      .network == lockAddress.network
 
   test("Main Network Main Ledger Zero Test") {
     assertEquals(
