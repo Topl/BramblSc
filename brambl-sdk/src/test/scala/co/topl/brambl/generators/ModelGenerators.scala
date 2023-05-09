@@ -226,7 +226,7 @@ trait TransactionGenerator
         outputs <- Gen.listOf(arbitraryUnspentTransactionOutput.arbitrary)
         datum   <- genDatumIoTransaction
       } yield IoTransaction.defaultInstance.withInputs(inputs).withOutputs(outputs).withDatum(datum)
-    ) // TODO
+    )
 }
 
 trait ModelGenerators
