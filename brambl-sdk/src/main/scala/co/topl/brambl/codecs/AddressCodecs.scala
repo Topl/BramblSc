@@ -25,8 +25,8 @@ object AddressCodecs {
       (network, ledgerAndId) = byteArray.splitAt(4)
       (ledger, id) = ledgerAndId.splitAt(4)
       lockAddress = LockAddress(
-        network.head,
-        ledger.head,
+        BigInt(network).toInt,
+        BigInt(ledger).toInt,
         LockId((ByteString.copyFrom(id)))
       )
     } yield lockAddress
