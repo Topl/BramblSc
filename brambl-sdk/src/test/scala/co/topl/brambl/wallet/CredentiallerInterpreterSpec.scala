@@ -1,21 +1,31 @@
 package co.topl.brambl.wallet
 
 import cats.Id
-import co.topl.brambl.models.transaction.IoTransaction
+import cats.implicits._
+import co.topl.brambl.common.ContainsEvidence.Ops
+import co.topl.brambl.common.ContainsImmutable.instances._
+import co.topl.brambl.models.transaction.{IoTransaction, UnspentTransactionOutput}
 import co.topl.brambl.{Context, MockDataApi, MockHelpers}
 import co.topl.brambl.common.ContainsSignable.ContainsSignableTOps
 import co.topl.brambl.common.ContainsSignable.instances._
-import co.topl.brambl.models.{Datum, Event, Indices}
+import co.topl.brambl.dataApi.DataApi
+import co.topl.brambl.models.{Datum, Event, Indices, LockAddress, TransactionOutputAddress}
 import co.topl.brambl.models.box.{Attestation, Challenge, Lock, Value}
 import co.topl.brambl.validation.TransactionAuthorizationError.AuthorizationFailed
 import co.topl.brambl.validation.TransactionSyntaxError
+import co.topl.crypto.generation.Bip32Indexes
+import co.topl.crypto.signing.ExtendedEd25519
 import co.topl.quivr.api.Proposer
 import co.topl.quivr.runtime.QuivrRuntimeErrors.ValidationError.{
   EvaluationAuthorizationFailed,
   LockedPropositionIsUnsatisfiable
 }
 import com.google.protobuf.ByteString
-import quivr.models.{Int128, Proposition}
+import quivr.models.{Int128, KeyPair, Preimage, Proof, Proposition}
+import co.topl.brambl.wallet.WalletApi.{cryptoToPbKeyPair, pbKeyPairToCryotoKeyPair}
+import co.topl.crypto.encryption.VaultStore
+
+import scala.util.Random
 
 class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
 
@@ -41,7 +51,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
           ),
           2
         ),
-        List()
+        List(Proof(), Proof())
       )
     )
     val testTx = txFull.copy(inputs = txFull.inputs.map(stxo => stxo.copy(attestation = testAttestation)))
@@ -169,7 +179,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
     val testTx = txFull.copy(inputs =
       List(
         inputFull.copy(attestation =
-          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List()))
+          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof())))
         )
       )
     )
@@ -192,7 +202,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
     val testTx = txFull.copy(inputs =
       List(
         inputFull.copy(attestation =
-          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List()))
+          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof())))
         )
       )
     )
@@ -213,7 +223,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
     val testTx = txFull.copy(inputs =
       List(
         inputFull.copy(attestation =
-          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List()))
+          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof())))
         )
       )
     )
@@ -233,7 +243,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
     val testTx = txFull.copy(inputs =
       List(
         inputFull.copy(attestation =
-          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List()))
+          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof())))
         )
       )
     )
@@ -255,7 +265,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
     val testTx = txFull.copy(inputs =
       List(
         inputFull.copy(attestation =
-          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List()))
+          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof())))
         )
       )
     )
@@ -280,7 +290,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
     val testTx = txFull.copy(inputs =
       List(
         inputFull.copy(attestation =
-          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List()))
+          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof())))
         )
       )
     )
@@ -303,7 +313,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
     val testTx = txFull.copy(inputs =
       List(
         inputFull.copy(attestation =
-          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List()))
+          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof())))
         )
       )
     )
@@ -327,7 +337,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
     val testTx = txFull.copy(inputs =
       List(
         inputFull.copy(attestation =
-          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List()))
+          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof())))
         )
       )
     )
@@ -353,7 +363,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
     val testTx = txFull.copy(inputs =
       List(
         inputFull.copy(attestation =
-          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List()))
+          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof())))
         )
       )
     )
@@ -378,7 +388,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
     val testTx = txFull.copy(inputs =
       List(
         inputFull.copy(attestation =
-          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List()))
+          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof())))
         )
       )
     )
@@ -403,7 +413,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
     val testTx = txFull.copy(inputs =
       List(
         inputFull.copy(attestation =
-          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List()))
+          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof())))
         )
       )
     )
@@ -427,7 +437,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
     val testTx = txFull.copy(inputs =
       List(
         inputFull.copy(attestation =
-          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List()))
+          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof())))
         )
       )
     )
@@ -451,7 +461,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
     val testTx = txFull.copy(inputs =
       List(
         inputFull.copy(attestation =
-          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List()))
+          Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof())))
         )
       )
     )
@@ -466,5 +476,97 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
     assert(notProof.value.isNot)
     assert(notProof.value.not.get.proof.value.isTickRange)
     assertEquals(provenTx.signable.value, testTx.signable.value)
+  }
+
+  test(
+    "prove: complex partially proven transaction"
+  ) {
+    val aliceSignatureProposition = MockSignatureProposition
+    val aliceMainKey = MockMainKeyPair
+    val bobMainKey: KeyPair = (new ExtendedEd25519).deriveKeyPairFromSeed(Random.nextBytes(96))
+    val bobIndices = Indices(8, 9, 10)
+    val bobChildKey: KeyPair = (new ExtendedEd25519).deriveKeyPairFromChildPath(
+      pbKeyPairToCryotoKeyPair(bobMainKey).signingKey,
+      List(
+        Bip32Indexes.HardenedIndex(bobIndices.x),
+        Bip32Indexes.SoftIndex(bobIndices.y),
+        Bip32Indexes.SoftIndex(bobIndices.z)
+      )
+    )
+    val bobSignatureProposition = Proposer.signatureProposer[Id].propose(("ExtendedEd25519", bobChildKey.vk))
+    // To Mock someone else's DataApi
+    object NewDataApi extends DataApi[Id] {
+      case object Invalid extends DataApi.DataApiException("Invalid Call. Should not reach here.")
+
+      // The only relevant call is getIndices
+      override def getIndices(
+        signatureProposition: Proposition.DigitalSignature
+      ): Id[Either[DataApi.DataApiException, Indices]] =
+        Map(
+          bobSignatureProposition.value.digitalSignature.get.sizedEvidence -> bobIndices
+        ).get(signatureProposition.sizedEvidence).toRight(Invalid)
+
+      override def getUtxoByTxoAddress(
+        address: TransactionOutputAddress
+      ): Id[Either[DataApi.DataApiException, UnspentTransactionOutput]] = Invalid.asLeft[UnspentTransactionOutput]
+      override def getLockByLockAddress(address: LockAddress): Id[Either[DataApi.DataApiException, Lock]] =
+        Invalid.asLeft[Lock]
+      override def getPreimage(digestProposition: Proposition.Digest): Id[Either[DataApi.DataApiException, Preimage]] =
+        Invalid.asLeft[Preimage]
+      override def saveMainKeyVaultStore(
+        mainKeyVaultStore: VaultStore[Id],
+        name:              String
+      ): Id[Either[DataApi.DataApiException, Unit]] = Invalid.asLeft[Unit]
+      override def getMainKeyVaultStore(name: String): Id[Either[DataApi.DataApiException, VaultStore[Id]]] =
+        Invalid.asLeft[VaultStore[Id]]
+      override def updateMainKeyVaultStore(
+        mainKeyVaultStore: VaultStore[Id],
+        name:              String
+      ): Id[Either[DataApi.DataApiException, Unit]] = Invalid.asLeft[Unit]
+      override def deleteMainKeyVaultStore(name: String): Id[Either[DataApi.DataApiException, Unit]] =
+        Invalid.asLeft[Unit]
+    }
+    val aliceDataApi = MockDataApi
+    val bobDataApi = NewDataApi
+    val innerPropositions = List(
+      Proposer.andProposer[Id].propose((MockTickProposition, aliceSignatureProposition)),
+      Proposer.orProposer[Id].propose((MockDigestProposition, MockLockedProposition)),
+      Proposer.notProposer[Id].propose(MockHeightProposition)
+    )
+    val testTx = txFull.copy(inputs =
+      List(
+        inputFull.copy(attestation =
+          Attestation().withPredicate(
+            Attestation.Predicate(
+              Lock.Predicate(
+                List(
+                  Proposer.thresholdProposer[Id].propose((innerPropositions.toSet, innerPropositions.length)),
+                  Proposer
+                    .thresholdProposer[Id]
+                    .propose(((innerPropositions :+ bobSignatureProposition).toSet, innerPropositions.length + 1))
+                ).map(Challenge().withRevealed),
+                2
+              ),
+              List.fill(2)(Proof())
+            )
+          )
+        )
+      )
+    )
+    val ctx = Context[Id](testTx, 50, _ => None) // Tick should pass, height should fail
+    // the following is used to mimic the initial proving of the transaction by alice.
+    val credentialler1 = CredentiallerInterpreter.make[Id](aliceDataApi, aliceMainKey)
+    val partiallyProven = credentialler1.prove(testTx) // should create a partially proven tx
+    // Should not be validated since not sufficiently proven
+    val res1 = credentialler1.validate(partiallyProven, ctx)
+    assert(res1.length == 1)
+    assertEquals(partiallyProven.signable.value, testTx.signable.value)
+    // the following is used to mimic the second proving of the transaction by bob.
+    val credentialler2 = CredentiallerInterpreter.make[Id](bobDataApi, bobMainKey)
+    val completelyProven = credentialler2.prove(partiallyProven) // should create a completely proven tx
+    // Should be validated since sufficiently proven
+    val res2 = credentialler2.validate(completelyProven, ctx)
+    assert(res2.isEmpty)
+    assertEquals(completelyProven.signable.value, testTx.signable.value)
   }
 }
