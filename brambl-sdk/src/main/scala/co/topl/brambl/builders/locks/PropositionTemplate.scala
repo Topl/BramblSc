@@ -9,8 +9,7 @@ import cats.implicits.{
   catsSyntaxEitherObject,
   catsSyntaxFlatten,
   toFlatMapOps,
-  toFunctorOps,
-  toTraverseOps
+  toFunctorOps
 }
 import cats.{Applicative, Monad}
 import co.topl.quivr.api.Proposer
@@ -127,7 +126,8 @@ object PropositionTemplate {
     override val propositionType: PropositionType = types.Threshold
 
     override def build(entityVks: List[VerificationKey]): F[Either[BuilderError, Proposition]] = {
-      def recurseHelper(
+      // Using recursion instead of foldLeft so we can fail early
+      def buildInner(
         templates:   Seq[PropositionTemplate[F]],
         accumulator: Either[BuilderError, Seq[Proposition]]
       ): F[Either[BuilderError, Seq[Proposition]]] = accumulator match {
@@ -137,10 +137,10 @@ object PropositionTemplate {
           else
             templates.head.build(entityVks).flatMap { // < cannot do tailrec due to flattening of F
               case Left(err)      => err.asLeft[Seq[Proposition]].pure[F] // Current element encountered an error
-              case Right(curProp) => recurseHelper(templates.tail, Right(accProps :+ curProp))
+              case Right(curProp) => buildInner(templates.tail, Right(accProps :+ curProp))
             }
       }
-      recurseHelper(innerTemplates, Right(Seq.empty)).flatMap {
+      buildInner(innerTemplates, Right(Seq.empty)).flatMap {
         case Left(err) => err.asLeft[Proposition].pure[F]
         case Right(props) =>
           Proposer.thresholdProposer[F].propose((props.toSet, threshold)).map(_.asRight[BuilderError])
