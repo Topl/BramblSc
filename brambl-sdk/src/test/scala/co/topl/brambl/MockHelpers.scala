@@ -16,11 +16,22 @@ import co.topl.crypto.hash.Blake2b256
 import co.topl.quivr.api.Proposer
 import co.topl.quivr.api.Prover
 import com.google.protobuf.ByteString
-import quivr.models.{Digest, Int128, KeyPair, Preimage, Proof, Proposition, SignableBytes, SmallData, Witness}
+import quivr.models.{
+  Digest,
+  Int128,
+  KeyPair,
+  Preimage,
+  Proof,
+  Proposition,
+  SignableBytes,
+  SmallData,
+  VerificationKey,
+  Witness
+}
 import co.topl.brambl.wallet.WalletApi.{cryptoToPbKeyPair, pbKeyPairToCryotoKeyPair}
 import co.topl.crypto.generation.Bip32Indexes
-import co.topl.crypto.generation.mnemonic.Entropy
 import co.topl.crypto.signing.ExtendedEd25519
+import quivr.models.VerificationKey._
 
 trait MockHelpers {
   val fakeMsgBind: SignableBytes = "transaction binding".getBytes.immutable.signable
@@ -131,4 +142,13 @@ trait MockHelpers {
 
   val txFull: IoTransaction =
     IoTransaction.defaultInstance.withInputs(List(inputFull)).withOutputs(List(output)).withDatum(txDatum)
+
+  val mockVks: List[VerificationKey] = List(
+    VerificationKey.defaultInstance.withExtendedEd25519(
+      ExtendedEd25519Vk(Ed25519Vk(ByteString.copyFrom("entity_1".getBytes)))
+    ),
+    VerificationKey.defaultInstance.withExtendedEd25519(
+      ExtendedEd25519Vk(Ed25519Vk(ByteString.copyFrom("entity_2".getBytes)))
+    )
+  )
 }
