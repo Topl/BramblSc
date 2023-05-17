@@ -44,6 +44,7 @@ import co.topl.brambl.wallet.WalletApi.{cryptoToPbKeyPair, pbKeyPairToCryotoKeyP
 import co.topl.crypto.generation.Bip32Indexes
 import co.topl.crypto.signing.ExtendedEd25519
 import io.circe.Json
+import org.bouncycastle.util.Strings
 
 trait MockHelpers {
   val fakeMsgBind: SignableBytes = "transaction binding".getBytes.immutable.signable
@@ -205,7 +206,7 @@ trait MockHelpers {
     val fields: List[(String, Json)] = List(
       "type"    -> Json.fromString(value.propositionType.label),
       "routine" -> Json.fromString(MockDigestRoutine),
-      "digest"  -> Json.fromString(MockDigest.value.toString)
+      "digest"  -> Json.fromString(Strings.fromByteArray(MockDigest.value.toByteArray))
     )
     val json: Json = Json.fromFields(fields)
   }
@@ -214,9 +215,9 @@ trait MockHelpers {
     def value(entityIdx: Int): SignatureTemplate[Id] = SignatureTemplate[Id](MockSigningRoutine, entityIdx)
 
     def fields(entityIdx: Int): List[(String, Json)] = List(
-      "type"    -> Json.fromString(value(entityIdx).propositionType.label),
-      "routine" -> Json.fromString(MockSigningRoutine),
-      "data"    -> Json.fromInt(entityIdx)
+      "type"      -> Json.fromString(value(entityIdx).propositionType.label),
+      "routine"   -> Json.fromString(MockSigningRoutine),
+      "entityIdx" -> Json.fromInt(entityIdx)
     )
     def json(entityIdx: Int): Json = Json.fromFields(fields(entityIdx))
   }

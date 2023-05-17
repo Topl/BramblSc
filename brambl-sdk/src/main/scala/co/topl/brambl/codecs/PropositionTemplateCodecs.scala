@@ -7,6 +7,7 @@ import co.topl.brambl.builders.locks.PropositionTemplate._
 import com.google.protobuf.ByteString
 import io.circe.syntax.EncoderOps
 import io.circe.{Decoder, DecodingFailure, Encoder, HCursor, Json}
+import org.bouncycastle.util.Strings
 import quivr.models.{Data, Digest}
 
 object PropositionTemplateCodecs {
@@ -136,7 +137,7 @@ object PropositionTemplateCodecs {
     override def apply(a: DigestTemplate[F]): Json =
       Json.obj(
         "routine" -> Json.fromString(a.routine),
-        "digest"  -> Json.fromString(a.digest.value.toString)
+        "digest"  -> Json.fromString(Strings.fromByteArray(a.digest.value.toByteArray))
       )
   }
 
@@ -149,7 +150,7 @@ object PropositionTemplateCodecs {
       for {
         routine <- c.downField("routine").as[String]
         digest  <- c.downField("digest").as[String]
-      } yield DigestTemplate[F](routine, Digest(ByteString.copyFrom(digest.getBytes)))
+      } yield DigestTemplate[F](routine, Digest(ByteString.copyFrom(Strings.toByteArray(digest))))
   }
 
   /**
