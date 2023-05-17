@@ -9,21 +9,17 @@ import co.topl.brambl.models.box.Lock.Value.Predicate
 class LockTemplateSpec extends munit.FunSuite with MockHelpers {
 
   test("Build Predicate Lock via Template") {
-    val routine = "someRoutine"
     val andLeftEntityIdx = 0
     val andRightEntityIdx = 1
     val andLeftEntityVk = mockVks(andLeftEntityIdx)
     val andRightEntityVk = mockVks(andRightEntityIdx)
-    val andLeftSignatureTemplate = PropositionTemplate.SignatureTemplate[Id](routine, andLeftEntityIdx)
-    val andRightSignatureTemplate = PropositionTemplate.SignatureTemplate[Id](routine, andRightEntityIdx)
+    val andLeftSignatureTemplate = PropositionTemplate.SignatureTemplate[Id](MockSigningRoutine, andLeftEntityIdx)
+    val andRightSignatureTemplate = PropositionTemplate.SignatureTemplate[Id](MockSigningRoutine, andRightEntityIdx)
     val andTemplate = PropositionTemplate.AndTemplate[Id](andLeftSignatureTemplate, andRightSignatureTemplate)
-    val chain = "someChain"
-    val min = 0L
-    val max = 100L
-    val heightTemplate = PropositionTemplate.HeightTemplate[Id](chain, min, max)
+    val heightTemplate = PropositionTemplate.HeightTemplate[Id](MockChain, MockMin, MockMax)
     val notTemplate = PropositionTemplate.NotTemplate[Id](heightTemplate)
     val lockedTemplate = PropositionTemplate.LockedTemplate[Id](None)
-    val tickTemplate = PropositionTemplate.TickTemplate[Id](min, max)
+    val tickTemplate = PropositionTemplate.TickTemplate[Id](MockMin, MockMax)
     val orTemplate = PropositionTemplate.OrTemplate[Id](lockedTemplate, tickTemplate)
     val thresholdTemplate = PropositionTemplate.ThresholdTemplate[Id](
       List(notTemplate, orTemplate),
@@ -41,9 +37,9 @@ class LockTemplateSpec extends munit.FunSuite with MockHelpers {
     val andRightProposition = andProposition.value.asInstanceOf[And].value.right
     assert(andLeftProposition.value.isDigitalSignature)
     assert(andRightProposition.value.isDigitalSignature)
-    assertEquals(andLeftProposition.value.asInstanceOf[DigitalSignature].value.routine, routine)
+    assertEquals(andLeftProposition.value.asInstanceOf[DigitalSignature].value.routine, MockSigningRoutine)
     assertEquals(andLeftProposition.value.asInstanceOf[DigitalSignature].value.verificationKey, andLeftEntityVk)
-    assertEquals(andRightProposition.value.asInstanceOf[DigitalSignature].value.routine, routine)
+    assertEquals(andRightProposition.value.asInstanceOf[DigitalSignature].value.routine, MockSigningRoutine)
     assertEquals(andRightProposition.value.asInstanceOf[DigitalSignature].value.verificationKey, andRightEntityVk)
 
     val thresholdProposition = lockPredicate.value.asInstanceOf[Predicate].value.challenges(1).getRevealed
@@ -52,9 +48,9 @@ class LockTemplateSpec extends munit.FunSuite with MockHelpers {
     assert(notProposition.value.isNot)
     val innerProposition = notProposition.value.asInstanceOf[Not].value.proposition
     assert(innerProposition.value.isHeightRange)
-    assertEquals(innerProposition.value.asInstanceOf[HeightRange].value.chain, chain)
-    assertEquals(innerProposition.value.asInstanceOf[HeightRange].value.min, min)
-    assertEquals(innerProposition.value.asInstanceOf[HeightRange].value.max, max)
+    assertEquals(innerProposition.value.asInstanceOf[HeightRange].value.chain, MockChain)
+    assertEquals(innerProposition.value.asInstanceOf[HeightRange].value.min, MockMin)
+    assertEquals(innerProposition.value.asInstanceOf[HeightRange].value.max, MockMax)
     val orProposition = thresholdProposition.value.asInstanceOf[Threshold].value.challenges(1)
     assert(orProposition.value.isOr)
     val orLeftProposition = orProposition.value.asInstanceOf[Or].value.left
@@ -62,22 +58,18 @@ class LockTemplateSpec extends munit.FunSuite with MockHelpers {
     assert(orLeftProposition.value.isLocked)
     assertEquals(orLeftProposition.value.asInstanceOf[Locked].value.data, None)
     assert(orRightProposition.value.isTickRange)
-    assertEquals(orRightProposition.value.asInstanceOf[TickRange].value.min, min)
-    assertEquals(orRightProposition.value.asInstanceOf[TickRange].value.max, max)
+    assertEquals(orRightProposition.value.asInstanceOf[TickRange].value.min, MockMin)
+    assertEquals(orRightProposition.value.asInstanceOf[TickRange].value.max, MockMax)
   }
 
   test("Failure to build Predicate Lock via Template > Invalid Entity Index") {
-    val routine = "someRoutine"
-    val andLeftSignatureTemplate = PropositionTemplate.SignatureTemplate[Id](routine, 0)
-    val andRightSignatureTemplate = PropositionTemplate.SignatureTemplate[Id](routine, 5)
+    val andLeftSignatureTemplate = PropositionTemplate.SignatureTemplate[Id](MockSigningRoutine, 0)
+    val andRightSignatureTemplate = PropositionTemplate.SignatureTemplate[Id](MockSigningRoutine, 5)
     val andTemplate = PropositionTemplate.AndTemplate[Id](andLeftSignatureTemplate, andRightSignatureTemplate)
-    val chain = "someChain"
-    val min = 0L
-    val max = 100L
-    val heightTemplate = PropositionTemplate.HeightTemplate[Id](chain, min, max)
+    val heightTemplate = PropositionTemplate.HeightTemplate[Id](MockChain, MockMin, MockMax)
     val notTemplate = PropositionTemplate.NotTemplate[Id](heightTemplate)
     val lockedTemplate = PropositionTemplate.LockedTemplate[Id](None)
-    val tickTemplate = PropositionTemplate.TickTemplate[Id](min, max)
+    val tickTemplate = PropositionTemplate.TickTemplate[Id](MockMin, MockMax)
     val orTemplate = PropositionTemplate.OrTemplate[Id](lockedTemplate, tickTemplate)
     val thresholdTemplate = PropositionTemplate.ThresholdTemplate[Id](List(notTemplate, orTemplate), 2)
     val lockTemplate = LockTemplate.PredicateTemplate[Id](List(andTemplate, thresholdTemplate), 2)

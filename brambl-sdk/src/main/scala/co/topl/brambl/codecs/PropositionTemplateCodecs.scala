@@ -65,7 +65,7 @@ object PropositionTemplateCodecs {
   implicit def lockedTemplateToJson[F[_]: Monad]: Encoder[LockedTemplate[F]] = new Encoder[LockedTemplate[F]] {
 
     override def apply(a: LockedTemplate[F]): Json =
-      if (a.data.isEmpty) Json.Null
+      if (a.data.isEmpty) Json.obj()
       else Json.obj("data" -> Json.fromString(a.data.get.value.toString))
   }
 
