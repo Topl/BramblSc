@@ -4,7 +4,7 @@ import cats.Id
 import quivr.models.Proposition.Value._
 import co.topl.brambl.MockHelpers
 import co.topl.brambl.builders.locks.PropositionTemplate.UnableToBuildPropositionTemplate
-import co.topl.brambl.models.box.Lock.Predicate
+import co.topl.brambl.models.box.Lock.Value.Predicate
 
 class LockTemplateSpec extends munit.FunSuite with MockHelpers {
 
@@ -35,7 +35,7 @@ class LockTemplateSpec extends munit.FunSuite with MockHelpers {
     assert(lockInstance.isRight)
     val lockPredicate = lockInstance.toOption.get
     assert(lockPredicate.value.isPredicate)
-    val andProposition = lockPredicate.value.asInstanceOf[Predicate].challenges.head.getRevealed
+    val andProposition = lockPredicate.value.asInstanceOf[Predicate].value.challenges.head.getRevealed
     assert(andProposition.value.isAnd)
     val andLeftProposition = andProposition.value.asInstanceOf[And].value.left
     val andRightProposition = andProposition.value.asInstanceOf[And].value.right
@@ -46,7 +46,7 @@ class LockTemplateSpec extends munit.FunSuite with MockHelpers {
     assertEquals(andRightProposition.value.asInstanceOf[DigitalSignature].value.routine, routine)
     assertEquals(andRightProposition.value.asInstanceOf[DigitalSignature].value.verificationKey, andRightEntityVk)
 
-    val thresholdProposition = lockPredicate.value.asInstanceOf[Predicate].challenges(1).getRevealed
+    val thresholdProposition = lockPredicate.value.asInstanceOf[Predicate].value.challenges(1).getRevealed
     assert(thresholdProposition.value.isThreshold)
     val notProposition = thresholdProposition.value.asInstanceOf[Threshold].value.challenges.head
     assert(notProposition.value.isNot)

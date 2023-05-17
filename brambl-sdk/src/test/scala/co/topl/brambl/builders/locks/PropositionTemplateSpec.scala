@@ -5,7 +5,7 @@ import co.topl.brambl.MockHelpers
 import co.topl.brambl.builders.locks.PropositionTemplate.UnableToBuildPropositionTemplate
 import com.google.protobuf.ByteString
 import quivr.models.Proposition.Value._
-import quivr.models.{Data, Digest => DigestValue}
+import quivr.models.Data
 
 class PropositionTemplateSpec extends munit.FunSuite with MockHelpers {
 
@@ -47,14 +47,13 @@ class PropositionTemplateSpec extends munit.FunSuite with MockHelpers {
 
   test("Build Digest Proposition via Template") {
     val routine = "someRoutine"
-    val digest = DigestValue(ByteString.copyFrom("someDigest".getBytes))
-    val digestTemplate = PropositionTemplate.DigestTemplate[Id](routine, digest)
+    val digestTemplate = PropositionTemplate.DigestTemplate[Id](routine, MockDigest)
     val digestInstance = digestTemplate.build(mockVks)
     assert(digestInstance.isRight)
     val digestProposition = digestInstance.toOption.get
     assert(digestProposition.value.isDigest)
     assertEquals(digestProposition.value.asInstanceOf[Digest].value.routine, routine)
-    assertEquals(digestProposition.value.asInstanceOf[Digest].value.digest, digest)
+    assertEquals(digestProposition.value.asInstanceOf[Digest].value.digest, MockDigest)
   }
 
   test("Build Signature Proposition via Template") {
@@ -114,8 +113,8 @@ class PropositionTemplateSpec extends munit.FunSuite with MockHelpers {
     assert(orInstance.isRight)
     val orProposition = orInstance.toOption.get
     assert(orProposition.value.isOr)
-    val leftProposition = orProposition.value.asInstanceOf[And].value.left
-    val rightProposition = orProposition.value.asInstanceOf[And].value.right
+    val leftProposition = orProposition.value.asInstanceOf[Or].value.left
+    val rightProposition = orProposition.value.asInstanceOf[Or].value.right
     assert(leftProposition.value.isDigitalSignature)
     assert(rightProposition.value.isDigitalSignature)
     assertEquals(leftProposition.value.asInstanceOf[DigitalSignature].value.routine, routine)

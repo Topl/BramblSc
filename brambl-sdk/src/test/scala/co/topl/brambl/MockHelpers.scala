@@ -31,7 +31,6 @@ import quivr.models.{
 import co.topl.brambl.wallet.WalletApi.{cryptoToPbKeyPair, pbKeyPairToCryotoKeyPair}
 import co.topl.crypto.generation.Bip32Indexes
 import co.topl.crypto.signing.ExtendedEd25519
-import quivr.models.VerificationKey._
 
 trait MockHelpers {
   val fakeMsgBind: SignableBytes = "transaction binding".getBytes.immutable.signable
@@ -144,11 +143,7 @@ trait MockHelpers {
     IoTransaction.defaultInstance.withInputs(List(inputFull)).withOutputs(List(output)).withDatum(txDatum)
 
   val mockVks: List[VerificationKey] = List(
-    VerificationKey.defaultInstance.withExtendedEd25519(
-      ExtendedEd25519Vk(Ed25519Vk(ByteString.copyFrom("entity_1".getBytes)))
-    ),
-    VerificationKey.defaultInstance.withExtendedEd25519(
-      ExtendedEd25519Vk(Ed25519Vk(ByteString.copyFrom("entity_2".getBytes)))
-    )
+    MockChildKeyPair.vk,
+    (new ExtendedEd25519).deriveKeyPairFromSeed(Array.fill(96)(1: Byte)).vk
   )
 }

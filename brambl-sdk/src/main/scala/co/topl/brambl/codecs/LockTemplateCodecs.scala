@@ -3,6 +3,7 @@ package co.topl.brambl.codecs
 import cats.Monad
 import co.topl.brambl.builders.locks.{LockTemplate, PropositionTemplate}
 import co.topl.brambl.builders.locks.LockTemplate.PredicateTemplate
+import co.topl.brambl.codecs.PropositionTemplateCodecs.propositionTemplateToJson
 import io.circe.generic.codec.DerivedAsObjectCodec.deriveCodec
 import io.circe.syntax.EncoderOps
 import io.circe.{Decoder, DecodingFailure, Encoder, HCursor, Json}
@@ -57,6 +58,11 @@ object LockTemplateCodecs {
    */
   implicit def predicateTemplateFromJson[F[_]: Monad]: Decoder[PredicateTemplate[F]] =
     new Decoder[PredicateTemplate[F]] {
+
+      implicit private val decodePropositionTemplateSeq: Decoder[Seq[PropositionTemplate[F]]] =
+        Decoder[Seq[PropositionTemplate[F]]].prepare(
+          _.downField("innerTemplates")
+        )
 
       override def apply(c: HCursor): Decoder.Result[PredicateTemplate[F]] =
         for {
