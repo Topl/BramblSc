@@ -119,18 +119,18 @@ trait WalletStateAlgebra[F[_]] {
    *
    * @param party   A String label of the party to associate the new verification keys with
    * @param contract A String label of the contract to associate the new verification keys with
-   * @param entities The list of Verification Keys to add
+   * @param entities The list of Verification Keys in base58 format to add
    */
-  def addEntityVks(party: String, contract: String, entities: List[VerificationKey]): F[Unit]
+  def addEntityVks(party: String, contract: String, entities: List[String]): F[Unit]
 
   /**
-   * Get the list of entities associated to the given pair of party and contract
+   * Get the list of verification keys associated to the given pair of party and contract
    *
    * @param party   A String label of the party to get the verification keys for
-   * @return The list of entities associated to the given party and contract if possible. Else None.
-   *         It is possible that the list of entities is empty.
+   * @return The list of verification keys in base58 format associated to the given party and contract if possible.
+   *         Else None. It is possible that the list of entities is empty.
    */
-  def getEntityVks(party: String, contract: String): F[Option[List[VerificationKey]]]
+  def getEntityVks(party: String, contract: String): F[Option[List[String]]]
 
   /**
    * Add a new lock template entry to the wallet state's cartesian indexing. Lock templates are at the y (contract)

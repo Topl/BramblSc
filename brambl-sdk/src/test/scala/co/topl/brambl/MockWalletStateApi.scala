@@ -57,9 +57,9 @@ object MockWalletStateApi extends WalletStateAlgebra[Id] with MockHelpers {
 
   override def getAddress(party: String, contract: String, someState: Option[Int]): Id[Option[String]] = ???
 
-  override def addEntityVks(party: String, contract: String, entities: List[VerificationKey]): Id[Unit] = ???
+  override def addEntityVks(party: String, contract: String, entities: List[String]): Id[Unit] = ???
 
-  override def getEntityVks(party: String, contract: String): Id[Option[List[VerificationKey]]] = ???
+  override def getEntityVks(party: String, contract: String): Id[Option[List[String]]] = ???
 
   override def addNewLockTemplate(contract: String, lockTemplate: LockTemplate[Id]): Id[Unit] = ???
 
