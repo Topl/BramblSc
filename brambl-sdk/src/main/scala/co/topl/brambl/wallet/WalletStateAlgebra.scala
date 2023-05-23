@@ -113,23 +113,24 @@ trait WalletStateAlgebra[F[_]] {
   def getAddress(party: String, contract: String, someState: Option[Int]): F[Option[String]]
 
   /**
-   * Add a new entry of entities to the wallet state's cartesian indexing. Entities are at the x (party) layer. This new
-   * entry will be associated to the label given by party. The index of the new entry (and thus associated with the
-   * party label) will be automatically derived by the next available x-index.
+   * Add a new entry of entity verification keys to the wallet state's cartesian indexing. Entities are at a pair of
+   * x (party) and y (contract) layers and thus represent a Child verification key at a participants own x/y path.
+   * The respective x and y indices of the specified party and contract labels must already exist.
    *
-   * @param party   A String label of the party to associate the new Entries entry with
-   * @param entities The list of Verification Keys of the entities to add to the new Entries entry
+   * @param party   A String label of the party to associate the new verification keys with
+   * @param contract A String label of the contract to associate the new verification keys with
+   * @param entities The list of Verification Keys to add
    */
-  def addNewEntities(party: String, entities: List[VerificationKey]): F[Unit]
+  def addEntityVks(party: String, contract: String, entities: List[VerificationKey]): F[Unit]
 
   /**
-   * Get the list of entities associated to the given party
+   * Get the list of entities associated to the given pair of party and contract
    *
-   * @param party   A String label of the party to get the entities for
-   * @return The list of entities associated to the given party if possible. Else None. It is possible that the list of
-   *         entities is empty.
+   * @param party   A String label of the party to get the verification keys for
+   * @return The list of entities associated to the given party and contract if possible. Else None.
+   *         It is possible that the list of entities is empty.
    */
-  def getEntities(party: String): F[Option[List[VerificationKey]]]
+  def getEntityVks(party: String, contract: String): F[Option[List[VerificationKey]]]
 
   /**
    * Add a new lock template entry to the wallet state's cartesian indexing. Lock templates are at the y (contract)

@@ -544,9 +544,9 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
       ): Id[ValidatedNel[String, Indices]] = ???
       override def getNextIndicesForFunds(party: String, contract: String): Id[Option[Indices]] = ???
       override def getLockByIndex(indices:       Indices): Id[Option[Lock.Predicate]] = ???
-      override def getAddress(party:     String, contract: String, someState: Option[Int]): Id[Option[String]] = ???
-      override def addNewEntities(party: String, entities: List[VerificationKey]): Id[Unit] = ???
-      override def getEntities(party:    String): Id[Option[List[VerificationKey]]] = ???
+      override def getAddress(party:   String, contract: String, someState: Option[Int]): Id[Option[String]] = ???
+      override def addEntityVks(party: String, contract: String, entities:  List[VerificationKey]): Id[Unit] = ???
+      override def getEntityVks(party: String, contract: String): Id[Option[List[VerificationKey]]] = ???
       override def addNewLockTemplate(contract: String, lockTemplate: LockTemplate[Id]): Id[Unit] = ???
       override def getLockTemplate(contract:    String): Id[Option[LockTemplate[Id]]] = ???
     }
