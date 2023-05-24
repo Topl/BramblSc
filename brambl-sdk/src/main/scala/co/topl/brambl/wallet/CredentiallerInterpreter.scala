@@ -8,7 +8,6 @@ import co.topl.brambl.validation.{TransactionAuthorizationInterpreter, Transacti
 import co.topl.brambl.Context
 import co.topl.brambl.common.ContainsSignable.ContainsSignableTOps
 import co.topl.brambl.common.ContainsSignable.instances._
-import co.topl.brambl.dataApi.DataApi
 import co.topl.quivr.api.Prover
 import co.topl.quivr.api.Verifier.instances.verifierInstance
 import quivr.models.{KeyPair, Proof, Proposition, SignableBytes, Witness}
@@ -20,7 +19,11 @@ import com.google.protobuf.ByteString
 
 object CredentiallerInterpreter {
 
-  def make[F[_]: Monad](dataApi: DataApi[F], mainKey: KeyPair): Credentialler[F] = new Credentialler[F] {
+  def make[F[_]: Monad](
+    walletApi:      WalletApi[F],
+    walletStateApi: WalletStateAlgebra[F],
+    mainKey:        KeyPair
+  ): Credentialler[F] = new Credentialler[F] {
     require(mainKey.vk.vk.isExtendedEd25519, "mainKey must be an extended Ed25519 key")
     require(mainKey.sk.sk.isExtendedEd25519, "mainKey must be an extended Ed25519 key")
 
@@ -160,10 +163,10 @@ object CredentiallerInterpreter {
     private def getDigestProof(existingProof: Proof, msg: SignableBytes, digest: Proposition.Digest): F[Proof] =
       if (existingProof.value.isDigest) existingProof.pure[F]
       else
-        dataApi
+        walletStateApi
           .getPreimage(digest)
           .flatMap(
-            _.toOption.map(preimage => Prover.digestProver[F].prove(preimage, msg)).getOrElse(Proof().pure[F])
+            _.map(preimage => Prover.digestProver[F].prove(preimage, msg)).getOrElse(Proof().pure[F])
           )
 
     /**
@@ -184,10 +187,10 @@ object CredentiallerInterpreter {
     ): F[Proof] =
       if (existingProof.value.isDigitalSignature) existingProof.pure[F]
       else
-        dataApi
-          .getIndices(signature)
+        walletStateApi
+          .getIndicesBySignature(signature)
           .flatMap(
-            _.toOption.map(idx => getSignatureProofForRoutine(signature.routine, idx, msg)).getOrElse(Proof().pure[F])
+            _.map(idx => getSignatureProofForRoutine(signature.routine, idx, msg)).getOrElse(Proof().pure[F])
           )
 
     /**
@@ -205,8 +208,7 @@ object CredentiallerInterpreter {
     private def getSignatureProofForRoutine(routine: String, idx: Indices, msg: SignableBytes): F[Proof] =
       routine match {
         case "ExtendedEd25519" =>
-          WalletApi
-            .make[F](dataApi)
+          walletApi
             .deriveChildKeys(mainKey, idx)
             .map(WalletApi.pbKeyPairToCryotoKeyPair)
             .flatMap(kp =>

@@ -1,7 +1,7 @@
 package co.topl.brambl.dataApi
 
 import co.topl.brambl.dataApi.DataApi._
-import co.topl.brambl.models.{Evidence, Indices, LockAddress, TransactionOutputAddress}
+import co.topl.brambl.models.{LockAddress, TransactionOutputAddress}
 import co.topl.brambl.models.box.Lock
 import co.topl.brambl.models.transaction.UnspentTransactionOutput
 import co.topl.crypto.encryption.VaultStore
@@ -37,24 +37,6 @@ trait DataApi[F[_]] {
    * @return The Lock targeted by the given address, if it exists. Else a DataApiException
    */
   def getLockByLockAddress(address: LockAddress): F[Either[DataApiException, Lock]]
-
-  /**
-   * Return the preimage secret associated to a digest proposition.
-   *
-   * @param digestProposition The Digest Proposition for which to retrieve the preimage secret for
-   * @return The preimage secret associated to the Digest Proposition if it exists. Else a DataApiException
-   */
-  def getPreimage(digestProposition: Proposition.Digest): F[Either[DataApiException, Preimage]]
-
-  /**
-   * Return the indices (x/y/z) associated to a signature proposition. A Signature Proposition is created with a
-   * verification and must be signed with the corresponding signing key. The verification and signing key pair is
-   * derived from the indices.
-   *
-   * @param signatureProposition The Signature Proposition for which to retrieve the indices for
-   * @return The indices associated to the Signature Proposition if it exists. Else a DataApiException
-   */
-  def getIndices(signatureProposition: Proposition.DigitalSignature): F[Either[DataApiException, Indices]]
 
   /**
    * Persist a VaultStore for the Topl Main Secret Key.
