@@ -149,6 +149,20 @@ trait WalletApi[F[_]] {
   ): F[KeyPair]
 
   /**
+   * Derive a child key pair from a Main Key Pair from a partial path (x and y).
+   *
+   * @param keyPair The Main Key Pair to derive the child key pair from
+   * @param xParty  The first path index of the child key pair to derive. Represents the party index
+   * @param yContract The second path index of the child key pair to derive. Represents the contract index
+   * @return        The protobuf encoded keys of the child key pair
+   */
+  def deriveChildKeysPartial(
+    keyPair:   KeyPair,
+    xParty:    Int,
+    yContract: Int
+  ): F[KeyPair]
+
+  /**
    * Derive a child verification key pair one step down from a parent verification key. Note that this is a Soft
    * Derivation.
    *
@@ -316,6 +330,22 @@ object WalletApi {
       } yield extendedEd25519Instance.deriveKeyPairFromChildPath(
         keyPair.signingKey,
         List(xCoordinate, yCoordinate, zCoordinate)
+      )
+    }
+
+    override def deriveChildKeysPartial(
+      keyPair:   KeyPair,
+      xParty:    Int,
+      yContract: Int
+    ): F[KeyPair] = {
+      require(keyPair.vk.vk.isExtendedEd25519, "keyPair must be an extended Ed25519 key")
+      require(keyPair.sk.sk.isExtendedEd25519, "keyPair must be an extended Ed25519 key")
+      for {
+        xCoordinate <- Monad[F].pure(Bip32Indexes.HardenedIndex(xParty))
+        yCoordinate <- Monad[F].pure(Bip32Indexes.SoftIndex(yContract))
+      } yield extendedEd25519Instance.deriveKeyPairFromChildPath(
+        keyPair.signingKey,
+        List(xCoordinate, yCoordinate)
       )
     }
 
