@@ -156,7 +156,7 @@ trait WalletApi[F[_]] {
    * @param idx     The index to perform soft derivation in order to derive the child verification
    * @return        The protobuf child verification key
    */
-  def deriveChildVerificationKey(vk: VerificationKey.ExtendedEd25519Vk, idx: Int): F[VerificationKey.ExtendedEd25519Vk]
+  def deriveChildVerificationKey(vk: VerificationKey, idx: Int): F[VerificationKey]
 
   /**
    * Load a wallet and then extract the main key pair
@@ -320,13 +320,14 @@ object WalletApi {
     }
 
     override def deriveChildVerificationKey(
-      vk:  VerificationKey.ExtendedEd25519Vk,
+      vk:  VerificationKey,
       idx: Int
-    ): F[VerificationKey.ExtendedEd25519Vk] =
-      (extendedEd25519Instance.deriveChildVerificationKey(
-        vk,
-        Bip32Indexes.SoftIndex(idx)
-      ): VerificationKey.ExtendedEd25519Vk).pure[F]
+    ): F[VerificationKey] = {
+      require(vk.vk.isExtendedEd25519, "verification key must be an extended Ed25519 key")
+      val extendedEdVk: VerificationKey.ExtendedEd25519Vk =
+        extendedEd25519Instance.deriveChildVerificationKey(vk.vk.extendedEd25519.get, Bip32Indexes.SoftIndex(idx))
+      Monad[F].pure(VerificationKey(VerificationKey.Vk.ExtendedEd25519(extendedEdVk)))
+    }
 
     override def createNewWallet(
       password:   Array[Byte],
