@@ -149,6 +149,16 @@ trait WalletApi[F[_]] {
   ): F[KeyPair]
 
   /**
+   * Derive a child verification key pair one step down from a parent verification key. Note that this is a Soft
+   * Derivation.
+   *
+   * @param vk The verification to derive the child key pair from
+   * @param idx     The index to perform soft derivation in order to derive the child verification
+   * @return        The protobuf child verification key
+   */
+  def deriveChildVerificationKey(vk: VerificationKey.ExtendedEd25519Vk, idx: Int): F[VerificationKey.ExtendedEd25519Vk]
+
+  /**
    * Load a wallet and then extract the main key pair
    *
    * @param password The password to decrypt the wallet with
@@ -309,6 +319,15 @@ object WalletApi {
       )
     }
 
+    override def deriveChildVerificationKey(
+      vk:  VerificationKey.ExtendedEd25519Vk,
+      idx: Int
+    ): F[VerificationKey.ExtendedEd25519Vk] =
+      (extendedEd25519Instance.deriveChildVerificationKey(
+        vk,
+        Bip32Indexes.SoftIndex(idx)
+      ): VerificationKey.ExtendedEd25519Vk).pure[F]
+
     override def createNewWallet(
       password:   Array[Byte],
       passphrase: Option[String] = None,
@@ -416,6 +435,12 @@ object WalletApi {
     }
   }
 
+  implicit def pbVkToCryptoVk(pbVk: VerificationKey.ExtendedEd25519Vk): ExtendedEd25519.PublicKey =
+    ExtendedEd25519.PublicKey(
+      signing.Ed25519.PublicKey(pbVk.vk.value.toByteArray),
+      pbVk.chainCode.toByteArray
+    )
+
   implicit def pbKeyPairToCryotoKeyPair(
     pbKeyPair: KeyPair
   ): signing.KeyPair[ExtendedEd25519.SecretKey, ExtendedEd25519.PublicKey] =
@@ -425,12 +450,13 @@ object WalletApi {
         pbKeyPair.sk.sk.extendedEd25519.get.rightKey.toByteArray,
         pbKeyPair.sk.sk.extendedEd25519.get.chainCode.toByteArray
       ),
-      ExtendedEd25519.PublicKey(
-        signing.Ed25519.PublicKey(
-          pbKeyPair.vk.vk.extendedEd25519.get.vk.value.toByteArray
-        ),
-        pbKeyPair.vk.vk.extendedEd25519.get.chainCode.toByteArray
-      )
+      pbKeyPair.vk.vk.extendedEd25519.get
+    )
+
+  implicit def cryptoVkToPbVk(cryptoVk: ExtendedEd25519.PublicKey): VerificationKey.ExtendedEd25519Vk =
+    ExtendedEd25519Vk(
+      Ed25519Vk(ByteString.copyFrom(cryptoVk.vk.bytes)),
+      ByteString.copyFrom(cryptoVk.chainCode)
     )
 
   implicit def cryptoToPbKeyPair(
@@ -442,13 +468,8 @@ object WalletApi {
       ByteString.copyFrom(skCrypto.rightKey),
       ByteString.copyFrom(skCrypto.chainCode)
     )
-    val vkCrypto = keyPair.verificationKey
-    val vk = ExtendedEd25519Vk(
-      Ed25519Vk(ByteString.copyFrom(vkCrypto.vk.bytes)),
-      ByteString.copyFrom(vkCrypto.chainCode)
-    )
     KeyPair(
-      VerificationKey(VerificationKey.Vk.ExtendedEd25519(vk)),
+      VerificationKey(VerificationKey.Vk.ExtendedEd25519(keyPair.verificationKey)),
       SigningKey(SigningKey.Sk.ExtendedEd25519(sk))
     )
   }
