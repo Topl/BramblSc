@@ -30,7 +30,7 @@ object LockTemplate {
         case Left(error) => error.asLeft[Lock].pure[F]
         case Right(Proposition(Proposition.Value.Threshold(Proposition.Threshold(innerPropositions, _, _)), _)) =>
           Lock()
-            .withPredicate(Lock.Predicate(innerPropositions.map(Challenge().withRevealed)))
+            .withPredicate(Lock.Predicate(innerPropositions.map(Challenge().withRevealed), threshold))
             .asRight[BuilderError]
             .pure[F]
       }
