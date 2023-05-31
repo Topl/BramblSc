@@ -7,7 +7,7 @@ import co.topl.brambl.models.box.{Attestation, Lock, Value}
 import co.topl.brambl.models.transaction.{IoTransaction, Schedule, SpentTransactionOutput, UnspentTransactionOutput}
 import co.topl.genus.services.Txo
 import com.google.protobuf.ByteString
-import quivr.models.{Int128, SmallData}
+import quivr.models.{Int128, Proof, SmallData}
 import co.topl.brambl.common.ContainsEvidence.Ops
 import co.topl.brambl.common.ContainsImmutable.instances._
 import cats.implicits._
@@ -195,11 +195,9 @@ object TransactionBuilderApi {
           Attestation.Value.Predicate(
             Attestation.Predicate(
               predicate,
-              Nil
+              List.fill(predicate.challenges.length)(Proof())
             )
           )
         ).pure[F]
-
     }
-
 }
