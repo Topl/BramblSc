@@ -140,7 +140,13 @@ object TransactionBuilderApi {
               )
             )
           )
-          .withOutputs(Seq(lvlOutputForChange, lvlOutputForRecipient))
+          .withOutputs(
+            // If there is no change, we don't need to add it to the outputs
+            if (totalValues.toLong - amount > 0)
+              Seq(lvlOutputForRecipient) :+ lvlOutputForChange
+            else
+              Seq(lvlOutputForRecipient)
+          )
           .withDatum(datum)
       } yield ioTransaction
 
