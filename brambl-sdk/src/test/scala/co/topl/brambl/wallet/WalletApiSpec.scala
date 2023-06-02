@@ -130,6 +130,31 @@ class WalletApiSpec extends munit.FunSuite with MockHelpers {
     assert(signingInstance.verify(signature, testMsg, WalletApi.pbKeyPairToCryotoKeyPair(childKey).verificationKey))
   }
 
+  test("deriveChildKeysPartial: Verify deriving path 4'/4 produces a valid child key pair") {
+    val signingInstance: ExtendedEd25519 = new ExtendedEd25519
+    val password = "password".getBytes
+    val vaultStore = walletApi.createNewWallet(password).toOption.map(_.mainKeyVaultStore).get
+    val mainKey = walletApi.extractMainKey(vaultStore, password).toOption.get
+    val childKey = walletApi.deriveChildKeysPartial(mainKey, 4, 4)
+    val signature = signingInstance.sign(WalletApi.pbKeyPairToCryotoKeyPair(childKey).signingKey, testMsg)
+    assert(signingInstance.verify(signature, testMsg, WalletApi.pbKeyPairToCryotoKeyPair(childKey).verificationKey))
+  }
+
+  test("deriveChildVerificationKey: Verify deriving path '4' produces a valid child verification key") {
+    val signingInstance: ExtendedEd25519 = new ExtendedEd25519
+    val password = "password".getBytes
+    val vaultStore = walletApi.createNewWallet(password).toOption.map(_.mainKeyVaultStore).get
+    val mainKey = walletApi.extractMainKey(vaultStore, password).toOption.get
+    val childKeyExpected = walletApi.deriveChildKeys(mainKey, Indices(4, 4, 4))
+    val childKeyPartial = walletApi.deriveChildKeysPartial(mainKey, 4, 4)
+    val childVerificationKeyTest = walletApi.deriveChildVerificationKey(childKeyPartial.vk, 4)
+    assert(childVerificationKeyTest == childKeyExpected.vk)
+    val signature = signingInstance.sign(WalletApi.pbKeyPairToCryotoKeyPair(childKeyExpected).signingKey, testMsg)
+    assert(
+      signingInstance.verify(signature, testMsg, WalletApi.pbVkToCryptoVk(childVerificationKeyTest.getExtendedEd25519))
+    )
+  }
+
   test(
     "buildMainKeyVaultStore: Build a VaultStore for a main key encrypted with a password."
   ) {

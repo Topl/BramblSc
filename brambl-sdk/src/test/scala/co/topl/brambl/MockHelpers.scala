@@ -43,6 +43,8 @@ import quivr.models.{
 import co.topl.brambl.wallet.WalletApi.{cryptoToPbKeyPair, pbKeyPairToCryotoKeyPair}
 import co.topl.crypto.generation.Bip32Indexes
 import co.topl.crypto.signing.ExtendedEd25519
+import co.topl.genus.services.Txo
+import co.topl.genus.services.TxoState.UNSPENT
 import io.circe.Json
 import org.bouncycastle.util.Strings
 
@@ -97,8 +99,8 @@ trait MockHelpers {
   val txDatum: Datum.IoTransaction = Datum.IoTransaction(
     Event
       .IoTransaction(
-        Schedule(3, 50, 100),
-        SmallData(ByteString.copyFrom("metadata".getBytes))
+        Schedule(0, Long.MaxValue, System.currentTimeMillis),
+        SmallData.defaultInstance
       )
   )
 
@@ -162,6 +164,12 @@ trait MockHelpers {
 
   val txFull: IoTransaction =
     IoTransaction.defaultInstance.withInputs(List(inputFull)).withOutputs(List(output)).withDatum(txDatum)
+
+  val inputTxo: Txo = Txo(
+    UnspentTransactionOutput(inLockFullAddress, value),
+    UNSPENT,
+    dummyTxoAddress
+  )
 
   val mockVks: List[VerificationKey] = List(
     MockChildKeyPair.vk,

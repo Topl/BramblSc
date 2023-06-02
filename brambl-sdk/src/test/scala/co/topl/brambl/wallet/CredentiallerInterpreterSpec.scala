@@ -549,6 +549,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
       override def getEntityVks(party: String, contract: String): Id[Option[List[String]]] = ???
       override def addNewLockTemplate(contract: String, lockTemplate: LockTemplate[Id]): Id[Unit] = ???
       override def getLockTemplate(contract:    String): Id[Option[LockTemplate[Id]]] = ???
+      override def getLock(party:               String, contract:     String, nextState: Int): Id[Option[Lock]] = ???
     }
     val aliceDataApi = MockWalletStateApi
     val bobDataApi = NewWalletStateApi

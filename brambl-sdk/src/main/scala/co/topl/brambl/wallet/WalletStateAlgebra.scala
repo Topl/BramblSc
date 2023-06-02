@@ -149,4 +149,15 @@ trait WalletStateAlgebra[F[_]] {
    * @return The lock template associated to the given contract if possible. Else None.
    */
   def getLockTemplate(contract: String): F[Option[LockTemplate[F]]]
+
+  /**
+   * Using the template associated the given contract, the verification keys associated to the party and contract pair,
+   * and the z state given by nextState, build a Lock
+   *
+   * @param party A String label of the party to get the Lock verification keys for
+   * @param contract A String label of the contract to get the verification keys and template for
+   * @param nextState The z index state to build the lock for
+   * @return A built lock, if possible. Else none
+   */
+  def getLock(party: String, contract: String, nextState: Int): F[Option[Lock]]
 }

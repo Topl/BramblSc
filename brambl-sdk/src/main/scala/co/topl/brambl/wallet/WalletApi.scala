@@ -149,6 +149,30 @@ trait WalletApi[F[_]] {
   ): F[KeyPair]
 
   /**
+   * Derive a child key pair from a Main Key Pair from a partial path (x and y).
+   *
+   * @param keyPair The Main Key Pair to derive the child key pair from
+   * @param xParty  The first path index of the child key pair to derive. Represents the party index
+   * @param yContract The second path index of the child key pair to derive. Represents the contract index
+   * @return        The protobuf encoded keys of the child key pair
+   */
+  def deriveChildKeysPartial(
+    keyPair:   KeyPair,
+    xParty:    Int,
+    yContract: Int
+  ): F[KeyPair]
+
+  /**
+   * Derive a child verification key pair one step down from a parent verification key. Note that this is a Soft
+   * Derivation.
+   *
+   * @param vk The verification to derive the child key pair from
+   * @param idx     The index to perform soft derivation in order to derive the child verification
+   * @return        The protobuf child verification key
+   */
+  def deriveChildVerificationKey(vk: VerificationKey, idx: Int): F[VerificationKey]
+
+  /**
    * Load a wallet and then extract the main key pair
    *
    * @param password The password to decrypt the wallet with
@@ -309,6 +333,32 @@ object WalletApi {
       )
     }
 
+    override def deriveChildKeysPartial(
+      keyPair:   KeyPair,
+      xParty:    Int,
+      yContract: Int
+    ): F[KeyPair] = {
+      require(keyPair.vk.vk.isExtendedEd25519, "keyPair must be an extended Ed25519 key")
+      require(keyPair.sk.sk.isExtendedEd25519, "keyPair must be an extended Ed25519 key")
+      for {
+        xCoordinate <- Monad[F].pure(Bip32Indexes.HardenedIndex(xParty))
+        yCoordinate <- Monad[F].pure(Bip32Indexes.SoftIndex(yContract))
+      } yield extendedEd25519Instance.deriveKeyPairFromChildPath(
+        keyPair.signingKey,
+        List(xCoordinate, yCoordinate)
+      )
+    }
+
+    override def deriveChildVerificationKey(
+      vk:  VerificationKey,
+      idx: Int
+    ): F[VerificationKey] = {
+      require(vk.vk.isExtendedEd25519, "verification key must be an extended Ed25519 key")
+      val extendedEdVk: VerificationKey.ExtendedEd25519Vk =
+        extendedEd25519Instance.deriveChildVerificationKey(vk.vk.extendedEd25519.get, Bip32Indexes.SoftIndex(idx))
+      Monad[F].pure(VerificationKey(VerificationKey.Vk.ExtendedEd25519(extendedEdVk)))
+    }
+
     override def createNewWallet(
       password:   Array[Byte],
       passphrase: Option[String] = None,
@@ -416,6 +466,12 @@ object WalletApi {
     }
   }
 
+  implicit def pbVkToCryptoVk(pbVk: VerificationKey.ExtendedEd25519Vk): ExtendedEd25519.PublicKey =
+    ExtendedEd25519.PublicKey(
+      signing.Ed25519.PublicKey(pbVk.vk.value.toByteArray),
+      pbVk.chainCode.toByteArray
+    )
+
   implicit def pbKeyPairToCryotoKeyPair(
     pbKeyPair: KeyPair
   ): signing.KeyPair[ExtendedEd25519.SecretKey, ExtendedEd25519.PublicKey] =
@@ -425,12 +481,13 @@ object WalletApi {
         pbKeyPair.sk.sk.extendedEd25519.get.rightKey.toByteArray,
         pbKeyPair.sk.sk.extendedEd25519.get.chainCode.toByteArray
       ),
-      ExtendedEd25519.PublicKey(
-        signing.Ed25519.PublicKey(
-          pbKeyPair.vk.vk.extendedEd25519.get.vk.value.toByteArray
-        ),
-        pbKeyPair.vk.vk.extendedEd25519.get.chainCode.toByteArray
-      )
+      pbKeyPair.vk.vk.extendedEd25519.get
+    )
+
+  implicit def cryptoVkToPbVk(cryptoVk: ExtendedEd25519.PublicKey): VerificationKey.ExtendedEd25519Vk =
+    ExtendedEd25519Vk(
+      Ed25519Vk(ByteString.copyFrom(cryptoVk.vk.bytes)),
+      ByteString.copyFrom(cryptoVk.chainCode)
     )
 
   implicit def cryptoToPbKeyPair(
@@ -442,13 +499,8 @@ object WalletApi {
       ByteString.copyFrom(skCrypto.rightKey),
       ByteString.copyFrom(skCrypto.chainCode)
     )
-    val vkCrypto = keyPair.verificationKey
-    val vk = ExtendedEd25519Vk(
-      Ed25519Vk(ByteString.copyFrom(vkCrypto.vk.bytes)),
-      ByteString.copyFrom(vkCrypto.chainCode)
-    )
     KeyPair(
-      VerificationKey(VerificationKey.Vk.ExtendedEd25519(vk)),
+      VerificationKey(VerificationKey.Vk.ExtendedEd25519(keyPair.verificationKey)),
       SigningKey(SigningKey.Sk.ExtendedEd25519(sk))
     )
   }
