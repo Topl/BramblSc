@@ -3,7 +3,7 @@ inThisBuild(
     organization := "co.topl",
     homepage := Some(url("https://github.com/Topl/BramblSc")),
     licenses := Seq("MPL2.0" -> url("https://www.mozilla.org/en-US/MPL/2.0/")),
-    scalaVersion := "2.13.10",
+    scalaVersion := "2.13.11",
     testFrameworks += TestFrameworks.MUnit
   )
 )
