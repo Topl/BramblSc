@@ -1,4 +1,4 @@
-package co.topl.brambl.wallet
+package co.topl.brambl.dataApi
 
 import cats.data.ValidatedNel
 import co.topl.brambl.builders.locks.LockTemplate
