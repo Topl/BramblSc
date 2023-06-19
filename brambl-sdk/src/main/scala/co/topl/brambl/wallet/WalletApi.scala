@@ -4,7 +4,7 @@ import cats.implicits.catsSyntaxApplicativeId
 import co.topl.crypto.generation.mnemonic.{Entropy, MnemonicSize, MnemonicSizes}
 import cats.Monad
 import cats.implicits.{toFlatMapOps, toFunctorOps}
-import co.topl.brambl.dataApi.DataApi
+import co.topl.brambl.dataApi.WalletKeyApiAlgebra
 import co.topl.crypto.generation.{Bip32Indexes, KeyInitializer}
 import KeyInitializer.Instances.extendedEd25519Initializer
 import co.topl.crypto.encryption.{Mac, VaultStore}
@@ -297,7 +297,7 @@ object WalletApi {
    * @return A new WalletAPI instance
    */
   def make[F[_]: Monad](
-    dataApi: DataApi[F]
+    dataApi: WalletKeyApiAlgebra[F]
   )(implicit extendedEd25519Instance: ExtendedEd25519 = new ExtendedEd25519): WalletApi[F] = new WalletApi[F] {
     final val Purpose = 1852
     final val CoinType = 7091
