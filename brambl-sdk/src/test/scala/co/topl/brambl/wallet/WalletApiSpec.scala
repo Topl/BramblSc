@@ -1,7 +1,7 @@
 package co.topl.brambl.wallet
 
 import cats.Id
-import co.topl.brambl.{MockWalletKeyApi, MockHelpers}
+import co.topl.brambl.{MockHelpers, MockWalletKeyApi}
 import co.topl.crypto.encryption.VaultStore
 import co.topl.crypto.generation.mnemonic.MnemonicSizes
 import quivr.models.KeyPair
@@ -194,7 +194,9 @@ class WalletApiSpec extends munit.FunSuite with MockHelpers {
     assert(deleteRes.isRight)
     val afterDelete = walletApi.loadWallet("name")
     assert(afterDelete.isLeft)
-    assert(afterDelete.left.toOption.get == WalletApi.FailedToLoadWallet(MockWalletKeyApi.MainKeyVaultStoreNotInitialized))
+    assert(
+      afterDelete.left.toOption.get == WalletApi.FailedToLoadWallet(MockWalletKeyApi.MainKeyVaultStoreNotInitialized)
+    )
   }
 
   test(
