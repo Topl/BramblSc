@@ -13,6 +13,7 @@ import co.topl.quivr.api.Verifier.instances.verifierInstance
 import quivr.models.{KeyPair, Proof, Proposition, SignableBytes, Witness}
 import co.topl.brambl.models.Indices
 import cats.data.EitherT
+import co.topl.brambl.dataApi.WalletStateAlgebra
 import co.topl.brambl.models.box.Attestation
 import co.topl.crypto.signing.ExtendedEd25519
 import com.google.protobuf.ByteString

@@ -1,7 +1,7 @@
 package co.topl.brambl.wallet
 
 import cats.Id
-import co.topl.brambl.{MockDataApi, MockHelpers}
+import co.topl.brambl.{MockHelpers, MockWalletKeyApi}
 import co.topl.crypto.encryption.VaultStore
 import co.topl.crypto.generation.mnemonic.MnemonicSizes
 import quivr.models.KeyPair
@@ -15,12 +15,12 @@ import co.topl.crypto.generation.mnemonic.PhraseFailures.InvalidWordLength
 
 class WalletApiSpec extends munit.FunSuite with MockHelpers {
   implicit val idToId: FunctionK[Id, Id] = FunctionK.id[Id]
-  val walletApi: WalletApi[Id] = WalletApi.make[Id](MockDataApi)
+  val walletApi: WalletApi[Id] = WalletApi.make[Id](MockWalletKeyApi)
   val testMsg: Array[Byte] = "test message".getBytes
 
   // Runs after each individual test.
   override def afterEach(context: AfterEach): Unit =
-    MockDataApi.mainKeyVaultStoreInstance = Map() // Reset the MockDataApi persisted data
+    MockWalletKeyApi.mainKeyVaultStoreInstance = Map() // Reset the MockDataApi persisted data
 
   test(
     "createAndSaveNewWallet: Creating a new wallet creates VaultStore that contains a Topl Main Key and a Mnemonic (default length 12)"
@@ -30,7 +30,7 @@ class WalletApiSpec extends munit.FunSuite with MockHelpers {
     assert(res.isRight)
     assert(res.toOption.get.mnemonic.length == 12)
     val vs = res.toOption.get.mainKeyVaultStore
-    val vsStored = MockDataApi.getMainKeyVaultStore().toOption
+    val vsStored = MockWalletKeyApi.getMainKeyVaultStore().toOption
     assert(vsStored.isDefined)
     assert(vsStored.get == vs)
     val mainKey = VaultStore.decodeCipher[Id](vs, password).toOption.map(KeyPair.parseFrom)
@@ -66,7 +66,7 @@ class WalletApiSpec extends munit.FunSuite with MockHelpers {
   ) {
     val loadRes = walletApi.loadWallet("w1")
     assert(loadRes.isLeft)
-    assert(loadRes.left.toOption.get == WalletApi.FailedToLoadWallet(MockDataApi.MainKeyVaultStoreNotInitialized))
+    assert(loadRes.left.toOption.get == WalletApi.FailedToLoadWallet(MockWalletKeyApi.MainKeyVaultStoreNotInitialized))
   }
 
   test("extractMainKey: ExtendedEd25519 Topl Main Key is returned") {
@@ -116,7 +116,7 @@ class WalletApiSpec extends munit.FunSuite with MockHelpers {
     // DataApi mocked "error" to return an error when saving the wallet
     val res = walletApi.createAndSaveNewWallet[Id]("password".getBytes, name = "error")
     assert(res.isLeft)
-    assert(res.left.toOption.get == WalletApi.FailedToSaveWallet(MockDataApi.MainKeyVaultSaveFailure))
+    assert(res.left.toOption.get == WalletApi.FailedToSaveWallet(MockWalletKeyApi.MainKeyVaultSaveFailure))
   }
 
   test("deriveChildKeys: Verify deriving path 4'/4/4 produces a valid child key pair") {
@@ -180,7 +180,7 @@ class WalletApiSpec extends munit.FunSuite with MockHelpers {
   ) {
     val deleteRes = walletApi.deleteWallet("name")
     assert(deleteRes.isLeft)
-    assert(deleteRes.left.toOption.get == WalletApi.FailedToDeleteWallet(MockDataApi.MainKeyVaultDeleteFailure))
+    assert(deleteRes.left.toOption.get == WalletApi.FailedToDeleteWallet(MockWalletKeyApi.MainKeyVaultDeleteFailure))
   }
 
   test(
@@ -194,7 +194,9 @@ class WalletApiSpec extends munit.FunSuite with MockHelpers {
     assert(deleteRes.isRight)
     val afterDelete = walletApi.loadWallet("name")
     assert(afterDelete.isLeft)
-    assert(afterDelete.left.toOption.get == WalletApi.FailedToLoadWallet(MockDataApi.MainKeyVaultStoreNotInitialized))
+    assert(
+      afterDelete.left.toOption.get == WalletApi.FailedToLoadWallet(MockWalletKeyApi.MainKeyVaultStoreNotInitialized)
+    )
   }
 
   test(
@@ -203,7 +205,7 @@ class WalletApiSpec extends munit.FunSuite with MockHelpers {
     val vs = walletApi.buildMainKeyVaultStore("dummyKeyPair".getBytes, "password".getBytes)
     val w1 = walletApi.updateWallet(vs, "name")
     assert(w1.isLeft)
-    assert(w1.left.toOption.get == WalletApi.FailedToUpdateWallet(MockDataApi.MainKeyVaultStoreNotInitialized))
+    assert(w1.left.toOption.get == WalletApi.FailedToUpdateWallet(MockWalletKeyApi.MainKeyVaultStoreNotInitialized))
   }
 
   test(
@@ -257,10 +259,10 @@ class WalletApiSpec extends munit.FunSuite with MockHelpers {
     val password = "password".getBytes
     val oldVaultStore = walletApi.createNewWallet(password).toOption.get.mainKeyVaultStore
     // manually save the wallet to the mock data api with the error name
-    MockDataApi.mainKeyVaultStoreInstance += ("error" -> oldVaultStore.asJson)
+    MockWalletKeyApi.mainKeyVaultStoreInstance += ("error" -> oldVaultStore.asJson)
     val updateRes = walletApi.updateWalletPassword[Id](password, "newPassword".getBytes, "error")
     assert(updateRes.isLeft)
-    assert(updateRes.left.toOption.get == WalletApi.FailedToUpdateWallet(MockDataApi.MainKeyVaultSaveFailure))
+    assert(updateRes.left.toOption.get == WalletApi.FailedToUpdateWallet(MockWalletKeyApi.MainKeyVaultSaveFailure))
     // verify the wallet is still accessible with the old password
     val loadedWallet = walletApi.loadAndExtractMainKey[Id](password, "error")
     assert(loadedWallet.isRight)
@@ -306,7 +308,7 @@ class WalletApiSpec extends munit.FunSuite with MockHelpers {
     val wallet = walletApi.createNewWallet(password).toOption.get
     val importedWallet = walletApi.importWalletAndSave[Id](wallet.mnemonic, password, name = "error")
     assert(importedWallet.isLeft)
-    assert(importedWallet.left.toOption.get == WalletApi.FailedToSaveWallet(MockDataApi.MainKeyVaultSaveFailure))
+    assert(importedWallet.left.toOption.get == WalletApi.FailedToSaveWallet(MockWalletKeyApi.MainKeyVaultSaveFailure))
   }
 
   test("recoverWallet: TBD when recovery is fleshed out".ignore) {}
