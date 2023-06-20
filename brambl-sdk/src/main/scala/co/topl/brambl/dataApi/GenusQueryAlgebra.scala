@@ -15,11 +15,12 @@ import io.grpc.ManagedChannel
 trait GenusQueryAlgebra[F[_]] {
 
   /**
-   * Query and retrieve a set of unspent UTXOs encumbered by the given LockAddress.
+   * Query and retrieve a set of UTXOs encumbered by the given LockAddress.
    * @param fromAddress The lock address to query the unspent UTXOs by.
+   * @param txoState The state of the UTXOs to query. By default, only unspent UTXOs are returned.
    * @return A sequence of UTXOs.
    */
-  def queryUtxo(fromAddress: LockAddress): F[Seq[Txo]]
+  def queryUtxo(fromAddress: LockAddress, txoState: TxoState = TxoState.UNSPENT): F[Seq[Txo]]
 }
 
 object GenusQueryAlgebra {
@@ -27,7 +28,7 @@ object GenusQueryAlgebra {
   def make[F[_]: Sync](channelResource: Resource[F, ManagedChannel]): GenusQueryAlgebra[F] =
     new GenusQueryAlgebra[F] {
 
-      def queryUtxo(fromAddress: LockAddress): F[Seq[Txo]] = {
+      def queryUtxo(fromAddress: LockAddress, txoState: TxoState = TxoState.UNSPENT): F[Seq[Txo]] = {
         import cats.implicits._
         (for {
           channel <- channelResource
@@ -39,7 +40,7 @@ object GenusQueryAlgebra {
             response <- Sync[F].blocking(
               blockingStub
                 .getTxosByLockAddress(
-                  QueryByLockAddressRequest(fromAddress, None, TxoState.UNSPENT)
+                  QueryByLockAddressRequest(fromAddress, None, txoState)
                 )
             )
           } yield response.txos
