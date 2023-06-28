@@ -74,7 +74,7 @@ object TransactionSyntaxInterpreter {
     Validated.condNec(transaction.outputs.size < Short.MaxValue, (), TransactionSyntaxError.ExcessiveOutputsCount)
 
   /**
-   * Verify that the timestamp of the transaction is positive (greater than 0).  Transactions _can_ be created
+   * Verify that the timestamp of the transaction is positive (greater than or equal to 0).  Transactions _can_ be created
    * in the past.
    */
   private def positiveTimestampValidation(
