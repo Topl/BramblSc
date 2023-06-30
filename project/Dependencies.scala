@@ -7,8 +7,8 @@ object Dependencies {
     val catsCoreVersion = "2.9.0"
     val simulacrumVersion = "1.0.1"
     val circeVersion = "0.14.5"
-    val quivr4sVersion = "daa517d" // scala-steward:off
-    val protobufSpecsVersion = "e03a093" // scala-steward:off
+    val quivr4sVersion = "2.0.0-alpha1"
+    val protobufSpecsVersion = "2.0.0-alpha2"
     val mUnitTeVersion = "0.7.29"
   }
 
@@ -57,11 +57,11 @@ object Dependencies {
   )
 
   val protobufSpecs: Seq[ModuleID] = Seq(
-    "com.github.Topl.protobuf-specs" %% "protobuf-fs2" % protobufSpecsVersion
+    "co.topl" %% "protobuf-fs2" % protobufSpecsVersion
   )
 
   val quivr4s: Seq[ModuleID] = Seq(
-    "com.github.Topl" % "quivr4s" % quivr4sVersion
+    "co.topl" %% "quivr4s" % quivr4sVersion
   )
 
   object Crypto {
