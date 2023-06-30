@@ -30,7 +30,7 @@ object TransactionSyntaxInterpreter {
       nonEmptyInputsValidation,
       distinctInputsValidation,
       maximumOutputsCountValidation,
-      positiveTimestampValidation,
+      nonNegativeTimestampValidation,
       scheduleValidation,
       positiveOutputValuesValidation,
       sufficientFundsValidation,
@@ -77,7 +77,7 @@ object TransactionSyntaxInterpreter {
    * Verify that the timestamp of the transaction is positive (greater than or equal to 0).  Transactions _can_ be created
    * in the past.
    */
-  private def positiveTimestampValidation(
+  private def nonNegativeTimestampValidation(
     transaction: IoTransaction
   ): ValidatedNec[TransactionSyntaxError, Unit] =
     Validated.condNec(
