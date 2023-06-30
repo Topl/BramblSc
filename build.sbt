@@ -36,6 +36,7 @@ lazy val commonSettings = Seq(
     "Typesafe Repository" at "https://repo.typesafe.com/typesafe/releases/",
     "Sonatype Staging" at "https://s01.oss.sonatype.org/content/repositories/staging",
     "Sonatype Snapshots" at "https://s01.oss.sonatype.org/content/repositories/snapshots/",
+    "Sonatype Releases s01" at "https://s01.oss.sonatype.org/content/repositories/releases/",
     "Bintray" at "https://jcenter.bintray.com/",
     "jitpack" at "https://jitpack.io"
   ),
@@ -46,7 +47,7 @@ lazy val commonSettings = Seq(
 
 lazy val publishSettings = Seq(
   homepage := Some(url("https://github.com/Topl/BramblSc")),
-  sonatypeCredentialHost := "s01.oss.sonatype.org",
+  ThisBuild / sonatypeCredentialHost := "s01.oss.sonatype.org",
   sonatypeRepository := "https://s01.oss.sonatype.org/service/local",
   Test / publishArtifact := false,
   pomIncludeRepository := { _ => false },
