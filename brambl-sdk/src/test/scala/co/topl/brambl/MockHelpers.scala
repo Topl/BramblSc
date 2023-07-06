@@ -1,6 +1,7 @@
 package co.topl.brambl
 
 import cats.Id
+import cats.implicits.catsSyntaxOptionId
 import co.topl.brambl.builders.locks.LockTemplate.PredicateTemplate
 import co.topl.brambl.builders.locks.PropositionTemplate.{
   AndTemplate,
@@ -24,11 +25,13 @@ import co.topl.brambl.models.box.Challenge
 import co.topl.brambl.models.box.Lock
 import co.topl.brambl.models.box.Value
 import co.topl.brambl.models.transaction._
+import co.topl.brambl.utils.Encoding.encodeToBase58
 import co.topl.crypto.hash.Blake2b256
 import co.topl.quivr.api.Proposer
 import co.topl.quivr.api.Prover
 import com.google.protobuf.ByteString
 import quivr.models.{
+  Data,
   Digest,
   Int128,
   KeyPair,
@@ -177,10 +180,12 @@ trait MockHelpers {
   )
 
   object ExpectedLockedProposition {
-    val value: LockedTemplate[Id] = LockedTemplate[Id](None)
+    val data: Array[Byte] = "Hello world".getBytes
+    val value: LockedTemplate[Id] = LockedTemplate[Id](Data(ByteString.copyFrom(data)).some)
 
     val fields: List[(String, Json)] = List(
-      "type" -> Json.fromString(value.propositionType.label)
+      "type" -> Json.fromString(value.propositionType.label),
+      "data" -> Json.fromString(encodeToBase58(data))
     )
     val json: Json = Json.fromFields(fields)
   }
@@ -214,7 +219,7 @@ trait MockHelpers {
     val fields: List[(String, Json)] = List(
       "type"    -> Json.fromString(value.propositionType.label),
       "routine" -> Json.fromString(MockDigestRoutine),
-      "digest"  -> Json.fromString(Strings.fromByteArray(MockDigest.value.toByteArray))
+      "digest"  -> Json.fromString(encodeToBase58(MockDigest.value.toByteArray))
     )
     val json: Json = Json.fromFields(fields)
   }
