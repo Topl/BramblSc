@@ -6,7 +6,7 @@ import co.topl.brambl.models.box.Challenge
 import co.topl.brambl.models.box.{Box, Lock, Value}
 import co.topl.brambl.models.common.ImmutableBytes
 import co.topl.brambl.models.transaction._
-import co.topl.consensus.models.StakingAddress
+import co.topl.consensus.models._
 import co.topl.quivr.Tokens
 import com.google.protobuf.ByteString
 import quivr.models._
@@ -120,11 +120,10 @@ object ContainsImmutable {
       box.value.immutable
 
     implicit val valueImmutable: ContainsImmutable[Value] = _.value match {
-      case Value.Value.Lvl(v)          => v.immutable
-      case Value.Value.Topl(v)         => v.immutable
-      case Value.Value.Asset(v)        => v.immutable
-      case Value.Value.Registration(v) => v.immutable
-      case Value.Value.Empty           => Array[Byte](0).immutable
+      case Value.Value.Lvl(v)   => v.immutable
+      case Value.Value.Topl(v)  => v.immutable
+      case Value.Value.Asset(v) => v.immutable
+      case Value.Value.Empty    => Array[Byte](0).immutable
     }
 
     implicit val evidenceImmutable: ContainsImmutable[Evidence] =
@@ -170,7 +169,7 @@ object ContainsImmutable {
       _.value.immutable
 
     implicit val toplValueImmutable: ContainsImmutable[Value.TOPL] =
-      v => v.quantity.immutable ++ v.stakingAddress.immutable
+      v => v.quantity.immutable ++ v.registration.immutable
 
     implicit val assetValueImmutable: ContainsImmutable[Value.Asset] = (asset: Value.Asset) =>
       asset.label.immutable ++
@@ -189,8 +188,8 @@ object ContainsImmutable {
         v.subSignature.immutable ++
         v.subRoot.immutable
 
-    implicit val registrationValueImmutable: ContainsImmutable[Value.Registration] =
-      v => v.registration.immutable ++ v.stakingAddress.immutable
+    implicit val stakingRegistrationImmutable: ContainsImmutable[StakingRegistration] =
+      v => v.signature.immutable ++ v.address.immutable
 
     // consider making predicate non-empty
     implicit val predicateLockImmutable: ContainsImmutable[Lock.Predicate] = (predicate: Lock.Predicate) =>

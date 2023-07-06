@@ -7,10 +7,10 @@ import co.topl.brambl.builders.locks.LockTemplate
 import co.topl.brambl.common.ContainsEvidence.Ops
 import co.topl.brambl.common.ContainsImmutable.instances._
 import co.topl.brambl.models.transaction.{IoTransaction, UnspentTransactionOutput}
-import co.topl.brambl.{Context, MockDataApi, MockHelpers, MockWalletStateApi}
+import co.topl.brambl.{Context, MockHelpers, MockWalletKeyApi, MockWalletStateApi}
 import co.topl.brambl.common.ContainsSignable.ContainsSignableTOps
 import co.topl.brambl.common.ContainsSignable.instances._
-import co.topl.brambl.dataApi.DataApi
+import co.topl.brambl.dataApi.{WalletKeyApiAlgebra, WalletStateAlgebra}
 import co.topl.brambl.models.{Datum, Event, Indices, LockAddress, TransactionOutputAddress}
 import co.topl.brambl.models.box.{Attestation, Challenge, Lock, Value}
 import co.topl.brambl.validation.TransactionAuthorizationError.AuthorizationFailed
@@ -30,7 +30,7 @@ import co.topl.crypto.encryption.VaultStore
 import scala.util.Random
 
 class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
-  val walletApi: WalletApi[Id] = WalletApi.make[Id](MockDataApi)
+  val walletApi: WalletApi[Id] = WalletApi.make[Id](MockWalletKeyApi)
 
   test("prove: Single Input Transaction with Attestation.Predicate > Provable propositions have non-empty proofs") {
     val provenTx: IoTransaction =
@@ -154,7 +154,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
   test(
     "proveAndValidate: Credentialler initialized with a main key different than used to create Single Input Transaction with Attestation.Predicate > Validation Failed"
   ) {
-    val differentKeyPair = WalletApi.make[Id](MockDataApi).deriveChildKeys(MockMainKeyPair, Indices(0, 0, 1))
+    val differentKeyPair = WalletApi.make[Id](MockWalletKeyApi).deriveChildKeys(MockMainKeyPair, Indices(0, 0, 1))
     val credentialler = CredentiallerInterpreter.make[Id](walletApi, MockWalletStateApi, differentKeyPair)
     // Tick satisfies its proposition. Height does not.
     val ctx = Context[Id](txFull, 50, _ => None)

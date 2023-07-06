@@ -1,42 +1,12 @@
 package co.topl.brambl.dataApi
 
-import co.topl.brambl.dataApi.DataApi._
-import co.topl.brambl.models.{LockAddress, TransactionOutputAddress}
-import co.topl.brambl.models.box.Lock
-import co.topl.brambl.models.transaction.UnspentTransactionOutput
+import co.topl.brambl.dataApi.WalletKeyApiAlgebra._
 import co.topl.crypto.encryption.VaultStore
-import quivr.models.{Preimage, Proposition}
 
 /**
- * Defines a storage API for fetching and storing keys and states.
- *
- * TEMPORARY: This is a temporary interface that will be replaced by a more robust interface in the future. It currently
- * only includes functionality that is needed for the current implementation of other components (Credentialler and
- * builders).
- *
- * TODO: Design and replace this interface with the actual interface that will be used by the rest of the system.
+ * Defines a storage API for fetching and storing Topl Main Key Vault Store.
  */
-trait DataApi[F[_]] {
-
-  /**
-   * Return the UTXO targeted by a TransactionOutputAddress.
-   *
-   * A TransactionOutputAddress identifies an output (UTXO) of an existing transaction on the chain.
-   *
-   * @param address The TransactionOutputAddress of the UTXO to retrieve
-   * @return The UTXO targeted by the given address, if it exists. Else a DataApiException
-   */
-  def getUtxoByTxoAddress(address: TransactionOutputAddress): F[Either[DataApiException, UnspentTransactionOutput]]
-
-  /**
-   * Return the Lock targeted by a LockAddress.
-   *
-   * A LockAddress is meant to identify a Lock on chain.
-   *
-   * @param address The LockAddress for which to retrieve the Lock
-   * @return The Lock targeted by the given address, if it exists. Else a DataApiException
-   */
-  def getLockByLockAddress(address: LockAddress): F[Either[DataApiException, Lock]]
+trait WalletKeyApiAlgebra[F[_]] {
 
   /**
    * Persist a VaultStore for the Topl Main Secret Key.
@@ -47,7 +17,7 @@ trait DataApi[F[_]] {
    *                          to manage the names of the wallet identities if multiple will be used.
    * @return nothing if successful. If persisting fails due to an underlying cause, return a DataApiException
    */
-  def saveMainKeyVaultStore(mainKeyVaultStore: VaultStore[F], name: String): F[Either[DataApiException, Unit]]
+  def saveMainKeyVaultStore(mainKeyVaultStore: VaultStore[F], name: String): F[Either[WalletKeyException, Unit]]
 
   /**
    * Return the VaultStore for the Topl Main Secret Key.
@@ -57,7 +27,7 @@ trait DataApi[F[_]] {
    *             the names of the wallet identities if multiple will be used.
    * @return The VaultStore for the Topl Main Secret Key if it exists. If retrieving fails due to an underlying cause, return a DataApiException
    */
-  def getMainKeyVaultStore(name: String): F[Either[DataApiException, VaultStore[F]]]
+  def getMainKeyVaultStore(name: String): F[Either[WalletKeyException, VaultStore[F]]]
 
   /**
    * Update a persisted VaultStore for the Topl Main Secret Key.
@@ -67,7 +37,7 @@ trait DataApi[F[_]] {
    *                          to manage the names of the wallet identities if multiple will be used.
    * @return nothing if successful. If the update fails due to an underlying cause (for ex does not exist), return a DataApiException
    */
-  def updateMainKeyVaultStore(mainKeyVaultStore: VaultStore[F], name: String): F[Either[DataApiException, Unit]]
+  def updateMainKeyVaultStore(mainKeyVaultStore: VaultStore[F], name: String): F[Either[WalletKeyException, Unit]]
 
   /**
    * Delete a persisted VaultStore for the Topl Main Secret Key.
@@ -77,9 +47,9 @@ trait DataApi[F[_]] {
    *             to manage the names of the wallet identities if multiple will be used.
    * @return nothing if successful. If the deletion fails due to an underlying cause (for ex does not exist), return a DataApiException
    */
-  def deleteMainKeyVaultStore(name: String): F[Either[DataApiException, Unit]]
+  def deleteMainKeyVaultStore(name: String): F[Either[WalletKeyException, Unit]]
 }
 
-object DataApi {
-  abstract class DataApiException(msg: String, cause: Throwable = null) extends RuntimeException(msg, cause)
+object WalletKeyApiAlgebra {
+  abstract class WalletKeyException(msg: String, cause: Throwable = null) extends RuntimeException(msg, cause)
 }

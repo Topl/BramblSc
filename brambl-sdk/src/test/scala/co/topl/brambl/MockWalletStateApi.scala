@@ -5,9 +5,9 @@ import cats.data.ValidatedNel
 import co.topl.brambl.builders.locks.LockTemplate
 import co.topl.brambl.common.ContainsEvidence.Ops
 import co.topl.brambl.common.ContainsImmutable.instances._
+import co.topl.brambl.dataApi.WalletStateAlgebra
 import co.topl.brambl.models._
 import co.topl.brambl.models.box.Lock
-import co.topl.brambl.wallet.WalletStateAlgebra
 import quivr.models._
 
 /**

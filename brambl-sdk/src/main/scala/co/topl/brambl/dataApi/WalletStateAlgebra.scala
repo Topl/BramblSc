@@ -1,4 +1,4 @@
-package co.topl.brambl.wallet
+package co.topl.brambl.dataApi
 
 import cats.data.ValidatedNel
 import co.topl.brambl.builders.locks.LockTemplate
@@ -6,8 +6,9 @@ import co.topl.brambl.models.Indices
 import co.topl.brambl.models.box.Lock
 import quivr.models.{Preimage, Proposition, VerificationKey}
 
-abstract class WalletStateApiFailure extends RuntimeException
-
+/**
+ * Defines a data API for storing and retrieving wallet state.
+ */
 trait WalletStateAlgebra[F[_]] {
 
   /**
