@@ -1,10 +1,12 @@
 package co.topl.brambl.codecs
 
 import cats.Monad
-import cats.implicits.catsSyntaxEitherId
+import cats.implicits.{catsSyntaxEitherId, catsSyntaxOptionId, toBifunctorOps}
 import co.topl.brambl.builders.locks.PropositionTemplate
 import co.topl.brambl.builders.locks.PropositionTemplate._
+import co.topl.brambl.utils.Encoding.{decodeFromBase58, encodeToBase58}
 import com.google.protobuf.ByteString
+import io.circe.DecodingFailure.Reason.CustomReason
 import io.circe.syntax.EncoderOps
 import io.circe.{Decoder, DecodingFailure, Encoder, HCursor, Json}
 import org.bouncycastle.util.Strings
@@ -67,7 +69,7 @@ object PropositionTemplateCodecs {
 
     override def apply(a: LockedTemplate[F]): Json =
       if (a.data.isEmpty) Json.obj()
-      else Json.obj("data" -> Json.fromString(a.data.get.value.toString))
+      else Json.obj("data" -> Json.fromString(encodeToBase58(a.data.get.value.toByteArray)))
   }
 
   /**
@@ -76,8 +78,11 @@ object PropositionTemplateCodecs {
   implicit def lockedTemplateFromJson[F[_]: Monad]: Decoder[LockedTemplate[F]] = new Decoder[LockedTemplate[F]] {
 
     override def apply(c: HCursor): Decoder.Result[LockedTemplate[F]] = c.downField("data").as[String] match {
-      case Left(_)     => LockedTemplate[F](None).asRight
-      case Right(data) => LockedTemplate[F](Some(Data(ByteString.copyFrom(data.getBytes)))).asRight
+      case Left(_) => LockedTemplate[F](None).asRight
+      case Right(data) =>
+        decodeFromBase58(data)
+          .map(d => LockedTemplate[F](Data(ByteString.copyFrom(d)).some))
+          .leftMap(DecodingFailure.fromThrowable(_, c.history))
     }
   }
 
@@ -137,7 +142,7 @@ object PropositionTemplateCodecs {
     override def apply(a: DigestTemplate[F]): Json =
       Json.obj(
         "routine" -> Json.fromString(a.routine),
-        "digest"  -> Json.fromString(Strings.fromByteArray(a.digest.value.toByteArray))
+        "digest"  -> Json.fromString(encodeToBase58(a.digest.value.toByteArray))
       )
   }
 
@@ -146,11 +151,18 @@ object PropositionTemplateCodecs {
    */
   implicit def digestTemplateFromJson[F[_]: Monad]: Decoder[DigestTemplate[F]] = new Decoder[DigestTemplate[F]] {
 
-    override def apply(c: HCursor): Decoder.Result[DigestTemplate[F]] =
-      for {
+    override def apply(c: HCursor): Decoder.Result[DigestTemplate[F]] = {
+      val decodeResult = for {
         routine <- c.downField("routine").as[String]
         digest  <- c.downField("digest").as[String]
-      } yield DigestTemplate[F](routine, Digest(ByteString.copyFrom(Strings.toByteArray(digest))))
+      } yield (routine, decodeFromBase58(digest))
+      decodeResult match {
+        case Left(err) => err.asLeft
+        case Right((routine, Right(digestBytes))) =>
+          DigestTemplate[F](routine, Digest(ByteString.copyFrom(digestBytes))).asRight
+        case Right((_, Left(err))) => DecodingFailure.fromThrowable(err, c.history).asLeft
+      }
+    }
   }
 
   /**
