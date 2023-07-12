@@ -1,3 +1,4 @@
+prerelease: true
 include-pre-releases: true
 template: |
   ## Pull Requests
