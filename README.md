@@ -1,4 +1,4 @@
-![GitHub tag (latest SemVer)](https://img.shields.io/github/v/tag/topl/bramblsc?label=release&sort=semver&style=plastic)
+![GitHub tag (latest SemVer)](https://img.shields.io/github/v/tag/topl/bramblsc?label=release&style=plastic)
 
 # BramblSc
 
