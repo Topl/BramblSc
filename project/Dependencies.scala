@@ -85,7 +85,7 @@ object Dependencies {
   object BramblSdk {
 
     lazy val sources: Seq[ModuleID] =
-      quivr4s
+      quivr4s ++ Dependencies.protobufSpecs
 
     lazy val tests: Seq[ModuleID] =
       (
