@@ -102,7 +102,6 @@ lazy val bramblSdk = project
       Dependencies.BramblSdk.sources ++
       Dependencies.BramblSdk.tests,
     scalamacrosParadiseSettings,
-    dependencyOverrides ++= Dependencies.protobufSpecs
   )
   .dependsOn(crypto)
 
