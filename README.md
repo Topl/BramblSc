@@ -6,6 +6,12 @@ Topl's Brambl SDK implemented in Scala
 
 Multiple artifacts will be built from this repo. Some will be just for Topl clients and some will be shared. 
 
+The artifacts generated from this repo are:
+
+- brambl-sdk
+- crypto
+- service-kit
+
 ## Consume with JitPack
 
 This repo can be consumed using jitpack. Here is how:

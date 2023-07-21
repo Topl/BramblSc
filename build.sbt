@@ -105,6 +105,20 @@ lazy val bramblSdk = project
   )
   .dependsOn(crypto)
 
+lazy val serviceKit = project
+  .in(file("service-kit"))
+  .settings(
+    name := "service-kit",
+    commonSettings,
+    publishSettings,
+    Test / publishArtifact := true,
+    libraryDependencies ++=
+      Dependencies.ServiceKit.sources ++
+        Dependencies.ServiceKit.tests,
+    scalamacrosParadiseSettings,
+  )
+  .dependsOn(bramblSdk)
+
 lazy val brambl = project
   .in(file("."))
   .settings(
@@ -115,7 +129,8 @@ lazy val brambl = project
   .enablePlugins(ReproducibleBuildsPlugin)
   .aggregate(
     crypto,
-    bramblSdk
+    bramblSdk,
+    serviceKit
   )
 
 addCommandAlias("checkPR", s"; scalafixAll --check; scalafmtCheckAll; +test")

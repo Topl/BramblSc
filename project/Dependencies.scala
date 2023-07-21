@@ -94,4 +94,13 @@ object Dependencies {
           scalamock
       ).map(_ % Test)
   }
+
+  object ServiceKit {
+
+    lazy val sources: Seq[ModuleID] = Seq()
+
+    lazy val tests: Seq[ModuleID] = (
+        mUnitTest
+      ).map(_ % Test)
+  }
 }
