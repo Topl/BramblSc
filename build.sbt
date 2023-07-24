@@ -64,7 +64,7 @@ lazy val publishSettings = Seq(
     </developers>
 )
 
-lazy val scalamacrosParadiseSettings =
+lazy val macroAnnotationsSettings =
   Seq(
     scalacOptions ++= {
       CrossVersion.partialVersion(scalaVersion.value) match {
@@ -88,7 +88,7 @@ lazy val crypto = project
     libraryDependencies ++=
       Dependencies.Crypto.sources ++
       Dependencies.Crypto.tests,
-    scalamacrosParadiseSettings
+    macroAnnotationsSettings
   )
 
 lazy val bramblSdk = project
@@ -100,8 +100,7 @@ lazy val bramblSdk = project
     Test / publishArtifact := true,
     libraryDependencies ++=
       Dependencies.BramblSdk.sources ++
-      Dependencies.BramblSdk.tests,
-    scalamacrosParadiseSettings,
+      Dependencies.BramblSdk.tests
   )
   .dependsOn(crypto)
 
@@ -114,8 +113,7 @@ lazy val serviceKit = project
     Test / publishArtifact := true,
     libraryDependencies ++=
       Dependencies.ServiceKit.sources ++
-        Dependencies.ServiceKit.tests,
-    scalamacrosParadiseSettings,
+        Dependencies.ServiceKit.tests
   )
   .dependsOn(bramblSdk)
 
