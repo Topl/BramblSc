@@ -310,6 +310,4 @@ class WalletApiSpec extends munit.FunSuite with MockHelpers {
     assert(importedWallet.isLeft)
     assert(importedWallet.left.toOption.get == WalletApi.FailedToSaveWallet(MockWalletKeyApi.MainKeyVaultSaveFailure))
   }
-
-  test("recoverWallet: TBD when recovery is fleshed out".ignore) {}
 }
