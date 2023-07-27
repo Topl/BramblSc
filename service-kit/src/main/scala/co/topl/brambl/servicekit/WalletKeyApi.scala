@@ -92,5 +92,21 @@ object WalletKeyApi {
             )
           } yield res
         }
+
+      /**
+       * @param mnemonic          The mnemonic to persist
+       * @param mnemonicName      The filepath to persist the mnemonic to.
+       *  @return nothing if successful. If persisting fails due to an underlying cause, return a WalletKeyException
+       */
+      override def saveMnemonic(
+        mnemonic:     IndexedSeq[String],
+        mnemonicName: String
+      ): F[Either[WalletKeyException, Unit]] = Resource
+        .make(Sync[F].delay(new PrintWriter(mnemonicName)))(file => Sync[F].delay(file.close()))
+        .use { file =>
+          for {
+            res <- Sync[F].blocking(file.write(mnemonic.mkString(",")))
+          } yield res.asRight[WalletKeyException]
+        }
     }
 }

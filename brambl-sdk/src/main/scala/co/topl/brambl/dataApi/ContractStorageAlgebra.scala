@@ -24,13 +24,3 @@ trait ContractStorageAlgebra[F[_]] {
    */
   def addContract(walletContract: WalletContract): F[Int]
 }
-
-object ContractStorageAlgebra {
-
-  /**
-   * @param yIdx         The Y coordinate associated with the contract
-   * @param name         The name of the contract
-   * @param lockTemplate The lock template associated with the contract
-   */
-  case class WalletContract(yIdx: Int, name: String, lockTemplate: String)
-}
