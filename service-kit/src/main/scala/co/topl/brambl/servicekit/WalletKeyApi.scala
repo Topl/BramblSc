@@ -26,6 +26,9 @@ object WalletKeyApi {
       case class VaultStoreDoesNotExistException(name: String)
           extends WalletKeyException(s"VaultStore at $name does not exist")
 
+      case class MnemonicDoesNotExistException(name: String)
+          extends WalletKeyException(s"Mnemonic file at $name does not exist")
+
       /**
        * Updates the main key vault store.
        * @param mainKeyVaultStore The new VaultStore to update to.
@@ -79,19 +82,22 @@ object WalletKeyApi {
        */
       override def getMainKeyVaultStore(
         name: String
-      ): F[Either[WalletKeyException, VaultStore[F]]] = Resource
-        .make(Sync[F].delay(Source.fromFile(name))) { file =>
-          Sync[F].delay(file.close())
-        }
-        .use { file =>
-          for {
-            inputString <- Sync[F].blocking(file.getLines().mkString("\n"))
-            res <- Sync[F].delay(
-              decode[VaultStore[F]](inputString)
-                .leftMap(e => DecodeVaultStoreException("Invalid JSON", e))
-            )
-          } yield res
-        }
+      ): F[Either[WalletKeyException, VaultStore[F]]] =
+        if (Paths.get(name).toFile.exists())
+          Resource
+            .make(Sync[F].delay(Source.fromFile(name))) { file =>
+              Sync[F].delay(file.close())
+            }
+            .use { file =>
+              for {
+                inputString <- Sync[F].blocking(file.getLines().mkString("\n"))
+                res <- Sync[F].delay(
+                  decode[VaultStore[F]](inputString)
+                    .leftMap(e => DecodeVaultStoreException("Invalid JSON", e))
+                )
+              } yield res
+            }
+        else Either.left[WalletKeyException, VaultStore[F]](VaultStoreDoesNotExistException(name)).pure[F]
 
       /**
        * @param mnemonic          The mnemonic to persist
@@ -101,12 +107,15 @@ object WalletKeyApi {
       override def saveMnemonic(
         mnemonic:     IndexedSeq[String],
         mnemonicName: String
-      ): F[Either[WalletKeyException, Unit]] = Resource
-        .make(Sync[F].delay(new PrintWriter(mnemonicName)))(file => Sync[F].delay(file.close()))
-        .use { file =>
-          for {
-            res <- Sync[F].blocking(file.write(mnemonic.mkString(",")))
-          } yield res.asRight[WalletKeyException]
-        }
+      ): F[Either[WalletKeyException, Unit]] =
+        if (!Paths.get(mnemonicName).toFile.exists())
+          Resource
+            .make(Sync[F].delay(new PrintWriter(mnemonicName)))(file => Sync[F].delay(file.close()))
+            .use { file =>
+              for {
+                res <- Sync[F].blocking(file.write(mnemonic.mkString(",")))
+              } yield res.asRight[WalletKeyException]
+            }
+        else Either.left[WalletKeyException, Unit](MnemonicDoesNotExistException(mnemonicName)).pure[F]
     }
 }
