@@ -104,7 +104,7 @@ object Dependencies {
     lazy val sources: Seq[ModuleID] = sqlite
 
     lazy val tests: Seq[ModuleID] = (
-        mUnitTest
+        mUnitTest ++ sqlite
       ).map(_ % Test)
   }
 }

@@ -448,7 +448,6 @@ object WalletStateApi {
           else parse(vks).toOption.flatMap(_.as[List[String]].toOption)
       }
 
-      // FIXME: use this method to get the lock template in the controller
       override def addNewLockTemplate(
         contract:     String,
         lockTemplate: LockTemplate[F]

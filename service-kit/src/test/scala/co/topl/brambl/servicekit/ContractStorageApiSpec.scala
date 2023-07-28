@@ -1,8 +1,27 @@
 package co.topl.brambl.servicekit
 
-class ContractStorageApiSpec extends munit.FunSuite {
+import cats.effect.IO
+import co.topl.brambl.builders.locks.{LockTemplate, PropositionTemplate}
+import co.topl.brambl.codecs.LockTemplateCodecs.encodeLockTemplate
+import co.topl.brambl.dataApi.{ContractStorageAlgebra, WalletContract}
+import munit.CatsEffectSuite
 
-  test("test placeholder") {
-    assert(true)
+class ContractStorageApiSpec extends CatsEffectSuite with BaseSpec {
+
+  val contractApi: ContractStorageAlgebra[IO] = ContractStorageApi.make[IO](dbConnection)
+
+  testDirectory.test("addContract then findContracts") { _ =>
+    val lockTemplate: LockTemplate[IO] =
+      LockTemplate.PredicateTemplate[IO](List(PropositionTemplate.HeightTemplate[IO]("chain", 0, 100)), 1)
+    val lockTemplateStr = encodeLockTemplate(lockTemplate).noSpaces
+    val contract = WalletContract(3, "testContract", lockTemplateStr)
+    assertIO(
+      for {
+        init      <- walletStateApi.initWalletState(mockMainKeyPair.vk)
+        _         <- contractApi.addContract(contract)
+        contracts <- contractApi.findContracts()
+      } yield contracts.length == 3 && contracts.last == contract,
+      true
+    )
   }
 }

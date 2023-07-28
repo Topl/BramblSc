@@ -1,40 +1,17 @@
 package co.topl.brambl.servicekit
 
-import cats.Id
 import cats.effect.IO
-import cats.effect.kernel.Resource
-import co.topl.brambl.builders.TransactionBuilderApi
 import co.topl.brambl.builders.locks.{LockTemplate, PropositionTemplate}
-import co.topl.brambl.constants.NetworkConstants._
-import co.topl.brambl.dataApi.WalletStateAlgebra
 import co.topl.brambl.models.Indices
 import co.topl.brambl.models.box.Lock
 import co.topl.brambl.utils.Encoding
-import co.topl.brambl.wallet.WalletApi.cryptoToPbKeyPair
-import co.topl.crypto.generation.KeyInitializer.Instances.extendedEd25519Initializer
-import co.topl.crypto.signing.{ExtendedEd25519, KeyPair}
+
 import com.google.protobuf.ByteString
 import munit.CatsEffectSuite
 import quivr.models.Digest
 import quivr.models.{Proposition, VerificationKey}
 
-import java.sql.Connection
-
-class WalletStateApiSpec extends CatsEffectSuite with WalletStateResource with BaseSpec {
-
-  val DB_FILE = s"$TEST_DIR/wallet.db"
-
-  val dbConnection: Resource[IO, Connection] = walletResource(DB_FILE)
-
-  val transactionBuilderApi: TransactionBuilderApi[IO] =
-    TransactionBuilderApi.make[IO](PRIVATE_NETWORK_ID, MAIN_LEDGER_ID)
-  val walletStateApi: WalletStateAlgebra[IO] = WalletStateApi.make[IO](dbConnection, transactionBuilderApi, walletApi)
-
-  private def mockMainKeyPair = {
-    implicit val extendedEd25519Instance: ExtendedEd25519 = new ExtendedEd25519
-    val sk = extendedEd25519Initializer.random()
-    cryptoToPbKeyPair(KeyPair(sk, extendedEd25519Instance.getVerificationKey(sk)))
-  }
+class WalletStateApiSpec extends CatsEffectSuite with BaseSpec {
 
   testDirectory.test("initWalletState") { _ =>
     assertIO(
