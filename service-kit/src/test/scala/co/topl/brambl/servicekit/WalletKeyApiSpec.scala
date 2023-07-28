@@ -1,36 +1,10 @@
 package co.topl.brambl.servicekit
 
-import cats.effect.IO
-import co.topl.brambl.dataApi.WalletKeyApiAlgebra
-import co.topl.brambl.wallet.WalletApi
 import munit.CatsEffectSuite
 
-import java.io.File
-import java.nio.file.{Files, Path, Paths}
-import scala.concurrent.duration.Duration
+import java.nio.file.Paths
 
-class WalletKeyApiSpec extends CatsEffectSuite {
-
-  val walletKeyApi: WalletKeyApiAlgebra[IO] = WalletKeyApi.make[IO]()
-  val walletApi: WalletApi[IO] = WalletApi.make[IO](walletKeyApi)
-
-  override val munitTimeout: Duration = Duration(180, "s")
-  val TEST_DIR = "./tmp"
-  val testDir: File = Paths.get(TEST_DIR).toFile
-
-  private def removeDir() =
-    if (testDir.exists()) {
-      Paths.get(TEST_DIR).toFile.listFiles().map(_.delete()).mkString("\n")
-      Files.deleteIfExists(Paths.get(TEST_DIR))
-    }
-
-  val testDirectory: FunFixture[Path] = FunFixture[Path](
-    setup = { _ =>
-      removeDir()
-      Files.createDirectory(Paths.get(TEST_DIR))
-    },
-    teardown = { _ => removeDir() }
-  )
+class WalletKeyApiSpec extends CatsEffectSuite with BaseSpec {
 
   private def getFileName(name: String) = s"$TEST_DIR/$name"
 
