@@ -463,7 +463,7 @@ object WalletStateApi {
           )
           y <- Sync[F].delay(rs.getInt("y_index"))
           statement =
-            s"INSERT INTO contracts (contract, y_contract, lock) VALUES ('${contract}', ${y + 1}, '${encodeLockTemplate(lockTemplate).toString}'"
+            s"INSERT INTO contracts (contract, y_contract, lock) VALUES ('${contract}', ${y + 1}, '${encodeLockTemplate(lockTemplate).toString}')"
           _ <- Sync[F].blocking(
             stmnt.executeUpdate(statement)
           )
