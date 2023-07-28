@@ -39,7 +39,7 @@ trait WalletApi[F[_]] {
    * Save a wallet
    *
    * @param vaultStore The VaultStore of the wallet to save
-   * @param name       A name used to identify a wallet in the DataApi. Defaults to "default". Most commonly, only one
+   * @param name       A name used to identify a wallet. Defaults to "default". Most commonly, only one
    *                   wallet identity will be used. It is the responsibility of the dApp to keep track of the names of
    *                   the wallet identities if multiple will be used.
    * @return An error if unsuccessful.
@@ -47,9 +47,18 @@ trait WalletApi[F[_]] {
   def saveWallet(vaultStore: VaultStore[F], name: String = "default"): F[Either[WalletApi.WalletApiFailure, Unit]]
 
   /**
+   * Save a mnemonic
+   *
+   * @param mnemonic The mnemonic to save
+   * @param mnemonicName A name used to identify the mnemonic. Defaults to "mnemonic".
+   * @return
+   */
+  def saveMnemonic(mnemonic: IndexedSeq[String], mnemonicName: String): F[Either[WalletApi.WalletApiFailure, Unit]]
+
+  /**
    * Save a wallet
    *
-   * @param name A name used to identify a wallet in the DataApi. Defaults to "default". Most commonly, only one
+   * @param name A name used to identify a wallet. Defaults to "default". Most commonly, only one
    *             wallet identity will be used. It is the responsibility of the dApp to keep track of the names of
    *             the wallet identities if multiple will be used.
    * @return The wallet's VaultStore if successful. An error if unsuccessful.
@@ -60,7 +69,7 @@ trait WalletApi[F[_]] {
    * Update a wallet
    *
    * @param newWallet The new VaultStore of the wallet
-   * @param name      A name used to identify a wallet in the DataApi. Defaults to "default". Most commonly, only one
+   * @param name      A name used to identify a wallet. Defaults to "default". Most commonly, only one
    *                  wallet identity will be used. It is the responsibility of the dApp to keep track of the names of
    *                  the wallet identities if multiple will be used.
    * @return An error if unsuccessful.
@@ -70,7 +79,7 @@ trait WalletApi[F[_]] {
   /**
    * Delete a wallet
    *
-   * @param name A name used to identify the wallet in the DataApi. Defaults to "default". Most commonly, only one
+   * @param name A name used to identify the wallet. Defaults to "default". Most commonly, only one
    *             wallet identity will be used. It is the responsibility of the dApp to keep track of the names of
    *             the wallet identities if multiple will be used.
    * @return  An error if unsuccessful.
@@ -106,22 +115,26 @@ trait WalletApi[F[_]] {
    * @param password   The password to encrypt the wallet with
    * @param passphrase The passphrase to use to generate the main key from the mnemonic
    * @param mLen       The length of the mnemonic to generate
-   * @param name       A name used to identify a wallet in the DataApi. Defaults to "default". Most commonly, only one
+   * @param name       A name used to identify a wallet. Defaults to "default". Most commonly, only one
    *                   wallet identity will be used. It is the responsibility of the dApp to keep track of the names of
    *                   the wallet identities if multiple will be used.
+   * @param mnemonicName A name used to identify the mnemonic. Defaults to "mnemonic".
    * @return The mnemonic and VaultStore of the newly created wallet, if creation and save successful. Else an error
    */
   def createAndSaveNewWallet[G[_]: Monad: ToMonad](
-    password:   Array[Byte],
-    passphrase: Option[String] = None,
-    mLen:       MnemonicSize = MnemonicSizes.words12,
-    name:       String = "default"
+    password:     Array[Byte],
+    passphrase:   Option[String] = None,
+    mLen:         MnemonicSize = MnemonicSizes.words12,
+    name:         String = "default",
+    mnemonicName: String = "mnemonic"
   ): G[Either[WalletApi.WalletApiFailure, WalletApi.NewWalletResult[F]]] = {
     val toMonad = implicitly[ToMonad[G]]
     (for {
       walletRes <- EitherT(toMonad(createNewWallet(password, passphrase, mLen)))
-      createAndSaveRes <-
+      saveWalletRes <-
         EitherT(toMonad(saveWallet(walletRes.mainKeyVaultStore, name)))
+      saveMnemonicRes <-
+        EitherT(toMonad(saveMnemonic(walletRes.mnemonic, mnemonicName)))
     } yield walletRes).value
   }
 
@@ -236,28 +249,6 @@ trait WalletApi[F[_]] {
   ): F[Either[WalletApi.WalletApiFailure, VaultStore[F]]]
 
   /**
-   * Recover and persist wallet information from the VaultStore and optionally a snapshot.
-   *
-   * @note Without the snapshot, the wallet can only be partially recovered. The recoverable data includes only address
-   *       and fund information for simple 1-of-1 signature transactions. For more complex transactions, the snapshot is
-   *       required.
-   *
-   * @param mainKeyVaultStore The VaultStore containing the main key of the wallet to recover
-   * @param password The password to decrypt the VaultStore
-   * @param name A name used to identify a wallet in the DataApi. Defaults to "default". Most commonly, only one
-   *             wallet identity will be used. It is the responsibility of the dApp to keep track of the names of
-   *             the wallet identities if multiple will be used.
-   * @param snapshot The snapshot to recover the wallet from
-   * @return The wallet's VaultStore if import and save was successful. An error if unsuccessful.
-   */
-  def recoverWallet(
-    mainKeyVaultStore: VaultStore[F],
-    password:          Array[Byte],
-    name:              String = "default",
-    snapshot:          Option[Any] = None
-  ): F[Either[WalletApi.WalletApiFailure, Unit]]
-
-  /**
    * Import a wallet from a mnemonic and save it.
    *
    * @param mnemonic   The mnemonic to import
@@ -276,12 +267,10 @@ trait WalletApi[F[_]] {
   ): G[Either[WalletApi.WalletApiFailure, VaultStore[F]]] = {
     val toMonad = implicitly[ToMonad[G]]
     (for {
-      walletRes  <- EitherT(toMonad(importWallet(mnemonic, password, passphrase)))
-      saveRes    <- EitherT(toMonad(saveWallet(walletRes, name)))
-      recoverRes <- EitherT(toMonad(recoverWallet(walletRes, password, name)))
+      walletRes <- EitherT(toMonad(importWallet(mnemonic, password, passphrase)))
+      saveRes   <- EitherT(toMonad(saveWallet(walletRes, name)))
     } yield walletRes).value
   }
-
 }
 
 object WalletApi {
@@ -293,11 +282,11 @@ object WalletApi {
    * @note The wallet uses SCrypt as the KDF
    * @note The wallet uses AES as the cipher
    *
-   * @param dataApi The DataApi to use to store the generate wallet
+   * @param walletKeyApi The Api to use to handle wallet key persistence
    * @return A new WalletAPI instance
    */
   def make[F[_]: Monad](
-    dataApi: WalletKeyApiAlgebra[F]
+    walletKeyApi: WalletKeyApiAlgebra[F]
   )(implicit extendedEd25519Instance: ExtendedEd25519 = new ExtendedEd25519): WalletApi[F] = new WalletApi[F] {
     final val Purpose = 1852
     final val CoinType = 7091
@@ -382,75 +371,23 @@ object WalletApi {
       vaultStore <- EitherT(buildMainKeyVaultStore(mainKey, password).map(_.asRight[WalletApiFailure]))
     } yield vaultStore).value
 
-    override def recoverWallet(
-      mainKeyVaultStore: VaultStore[F],
-      password:          Array[Byte],
-      name:              String = "default",
-      snapshot:          Option[Any] = None
-    ): F[Either[WalletApiFailure, Unit]] = (for {
-      // recover 1-of-1 simple information (build lock addresses for each key pair in 0/0/z)
-      mainKey    <- EitherT(extractMainKey(mainKeyVaultStore, password))
-      recoverRes <- EitherT(recoverFromMainKey(mainKey, name))
-      // recover complex information from snapshot
-      snapshotRes <- EitherT(snapshot.map(recoverFromSnapshot(_, name)).getOrElse(().asRight[WalletApiFailure].pure[F]))
-    } yield snapshotRes.combine(recoverRes)).value
-
-    /**
-     * Recover wallet information from a provided snapshot
-     *
-     * TODO: To be implemented when the recovery from snapshot process has been fleshed out
-     *
-     * At a high level, the snapshot should be parsed and then the contained information should be stored in the DataApi
-     * associated with the wallet of name `name`.
-     *
-     * TODO: What should the type of snapshot be?
-     *
-     * @param snapshot The snapshot to recover the wallet from
-     * @param name The name of the wallet to recover
-     * @return A unit value if the recovery was successful, otherwise a WalletApiFailure
-     */
-    private def recoverFromSnapshot(snapshot: Any, name: String): F[Either[WalletApiFailure, Unit]] =
-      ().asRight[WalletApiFailure].pure[F]
-
-    /**
-     * Recover partial wallet information from the main key
-     *
-     * TODO: Revisit this when the recovery process has been fleshed out and AddressBuilder is implemented
-     *
-     * @note This function only recovers information about 1-of-1 Signature Locks derived from the main key.
-     *
-     * @param mainKey The main key to recover the wallet from
-     * @param name The name of the wallet to recover
-     * @return A unit value if the recovery was successful, otherwise a WalletApiFailure
-     */
-    private def recoverFromMainKey(mainKey: KeyPair, name: String): F[Either[WalletApiFailure, Unit]] = {
-      require(mainKey.vk.vk.isExtendedEd25519, "keyPair must be an extended Ed25519 key")
-      require(mainKey.sk.sk.isExtendedEd25519, "keyPair must be an extended Ed25519 key")
-
-      /**
-       * The process:
-       * 1. Iterate through children keys of the main key for related to 1-of-1 signature locks;
-       *    I.e, for all z in path 0/0/z
-       *    TODO: Do we need to iterate through all 2^32^? Can we assume if there is a big gap we can stop early?
-       * 2. For each child key, derive the 1-of-1 signature lock and it's address
-       *    TODO: This will be straightforward once AddressBuilder is implemented
-       * 3. For each address, query DataApi/Genus to see if for Txos to see if the address has been used
-       * 4. If the address has been used, store the address, the lock, with the indices to track the usage
-       */
-      ().asRight[WalletApiFailure].pure[F]
-    }
-
     override def saveWallet(vaultStore: VaultStore[F], name: String = "default"): F[Either[WalletApiFailure, Unit]] =
-      dataApi.saveMainKeyVaultStore(vaultStore, name).map(res => res.leftMap(FailedToSaveWallet(_)))
+      walletKeyApi.saveMainKeyVaultStore(vaultStore, name).map(res => res.leftMap(FailedToSaveWallet(_)))
+
+    override def saveMnemonic(
+      mnemonic:     IndexedSeq[String],
+      mnemonicName: String = "mnemonic"
+    ): F[Either[WalletApi.WalletApiFailure, Unit]] =
+      walletKeyApi.saveMnemonic(mnemonic, mnemonicName).map(res => res.leftMap(FailedToSaveMnemonic(_)))
 
     override def loadWallet(name: String = "default"): F[Either[WalletApiFailure, VaultStore[F]]] =
-      dataApi.getMainKeyVaultStore(name).map(res => res.leftMap(FailedToLoadWallet(_)))
+      walletKeyApi.getMainKeyVaultStore(name).map(res => res.leftMap(FailedToLoadWallet(_)))
 
     override def updateWallet(newWallet: VaultStore[F], name: String = "default"): F[Either[WalletApiFailure, Unit]] =
-      dataApi.updateMainKeyVaultStore(newWallet, name).map(res => res.leftMap(FailedToUpdateWallet(_)))
+      walletKeyApi.updateMainKeyVaultStore(newWallet, name).map(res => res.leftMap(FailedToUpdateWallet(_)))
 
     override def deleteWallet(name: String = "default"): F[Either[WalletApiFailure, Unit]] =
-      dataApi.deleteMainKeyVaultStore(name).map(res => res.leftMap(FailedToDeleteWallet(_)))
+      walletKeyApi.deleteMainKeyVaultStore(name).map(res => res.leftMap(FailedToDeleteWallet(_)))
 
     override def buildMainKeyVaultStore(mainKey: Array[Byte], password: Array[Byte]): F[VaultStore[F]] = for {
       derivedKey <- kdf.deriveKey(password)
@@ -510,6 +447,7 @@ object WalletApi {
   abstract class WalletApiFailure(err: Throwable = null) extends RuntimeException(err)
   case class FailedToInitializeWallet(err: Throwable = null) extends WalletApiFailure(err)
   case class FailedToSaveWallet(err: Throwable = null) extends WalletApiFailure(err)
+  case class FailedToSaveMnemonic(err: Throwable = null) extends WalletApiFailure(err)
   case class FailedToLoadWallet(err: Throwable = null) extends WalletApiFailure(err)
   case class FailedToUpdateWallet(err: Throwable = null) extends WalletApiFailure(err)
   case class FailedToDeleteWallet(err: Throwable = null) extends WalletApiFailure(err)

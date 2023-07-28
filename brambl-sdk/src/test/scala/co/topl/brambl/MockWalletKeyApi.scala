@@ -14,6 +14,7 @@ import io.circe.syntax.EncoderOps
 object MockWalletKeyApi extends WalletKeyApiAlgebra[Id] with MockHelpers {
 
   var mainKeyVaultStoreInstance: Map[String, Json] = Map()
+  var mnemonicInstance: Map[String, IndexedSeq[String]] = Map()
 
   override def saveMainKeyVaultStore(
     mainKeyVaultStore: VaultStore[Id],
@@ -62,4 +63,12 @@ object MockWalletKeyApi extends WalletKeyApiAlgebra[Id] with MockHelpers {
       extends WalletKeyException("Error decoding MainKeyVaultStore", cause)
   case object MainKeyVaultSaveFailure extends WalletKeyException("Error saving MainKeyVaultStore")
   case object MainKeyVaultDeleteFailure extends WalletKeyException("Error deleting MainKeyVaultStore")
+
+  override def saveMnemonic(
+    mnemonic:     IndexedSeq[String],
+    mnemonicName: String
+  ): Id[Either[WalletKeyException, Unit]] = {
+    mnemonicInstance += (mnemonicName -> mnemonic)
+    Right(())
+  }
 }
