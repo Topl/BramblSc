@@ -18,6 +18,8 @@ lazy val commonScalacOptions = Seq(
   "-Yrangepos"
 )
 
+lazy val developmentResolver = settingKey[Boolean]("ProtobufSpecs Resolver, True: jitpack, False: sonatype")
+
 lazy val commonSettings = Seq(
   scalacOptions ++= commonScalacOptions,
   semanticdbEnabled := true, // enable SemanticDB for Scalafix
@@ -28,6 +30,7 @@ lazy val commonSettings = Seq(
       case _                       => sourceDir / "scala-2.12-"
     }
   },
+  ThisBuild / developmentResolver := true, // enable JitPack resolver for protobufSpecs, It should be false on main branch
   Test / testOptions ++= Seq(
     Tests.Argument(TestFrameworks.ScalaCheck, "-verbosity", "2"),
     Tests.Argument(TestFrameworks.ScalaTest, "-f", "sbttest.log", "-oDGG", "-u", "target/test-reports")
@@ -99,7 +102,7 @@ lazy val bramblSdk = project
     publishSettings,
     Test / publishArtifact := true,
     libraryDependencies ++=
-      Dependencies.BramblSdk.sources ++
+      Dependencies.BramblSdk.sources(developmentResolver.value) ++
       Dependencies.BramblSdk.tests
   )
   .dependsOn(crypto)
@@ -113,7 +116,7 @@ lazy val serviceKit = project
     Test / publishArtifact := true,
     libraryDependencies ++=
       Dependencies.ServiceKit.sources ++
-        Dependencies.ServiceKit.tests
+      Dependencies.ServiceKit.tests
   )
   .dependsOn(bramblSdk)
 

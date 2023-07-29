@@ -1,9 +1,16 @@
 package co.topl.brambl.common
 
 import co.topl.brambl.models._
-import co.topl.brambl.models.box.Attestation
-import co.topl.brambl.models.box.Challenge
-import co.topl.brambl.models.box.{Box, Lock, Value}
+import co.topl.brambl.models.box.{
+  Attestation,
+  Box,
+  Challenge,
+  FixedSeries,
+  Lock,
+  SeriesTokenSupply,
+  SeriesTokenSupplyEnum,
+  Value
+}
 import co.topl.brambl.models.common.ImmutableBytes
 import co.topl.brambl.models.transaction._
 import co.topl.consensus.models._
@@ -11,7 +18,6 @@ import co.topl.quivr.Tokens
 import com.google.protobuf.ByteString
 import quivr.models._
 import quivr.models.VerificationKey._
-
 import java.nio.charset.StandardCharsets
 import scala.language.implicitConversions
 
@@ -123,6 +129,7 @@ object ContainsImmutable {
       case Value.Value.Lvl(v)   => v.immutable
       case Value.Value.Topl(v)  => v.immutable
       case Value.Value.Asset(v) => v.immutable
+      case Value.Value.Group(v) => v.immutable
       case Value.Value.Empty    => Array[Byte](0).immutable
     }
 
@@ -175,6 +182,27 @@ object ContainsImmutable {
       asset.label.immutable ++
       asset.quantity.immutable ++
       asset.metadata.immutable
+
+    implicit val groupValueInmutable: ContainsImmutable[Value.Group] = (group: Value.Group) =>
+      group.label.immutable ++
+      group.fixedSeries.immutable ++
+      group.seriesTokenSupply.value.immutable ++
+      group.txId.immutable ++
+      group.index.immutable ++
+      group.id.immutable
+
+    implicit val fixedSeries: ContainsImmutable[FixedSeries] =
+      _.value.immutable
+
+    implicit val seriesTokenSupplyImmutable: ContainsImmutable[SeriesTokenSupply.Value] = {
+      case SeriesTokenSupply.Value.Empty => Array[Byte](0).immutable
+      case SeriesTokenSupply.Value.Enum(e) =>
+        e match {
+          case SeriesTokenSupplyEnum.UNLIMITED => Array[Byte](1).immutable
+          case SeriesTokenSupplyEnum.FIXED     => Array[Byte](2).immutable
+        }
+      case SeriesTokenSupply.Value.Capped(supply) => supply.toByteArray.immutable
+    }
 
     implicit val signatureKesSumImmutable: ContainsImmutable[co.topl.consensus.models.SignatureKesSum] =
       v =>

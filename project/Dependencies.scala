@@ -8,7 +8,9 @@ object Dependencies {
     val simulacrumVersion = "1.0.1"
     val circeVersion = "0.14.5"
     val quivr4sVersion = "2.0.0-alpha2"
-    val protobufSpecsVersion = "2.0.0-alpha2"
+
+    val protobufSpecsSonatypeVersion = "2.0.0-alpha2"
+    val protobufSpecsJitPackVersion = "86f69f92e530891e09d42ee5801ed8fe51d9cd8c" // scala-steward:off
     val mUnitTeVersion = "0.7.29"
   }
 
@@ -56,9 +58,14 @@ object Dependencies {
     "org.typelevel" %% "simulacrum" % simulacrumVersion
   )
 
-  val protobufSpecs: Seq[ModuleID] = Seq(
-    "co.topl" %% "protobuf-fs2" % protobufSpecsVersion
-  )
+  def protobufSpecs(developmentResolver: Boolean): Seq[ModuleID] = if (developmentResolver)
+    Seq(
+      "com.github.Topl.protobuf-specs" %% "protobuf-fs2" % protobufSpecsJitPackVersion
+    )
+  else
+    Seq(
+      "co.topl" %% "protobuf-fs2" % protobufSpecsSonatypeVersion
+    )
 
   val quivr4s: Seq[ModuleID] = Seq(
     "co.topl" %% "quivr4s" % quivr4sVersion
@@ -84,8 +91,8 @@ object Dependencies {
 
   object BramblSdk {
 
-    lazy val sources: Seq[ModuleID] =
-      quivr4s ++ Dependencies.protobufSpecs
+    def sources(developmentResolver: Boolean): Seq[ModuleID] =
+      quivr4s ++ protobufSpecs(developmentResolver)
 
     lazy val tests: Seq[ModuleID] =
       (
@@ -100,7 +107,7 @@ object Dependencies {
     lazy val sources: Seq[ModuleID] = Seq()
 
     lazy val tests: Seq[ModuleID] = (
-        mUnitTest
-      ).map(_ % Test)
+      mUnitTest
+    ).map(_ % Test)
   }
 }
