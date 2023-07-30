@@ -156,6 +156,11 @@ object ContainsImmutable {
         Tags.Identifier.IoTransaction32.immutable ++
         id.value.immutable
 
+    implicit val groupIdentifierImmutable: ContainsImmutable[GroupId] =
+      id =>
+        Tags.Identifier.Group32.immutable ++
+        id.value.immutable
+
     implicit val transactionOutputAddressImmutable: ContainsImmutable[TransactionOutputAddress] =
       v =>
         v.network.immutable ++
