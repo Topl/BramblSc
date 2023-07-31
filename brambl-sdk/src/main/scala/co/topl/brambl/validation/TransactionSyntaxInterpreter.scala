@@ -35,7 +35,8 @@ object TransactionSyntaxInterpreter {
       positiveOutputValuesValidation,
       sufficientFundsValidation,
       attestationValidation,
-      dataLengthValidation
+      dataLengthValidation,
+      distinctOutputGroupValidation
     )
 
   /**
@@ -247,4 +248,27 @@ object TransactionSyntaxInterpreter {
       (),
       TransactionSyntaxError.InvalidDataLength
     )
+
+  /**
+   * DistinctOutputGroupValidation validates distinct groups ids
+   *
+   * @param transaction transaction
+   * @return
+   */
+  private def distinctOutputGroupValidation(
+    transaction: IoTransaction
+  ): ValidatedNec[TransactionSyntaxError, Unit] =
+    NonEmptyChain
+      .fromSeq(
+        transaction.outputs
+          .filter(_.value.value.isGroup)
+          .map(_.value.getGroup)
+          .groupBy(_.id)
+          .collect {
+            case (knownIdentifier, groups) if groups.size > 1 =>
+              TransactionSyntaxError.DuplicateGroupsOutput(knownIdentifier)
+          }
+          .toSeq
+      )
+      .fold(().validNec[TransactionSyntaxError])(_.invalid[Unit])
 }

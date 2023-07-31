@@ -3,19 +3,18 @@ package co.topl.brambl.validation
 import cats.Id
 import cats.implicits._
 import co.topl.brambl.MockHelpers
-import co.topl.brambl.models.box.Attestation
-import co.topl.brambl.models.box.Challenge
-import co.topl.brambl.models.box.Lock
-import co.topl.brambl.models.box.Value
-import co.topl.brambl.models.transaction.Schedule
+import co.topl.brambl.models.GroupId
+import co.topl.brambl.models.box.{Attestation, Challenge, FixedSeries, Lock, SeriesTokenSupply, Value}
+import co.topl.brambl.models.transaction.{Schedule, UnspentTransactionOutput}
+import co.topl.brambl.syntax.ioTransactionAsTransactionSyntaxOps
 import co.topl.quivr.api.Proposer
 import co.topl.quivr.api.Prover
 import com.google.protobuf.ByteString
+import java.security.MessageDigest
 import quivr.models.Int128
 import quivr.models.Proof
 import quivr.models.Proposition
 import quivr.models.SmallData
-
 import scala.language.implicitConversions
 
 class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
@@ -172,6 +171,31 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
       .validate(testTx)
       .swap
       .exists(_.toList.contains(TransactionSyntaxError.InvalidDataLength))
+    assertEquals(result, true)
+  }
+
+  test("validate distinct output groups") {
+    // discuss responsibility of validation of same string, should be the sha-256 of label+fixedSeries+....
+    val sha = MessageDigest.getInstance("SHA-256").digest("some string".getBytes("UTF-8"))
+    val value1: Value =
+      Value.defaultInstance.withGroup(
+        Value.Group(
+          label = "groupLabel",
+          fixedSeries = Option.empty[FixedSeries],
+          seriesTokenSupply = SeriesTokenSupply.defaultInstance,
+          txId = txFull.id,
+          index = 1,
+          id = GroupId(ByteString.copyFrom(sha))
+        )
+      )
+    val output1: UnspentTransactionOutput = UnspentTransactionOutput(trivialLockAddress, value1)
+    val output2: UnspentTransactionOutput = UnspentTransactionOutput(trivialLockAddress, value1)
+    val testTx = txFull.copy(outputs = List(output1, output2))
+    val validator = TransactionSyntaxInterpreter.make[Id]()
+    val result = validator
+      .validate(testTx)
+      .swap
+      .exists(_.toList.contains(TransactionSyntaxError.DuplicateGroupsOutput(GroupId(ByteString.copyFrom(sha)))))
     assertEquals(result, true)
   }
 }

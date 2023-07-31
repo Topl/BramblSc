@@ -1,6 +1,6 @@
 package co.topl.brambl.validation
 
-import co.topl.brambl.models.TransactionOutputAddress
+import co.topl.brambl.models.{GroupId, TransactionOutputAddress}
 import co.topl.brambl.models.box.Value
 import co.topl.brambl.models.transaction.Schedule
 import quivr.models.{Proof, Proposition}
@@ -54,4 +54,9 @@ object TransactionSyntaxError {
    * A Syntax error indicating that the size of this transaction is invalid.
    */
   case object InvalidDataLength extends TransactionSyntaxError
+
+  /**
+   * A Syntax error indicating that this transaction multiple outputs referring to the same KnownIdentifier.
+   */
+  case class DuplicateGroupsOutput(knownIdentifier: GroupId) extends TransactionSyntaxError
 }
