@@ -19,6 +19,7 @@ lazy val commonScalacOptions = Seq(
 )
 
 lazy val commonSettings = Seq(
+  fork := true,
   scalacOptions ++= commonScalacOptions,
   semanticdbEnabled := true, // enable SemanticDB for Scalafix
   Compile / unmanagedSourceDirectories += {

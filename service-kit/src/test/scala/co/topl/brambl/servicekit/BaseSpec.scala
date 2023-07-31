@@ -31,7 +31,7 @@ trait BaseSpec extends CatsEffectSuite with WalletStateResource {
   val transactionBuilderApi: TransactionBuilderApi[IO] =
     TransactionBuilderApi.make[IO](PRIVATE_NETWORK_ID, MAIN_LEDGER_ID)
   val dbConnection: Resource[IO, Connection] = walletResource(DB_FILE)
-  val walletStateApi: WalletStateAlgebra[IO] = WalletStateApi.make[IO](dbConnection, transactionBuilderApi, walletApi)
+  val walletStateApi: WalletStateAlgebra[IO] = WalletStateApi.make[IO](dbConnection, walletApi)
 
   def mockMainKeyPair: models.KeyPair = {
     implicit val extendedEd25519Instance: ExtendedEd25519 = new ExtendedEd25519
