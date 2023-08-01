@@ -311,5 +311,10 @@ class WalletApiSpec extends munit.FunSuite with MockHelpers {
     assert(importedWallet.left.toOption.get == WalletApi.FailedToSaveWallet(MockWalletKeyApi.MainKeyVaultSaveFailure))
   }
 
-  test("recoverWallet: TBD when recovery is fleshed out".ignore) {}
+  test("saveMnemonic: verify a simple save") {
+    val name = "test"
+    val res = walletApi.saveMnemonic(IndexedSeq("a", "b", "c"), name)
+    assert(res.isRight)
+    assert(MockWalletKeyApi.mnemonicInstance.contains(name))
+  }
 }

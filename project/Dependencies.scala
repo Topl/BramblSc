@@ -71,6 +71,10 @@ object Dependencies {
     "co.topl" %% "quivr4s" % quivr4sVersion
   )
 
+  val sqlite: Seq[ModuleID] = Seq(
+    "org.xerial" % "sqlite-jdbc" % "3.41.2.1"
+  )
+
   object Crypto {
 
     lazy val sources: Seq[ModuleID] =
@@ -104,10 +108,10 @@ object Dependencies {
 
   object ServiceKit {
 
-    lazy val sources: Seq[ModuleID] = Seq()
+    lazy val sources: Seq[ModuleID] = sqlite
 
     lazy val tests: Seq[ModuleID] = (
-      mUnitTest
-    ).map(_ % Test)
+        mUnitTest ++ sqlite
+      ).map(_ % Test)
   }
 }

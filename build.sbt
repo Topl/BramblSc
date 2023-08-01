@@ -114,6 +114,7 @@ lazy val serviceKit = project
     commonSettings,
     publishSettings,
     Test / publishArtifact := true,
+    Test / parallelExecution := false,
     libraryDependencies ++=
       Dependencies.ServiceKit.sources ++
       Dependencies.ServiceKit.tests

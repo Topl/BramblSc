@@ -20,6 +20,15 @@ trait WalletKeyApiAlgebra[F[_]] {
   def saveMainKeyVaultStore(mainKeyVaultStore: VaultStore[F], name: String): F[Either[WalletKeyException, Unit]]
 
   /**
+   * Persist a mnemonic used to recover a Topl Main Secret Key.
+   *
+   * @param mnemonic          The mnemonic to persist
+   * @param mnemonicName      The name identifier of the mnemonic.
+   * @return nothing if successful. If persisting fails due to an underlying cause, return a WalletKeyException
+   */
+  def saveMnemonic(mnemonic: IndexedSeq[String], mnemonicName: String): F[Either[WalletKeyException, Unit]]
+
+  /**
    * Return the VaultStore for the Topl Main Secret Key.
    *
    * @param name The name identifier  of the VaultStore. This is used to manage multiple wallet identities.
