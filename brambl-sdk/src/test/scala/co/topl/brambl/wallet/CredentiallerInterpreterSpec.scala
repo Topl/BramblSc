@@ -522,7 +522,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
           bobSignatureProposition.value.digitalSignature.get.sizedEvidence -> bobIndices
         ).get(signatureProposition.sizedEvidence)
 
-      override def initWalletState(vk:            VerificationKey): Id[Unit] = ???
+      override def initWalletState(networkId:     Int, ledgerId: Int, vk: VerificationKey): Id[Unit] = ???
       override def getPreimage(digestProposition: Proposition.Digest): Id[Option[Preimage]] = ???
       override def getCurrentAddress: Id[String] = ???
       override def updateWalletState(

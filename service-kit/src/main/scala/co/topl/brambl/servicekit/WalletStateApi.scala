@@ -1,21 +1,27 @@
 package co.topl.brambl.servicekit
 
-import cats.data.{Validated, ValidatedNel}
-import cats.effect.kernel.{Resource, Sync}
+import cats.data.Validated
+import cats.data.ValidatedNel
+import cats.effect.kernel.Resource
+import cats.effect.kernel.Sync
+import cats.implicits._
 import co.topl.brambl.builders.TransactionBuilderApi
-import co.topl.brambl.builders.locks.{LockTemplate, PropositionTemplate}
+import co.topl.brambl.builders.locks.LockTemplate
+import co.topl.brambl.builders.locks.PropositionTemplate
+import co.topl.brambl.codecs.LockTemplateCodecs.decodeLockTemplate
+import co.topl.brambl.codecs.LockTemplateCodecs.encodeLockTemplate
 import co.topl.brambl.dataApi.WalletStateAlgebra
 import co.topl.brambl.models.Indices
+import co.topl.brambl.models.LockAddress
+import co.topl.brambl.models.LockId
 import co.topl.brambl.models.box.Lock
+import co.topl.brambl.utils.Encoding
 import co.topl.brambl.wallet.WalletApi
+import io.circe.parser._
+import io.circe.syntax.EncoderOps
 import quivr.models.Preimage
 import quivr.models.Proposition
 import quivr.models.VerificationKey
-import cats.implicits._
-import co.topl.brambl.codecs.LockTemplateCodecs.{decodeLockTemplate, encodeLockTemplate}
-import co.topl.brambl.utils.Encoding
-import io.circe.syntax.EncoderOps
-import io.circe.parser._
 
 /**
  * An implementation of the WalletStateAlgebra that uses a database to store state information.
@@ -23,9 +29,8 @@ import io.circe.parser._
 object WalletStateApi {
 
   def make[F[_]: Sync](
-    connection:            Resource[F, java.sql.Connection],
-    transactionBuilderApi: TransactionBuilderApi[F],
-    walletApi:             WalletApi[F]
+    connection: Resource[F, java.sql.Connection],
+    walletApi:  WalletApi[F]
   ): WalletStateAlgebra[F] =
     new WalletStateAlgebra[F] {
 
@@ -248,9 +253,14 @@ object WalletStateApi {
       }
 
       override def initWalletState(
-        vk: VerificationKey
+        networkId: Int,
+        ledgerId:  Int,
+        vk:        VerificationKey
       ): F[Unit] = {
+        import co.topl.brambl.common.ContainsEvidence.Ops
         import TransactionBuilderApi.implicits._
+        import co.topl.brambl.common.ContainsImmutable.instances._
+        import cats.implicits._
         connection.use { conn =>
           for {
             stmnt <- Sync[F].delay(conn.createStatement())
@@ -347,13 +357,17 @@ object WalletStateApi {
               )
             )
             defaultSignatureLock <- getLock("self", "default", 1).map(_.get)
-            signatureLockAddress <- transactionBuilderApi.lockAddress(
-              defaultSignatureLock
+            signatureLockAddress = LockAddress(
+              networkId,
+              ledgerId,
+              LockId(Lock().withPredicate(defaultSignatureLock.getPredicate).sizedEvidence.digest.value)
             )
             childVk           <- walletApi.deriveChildVerificationKey(vk, 1)
             genesisHeightLock <- getLock("noparty", "genesis", 1).map(_.get)
-            heightLockAddress <- transactionBuilderApi.lockAddress(
-              genesisHeightLock
+            heightLockAddress = LockAddress(
+              networkId,
+              ledgerId,
+              LockId(Lock().withPredicate(genesisHeightLock.getPredicate).sizedEvidence.digest.value)
             )
             _ <- Sync[F].delay(
               stmnt.executeUpdate(
@@ -363,7 +377,7 @@ object WalletStateApi {
                     defaultSignatureLock.getPredicate.toByteArray
                   ) +
                 "', '" +
-                signatureLockAddress.toBase58 + "', " + "'ExtendedEd25519', " + "'" +
+                signatureLockAddress.toBase58() + "', " + "'ExtendedEd25519', " + "'" +
                 Encoding.encodeToBase58(childVk.toByteArray)
                 + "'" + ")"
               )

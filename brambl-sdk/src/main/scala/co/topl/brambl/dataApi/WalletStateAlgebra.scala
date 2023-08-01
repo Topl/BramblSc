@@ -14,9 +14,11 @@ trait WalletStateAlgebra[F[_]] {
   /**
    * Initialize the wallet state with the given verification key
    *
+   * @param networkId The network id to initialize the wallet state with
+   * @param ledgerId The ledger id to initialize the wallet state with
    * @param vk The verification key to initialize the wallet state with
    */
-  def initWalletState(vk: VerificationKey): F[Unit]
+  def initWalletState(networkId: Int, ledgerId: Int, vk: VerificationKey): F[Unit]
 
   /**
    * Get the indices associated to a signature proposition

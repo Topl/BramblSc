@@ -5,6 +5,7 @@ import co.topl.brambl.builders.locks.{LockTemplate, PropositionTemplate}
 import co.topl.brambl.codecs.LockTemplateCodecs.encodeLockTemplate
 import co.topl.brambl.dataApi.{ContractStorageAlgebra, WalletContract}
 import munit.CatsEffectSuite
+import co.topl.brambl.constants.NetworkConstants
 
 class ContractStorageApiSpec extends CatsEffectSuite with BaseSpec {
 
@@ -17,7 +18,8 @@ class ContractStorageApiSpec extends CatsEffectSuite with BaseSpec {
     val contract = WalletContract(3, "testContract", lockTemplateStr)
     assertIO(
       for {
-        init      <- walletStateApi.initWalletState(mockMainKeyPair.vk)
+        init <- walletStateApi
+          .initWalletState(NetworkConstants.PRIVATE_NETWORK_ID, NetworkConstants.MAIN_NETWORK_ID, mockMainKeyPair.vk)
         _         <- contractApi.addContract(contract)
         contracts <- contractApi.findContracts()
       } yield contracts.length == 3 && contracts.last == contract,

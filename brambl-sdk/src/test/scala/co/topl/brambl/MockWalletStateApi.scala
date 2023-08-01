@@ -30,7 +30,7 @@ object MockWalletStateApi extends WalletStateAlgebra[Id] with MockHelpers {
     propEvidenceToPreimage.get(digestProposition.sizedEvidence)
 
   // The following are not implemented since they are not used in the tests
-  override def initWalletState(vk: VerificationKey): Id[Unit] = ???
+  override def initWalletState(networkId: Int, ledgerId: Int, vk: VerificationKey): Id[Unit] = ???
 
   override def getCurrentAddress: Id[String] = ???
 
