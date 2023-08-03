@@ -7,7 +7,7 @@ object Dependencies {
     val catsCoreVersion = "2.9.0"
     val simulacrumVersion = "1.0.1"
     val circeVersion = "0.14.5"
-    val quivr4sVersion = "2.0.0-alpha2"
+    val quivr4sVersion = "2.0.0-alpha2" // TODO: Remove
     val protobufSpecsVersion = "2.0.0-alpha2"
     val mUnitTeVersion = "0.7.29"
   }
@@ -60,6 +60,7 @@ object Dependencies {
     "co.topl" %% "protobuf-fs2" % protobufSpecsVersion
   )
 
+  // TODO remove
   val quivr4s: Seq[ModuleID] = Seq(
     "co.topl" %% "quivr4s" % quivr4sVersion
   )
@@ -105,6 +106,15 @@ object Dependencies {
 
     lazy val tests: Seq[ModuleID] = (
       mUnitTest ++ sqlite
+    ).map(_ % Test)
+  }
+
+  object Quivr4s {
+
+    lazy val sources: Seq[ModuleID] = Dependencies.protobufSpecs 
+
+    lazy val tests: Seq[ModuleID] = (
+      mUnitTest
     ).map(_ % Test)
   }
 }
