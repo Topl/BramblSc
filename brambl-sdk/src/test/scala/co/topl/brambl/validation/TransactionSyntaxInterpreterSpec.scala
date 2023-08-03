@@ -189,7 +189,7 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
           seriesTokenSupply = SeriesTokenSupply.defaultInstance,
           txId = txFull.id,
           index = 1,
-          id = Option.empty[GroupId] // GroupId(ByteString.copyFrom(sha))
+          id = Option.empty[GroupId]
         )
       )
 
