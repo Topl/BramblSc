@@ -21,6 +21,7 @@ lazy val commonScalacOptions = Seq(
 lazy val developmentResolver = settingKey[Boolean]("ProtobufSpecs Resolver, True: jitpack, False: sonatype")
 
 lazy val commonSettings = Seq(
+  fork := true,
   scalacOptions ++= commonScalacOptions,
   semanticdbEnabled := true, // enable SemanticDB for Scalafix
   Compile / unmanagedSourceDirectories += {

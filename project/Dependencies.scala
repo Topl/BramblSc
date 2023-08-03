@@ -72,7 +72,7 @@ object Dependencies {
   )
 
   val sqlite: Seq[ModuleID] = Seq(
-    "org.xerial" % "sqlite-jdbc" % "3.41.2.1"
+    "org.xerial" % "sqlite-jdbc" % "3.41.2.2"
   )
 
   object Crypto {
@@ -111,7 +111,7 @@ object Dependencies {
     lazy val sources: Seq[ModuleID] = sqlite
 
     lazy val tests: Seq[ModuleID] = (
-        mUnitTest ++ sqlite
-      ).map(_ % Test)
+      mUnitTest ++ sqlite
+    ).map(_ % Test)
   }
 }
