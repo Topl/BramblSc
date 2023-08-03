@@ -9,6 +9,7 @@ import co.topl.brambl.validation.algebras.TransactionSyntaxVerifier
 import co.topl.brambl.common.ContainsImmutable.ContainsImmutableTOps
 import co.topl.brambl.common.ContainsImmutable.instances._
 import co.topl.brambl.models.box.Attestation
+import co.topl.brambl.syntax._
 import quivr.models.{Int128, Proof, Proposition}
 
 object TransactionSyntaxInterpreter {
@@ -263,9 +264,10 @@ object TransactionSyntaxInterpreter {
         transaction.outputs
           .filter(_.value.value.isGroup)
           .map(_.value.getGroup)
+          .map(_.embedId)
           .groupBy(_.id)
           .collect {
-            case (knownIdentifier, groups) if groups.size > 1 =>
+            case (Some(knownIdentifier), groups) if groups.size > 1 =>
               TransactionSyntaxError.DuplicateGroupsOutput(knownIdentifier)
           }
           .toSeq

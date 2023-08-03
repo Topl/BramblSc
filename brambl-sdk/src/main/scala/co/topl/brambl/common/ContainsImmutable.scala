@@ -188,13 +188,12 @@ object ContainsImmutable {
       asset.quantity.immutable ++
       asset.metadata.immutable
 
-    implicit val groupValueInmutable: ContainsImmutable[Value.Group] = (group: Value.Group) =>
+    implicit val groupValueImmutable: ContainsImmutable[Value.Group] = (group: Value.Group) =>
       group.label.immutable ++
       group.fixedSeries.immutable ++
       group.seriesTokenSupply.value.immutable ++
       group.txId.immutable ++
-      group.index.immutable ++
-      group.id.immutable
+      group.index.immutable
 
     implicit val fixedSeries: ContainsImmutable[FixedSeries] =
       _.value.immutable

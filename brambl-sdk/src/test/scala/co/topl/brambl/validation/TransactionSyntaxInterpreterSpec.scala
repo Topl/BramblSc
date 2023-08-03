@@ -6,11 +6,10 @@ import co.topl.brambl.MockHelpers
 import co.topl.brambl.models.GroupId
 import co.topl.brambl.models.box.{Attestation, Challenge, FixedSeries, Lock, SeriesTokenSupply, Value}
 import co.topl.brambl.models.transaction.{Schedule, UnspentTransactionOutput}
-import co.topl.brambl.syntax.ioTransactionAsTransactionSyntaxOps
+import co.topl.brambl.syntax.{groupAsGroupSyntaxOps, ioTransactionAsTransactionSyntaxOps}
 import co.topl.quivr.api.Proposer
 import co.topl.quivr.api.Prover
 import com.google.protobuf.ByteString
-import java.security.MessageDigest
 import quivr.models.Int128
 import quivr.models.Proof
 import quivr.models.Proposition
@@ -85,7 +84,8 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
   }
 
   test("validate positive output quantities") {
-    val negativeValue: Value = Value().withLvl(Value.LVL(Int128(ByteString.copyFrom(BigInt(-1).toByteArray))))
+    val negativeValue: Value =
+      Value.defaultInstance.withLvl(Value.LVL(Int128(ByteString.copyFrom(BigInt(-1).toByteArray))))
     val testTx = txFull.copy(outputs = Seq(output.copy(value = negativeValue)))
     val validator = TransactionSyntaxInterpreter.make[Id]()
     val result = validator
@@ -96,12 +96,18 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
   }
 
   test("validate sufficient input funds") {
-    val tokenValueIn: Value = Value().withLvl(Value.LVL(Int128(ByteString.copyFrom(BigInt(100).toByteArray))))
-    val tokenValueOut: Value = Value().withLvl(Value.LVL(Int128(ByteString.copyFrom(BigInt(101).toByteArray))))
+    val tokenValueIn: Value =
+      Value.defaultInstance.withLvl(Value.LVL(Int128(ByteString.copyFrom(BigInt(100).toByteArray))))
+    val tokenValueOut: Value =
+      Value.defaultInstance.withLvl(Value.LVL(Int128(ByteString.copyFrom(BigInt(101).toByteArray))))
     val assetValueIn: Value =
-      Value().withAsset(Value.Asset("label", Int128(ByteString.copyFrom(BigInt(100).toByteArray)), SmallData()))
+      Value.defaultInstance.withAsset(
+        Value.Asset("label", Int128(ByteString.copyFrom(BigInt(100).toByteArray)), SmallData())
+      )
     val assetValueOut: Value =
-      Value().withAsset(Value.Asset("label", Int128(ByteString.copyFrom(BigInt(101).toByteArray)), SmallData()))
+      Value.defaultInstance.withAsset(
+        Value.Asset("label", Int128(ByteString.copyFrom(BigInt(101).toByteArray)), SmallData())
+      )
 
     def testTx(inputValue: Value, outputValue: Value) = TransactionSyntaxInterpreter
       .make[Id]()
@@ -175,9 +181,7 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
   }
 
   test("validate distinct output groups") {
-    // discuss responsibility of validation of same string, should be the sha-256 of label+fixedSeries+....
-    val sha = MessageDigest.getInstance("SHA-256").digest("some string".getBytes("UTF-8"))
-    val value1: Value =
+    val group: Value =
       Value.defaultInstance.withGroup(
         Value.Group(
           label = "groupLabel",
@@ -185,17 +189,19 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
           seriesTokenSupply = SeriesTokenSupply.defaultInstance,
           txId = txFull.id,
           index = 1,
-          id = GroupId(ByteString.copyFrom(sha))
+          id = Option.empty[GroupId] // GroupId(ByteString.copyFrom(sha))
         )
       )
-    val output1: UnspentTransactionOutput = UnspentTransactionOutput(trivialLockAddress, value1)
-    val output2: UnspentTransactionOutput = UnspentTransactionOutput(trivialLockAddress, value1)
+
+    val groupId = group.getGroup.computeId
+    val output1: UnspentTransactionOutput = UnspentTransactionOutput(trivialLockAddress, group)
+    val output2: UnspentTransactionOutput = UnspentTransactionOutput(trivialLockAddress, group)
     val testTx = txFull.copy(outputs = List(output1, output2))
     val validator = TransactionSyntaxInterpreter.make[Id]()
     val result = validator
       .validate(testTx)
       .swap
-      .exists(_.toList.contains(TransactionSyntaxError.DuplicateGroupsOutput(GroupId(ByteString.copyFrom(sha)))))
+      .exists(_.toList.contains(TransactionSyntaxError.DuplicateGroupsOutput(groupId)))
     assertEquals(result, true)
   }
 }
