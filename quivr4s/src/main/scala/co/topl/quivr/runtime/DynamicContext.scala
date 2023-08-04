@@ -53,8 +53,6 @@ trait DynamicContext[F[_], K, Datum] {
       }
     )
 
-  //  def MustInclude() = ???
-
   def exactMatch(label: K, compareTo: Array[Byte])(implicit
     monad: Monad[F]
   ): EitherT[F, QuivrRuntimeError, Array[Byte]] =

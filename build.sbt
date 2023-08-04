@@ -144,7 +144,8 @@ lazy val brambl = project
   .aggregate(
     crypto,
     bramblSdk,
-    serviceKit
+    serviceKit,
+    quivr4s
   )
 
 addCommandAlias("checkPR", s"; scalafixAll --check; scalafmtCheckAll; +test")

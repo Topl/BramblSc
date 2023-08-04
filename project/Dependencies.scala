@@ -7,7 +7,6 @@ object Dependencies {
     val catsCoreVersion = "2.9.0"
     val simulacrumVersion = "1.0.1"
     val circeVersion = "0.14.5"
-    val quivr4sVersion = "2.0.0-alpha2" // TODO: Remove
     val protobufSpecsVersion = "2.0.0-alpha2"
     val mUnitTeVersion = "0.7.29"
   }
@@ -49,7 +48,9 @@ object Dependencies {
 
   val cats: Seq[ModuleID] = Seq(
     "org.typelevel" %% "cats-core" % catsCoreVersion,
-    "org.typelevel" %% "mouse"     % "1.2.1"
+    "org.typelevel" %% "mouse"     % "1.2.1",
+    "org.typelevel" %% "cats-free" % catsCoreVersion,
+    "org.typelevel" %% "cats-effect" % "3.4.8",
   )
 
   val simulacrum: Seq[ModuleID] = Seq(
@@ -58,11 +59,6 @@ object Dependencies {
 
   val protobufSpecs: Seq[ModuleID] = Seq(
     "co.topl" %% "protobuf-fs2" % protobufSpecsVersion
-  )
-
-  // TODO remove
-  val quivr4s: Seq[ModuleID] = Seq(
-    "co.topl" %% "quivr4s" % quivr4sVersion
   )
 
   val sqlite: Seq[ModuleID] = Seq(
@@ -89,12 +85,10 @@ object Dependencies {
 
   object BramblSdk {
 
-    lazy val sources: Seq[ModuleID] =
-      quivr4s ++ Dependencies.protobufSpecs
+    lazy val sources: Seq[ModuleID] = Dependencies.protobufSpecs
 
     lazy val tests: Seq[ModuleID] =
       (
-        quivr4s.map(_ classifier ("tests")) ++
           mUnitTest ++
           scalamock
       ).map(_ % Test)
@@ -111,7 +105,7 @@ object Dependencies {
 
   object Quivr4s {
 
-    lazy val sources: Seq[ModuleID] = Dependencies.protobufSpecs 
+    lazy val sources: Seq[ModuleID] = Dependencies.protobufSpecs
 
     lazy val tests: Seq[ModuleID] = (
       mUnitTest

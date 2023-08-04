@@ -5,7 +5,11 @@ import cats.data.OptionT
 import cats.implicits._
 import co.topl.crypto.hash.Blake2b256
 import co.topl.quivr._
-import co.topl.quivr.runtime.QuivrRuntimeErrors.ValidationError.{EvaluationAuthorizationFailed, LockedPropositionIsUnsatisfiable, MessageAuthorizationFailed}
+import co.topl.quivr.runtime.QuivrRuntimeErrors.ValidationError.{
+  EvaluationAuthorizationFailed,
+  LockedPropositionIsUnsatisfiable,
+  MessageAuthorizationFailed
+}
 import co.topl.quivr.runtime.{DynamicContext, QuivrRuntimeError}
 import quivr.models._
 
