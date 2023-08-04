@@ -10,7 +10,7 @@ object Dependencies {
     val quivr4sVersion = "2.0.0-alpha2"
 
     val protobufSpecsSonatypeVersion = "2.0.0-alpha2"
-    val protobufSpecsJitPackVersion = "9e3d6427fa3c41d99f663b6dfbbfed21c2add46d" // scala-steward:off
+    val protobufSpecsJitPackVersion = "3fd6e44a334b0b1b3e49365a1c29e8ed5f9ef85a" // scala-steward:off
     val mUnitTeVersion = "0.7.29"
   }
 

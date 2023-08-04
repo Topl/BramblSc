@@ -21,7 +21,7 @@ class GroupAsGroupSyntaxOps(val group: Group) extends AnyVal {
    * Otherwise, a new ID is computed (but not saved in the Group).
    */
   def id: GroupId =
-    group.id.getOrElse(computeId)
+    group.groupId.getOrElse(computeId)
 
   /**
    * Computes what the ID _should_ be for this Group.
@@ -37,11 +37,11 @@ class GroupAsGroupSyntaxOps(val group: Group) extends AnyVal {
    * Any previous value will be overwritten in the new copy.
    */
   def embedId: Group =
-    group.copy(id = Some(computeId))
+    group.copy(groupId = Some(computeId))
 
   /**
    * Returns true if this Group contains a valid embedded ID.
    */
   def containsValidId: Boolean =
-    group.id.contains(computeId)
+    group.groupId.contains(computeId)
 }

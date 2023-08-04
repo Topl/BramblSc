@@ -264,10 +264,9 @@ object TransactionSyntaxInterpreter {
         transaction.outputs
           .filter(_.value.value.isGroup)
           .map(_.value.getGroup)
-          .map(_.embedId)
           .groupBy(_.id)
           .collect {
-            case (Some(knownIdentifier), groups) if groups.size > 1 =>
+            case (knownIdentifier, groups) if groups.size > 1 =>
               TransactionSyntaxError.DuplicateGroupsOutput(knownIdentifier)
           }
           .toSeq
