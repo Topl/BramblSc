@@ -92,6 +92,20 @@ lazy val crypto = project
     macroAnnotationsSettings
   )
 
+lazy val quivr4s = project
+  .in(file("quivr4s"))
+  .settings(
+    name := "quivr4s",
+    commonSettings,
+    publishSettings,
+    Test / publishArtifact := true,
+    Test / parallelExecution := false,
+    libraryDependencies ++=
+      Dependencies.Quivr4s.sources ++
+        Dependencies.Quivr4s.tests
+  )
+  .dependsOn(crypto)
+
 lazy val bramblSdk = project
   .in(file("brambl-sdk"))
   .settings(
@@ -103,7 +117,7 @@ lazy val bramblSdk = project
       Dependencies.BramblSdk.sources ++
       Dependencies.BramblSdk.tests
   )
-  .dependsOn(crypto)
+  .dependsOn(quivr4s % "compile->compile;test->test")
 
 lazy val serviceKit = project
   .in(file("service-kit"))
@@ -130,7 +144,8 @@ lazy val brambl = project
   .aggregate(
     crypto,
     bramblSdk,
-    serviceKit
+    serviceKit,
+    quivr4s
   )
 
 addCommandAlias("checkPR", s"; scalafixAll --check; scalafmtCheckAll; +test")
