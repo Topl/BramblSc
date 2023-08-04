@@ -117,7 +117,7 @@ lazy val bramblSdk = project
       Dependencies.BramblSdk.sources ++
       Dependencies.BramblSdk.tests
   )
-  .dependsOn(quivr4s)
+  .dependsOn(quivr4s % "compile->compile;test->test")
 
 lazy val serviceKit = project
   .in(file("service-kit"))
