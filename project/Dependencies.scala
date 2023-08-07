@@ -47,10 +47,10 @@ object Dependencies {
   )
 
   val cats: Seq[ModuleID] = Seq(
-    "org.typelevel" %% "cats-core" % catsCoreVersion,
-    "org.typelevel" %% "mouse"     % "1.2.1",
-    "org.typelevel" %% "cats-free" % catsCoreVersion,
-    "org.typelevel" %% "cats-effect" % "3.4.8",
+    "org.typelevel" %% "cats-core"   % catsCoreVersion,
+    "org.typelevel" %% "mouse"       % "1.2.1",
+    "org.typelevel" %% "cats-free"   % catsCoreVersion,
+    "org.typelevel" %% "cats-effect" % "3.4.8"
   )
 
   val simulacrum: Seq[ModuleID] = Seq(
@@ -89,7 +89,7 @@ object Dependencies {
 
     lazy val tests: Seq[ModuleID] =
       (
-          mUnitTest ++
+        mUnitTest ++
           scalamock
       ).map(_ % Test)
   }
