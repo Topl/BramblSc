@@ -7,9 +7,7 @@ object Dependencies {
     val catsCoreVersion = "2.9.0"
     val simulacrumVersion = "1.0.1"
     val circeVersion = "0.14.5"
-    // TODO FIX when https://github.com/Topl/protobuf-specs/pull/79 is merged
-//    val protobufSpecsVersion = "2.0.0-alpha2"
-    val protobufSpecsJitPackVersion = "5e86bc9155" // scala-steward:off
+    val protobufSpecsVersion = "2.0.0-alpha2+8-78441406-SNAPSHOT"
     val mUnitTeVersion = "0.7.29"
   }
 
@@ -60,10 +58,8 @@ object Dependencies {
     "org.typelevel" %% "cats-effect" % "3.4.8"
   )
 
-  // TODO FIX when https://github.com/Topl/protobuf-specs/pull/79 is merged
   val protobufSpecs: Seq[ModuleID] = Seq(
-//    "co.topl" %% "protobuf-fs2" % protobufSpecsVersion
-    "com.github.Topl.protobuf-specs" %% "protobuf-fs2" % protobufSpecsJitPackVersion
+    "co.topl" %% "protobuf-fs2" % protobufSpecsVersion
   )
 
   val sqlite: Seq[ModuleID] = Seq(
