@@ -3,7 +3,7 @@ package co.topl.crypto
 import co.topl.crypto.generation.Pbkdf2Sha512
 import org.scalatest.propspec.AnyPropSpec
 import co.topl.crypto.utils.Hex
-import org.scalatest.matchers.should.Matchers.convertToAnyShouldWrapper
+import org.scalatest.matchers.should.Matchers._
 
 class Pbkdf2Sha512Spec extends AnyPropSpec {
 
@@ -46,20 +46,22 @@ class Pbkdf2Sha512Spec extends AnyPropSpec {
       )
     )
 
-    testVectors.foreach { vector =>
-      val expectedResult = Hex.encode(bytesStringToArray(vector.result))
-      val kdf = new Pbkdf2Sha512()
+    testVectors.foreach { (vector) =>
+      {
+        val expectedResult = Hex.encode(bytesStringToArray(vector.result))
+        val kdf = new Pbkdf2Sha512()
 
-      val result = kdf.generateKey(
-        vector.password.getBytes("UTF-8"),
-        vector.salt.getBytes("UTF-8"),
-        vector.keySize,
-        vector.iterations
-      )
+        val result = kdf.generateKey(
+          vector.password.getBytes("UTF-8"),
+          vector.salt.getBytes("UTF-8"),
+          vector.keySize,
+          vector.iterations
+        )
 
-      val hexResult = Hex.encode(result)
+        val hexResult = Hex.encode(result)
 
-      hexResult shouldBe expectedResult
+        hexResult shouldBe expectedResult
+      }
     }
   }
 

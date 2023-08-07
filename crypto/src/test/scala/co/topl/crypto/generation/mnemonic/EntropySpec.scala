@@ -5,11 +5,12 @@ import co.topl.crypto.utils.{Generators, Hex, TestVector}
 import io.circe.{Decoder, DecodingFailure, HCursor}
 import io.circe.generic.semiauto.deriveDecoder
 import org.scalacheck.Gen
-import org.scalatest.matchers.should.Matchers.convertToAnyShouldWrapper
+import org.scalatest.matchers.should.Matchers._
 import org.scalatest.propspec.AnyPropSpec
 import org.scalatestplus.scalacheck.{ScalaCheckDrivenPropertyChecks, ScalaCheckPropertyChecks}
 import co.topl.crypto.utils.EntropySupport._
 import org.scalatest.EitherValues
+import org.scalatest.matchers.should._
 
 class EntropySpec
     extends AnyPropSpec

@@ -21,36 +21,40 @@ class MerkleTreeSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks wit
   private val leafSize = 32
 
   property("Proof generation by element") {
-    forAll(Gen.choose(1, 15)) { N: Int =>
-      val d = (0 until N).map(_ => LeafData(randomBytes(leafSize)))
-      val leafs = d.map(data => Leaf[HashScheme, HashDigest](data))
-      val tree = MerkleTree[HashScheme, HashDigest](d)
-      val treeRootHash = tree.rootHash
-      leafs.foreach { l =>
-        val proof = tree.proofByElement(l).get
-        proof.leafData.value.sameElements(l.data.value) shouldBe true
-        proof.valid(treeRootHash) shouldBe true
+    forAll(Gen.choose(1, 15)) { (N: Int) =>
+      {
+        val d = (0 until N).map(_ => LeafData(randomBytes(leafSize)))
+        val leafs = d.map(data => Leaf[HashScheme, HashDigest](data))
+        val tree = MerkleTree[HashScheme, HashDigest](d)
+        val treeRootHash = tree.rootHash
+        leafs.foreach { l =>
+          val proof = tree.proofByElement(l).get
+          proof.leafData.value.sameElements(l.data.value) shouldBe true
+          proof.valid(treeRootHash) shouldBe true
+        }
       }
     }
   }
 
   property("Proof generation by index") {
-    forAll(Gen.choose(1, 15)) { N: Int =>
-      val d = (0 until N).map(_ => LeafData(randomBytes(leafSize)))
-      val tree = MerkleTree[HashScheme, HashDigest](d)
+    forAll(Gen.choose(1, 15)) { (N: Int) =>
+      {
+        val d = (0 until N).map(_ => LeafData(randomBytes(leafSize)))
+        val tree = MerkleTree[HashScheme, HashDigest](d)
 
-      (0 until N).foreach { i =>
-        tree.proofByIndex(i).get.leafData.value shouldEqual d(i).value
-        tree
-          .proofByIndex(i)
-          .get
-          .valid(tree.rootHash) shouldBe true
-      }
-      (N until N + 100).foreach { i =>
-        tree.proofByIndex(i).isEmpty shouldBe true
-      }
-      (-(N + 100) until 0).foreach { i =>
-        tree.proofByIndex(i).isEmpty shouldBe true
+        (0 until N).foreach { i =>
+          tree.proofByIndex(i).get.leafData.value shouldEqual d(i).value
+          tree
+            .proofByIndex(i)
+            .get
+            .valid(tree.rootHash) shouldBe true
+        }
+        (N until N + 100).foreach { i =>
+          tree.proofByIndex(i).isEmpty shouldBe true
+        }
+        (-(N + 100) until 0).foreach { i =>
+          tree.proofByIndex(i).isEmpty shouldBe true
+        }
       }
     }
   }
@@ -61,55 +65,65 @@ class MerkleTreeSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks wit
   }
 
   property("Tree creation from 1 element") {
-    forAll { d: Array[Byte] =>
-      whenever(d.length > 0) {
-        val tree = MerkleTree.apply[HashScheme, HashDigest](Seq(LeafData(d)))
+    forAll { (d: Array[Byte]) =>
+      {
+        whenever(d.length > 0) {
+          val tree = MerkleTree.apply[HashScheme, HashDigest](Seq(LeafData(d)))
 
-        bytesOf(tree.rootHash) shouldEqual
-        bytesOf(
-          hf.hash(
-            MerkleTree.InternalNodePrefix,
-            bytesOf(hf.hash(MerkleTree.LeafPrefix, d))
+          bytesOf(tree.rootHash) shouldEqual
+          bytesOf(
+            hf.hash(
+              MerkleTree.InternalNodePrefix,
+              bytesOf(hf.hash(MerkleTree.LeafPrefix, d))
+            )
           )
-        )
+        }
       }
     }
   }
 
   property("Tree creation from 5 elements") {
-    forAll { d: Array[Byte] =>
-      whenever(d.length > 0) {
-        val leafs: Seq[LeafData] = (0 until 5).map(_ => LeafData(d))
-        val tree = MerkleTree[HashScheme, HashDigest](leafs)
-        val h0x = hf.hash(MerkleTree.LeafPrefix, d)
-        val h10 = hf.hash(MerkleTree.InternalNodePrefix, bytesOf(h0x), bytesOf(h0x))
-        val h11 = h10
-        val h12 = hf.hash(MerkleTree.InternalNodePrefix, bytesOf(h0x))
-        val h20 = hf.hash(MerkleTree.InternalNodePrefix, bytesOf(h10), bytesOf(h11))
-        val h21 = hf.hash(MerkleTree.InternalNodePrefix, bytesOf(h12))
-        val h30 = hf.hash(MerkleTree.InternalNodePrefix, bytesOf(h20), bytesOf(h21))
-        bytesOf(h30) shouldEqual bytesOf(tree.rootHash)
+    forAll { (d: Array[Byte]) =>
+      {
+        whenever(d.length > 0) {
+          val leafs: Seq[LeafData] = (0 until 5).map(_ => LeafData(d))
+          val tree = MerkleTree[HashScheme, HashDigest](leafs)
+          val h0x = hf.hash(MerkleTree.LeafPrefix, d)
+          val h10 = hf.hash(MerkleTree.InternalNodePrefix, bytesOf(h0x), bytesOf(h0x))
+          val h11 = h10
+          val h12 = hf.hash(MerkleTree.InternalNodePrefix, bytesOf(h0x))
+          val h20 = hf.hash(MerkleTree.InternalNodePrefix, bytesOf(h10), bytesOf(h11))
+          val h21 = hf.hash(MerkleTree.InternalNodePrefix, bytesOf(h12))
+          val h30 = hf.hash(MerkleTree.InternalNodePrefix, bytesOf(h20), bytesOf(h21))
+          bytesOf(h30) shouldEqual bytesOf(tree.rootHash)
+        }
       }
     }
   }
 
   property("Tree creation from 2 element") {
     forAll { (d1: Array[Byte], d2: Array[Byte]) =>
-      val tree = MerkleTree.apply[HashScheme, HashDigest](Seq(LeafData(d1), LeafData(d2)))
-      tree.rootHash shouldEqual hf
-        .hash(
-          MerkleTree.InternalNodePrefix,
-          bytesOf(hf.hash(MerkleTree.LeafPrefix, d1)),
-          bytesOf(hf.hash(MerkleTree.LeafPrefix, d2))
+      {
+        val tree = MerkleTree.apply[HashScheme, HashDigest](Seq(LeafData(d1), LeafData(d2)))
+        bytesOf(tree.rootHash) shouldEqual bytesOf(
+          hf
+            .hash(
+              MerkleTree.InternalNodePrefix,
+              bytesOf(hf.hash(MerkleTree.LeafPrefix, d1)),
+              bytesOf(hf.hash(MerkleTree.LeafPrefix, d2))
+            )
         )
+      }
     }
   }
 
   property("Tree creation from a lot of elements") {
-    forAll { d: Seq[Array[Byte]] =>
-      whenever(d.nonEmpty) {
-        val tree = MerkleTree.apply[HashScheme, HashDigest](d.map(a => LeafData(a)))
-        tree.rootHash
+    forAll { (d: Seq[Array[Byte]]) =>
+      {
+        whenever(d.nonEmpty) {
+          val tree = MerkleTree.apply[HashScheme, HashDigest](d.map(a => LeafData(a)))
+          tree.rootHash
+        }
       }
     }
   }

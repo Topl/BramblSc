@@ -32,7 +32,7 @@ class ExtendedEd25519Spec extends AnyPropSpec with ScalaCheckDrivenPropertyCheck
   }
 
   property("with ExtendedEd25519, keyPairs generated with the same seed should be the same") {
-    forAll { entropy: Entropy =>
+    forAll { (entropy: Entropy) =>
       whenever(entropy.value.length != 0) {
         val keyPair1 = extendedEd25519.deriveKeyPairFromEntropy(entropy, None)
         val keyPair2 = extendedEd25519.deriveKeyPairFromEntropy(entropy, None)

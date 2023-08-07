@@ -8,7 +8,7 @@ import co.topl.crypto.encryption.kdf.Codecs._
 import co.topl.crypto.encryption.cipher.Codecs._
 import io.circe.Decoder.Result
 import io.circe.{Decoder, DecodingFailure, Encoder, HCursor, Json}
-import io.circe.generic.codec.DerivedAsObjectCodec.deriveCodec
+//import io.circe.generic.codec.DerivedAsObjectCodec.deriveCodec
 import io.circe.syntax._
 import org.bouncycastle.util.Strings
 

@@ -39,7 +39,7 @@ class Ed25519Spec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks with M
   }
 
   property("with Ed25519, keyPairs generated with the same seed should be the same") {
-    forAll { entropy: Entropy =>
+    forAll { (entropy: Entropy) =>
       whenever(entropy.value.length != 0) {
         val ed25519 = new Ed25519
         val keyPair1 = ed25519.deriveKeyPairFromEntropy(entropy, None)

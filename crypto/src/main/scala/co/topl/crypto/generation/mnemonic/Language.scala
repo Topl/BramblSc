@@ -2,8 +2,6 @@ package co.topl.crypto.generation.mnemonic
 
 import cats.implicits._
 import co.topl.crypto.hash.sha256
-import io.estatico.newtype.macros.newtype
-import io.estatico.newtype.ops._
 
 import java.nio.charset.StandardCharsets
 import scala.language.implicitConversions
@@ -51,13 +49,7 @@ object Language {
   case object Portuguese
       extends Language("portuguese.txt", "eed387d44cf8f32f60754527e265230d8019e8a2277937c71ef812e7a46c93fd")
 
-  /**
-   * A list of valid words in a language for generating a mnemonic phrase.
-   *
-   * @param value the valid words for creating phrases
-   */
-  @newtype
-  class LanguageWordList(val value: IndexedSeq[String])
+  case class LanguageWordList(val value: IndexedSeq[String])
 
   object LanguageWordList {
 
@@ -101,7 +93,7 @@ object Language {
         .leftMap(FileReadFailure)
         .flatMap(words =>
           validateChecksum(words, language.hash)
-            .map(_.coerce)
+            .map(LanguageWordList(_))
         )
   }
 }

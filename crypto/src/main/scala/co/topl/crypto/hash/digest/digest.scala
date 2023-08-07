@@ -1,9 +1,6 @@
 package co.topl.crypto.hash
 
 import cats.data.{Validated, ValidatedNec}
-import io.estatico.newtype.macros.newtype
-import io.estatico.newtype.ops._
-import simulacrum.typeclass
 
 import scala.language.implicitConversions
 
@@ -14,7 +11,6 @@ package object digest {
    *
    * @tparam T the implemented digest type
    */
-  @typeclass
   trait Digest[T] {
 
     /**
@@ -44,8 +40,29 @@ package object digest {
       .getOrElse(throw new Error(s"Failed to validate empty digest of size $size!"))
   }
 
-  @newtype
-  class Digest32(val value: Array[Byte])
+  object Digest {
+    def apply[T](implicit instance: Digest[T]): Digest[T] = instance
+
+    trait Ops[T] {
+      def typeClassInstance: Digest[T]
+      def self: T
+
+      def size: Int = typeClassInstance.size
+      def bytes: Array[Byte] = typeClassInstance.bytes(self)
+
+//      def from: ValidatedNec[InvalidDigestFailure, T] //= typeClassInstance.from(self)
+    }
+
+    trait ToDigestOps {
+
+      implicit def toDigestOps[T](target: T)(implicit tc: Digest[T]): Ops[T] = new Ops[T] {
+        def typeClassInstance: Digest[T] = tc
+        def self: T = target
+      }
+    }
+  }
+
+  case class Digest32(val value: Array[Byte])
 
   object Digest32 {
     val size = 32
@@ -57,11 +74,10 @@ package object digest {
      * @return the digest or an invalid error
      */
     def validated(bytes: Array[Byte]): ValidatedNec[InvalidDigestFailure, Digest32] =
-      Validated.condNec(bytes.length == size, bytes.coerce, IncorrectSize)
+      Validated.condNec(bytes.length == size, Digest32(bytes), IncorrectSize)
   }
 
-  @newtype
-  class Digest64(val value: Array[Byte])
+  case class Digest64(val value: Array[Byte])
 
   object Digest64 {
     val size = 64
@@ -73,7 +89,7 @@ package object digest {
      * @return the digest or an invalid error
      */
     def validated(bytes: Array[Byte]): ValidatedNec[InvalidDigestFailure, Digest64] =
-      Validated.condNec(bytes.length == size, bytes.coerce, IncorrectSize)
+      Validated.condNec(bytes.length == size, Digest64(bytes), IncorrectSize)
   }
 
   sealed trait InvalidDigestFailure

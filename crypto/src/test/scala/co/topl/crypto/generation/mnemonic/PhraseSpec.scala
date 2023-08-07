@@ -4,7 +4,7 @@ import co.topl.crypto.generation.mnemonic.Language.LanguageWordList
 import co.topl.crypto.generation.mnemonic.MnemonicSizes.{words12, words18, words24}
 import co.topl.crypto.utils.Generators
 import org.scalacheck.Gen
-import org.scalatest.matchers.should.Matchers.convertToAnyShouldWrapper
+import org.scalatest.matchers.should.Matchers._
 import org.scalatest.propspec.AnyPropSpec
 import org.scalatestplus.scalacheck.{ScalaCheckDrivenPropertyChecks, ScalaCheckPropertyChecks}
 
