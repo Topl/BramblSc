@@ -1,16 +1,7 @@
 package co.topl.brambl.common
 
 import co.topl.brambl.models._
-import co.topl.brambl.models.box.{
-  Attestation,
-  Box,
-  Challenge,
-  FixedSeries,
-  Lock,
-  SeriesTokenSupply,
-  SeriesTokenSupplyEnum,
-  Value
-}
+import co.topl.brambl.models.box.{Attestation, Box, Challenge, FixedSeries, Lock, Value}
 import co.topl.brambl.models.common.ImmutableBytes
 import co.topl.brambl.models.transaction._
 import co.topl.consensus.models._
@@ -191,22 +182,11 @@ object ContainsImmutable {
     implicit val groupValueImmutable: ContainsImmutable[Value.Group] = (group: Value.Group) =>
       group.label.immutable ++
       group.fixedSeries.immutable ++
-      group.seriesTokenSupply.value.immutable ++
       group.txId.immutable ++
       group.index.immutable
 
     implicit val fixedSeries: ContainsImmutable[FixedSeries] =
       _.value.immutable
-
-    implicit val seriesTokenSupplyImmutable: ContainsImmutable[SeriesTokenSupply.Value] = {
-      case SeriesTokenSupply.Value.Empty => Array[Byte](0).immutable
-      case SeriesTokenSupply.Value.Enum(e) =>
-        e match {
-          case SeriesTokenSupplyEnum.UNLIMITED => Array[Byte](1).immutable
-          case SeriesTokenSupplyEnum.FIXED     => Array[Byte](2).immutable
-        }
-      case SeriesTokenSupply.Value.Capped(supply) => supply.toByteArray.immutable
-    }
 
     implicit val signatureKesSumImmutable: ContainsImmutable[co.topl.consensus.models.SignatureKesSum] =
       v =>

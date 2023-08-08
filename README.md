@@ -11,6 +11,7 @@ The artifacts generated from this repo are:
 - brambl-sdk
 - crypto
 - service-kit
+- quivr4s
 
 ## Consume with JitPack
 
