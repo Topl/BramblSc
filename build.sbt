@@ -18,8 +18,6 @@ lazy val commonScalacOptions = Seq(
   "-Yrangepos"
 )
 
-lazy val developmentResolver = settingKey[Boolean]("ProtobufSpecs Resolver, True: jitpack, False: sonatype")
-
 lazy val commonSettings = Seq(
   fork := true,
   scalacOptions ++= commonScalacOptions,
@@ -31,7 +29,6 @@ lazy val commonSettings = Seq(
       case _                       => sourceDir / "scala-2.12-"
     }
   },
-  ThisBuild / developmentResolver := true, // enable JitPack resolver for protobufSpecs, It should be false on main branch
   Test / testOptions ++= Seq(
     Tests.Argument(TestFrameworks.ScalaCheck, "-verbosity", "2"),
     Tests.Argument(TestFrameworks.ScalaTest, "-f", "sbttest.log", "-oDGG", "-u", "target/test-reports")
@@ -95,6 +92,20 @@ lazy val crypto = project
     macroAnnotationsSettings
   )
 
+lazy val quivr4s = project
+  .in(file("quivr4s"))
+  .settings(
+    name := "quivr4s",
+    commonSettings,
+    publishSettings,
+    Test / publishArtifact := true,
+    Test / parallelExecution := false,
+    libraryDependencies ++=
+      Dependencies.Quivr4s.sources ++
+        Dependencies.Quivr4s.tests
+  )
+  .dependsOn(crypto)
+
 lazy val bramblSdk = project
   .in(file("brambl-sdk"))
   .settings(
@@ -103,10 +114,10 @@ lazy val bramblSdk = project
     publishSettings,
     Test / publishArtifact := true,
     libraryDependencies ++=
-      Dependencies.BramblSdk.sources(developmentResolver.value) ++
+      Dependencies.BramblSdk.sources ++
       Dependencies.BramblSdk.tests
   )
-  .dependsOn(crypto)
+  .dependsOn(quivr4s % "compile->compile;test->test")
 
 lazy val serviceKit = project
   .in(file("service-kit"))
@@ -118,7 +129,7 @@ lazy val serviceKit = project
     Test / parallelExecution := false,
     libraryDependencies ++=
       Dependencies.ServiceKit.sources ++
-      Dependencies.ServiceKit.tests
+        Dependencies.ServiceKit.tests
   )
   .dependsOn(bramblSdk)
 
@@ -133,7 +144,8 @@ lazy val brambl = project
   .aggregate(
     crypto,
     bramblSdk,
-    serviceKit
+    serviceKit,
+    quivr4s
   )
 
 addCommandAlias("checkPR", s"; scalafixAll --check; scalafmtCheckAll; +test")
