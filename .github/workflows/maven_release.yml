@@ -1,7 +1,7 @@
 name: Maven Central Release
 on:
   push:
-    branches: [main]
+    branches: ["*"]
     tags: ["*"]
 
 jobs:
