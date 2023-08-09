@@ -113,6 +113,7 @@ lazy val bramblSdk = project
     commonSettings,
     publishSettings,
     Test / publishArtifact := true,
+    Test / parallelExecution := false,
     libraryDependencies ++=
       Dependencies.BramblSdk.sources ++
       Dependencies.BramblSdk.tests
