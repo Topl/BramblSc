@@ -7,7 +7,7 @@ object Dependencies {
     val catsCoreVersion = "2.9.0"
     val simulacrumVersion = "1.0.1"
     val circeVersion = "0.14.5"
-    val protobufSpecsVersion = "2.0.0-alpha2+13-18a14bc1-SNAPSHOT" //TODO replace commit, branch:BN-GroupAssetToken
+    val protobufSpecsVersion = "2.0.0-alpha2+16-129e9e37-SNAPSHOT" //TODO replace commit, branch:BN-GroupAssetToken
     val mUnitTeVersion = "0.7.29"
   }
 
