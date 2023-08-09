@@ -59,7 +59,6 @@ lazy val commonSettings = Seq(
         Nil
       case _ =>
         List(
-          // be careful Note: for multi-project builds - put addCompilerPlugin clause into settings section for each sub-project.
           compilerPlugin("org.typelevel" % "kind-projector"     % "0.13.2" cross CrossVersion.full),
           compilerPlugin("com.olegpy"   %% "better-monadic-for" % "0.3.1")
         )
@@ -151,7 +150,7 @@ lazy val serviceKit = project
     name := "service-kit",
     commonSettings,
     publishSettings,
-    crossScalaVersions := Seq(scala213), // issues with scala3, compile hangs
+    crossScalaVersions := Seq(scala213, scala33),
     Test / publishArtifact := true,
     Test / parallelExecution := false,
     libraryDependencies ++=

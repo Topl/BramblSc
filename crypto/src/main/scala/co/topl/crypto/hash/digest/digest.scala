@@ -49,8 +49,6 @@ package object digest {
 
       def size: Int = typeClassInstance.size
       def bytes: Array[Byte] = typeClassInstance.bytes(self)
-
-//      def from: ValidatedNec[InvalidDigestFailure, T] //= typeClassInstance.from(self)
     }
 
     trait ToDigestOps {
