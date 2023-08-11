@@ -233,7 +233,7 @@ object ContainsImmutable {
       case Attestation.Value.Predicate(a)  => predicateAttestationImmutable.immutableBytes(a)
       case Attestation.Value.Image(a)      => imageAttestationImmutable.immutableBytes(a)
       case Attestation.Value.Commitment(a) => commitmentAttestationImmutable.immutableBytes(a)
-      case e                               => throw new MatchError(e)
+      case Attestation.Value.Empty         => ImmutableBytes()
     }
 
     implicit val transactionInputAddressContainsImmutable: ContainsImmutable[TransactionInputAddress] =
