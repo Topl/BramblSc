@@ -1,11 +1,12 @@
 package co.topl.brambl.common
 
-import quivr.models._
-import ContainsImmutable.instances._
 import ContainsImmutable._
+import ContainsImmutable.instances._
 import co.topl.brambl.models.box.Attestation
 import co.topl.brambl.models.common.ImmutableBytes
-import co.topl.brambl.models.transaction.{IoTransaction, SpentTransactionOutput}
+import co.topl.brambl.models.transaction.IoTransaction
+import co.topl.brambl.models.transaction.SpentTransactionOutput
+import quivr.models._
 
 import scala.language.implicitConversions
 // Long -> longSignable -> longSignableEvidence -> longSignableEvidenceId
@@ -39,6 +40,7 @@ object ContainsSignable {
             case p: Attestation.Value.Predicate  => p.copy(p.value.copy(responses = Seq.empty))
             case i: Attestation.Value.Image      => i.copy(i.value.copy(responses = Seq.empty))
             case c: Attestation.Value.Commitment => c.copy(c.value.copy(responses = Seq.empty))
+            case e                               => e
           }
         )
       )
