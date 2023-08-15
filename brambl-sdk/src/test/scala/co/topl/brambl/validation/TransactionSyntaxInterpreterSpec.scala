@@ -3,8 +3,8 @@ package co.topl.brambl.validation
 import cats.Id
 import cats.implicits._
 import co.topl.brambl.MockHelpers
-import co.topl.brambl.models.{GroupId, TransactionOutputAddress}
-import co.topl.brambl.models.box.{Attestation, Challenge, FixedSeries, Lock, Value}
+import co.topl.brambl.models.{GroupId, SeriesId, TransactionOutputAddress}
+import co.topl.brambl.models.box.{Attestation, Challenge, Lock, Value}
 import co.topl.brambl.models.transaction.{Schedule, UnspentTransactionOutput}
 import co.topl.brambl.syntax.{groupAsGroupSyntaxOps, ioTransactionAsTransactionSyntaxOps}
 import co.topl.quivr.api.Proposer
@@ -185,7 +185,7 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
       Value.defaultInstance.withGroup(
         Value.Group(
           label = "groupLabel",
-          fixedSeries = Option.empty[FixedSeries],
+          fixedSeries = Option.empty[SeriesId],
           transactionOutputAddress = TransactionOutputAddress(0, 0, 1, txFull.id),
           groupId = Option.empty[GroupId]
         )

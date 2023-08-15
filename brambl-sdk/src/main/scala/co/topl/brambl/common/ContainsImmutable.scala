@@ -1,7 +1,7 @@
 package co.topl.brambl.common
 
 import co.topl.brambl.models._
-import co.topl.brambl.models.box.{Attestation, Box, Challenge, FixedSeries, Lock, Value}
+import co.topl.brambl.models.box.{Attestation, Box, Challenge, Lock, Value}
 import co.topl.brambl.models.common.ImmutableBytes
 import co.topl.brambl.models.transaction._
 import co.topl.consensus.models._
@@ -179,13 +179,19 @@ object ContainsImmutable {
       asset.quantity.immutable ++
       asset.metadata.immutable
 
+    implicit val seriesIdValueImmutable: ContainsImmutable[SeriesId] = (seriesId: SeriesId) => seriesId.value.immutable
+
+    implicit val seriesValueImmutable: ContainsImmutable[Value.Series] = (series: Value.Series) =>
+      series.label.immutable ++
+      series.transactionOutputAddress.immutable ++
+      series.tokenSupply.immutable ++
+      series.fungibility.value.immutable ++
+      series.quantityDescriptor.value.immutable
+
     implicit val groupValueImmutable: ContainsImmutable[Value.Group] = (group: Value.Group) =>
       group.label.immutable ++
       group.fixedSeries.immutable ++
       group.transactionOutputAddress.immutable
-
-    implicit val fixedSeries: ContainsImmutable[FixedSeries] =
-      _.value.immutable
 
     implicit val signatureKesSumImmutable: ContainsImmutable[co.topl.consensus.models.SignatureKesSum] =
       v =>
