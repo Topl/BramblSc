@@ -4,7 +4,7 @@ import cats.Applicative
 import cats.implicits._
 import cats.data.{Chain, NonEmptyChain, Validated, ValidatedNec}
 import co.topl.brambl.models.box.{Lock, Value}
-import co.topl.brambl.models.transaction.IoTransaction
+import co.topl.brambl.models.transaction.{IoTransaction, UnspentTransactionOutput}
 import co.topl.brambl.validation.algebras.TransactionSyntaxVerifier
 import co.topl.brambl.common.ContainsImmutable.ContainsImmutableTOps
 import co.topl.brambl.common.ContainsImmutable.instances._
@@ -37,7 +37,8 @@ object TransactionSyntaxInterpreter {
       sufficientFundsValidation,
       attestationValidation,
       dataLengthValidation,
-      distinctOutputGroupValidation
+      distinctOutputGroupValidation,
+      groupConstructorTokenLvlValidation
     )
 
   /**
@@ -272,4 +273,28 @@ object TransactionSyntaxInterpreter {
           .toSeq
       )
       .fold(().validNec[TransactionSyntaxError])(_.invalid[Unit])
+
+  /**
+   * GroupConstructorTokenLvlValidation there aren't two "Group" outputs that try to reference the same LVL input
+   * @param transaction transaction
+   * @return
+   */
+  private def groupConstructorTokenLvlValidation(
+    transaction: IoTransaction
+  ): ValidatedNec[TransactionSyntaxError, Unit] = {
+    val lvlInputs = transaction.inputs.filter(_.value.value.isLvl).map(_.address)
+    val transactionOutputAddressOutputs =
+      transaction.outputs.filter(_.value.value.isGroup).map(_.value.getGroup.transactionOutputAddress)
+
+    Validated.condNec(
+      transactionOutputAddressOutputs.forall(lvlInputs.contains(_)) &&
+      transactionOutputAddressOutputs.size == transactionOutputAddressOutputs.toSet.size,
+      (),
+      TransactionSyntaxError.InsufficientInputFunds(
+        transaction.inputs.map(_.value.value).toList,
+        transaction.outputs.filter(_.value.value.isGroup).map(_.value.value).toList
+      )
+    )
+
+  }
 }

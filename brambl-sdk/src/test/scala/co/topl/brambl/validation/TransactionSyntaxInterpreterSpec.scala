@@ -5,7 +5,7 @@ import cats.implicits._
 import co.topl.brambl.MockHelpers
 import co.topl.brambl.models.{GroupId, SeriesId, TransactionOutputAddress}
 import co.topl.brambl.models.box.{Attestation, Challenge, Lock, Value}
-import co.topl.brambl.models.transaction.{Schedule, UnspentTransactionOutput}
+import co.topl.brambl.models.transaction.{IoTransaction, Schedule, SpentTransactionOutput, UnspentTransactionOutput}
 import co.topl.brambl.syntax.{groupAsGroupSyntaxOps, ioTransactionAsTransactionSyntaxOps}
 import co.topl.quivr.api.Proposer
 import co.topl.quivr.api.Prover
@@ -200,6 +200,81 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
       .validate(testTx)
       .swap
       .exists(_.toList.contains(TransactionSyntaxError.DuplicateGroupsOutput(groupId)))
+    assertEquals(result, true)
+  }
+
+  test("validate that Group outputs that try to reference not LVLs input") {
+
+    val valueTopl: Value =
+      Value.defaultInstance.withTopl(Value.TOPL(Int128(ByteString.copyFrom(BigInt(1).toByteArray))))
+    val input = SpentTransactionOutput(dummyTxoAddress, attFull, valueTopl)
+
+    val txFull = IoTransaction.defaultInstance.withInputs(List(input)).withDatum(txDatum)
+
+    val groupA: Value =
+      Value.defaultInstance.withGroup(
+        Value.Group(
+          label = "groupLabelA",
+          fixedSeries = Option.empty[SeriesId],
+          transactionOutputAddress = dummyTxoAddress,
+          groupId = Option.empty[GroupId]
+        )
+      )
+    val output1: UnspentTransactionOutput = UnspentTransactionOutput(trivialLockAddress, groupA)
+    val testTx = txFull.copy(outputs = List(output1))
+    val validator = TransactionSyntaxInterpreter.make[Id]()
+
+    val result = validator
+      .validate(testTx)
+      .swap
+      .exists(
+        _.toList.contains(
+          TransactionSyntaxError.InsufficientInputFunds(
+            testTx.inputs.map(_.value.value).toList,
+            testTx.outputs.map(_.value.value).toList
+          )
+        )
+      )
+    assertEquals(result, true)
+  }
+
+  test("validate there aren't two Group outputs that try to reference the same LVL input") {
+
+    val addressInput = txFull.inputs.head.address
+    val groupA: Value =
+      Value.defaultInstance.withGroup(
+        Value.Group(
+          label = "groupLabelA",
+          fixedSeries = Option.empty[SeriesId],
+          transactionOutputAddress = addressInput,
+          groupId = Option.empty[GroupId]
+        )
+      )
+    val groupB: Value =
+      Value.defaultInstance.withGroup(
+        Value.Group(
+          label = "groupLabelB",
+          fixedSeries = Option.empty[SeriesId],
+          transactionOutputAddress = addressInput,
+          groupId = Option.empty[GroupId]
+        )
+      )
+    val output1: UnspentTransactionOutput = UnspentTransactionOutput(trivialLockAddress, groupA)
+    val output2: UnspentTransactionOutput = UnspentTransactionOutput(trivialLockAddress, groupB)
+    val testTx = txFull.copy(outputs = List(output1, output2))
+    val validator = TransactionSyntaxInterpreter.make[Id]()
+
+    val result = validator
+      .validate(testTx)
+      .swap
+      .exists(
+        _.toList.contains(
+          TransactionSyntaxError.InsufficientInputFunds(
+            testTx.inputs.map(_.value.value).toList,
+            testTx.outputs.map(_.value.value).toList
+          )
+        )
+      )
     assertEquals(result, true)
   }
 }
