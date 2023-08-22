@@ -16,5 +16,7 @@ object Tags {
     val AccumulatorRoot64 = "acc_root_64"
     val Group32 = "group_32"
     val Group64 = "group_64"
+    val Series32 = "series_32"
+    val Series64 = "series_64"
   }
 }

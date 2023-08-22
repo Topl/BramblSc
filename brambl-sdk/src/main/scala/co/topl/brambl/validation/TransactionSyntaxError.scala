@@ -1,6 +1,6 @@
 package co.topl.brambl.validation
 
-import co.topl.brambl.models.{GroupId, TransactionOutputAddress}
+import co.topl.brambl.models.TransactionOutputAddress
 import co.topl.brambl.models.box.Value
 import co.topl.brambl.models.transaction.Schedule
 import quivr.models.{Proof, Proposition}

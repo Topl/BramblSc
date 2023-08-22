@@ -159,6 +159,11 @@ object ContainsImmutable {
         Tags.Identifier.Group32.immutable ++
         id.value.immutable
 
+    implicit val seriesIdValueImmutable: ContainsImmutable[SeriesId] =
+      id =>
+        Tags.Identifier.Series32.immutable ++
+        id.value.immutable
+
     implicit val transactionOutputAddressImmutable: ContainsImmutable[TransactionOutputAddress] =
       v =>
         v.network.immutable ++
@@ -185,8 +190,6 @@ object ContainsImmutable {
       asset.label.immutable ++
       asset.quantity.immutable ++
       asset.metadata.immutable
-
-    implicit val seriesIdValueImmutable: ContainsImmutable[SeriesId] = (seriesId: SeriesId) => seriesId.value.immutable
 
     implicit val seriesValueImmutable: ContainsImmutable[Value.Series] = (series: Value.Series) =>
       series.quantity.immutable ++
