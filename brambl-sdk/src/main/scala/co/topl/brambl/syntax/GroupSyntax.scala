@@ -27,11 +27,6 @@ class GroupAsGroupSyntaxOps(val group: Group) extends AnyVal {
    * Computes what the ID _should_ be for this Group.
    */
   def computeId: GroupId = group.groupPolicy.computeId
-//  {
-//    val digest: Array[Byte] = group.groupPolicy.immutable.value.toByteArray
-//    val sha256 = MessageDigest.getInstance("SHA-256").digest(digest)
-//    GroupId(ByteString.copyFrom(sha256))
-//  }
 
   /**
    * Compute a new ID and return a copy of this Group with the new ID embedded.
