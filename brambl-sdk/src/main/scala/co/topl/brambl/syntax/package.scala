@@ -5,4 +5,6 @@ package object syntax
     with TransactionIdSyntax
     with TransactionSyntax
     with GroupSyntax
-    with GroupPolicySyntax {}
+    with SeriesSyntax
+    with GroupPolicySyntax
+    with SeriesPolicySyntax {}

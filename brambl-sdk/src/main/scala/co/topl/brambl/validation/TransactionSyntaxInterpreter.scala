@@ -4,7 +4,7 @@ import cats.Applicative
 import cats.implicits._
 import cats.data.{Chain, NonEmptyChain, Validated, ValidatedNec}
 import co.topl.brambl.models.box.{Lock, Value}
-import co.topl.brambl.models.transaction.{IoTransaction, UnspentTransactionOutput}
+import co.topl.brambl.models.transaction.IoTransaction
 import co.topl.brambl.validation.algebras.TransactionSyntaxVerifier
 import co.topl.brambl.common.ContainsImmutable.ContainsImmutableTOps
 import co.topl.brambl.common.ContainsImmutable.instances._
@@ -37,7 +37,9 @@ object TransactionSyntaxInterpreter {
       sufficientFundsValidation,
       attestationValidation,
       dataLengthValidation,
-      groupConstructorTokensValidation
+      groupConstructorTokensValidation,
+      seriesConstructorTokensValidation,
+      groupSeriesConstructorTokensValidation
     )
 
   /**
@@ -318,4 +320,87 @@ object TransactionSyntaxInterpreter {
     )
 
   }
+
+  /**
+   * The minting of a series constructor token requires to burn a certain amount of LVLs and to provide te policy that describes the series.
+   * This requires the submission of a minting transaction to the node. To support this kind of transactions, the following validations need to be performed on the transaction:
+   *
+   * Check Moving Series Tokens:
+   * - Let 's' be a series identifier, then the number of Series Constructor Tokens with group identifier 's' in the input is equal to the number of the number of Series Constructor Tokens with identifier
+   * 's' in the output.
+   *
+   * Check Minting Constructor Tokens:
+   * - Let  's'  be a series identifier and 'p' the series policy whose digest is equal to 's', all of the following statements are true:
+   * - The policy 'p' is attached to the transaction.
+   * - The number of series constructor tokens with identifier 's' in the output of the transaction is strictly bigger than 0.
+   * - The registration UTXO referenced in 'p' is present in the inputs and contains LVLs.
+   *
+   * @param transaction
+   * @return
+   */
+  private def seriesConstructorTokensValidation(
+    transaction: IoTransaction
+  ): ValidatedNec[TransactionSyntaxError, Unit] = {
+    val seriesConstructorTokens = transaction.outputs
+      .filter(_.value.value.isSeries)
+      .map(_.value.getSeries)
+      .map(_.embedId)
+
+    val registrationsUtxo = transaction.seriesPolicy.map(_.event.registrationUtxo)
+
+    val validations = (seriesConstructorTokens.nonEmpty, transaction.seriesPolicy) match {
+      // there are constructors tokens, and a policy
+      case (true, policies) if policies.nonEmpty =>
+        transaction.inputs.exists(spentTxOutput =>
+          registrationsUtxo.contains(spentTxOutput.address) &&
+          spentTxOutput.value.value.isLvl
+        ) &&
+        seriesConstructorTokens.forall(series => policies.map(_.event.computeId).contains(series.id)) &&
+        registrationsUtxo.size == registrationsUtxo.toSet.size
+      // there are constructors tokens, but no policy
+      case (true, _) =>
+        false
+      // TODO there are not constructors tokens, but policy was send? should we fail?
+      case (false, policies) if policies.nonEmpty =>
+        false
+      // no constructors tokens, no policy, proceed
+      case (false, _) =>
+        true
+    }
+
+    Validated.condNec(
+      validations,
+      (),
+      TransactionSyntaxError.InsufficientInputFunds(
+        transaction.inputs.map(_.value.value).toList,
+        transaction.outputs.filter(_.value.value.isSeries).map(_.value.value).toList
+      )
+    )
+
+  }
+
+  /**
+   * TODO ask; could we in the same transaction Create a series constructor token, and a group constructor token
+   * Common Validations for group and constructor Tokens.
+   * Check Minting series and group Constructor Tokens:
+   * @param transaction
+   * @return
+   */
+  private def groupSeriesConstructorTokensValidation(
+    transaction: IoTransaction
+  ): ValidatedNec[TransactionSyntaxError, Unit] = {
+    val registrationsUtxo =
+      transaction.seriesPolicy.map(_.event.registrationUtxo) ++
+      transaction.groupPolicy.map(_.event.registrationUtxo)
+
+    Validated.condNec(
+      registrationsUtxo.size == registrationsUtxo.toSet.size,
+      (),
+      TransactionSyntaxError.InsufficientInputFunds(
+        transaction.inputs.map(_.value.value).toList,
+        transaction.outputs.filter(v => v.value.value.isSeries || v.value.value.isGroup).map(_.value.value).toList
+      )
+    )
+  }
+
 }
