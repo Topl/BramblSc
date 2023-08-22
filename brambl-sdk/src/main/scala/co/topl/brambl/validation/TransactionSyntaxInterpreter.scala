@@ -37,8 +37,7 @@ object TransactionSyntaxInterpreter {
       sufficientFundsValidation,
       attestationValidation,
       dataLengthValidation,
-      distinctOutputGroupValidation,
-      groupConstructorTokenLvlValidation
+      groupConstructorTokensValidation
     )
 
   /**
@@ -161,17 +160,30 @@ object TransactionSyntaxInterpreter {
       f { case Value.Value.Lvl(v) => BigInt(v.quantity.value.toByteArray) },
       f { case Value.Value.Topl(v) => BigInt(v.quantity.value.toByteArray) },
       // Extract all Asset values and their quantities
-      f { case Value.Value.Asset(Value.Asset(_, Int128(q, _), _, _)) => BigInt(q.toByteArray) }
+      f { case Value.Value.Asset(Value.Asset(_, Int128(q, _), _, _)) => BigInt(q.toByteArray) },
+      f { case Value.Value.Group(Value.Group(_, Int128(q, _), _, _, _)) => BigInt(q.toByteArray) },
+      f { case Value.Value.Series(Value.Series(_, Int128(q, _), _, _, _, _, _)) => BigInt(q.toByteArray) }
     ).appendChain(
       // Extract all Asset values (grouped by asset label) and their quantities
       Chain.fromSeq(
         (transaction.inputs.map(_.value.value) ++ transaction.outputs.map(_.value.value))
-          .collect { case Value.Value.Asset(Value.Asset(label, _, _, _)) => label }
+          .collect {
+            case Value.Value.Asset(Value.Asset(label, _, _, _))             => label
+            case Value.Value.Group(Value.Group(_, _, _, policy, _))         => policy.label
+            case Value.Value.Series(Value.Series(_, _, _, _, _, policy, _)) => policy.label
+
+          }
           .toList
           .distinct
           .map(code =>
             f {
               case Value.Value.Asset(Value.Asset(label, Int128(q, _), _, _)) if label === code =>
+                BigInt(q.toByteArray)
+
+              case Value.Value.Group(Value.Group(_, Int128(q, _), _, policy, _)) if policy.label === code =>
+                BigInt(q.toByteArray)
+
+              case Value.Value.Series(Value.Series(_, Int128(q, _), _, _, _, policy, _)) if policy.label === code =>
                 BigInt(q.toByteArray)
             }
           )
@@ -252,43 +264,52 @@ object TransactionSyntaxInterpreter {
     )
 
   /**
-   * DistinctOutputGroupValidation validates distinct groups ids
+   * The minting of a group constructor token requires to burn a certain amount of LVLs and to provide the policy that describes the group.
+   * This requires the submission of a minting transaction to the node. To support this kind of transactions, the following validations need to be performed on the transaction:
+   *
+   * Check Moving Constructor Tokens:  Validated on quantityBasedValidation
+   *  - Let 'g' be a group identifier, then the number of Group Constructor Tokens with group identifier 'g' in the input is equal to the quantity of Group Constructor Tokens with identifier 'g' in the output.
+   *
+   * Check Minting Constructor Tokens: Let 'g' be a group identifier and 'p' the group policy whose digest is equal to 'g', a transaction is valid only if the all of the following statements are true:
+   *  - The policy 'p' is attached to the transaction.
+   *  - The number of group constructor tokens with identifier 'g' in the output of the transaction is strictly bigger than 0.
+   *  - The registration UTXO referenced in 'p' is present in the inputs and contains LVLs.
    *
    * @param transaction transaction
    * @return
    */
-  private def distinctOutputGroupValidation(
-    transaction: IoTransaction
-  ): ValidatedNec[TransactionSyntaxError, Unit] =
-    NonEmptyChain
-      .fromSeq(
-        transaction.outputs
-          .filter(_.value.value.isGroup)
-          .map(_.value.getGroup)
-          .groupBy(_.id)
-          .collect {
-            case (knownIdentifier, groups) if groups.size > 1 =>
-              TransactionSyntaxError.DuplicateGroupsOutput(knownIdentifier)
-          }
-          .toSeq
-      )
-      .fold(().validNec[TransactionSyntaxError])(_.invalid[Unit])
-
-  /**
-   * GroupConstructorTokenLvlValidation there aren't two "Group" outputs that try to reference the same LVL input
-   * @param transaction transaction
-   * @return
-   */
-  private def groupConstructorTokenLvlValidation(
+  private def groupConstructorTokensValidation(
     transaction: IoTransaction
   ): ValidatedNec[TransactionSyntaxError, Unit] = {
-    val lvlInputs = transaction.inputs.filter(_.value.value.isLvl).map(_.address)
-    val transactionOutputAddressOutputs =
-      transaction.outputs.filter(_.value.value.isGroup).map(_.value.getGroup.transactionOutputAddress)
+    val groupConstructorTokens = transaction.outputs
+      .filter(_.value.value.isGroup)
+      .map(_.value.getGroup)
+      .map(_.embedId)
+
+    val registrationsUtxo = transaction.groupPolicy.map(_.event.registrationUtxo)
+
+    val validations = (groupConstructorTokens.nonEmpty, transaction.groupPolicy) match {
+      // there are constructors tokens, and a policy
+      case (true, policies) if policies.nonEmpty =>
+        transaction.inputs.exists(spentTxOutput =>
+          registrationsUtxo.contains(spentTxOutput.address) &&
+          spentTxOutput.value.value.isLvl
+        ) &&
+        groupConstructorTokens.forall(group => policies.map(_.event.computeId).contains(group.id)) &&
+        registrationsUtxo.size == registrationsUtxo.toSet.size
+      // there are constructors tokens, but no policy
+      case (true, _) =>
+        false
+      // TODO there are not constructors tokens, but policy was send? should we fail?
+      case (false, policies) if policies.nonEmpty =>
+        false
+      // no constructors tokens, no policy, proceed
+      case (false, _) =>
+        true
+    }
 
     Validated.condNec(
-      transactionOutputAddressOutputs.forall(lvlInputs.contains(_)) &&
-      transactionOutputAddressOutputs.size == transactionOutputAddressOutputs.toSet.size,
+      validations,
       (),
       TransactionSyntaxError.InsufficientInputFunds(
         transaction.inputs.map(_.value.value).toList,

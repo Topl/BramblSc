@@ -1,7 +1,7 @@
 package co.topl.brambl.syntax
 
 import co.topl.brambl.common.ContainsImmutable.ContainsImmutableTOps
-import co.topl.brambl.common.ContainsImmutable.instances.groupValueImmutable
+import co.topl.brambl.common.ContainsImmutable.instances.{groupPolicyEventImmutable, groupValueImmutable}
 import co.topl.brambl.models.GroupId
 import co.topl.brambl.models.box.Value.Group
 import com.google.protobuf.ByteString
@@ -26,11 +26,12 @@ class GroupAsGroupSyntaxOps(val group: Group) extends AnyVal {
   /**
    * Computes what the ID _should_ be for this Group.
    */
-  def computeId: GroupId = {
-    val digest: Array[Byte] = group.immutable.value.toByteArray
-    val sha256 = MessageDigest.getInstance("SHA-256").digest(digest)
-    GroupId(ByteString.copyFrom(sha256))
-  }
+  def computeId: GroupId = group.groupPolicy.computeId
+//  {
+//    val digest: Array[Byte] = group.groupPolicy.immutable.value.toByteArray
+//    val sha256 = MessageDigest.getInstance("SHA-256").digest(digest)
+//    GroupId(ByteString.copyFrom(sha256))
+//  }
 
   /**
    * Compute a new ID and return a copy of this Group with the new ID embedded.

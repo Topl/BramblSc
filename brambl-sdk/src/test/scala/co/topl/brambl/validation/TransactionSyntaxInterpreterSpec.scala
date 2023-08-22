@@ -3,8 +3,8 @@ package co.topl.brambl.validation
 import cats.Id
 import cats.implicits._
 import co.topl.brambl.MockHelpers
-import co.topl.brambl.models.{GroupId, SeriesId, TransactionOutputAddress}
-import co.topl.brambl.models.box.{Attestation, Challenge, Lock, Value}
+import co.topl.brambl.models.{Datum, Event, GroupId, SeriesId, TransactionOutputAddress}
+import co.topl.brambl.models.box.{Attestation, Challenge, FungibilityType, Lock, QuantityDescriptorType, Value}
 import co.topl.brambl.models.transaction.{IoTransaction, Schedule, SpentTransactionOutput, UnspentTransactionOutput}
 import co.topl.brambl.syntax.{groupAsGroupSyntaxOps, ioTransactionAsTransactionSyntaxOps}
 import co.topl.quivr.api.Proposer
@@ -109,6 +109,38 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
         Value.Asset("label", Int128(ByteString.copyFrom(BigInt(101).toByteArray)), SmallData())
       )
 
+    val groupValueIn: Value =
+      Value.defaultInstance.withGroup(
+        Value.Group(
+          quantity = Int128(ByteString.copyFrom(BigInt(100).toByteArray)),
+          groupPolicy = Event.GroupPolicy(label = "groupLabel", registrationUtxo = dummyTxoAddress)
+        )
+      )
+
+    val groupValueOut: Value =
+      Value.defaultInstance.withGroup(
+        Value.Group(
+          quantity = Int128(ByteString.copyFrom(BigInt(101).toByteArray)),
+          groupPolicy = Event.GroupPolicy(label = "groupLabel", registrationUtxo = dummyTxoAddress)
+        )
+      )
+
+    val seriesValueIn: Value =
+      Value.defaultInstance.withSeries(
+        Value.Series(
+          quantity = Int128(ByteString.copyFrom(BigInt(100).toByteArray)),
+          seriesPolicy = Event.SeriesPolicy(label = "groupLabel", registrationUtxo = dummyTxoAddress)
+        )
+      )
+
+    val seriesValueOut: Value =
+      Value.defaultInstance.withSeries(
+        Value.Series(
+          quantity = Int128(ByteString.copyFrom(BigInt(101).toByteArray)),
+          seriesPolicy = Event.SeriesPolicy(label = "groupLabel", registrationUtxo = dummyTxoAddress)
+        )
+      )
+
     def testTx(inputValue: Value, outputValue: Value) = TransactionSyntaxInterpreter
       .make[Id]()
       .validate(
@@ -125,7 +157,9 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
 
     val result = List(
       testTx(tokenValueIn, tokenValueOut), // Token Test
-      testTx(assetValueIn, assetValueOut) // Asset Test
+      testTx(assetValueIn, assetValueOut), // Asset Test
+      testTx(groupValueIn, groupValueOut), // Group Test
+      testTx(seriesValueIn, seriesValueOut) // Series Test
     ).forall(identity)
     assertEquals(result, true)
   }
@@ -180,29 +214,6 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
     assertEquals(result, true)
   }
 
-  test("validate distinct output groups") {
-    val group: Value =
-      Value.defaultInstance.withGroup(
-        Value.Group(
-          label = "groupLabel",
-          fixedSeries = Option.empty[SeriesId],
-          transactionOutputAddress = TransactionOutputAddress(0, 0, 1, txFull.id),
-          groupId = Option.empty[GroupId]
-        )
-      )
-
-    val groupId = group.getGroup.computeId
-    val output1: UnspentTransactionOutput = UnspentTransactionOutput(trivialLockAddress, group)
-    val output2: UnspentTransactionOutput = UnspentTransactionOutput(trivialLockAddress, group)
-    val testTx = txFull.copy(outputs = List(output1, output2))
-    val validator = TransactionSyntaxInterpreter.make[Id]()
-    val result = validator
-      .validate(testTx)
-      .swap
-      .exists(_.toList.contains(TransactionSyntaxError.DuplicateGroupsOutput(groupId)))
-    assertEquals(result, true)
-  }
-
   test("validate that Group outputs that try to reference not LVLs input") {
 
     val valueTopl: Value =
@@ -211,17 +222,62 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
 
     val txFull = IoTransaction.defaultInstance.withInputs(List(input)).withDatum(txDatum)
 
+    val groupPolicy = Event.GroupPolicy(
+      label = "groupLabelA",
+      registrationUtxo = dummyTxoAddress
+    )
+
     val groupA: Value =
       Value.defaultInstance.withGroup(
         Value.Group(
-          label = "groupLabelA",
+          groupId = Option.empty[GroupId],
+          quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray)),
           fixedSeries = Option.empty[SeriesId],
-          transactionOutputAddress = dummyTxoAddress,
-          groupId = Option.empty[GroupId]
+          groupPolicy = groupPolicy
         )
       )
     val output1: UnspentTransactionOutput = UnspentTransactionOutput(trivialLockAddress, groupA)
-    val testTx = txFull.copy(outputs = List(output1))
+    val testTx = txFull.copy(outputs = List(output1), groupPolicy = Seq(Datum.GroupPolicy(groupPolicy)))
+    val validator = TransactionSyntaxInterpreter.make[Id]()
+
+    val result = validator
+      .validate(testTx)
+      .swap
+      .exists(
+        _.toList.contains(
+          TransactionSyntaxError.InsufficientInputFunds(
+            testTx.inputs.map(_.value.value).toList,
+            testTx.outputs.map(_.value.value).toList
+          )
+        )
+      )
+    assertEquals(result, true)
+  }
+
+  test("validate that Group Contructor tokens includes the policy in the Iotx Datum") {
+
+    val valueTopl: Value =
+      Value.defaultInstance.withLvl(Value.LVL(Int128(ByteString.copyFrom(BigInt(1).toByteArray))))
+    val input = SpentTransactionOutput(dummyTxoAddress, attFull, valueTopl)
+
+    val txFull = IoTransaction.defaultInstance.withInputs(List(input)).withDatum(txDatum)
+
+    val groupPolicy = Event.GroupPolicy(
+      label = "groupLabelA",
+      registrationUtxo = dummyTxoAddress
+    )
+
+    val groupA: Value =
+      Value.defaultInstance.withGroup(
+        Value.Group(
+          groupId = Option.empty[GroupId],
+          quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray)),
+          fixedSeries = Option.empty[SeriesId],
+          groupPolicy = groupPolicy
+        )
+      )
+    val output1: UnspentTransactionOutput = UnspentTransactionOutput(trivialLockAddress, groupA)
+    val testTx = txFull.copy(outputs = List(output1), groupPolicy = Seq.empty) // No policy
     val validator = TransactionSyntaxInterpreter.make[Id]()
 
     val result = validator
@@ -241,27 +297,39 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
   test("validate there aren't two Group outputs that try to reference the same LVL input") {
 
     val addressInput = txFull.inputs.head.address
+    val groupPolicyA = Event.GroupPolicy(
+      label = "groupLabelA",
+      registrationUtxo = addressInput
+    )
+
+    val groupPolicyB = Event.GroupPolicy(
+      label = "groupLabelB",
+      registrationUtxo = addressInput
+    )
     val groupA: Value =
       Value.defaultInstance.withGroup(
         Value.Group(
-          label = "groupLabelA",
+          groupId = Option.empty[GroupId],
+          quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray)),
           fixedSeries = Option.empty[SeriesId],
-          transactionOutputAddress = addressInput,
-          groupId = Option.empty[GroupId]
+          groupPolicy = groupPolicyA
         )
       )
     val groupB: Value =
       Value.defaultInstance.withGroup(
         Value.Group(
-          label = "groupLabelB",
+          groupId = Option.empty[GroupId],
+          quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray)),
           fixedSeries = Option.empty[SeriesId],
-          transactionOutputAddress = addressInput,
-          groupId = Option.empty[GroupId]
+          groupPolicy = groupPolicyB
         )
       )
     val output1: UnspentTransactionOutput = UnspentTransactionOutput(trivialLockAddress, groupA)
     val output2: UnspentTransactionOutput = UnspentTransactionOutput(trivialLockAddress, groupB)
-    val testTx = txFull.copy(outputs = List(output1, output2))
+    val testTx = txFull.copy(
+      outputs = List(output1, output2),
+      groupPolicy = Seq(Datum.GroupPolicy(groupPolicyA), Datum.GroupPolicy(groupPolicyB))
+    )
     val validator = TransactionSyntaxInterpreter.make[Id]()
 
     val result = validator

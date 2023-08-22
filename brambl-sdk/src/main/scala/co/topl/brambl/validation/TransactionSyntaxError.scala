@@ -54,9 +54,4 @@ object TransactionSyntaxError {
    * A Syntax error indicating that the size of this transaction is invalid.
    */
   case object InvalidDataLength extends TransactionSyntaxError
-
-  /**
-   * A Syntax error indicating that this transaction multiple outputs referring to the same KnownIdentifier.
-   */
-  case class DuplicateGroupsOutput(knownIdentifier: GroupId) extends TransactionSyntaxError
 }

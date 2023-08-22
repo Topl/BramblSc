@@ -1,7 +1,7 @@
 package co.topl.brambl.syntax
 
 import co.topl.brambl.common.ContainsImmutable.ContainsImmutableTOps
-import co.topl.brambl.common.ContainsImmutable.instances.seriesValueImmutable
+import co.topl.brambl.common.ContainsImmutable.instances.{seriesPolicyEventImmutable, seriesValueImmutable}
 import co.topl.brambl.models.SeriesId
 import co.topl.brambl.models.box.Value.Series
 import com.google.protobuf.ByteString
@@ -26,7 +26,7 @@ class SeriesAsSeriesSyntaxOps(val series: Series) extends AnyVal {
    * Computes what the ID _should_ be for this Series.
    */
   def computeId: SeriesId = {
-    val digest: Array[Byte] = series.immutable.value.toByteArray
+    val digest: Array[Byte] = series.seriesPolicy.immutable.value.toByteArray
     val sha256 = MessageDigest.getInstance("SHA-256").digest(digest)
     SeriesId(ByteString.copyFrom(sha256))
   }
