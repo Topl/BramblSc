@@ -8,6 +8,7 @@ import co.topl.brambl.models.transaction.IoTransaction
 import co.topl.brambl.validation.algebras.TransactionSyntaxVerifier
 import co.topl.brambl.common.ContainsImmutable.ContainsImmutableTOps
 import co.topl.brambl.common.ContainsImmutable.instances._
+import co.topl.brambl.models.{Datum, TransactionOutputAddress}
 import co.topl.brambl.models.box.Attestation
 import co.topl.brambl.syntax._
 import quivr.models.{Int128, Proof, Proposition}
@@ -37,8 +38,6 @@ object TransactionSyntaxInterpreter {
       sufficientFundsValidation,
       attestationValidation,
       dataLengthValidation,
-      groupConstructorTokensValidation,
-      seriesConstructorTokensValidation,
       groupSeriesConstructorTokensValidation
     )
 
@@ -266,141 +265,77 @@ object TransactionSyntaxInterpreter {
     )
 
   /**
-   * The minting of a group constructor token requires to burn a certain amount of LVLs and to provide the policy that describes the group.
+   * The minting of a group-series constructor token requires to burn a certain amount of LVLs and to provide the policy that describes the group-series.
    * This requires the submission of a minting transaction to the node. To support this kind of transactions, the following validations need to be performed on the transaction:
    *
    * Check Moving Constructor Tokens:  Validated on quantityBasedValidation
-   *  - Let 'g' be a group identifier, then the number of Group Constructor Tokens with group identifier 'g' in the input is equal to the quantity of Group Constructor Tokens with identifier 'g' in the output.
+   *  - Let 'g-s' be a group identifier, then the number of Group-Series Constructor Tokens with group identifier 'g-s' in the input is equal to the quantity of Group Constructor Tokens with identifier 'g-s' in the output.
    *
-   * Check Minting Constructor Tokens: Let 'g' be a group identifier and 'p' the group policy whose digest is equal to 'g', a transaction is valid only if the all of the following statements are true:
-   *  - The policy 'p' is attached to the transaction.
-   *  - The number of group constructor tokens with identifier 'g' in the output of the transaction is strictly bigger than 0.
-   *  - The registration UTXO referenced in 'p' is present in the inputs and contains LVLs.
+   * Check Minting Constructor Tokens: Let 'g-s' be a group identifier and 'p' the group-series policy whose digest is equal to 'g-s', a transaction is valid only if the all of the following statements are true:
+   *  - The policy 'p-s' is attached to the transaction.
+   *  - The number of group constructor tokens with identifier 'g-s' in the output of the transaction is strictly bigger than 0.
+   *  - The registration UTXO referenced in 'p-s' is present in the inputs and contains LVLs.
    *
    * @param transaction transaction
-   * @return
-   */
-  private def groupConstructorTokensValidation(
-    transaction: IoTransaction
-  ): ValidatedNec[TransactionSyntaxError, Unit] = {
-    val groupConstructorTokens = transaction.outputs
-      .filter(_.value.value.isGroup)
-      .map(_.value.getGroup)
-      .map(_.embedId)
-
-    val registrationsUtxo = transaction.groupPolicy.map(_.event.registrationUtxo)
-
-    val validations = (groupConstructorTokens.nonEmpty, transaction.groupPolicy) match {
-      // there are constructors tokens, and a policy
-      case (true, policies) if policies.nonEmpty =>
-        transaction.inputs.exists(spentTxOutput =>
-          registrationsUtxo.contains(spentTxOutput.address) &&
-          spentTxOutput.value.value.isLvl
-        ) &&
-        groupConstructorTokens.forall(group => policies.map(_.event.computeId).contains(group.id)) &&
-        registrationsUtxo.size == registrationsUtxo.toSet.size
-      // there are constructors tokens, but no policy
-      case (true, _) =>
-        false
-      // TODO there are not constructors tokens, but policy was send? should we fail?
-      case (false, policies) if policies.nonEmpty =>
-        false
-      // no constructors tokens, no policy, proceed
-      case (false, _) =>
-        true
-    }
-
-    Validated.condNec(
-      validations,
-      (),
-      TransactionSyntaxError.InsufficientInputFunds(
-        transaction.inputs.map(_.value.value).toList,
-        transaction.outputs.filter(_.value.value.isGroup).map(_.value.value).toList
-      )
-    )
-
-  }
-
-  /**
-   * The minting of a series constructor token requires to burn a certain amount of LVLs and to provide te policy that describes the series.
-   * This requires the submission of a minting transaction to the node. To support this kind of transactions, the following validations need to be performed on the transaction:
-   *
-   * Check Moving Series Tokens:
-   * - Let 's' be a series identifier, then the number of Series Constructor Tokens with group identifier 's' in the input is equal to the number of the number of Series Constructor Tokens with identifier
-   * 's' in the output.
-   *
-   * Check Minting Constructor Tokens:
-   * - Let  's'  be a series identifier and 'p' the series policy whose digest is equal to 's', all of the following statements are true:
-   * - The policy 'p' is attached to the transaction.
-   * - The number of series constructor tokens with identifier 's' in the output of the transaction is strictly bigger than 0.
-   * - The registration UTXO referenced in 'p' is present in the inputs and contains LVLs.
-   *
-   * @param transaction
-   * @return
-   */
-  private def seriesConstructorTokensValidation(
-    transaction: IoTransaction
-  ): ValidatedNec[TransactionSyntaxError, Unit] = {
-    val seriesConstructorTokens = transaction.outputs
-      .filter(_.value.value.isSeries)
-      .map(_.value.getSeries)
-      .map(_.embedId)
-
-    val registrationsUtxo = transaction.seriesPolicy.map(_.event.registrationUtxo)
-
-    val validations = (seriesConstructorTokens.nonEmpty, transaction.seriesPolicy) match {
-      // there are constructors tokens, and a policy
-      case (true, policies) if policies.nonEmpty =>
-        transaction.inputs.exists(spentTxOutput =>
-          registrationsUtxo.contains(spentTxOutput.address) &&
-          spentTxOutput.value.value.isLvl
-        ) &&
-        seriesConstructorTokens.forall(series => policies.map(_.event.computeId).contains(series.id)) &&
-        registrationsUtxo.size == registrationsUtxo.toSet.size
-      // there are constructors tokens, but no policy
-      case (true, _) =>
-        false
-      // TODO there are not constructors tokens, but policy was send? should we fail?
-      case (false, policies) if policies.nonEmpty =>
-        false
-      // no constructors tokens, no policy, proceed
-      case (false, _) =>
-        true
-    }
-
-    Validated.condNec(
-      validations,
-      (),
-      TransactionSyntaxError.InsufficientInputFunds(
-        transaction.inputs.map(_.value.value).toList,
-        transaction.outputs.filter(_.value.value.isSeries).map(_.value.value).toList
-      )
-    )
-
-  }
-
-  /**
-   * TODO ask; could we in the same transaction Create a series constructor token, and a group constructor token
-   * Common Validations for group and constructor Tokens.
-   * Check Minting series and group Constructor Tokens:
-   * @param transaction
    * @return
    */
   private def groupSeriesConstructorTokensValidation(
     transaction: IoTransaction
   ): ValidatedNec[TransactionSyntaxError, Unit] = {
-    val registrationsUtxo =
-      transaction.seriesPolicy.map(_.event.registrationUtxo) ++
-      transaction.groupPolicy.map(_.event.registrationUtxo)
+    val groupConstructorTokens = transaction.outputs.filter(_.value.value.isGroup).map(_.value.getGroup.embedId)
+    val seriesConstructorTokens = transaction.outputs.filter(_.value.value.isSeries).map(_.value.getSeries.embedId)
+
+    val groupRegistrationsUtxo = transaction.groupPolicy.map(_.event.registrationUtxo)
+    val seriesRegistrationsUtxo = transaction.seriesPolicy.map(_.event.registrationUtxo)
+    val registrationsUtxo = groupRegistrationsUtxo ++ seriesRegistrationsUtxo
+
+    val groupIdsOnPolicies = transaction.groupPolicy.map(_.event.computeId)
+    val seriesIdsOnPolicies = transaction.seriesPolicy.map(_.event.computeId)
+
+    def utxoIsPresent(addresses: Seq[TransactionOutputAddress]) =
+      transaction.inputs.exists(spentTxOutput =>
+        addresses.contains(spentTxOutput.address) &&
+        spentTxOutput.value.value.isLvl
+      )
+
+    val validations = (transaction.groupPolicy, transaction.seriesPolicy) match {
+      // there are group and series constructors tokens
+      case (groupPolicies, seriesPolicies) if groupPolicies.nonEmpty && seriesPolicies.nonEmpty =>
+        utxoIsPresent(groupRegistrationsUtxo) &&
+        utxoIsPresent(seriesRegistrationsUtxo) &&
+        groupConstructorTokens.forall(group => groupIdsOnPolicies.contains(group.id)) &&
+        seriesConstructorTokens.forall(group => seriesIdsOnPolicies.contains(group.id)) &&
+        registrationsUtxo.size == registrationsUtxo.toSet.size
+
+      // there are group constructors tokens
+      case (groupPolicies, Nil) if groupPolicies.nonEmpty =>
+        utxoIsPresent(groupRegistrationsUtxo) &&
+        groupConstructorTokens.forall(group => groupIdsOnPolicies.contains(group.id)) &&
+        registrationsUtxo.size == registrationsUtxo.toSet.size
+
+      // there are series constructors tokens
+      case (Nil, seriesPolicies) if seriesPolicies.nonEmpty =>
+        utxoIsPresent(seriesRegistrationsUtxo) &&
+        seriesConstructorTokens.forall(group => seriesIdsOnPolicies.contains(group.id)) &&
+        registrationsUtxo.size == registrationsUtxo.toSet.size
+
+      // there are constructors tokens, but policy was send
+      case (Nil, Nil) if groupConstructorTokens.nonEmpty || seriesConstructorTokens.nonEmpty =>
+        false
+      // no constructors tokens, no policy, proceed
+      case _ =>
+        true
+    }
 
     Validated.condNec(
-      registrationsUtxo.size == registrationsUtxo.toSet.size,
+      validations,
       (),
       TransactionSyntaxError.InsufficientInputFunds(
         transaction.inputs.map(_.value.value).toList,
         transaction.outputs.filter(v => v.value.value.isSeries || v.value.value.isGroup).map(_.value.value).toList
       )
     )
+
   }
 
 }
