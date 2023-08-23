@@ -8,7 +8,7 @@ import co.topl.brambl.models.transaction.IoTransaction
 import co.topl.brambl.validation.algebras.TransactionSyntaxVerifier
 import co.topl.brambl.common.ContainsImmutable.ContainsImmutableTOps
 import co.topl.brambl.common.ContainsImmutable.instances._
-import co.topl.brambl.models.{Datum, TransactionOutputAddress}
+import co.topl.brambl.models.TransactionOutputAddress
 import co.topl.brambl.models.box.Attestation
 import co.topl.brambl.syntax._
 import quivr.models.{Int128, Proof, Proposition}
@@ -294,38 +294,15 @@ object TransactionSyntaxInterpreter {
 
     def utxoIsPresent(addresses: Seq[TransactionOutputAddress]) =
       transaction.inputs.exists(spentTxOutput =>
-        addresses.contains(spentTxOutput.address) &&
+        (addresses.isEmpty || addresses.contains(spentTxOutput.address)) &&
         spentTxOutput.value.value.isLvl
       )
 
-    val validations = (transaction.groupPolicy, transaction.seriesPolicy) match {
-      // there are group/series constructors tokens, and policies
-      case (groupPolicies, seriesPolicies) if groupPolicies.nonEmpty && seriesPolicies.nonEmpty =>
-        utxoIsPresent(groupRegistrationsUtxo) &&
-        utxoIsPresent(seriesRegistrationsUtxo) &&
-        groupConstructorTokens.forall(group => groupIdsOnPolicies.contains(group.id)) &&
-        seriesConstructorTokens.forall(group => seriesIdsOnPolicies.contains(group.id)) &&
-        registrationsUtxo.size == registrationsUtxo.toSet.size
-
-      // there are group constructors tokens, and policies
-      case (groupPolicies, Nil) if groupPolicies.nonEmpty =>
-        utxoIsPresent(groupRegistrationsUtxo) &&
-        groupConstructorTokens.forall(group => groupIdsOnPolicies.contains(group.id)) &&
-        registrationsUtxo.size == registrationsUtxo.toSet.size
-
-      // there are series constructors tokens, and policies
-      case (Nil, seriesPolicies) if seriesPolicies.nonEmpty =>
-        utxoIsPresent(seriesRegistrationsUtxo) &&
-        seriesConstructorTokens.forall(group => seriesIdsOnPolicies.contains(group.id)) &&
-        registrationsUtxo.size == registrationsUtxo.toSet.size
-
-      // there are constructors tokens, but not policies were send
-      case (Nil, Nil) if groupConstructorTokens.nonEmpty || seriesConstructorTokens.nonEmpty =>
-        false
-      // no constructors tokens, no policies, proceed
-      case _ =>
-        true
-    }
+    val validations =
+      utxoIsPresent(registrationsUtxo) &&
+      groupConstructorTokens.map(_.id).forall(groupIdsOnPolicies.contains) &&
+      seriesConstructorTokens.map(_.id).forall(seriesIdsOnPolicies.contains) &&
+      registrationsUtxo.size == registrationsUtxo.toSet.size
 
     Validated.condNec(
       validations,
