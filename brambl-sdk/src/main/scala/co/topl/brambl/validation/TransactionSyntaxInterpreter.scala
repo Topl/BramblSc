@@ -299,7 +299,7 @@ object TransactionSyntaxInterpreter {
       )
 
     val validations = (transaction.groupPolicy, transaction.seriesPolicy) match {
-      // there are group and series constructors tokens
+      // there are group/series constructors tokens, and policies
       case (groupPolicies, seriesPolicies) if groupPolicies.nonEmpty && seriesPolicies.nonEmpty =>
         utxoIsPresent(groupRegistrationsUtxo) &&
         utxoIsPresent(seriesRegistrationsUtxo) &&
@@ -307,22 +307,22 @@ object TransactionSyntaxInterpreter {
         seriesConstructorTokens.forall(group => seriesIdsOnPolicies.contains(group.id)) &&
         registrationsUtxo.size == registrationsUtxo.toSet.size
 
-      // there are group constructors tokens
+      // there are group constructors tokens, and policies
       case (groupPolicies, Nil) if groupPolicies.nonEmpty =>
         utxoIsPresent(groupRegistrationsUtxo) &&
         groupConstructorTokens.forall(group => groupIdsOnPolicies.contains(group.id)) &&
         registrationsUtxo.size == registrationsUtxo.toSet.size
 
-      // there are series constructors tokens
+      // there are series constructors tokens, and policies
       case (Nil, seriesPolicies) if seriesPolicies.nonEmpty =>
         utxoIsPresent(seriesRegistrationsUtxo) &&
         seriesConstructorTokens.forall(group => seriesIdsOnPolicies.contains(group.id)) &&
         registrationsUtxo.size == registrationsUtxo.toSet.size
 
-      // there are constructors tokens, but policy was send
+      // there are constructors tokens, but not policies were send
       case (Nil, Nil) if groupConstructorTokens.nonEmpty || seriesConstructorTokens.nonEmpty =>
         false
-      // no constructors tokens, no policy, proceed
+      // no constructors tokens, no policies, proceed
       case _ =>
         true
     }
