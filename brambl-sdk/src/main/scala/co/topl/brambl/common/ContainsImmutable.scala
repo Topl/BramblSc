@@ -101,8 +101,8 @@ object ContainsImmutable {
       iotx.inputs.immutable ++
       iotx.outputs.immutable ++
       iotx.datum.immutable ++
-      iotx.groupPolicy.immutable ++
-      iotx.seriesPolicy.immutable
+      iotx.groupPolicies.immutable ++
+      iotx.seriesPolicies.immutable
 
     implicit val iotxScheduleImmutable: ContainsImmutable[Schedule] = (schedule: Schedule) =>
       schedule.min.immutable ++
@@ -192,12 +192,14 @@ object ContainsImmutable {
       asset.metadata.immutable
 
     implicit val seriesValueImmutable: ContainsImmutable[Value.Series] = (series: Value.Series) =>
+      series.seriesId.immutable ++
       series.quantity.immutable ++
       series.tokenSupply.immutable ++
       series.quantityDescriptor.value.immutable ++
       series.fungibility.value.immutable
 
     implicit val groupValueImmutable: ContainsImmutable[Value.Group] = (group: Value.Group) =>
+      group.groupId.immutable ++
       group.quantity.immutable ++
       group.fixedSeries.immutable
 

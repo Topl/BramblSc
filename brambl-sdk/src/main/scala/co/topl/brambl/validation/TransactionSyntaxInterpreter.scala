@@ -162,16 +162,16 @@ object TransactionSyntaxInterpreter {
       f { case Value.Value.Topl(v) => BigInt(v.quantity.value.toByteArray) },
       // Extract all Asset values and their quantities
       f { case Value.Value.Asset(Value.Asset(_, Int128(q, _), _, _)) => BigInt(q.toByteArray) },
-      f { case Value.Value.Group(Value.Group(_, Int128(q, _), _, _, _)) => BigInt(q.toByteArray) },
-      f { case Value.Value.Series(Value.Series(_, Int128(q, _), _, _, _, _, _)) => BigInt(q.toByteArray) }
+      f { case Value.Value.Group(Value.Group(_, Int128(q, _), _, _)) => BigInt(q.toByteArray) },
+      f { case Value.Value.Series(Value.Series(_, Int128(q, _), _, _, _, _)) => BigInt(q.toByteArray) }
     ).appendChain(
       // Extract all Asset values (grouped by asset label) and their quantities
       Chain.fromSeq(
         (transaction.inputs.map(_.value.value) ++ transaction.outputs.map(_.value.value))
           .collect {
-            case Value.Value.Asset(Value.Asset(label, _, _, _))             => label
-            case Value.Value.Group(Value.Group(_, _, _, policy, _))         => policy.label
-            case Value.Value.Series(Value.Series(_, _, _, _, _, policy, _)) => policy.label
+            case Value.Value.Asset(Value.Asset(label, _, _, _))            => label
+            case Value.Value.Group(Value.Group(groupId, _, _, _))          => groupId.value.toStringUtf8
+            case Value.Value.Series(Value.Series(seriesId, _, _, _, _, _)) => seriesId.value.toStringUtf8
 
           }
           .toList
@@ -181,10 +181,11 @@ object TransactionSyntaxInterpreter {
               case Value.Value.Asset(Value.Asset(label, Int128(q, _), _, _)) if label === code =>
                 BigInt(q.toByteArray)
 
-              case Value.Value.Group(Value.Group(_, Int128(q, _), _, policy, _)) if policy.label === code =>
+              case Value.Value.Group(Value.Group(groupId, Int128(q, _), _, _)) if groupId.value.toStringUtf8 === code =>
                 BigInt(q.toByteArray)
 
-              case Value.Value.Series(Value.Series(_, Int128(q, _), _, _, _, policy, _)) if policy.label === code =>
+              case Value.Value.Series(Value.Series(seriesId, Int128(q, _), _, _, _, _))
+                  if seriesId.value.toStringUtf8 === code =>
                 BigInt(q.toByteArray)
             }
           )
@@ -282,15 +283,15 @@ object TransactionSyntaxInterpreter {
   private def groupSeriesConstructorTokensValidation(
     transaction: IoTransaction
   ): ValidatedNec[TransactionSyntaxError, Unit] = {
-    val groupConstructorTokens = transaction.outputs.filter(_.value.value.isGroup).map(_.value.getGroup.embedId)
-    val seriesConstructorTokens = transaction.outputs.filter(_.value.value.isSeries).map(_.value.getSeries.embedId)
+    val groupConstructorTokens = transaction.outputs.filter(_.value.value.isGroup).map(_.value.getGroup)
+    val seriesConstructorTokens = transaction.outputs.filter(_.value.value.isSeries).map(_.value.getSeries)
 
-    val groupRegistrationsUtxo = transaction.groupPolicy.map(_.event.registrationUtxo)
-    val seriesRegistrationsUtxo = transaction.seriesPolicy.map(_.event.registrationUtxo)
+    val groupRegistrationsUtxo = transaction.groupPolicies.map(_.event.registrationUtxo)
+    val seriesRegistrationsUtxo = transaction.seriesPolicies.map(_.event.registrationUtxo)
     val registrationsUtxo = groupRegistrationsUtxo ++ seriesRegistrationsUtxo
 
-    val groupIdsOnPolicies = transaction.groupPolicy.map(_.event.computeId)
-    val seriesIdsOnPolicies = transaction.seriesPolicy.map(_.event.computeId)
+    val groupIdsOnPolicies = transaction.groupPolicies.map(_.event.computeId)
+    val seriesIdsOnPolicies = transaction.seriesPolicies.map(_.event.computeId)
 
     def utxoIsPresent(addresses: Seq[TransactionOutputAddress]) =
       transaction.inputs.exists(spentTxOutput =>
@@ -300,8 +301,8 @@ object TransactionSyntaxInterpreter {
 
     val validations =
       utxoIsPresent(registrationsUtxo) &&
-      groupConstructorTokens.map(_.id).forall(groupIdsOnPolicies.contains) &&
-      seriesConstructorTokens.map(_.id).forall(seriesIdsOnPolicies.contains) &&
+      groupConstructorTokens.map(_.groupId).forall(groupIdsOnPolicies.contains) &&
+      seriesConstructorTokens.map(_.seriesId).forall(seriesIdsOnPolicies.contains) &&
       registrationsUtxo.size == registrationsUtxo.toSet.size
 
     Validated.condNec(
