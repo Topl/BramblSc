@@ -1,19 +1,10 @@
 package co.topl.brambl
 
 import cats.Id
+import cats.effect.IO
 import cats.implicits.catsSyntaxOptionId
 import co.topl.brambl.builders.locks.LockTemplate.PredicateTemplate
-import co.topl.brambl.builders.locks.PropositionTemplate.{
-  AndTemplate,
-  DigestTemplate,
-  HeightTemplate,
-  LockedTemplate,
-  NotTemplate,
-  OrTemplate,
-  SignatureTemplate,
-  ThresholdTemplate,
-  TickTemplate
-}
+import co.topl.brambl.builders.locks.PropositionTemplate.{AndTemplate, DigestTemplate, HeightTemplate, LockedTemplate, NotTemplate, OrTemplate, SignatureTemplate, ThresholdTemplate, TickTemplate}
 import co.topl.brambl.common.ContainsEvidence.Ops
 import co.topl.brambl.common.ContainsImmutable.ContainsImmutableTOps
 import co.topl.brambl.common.ContainsImmutable.instances._
@@ -30,19 +21,7 @@ import co.topl.crypto.hash.Blake2b256
 import co.topl.quivr.api.Proposer
 import co.topl.quivr.api.Prover
 import com.google.protobuf.ByteString
-import quivr.models.{
-  Data,
-  Digest,
-  Int128,
-  KeyPair,
-  Preimage,
-  Proof,
-  Proposition,
-  SignableBytes,
-  SmallData,
-  VerificationKey,
-  Witness
-}
+import quivr.models.{Data, Digest, Int128, KeyPair, Preimage, Proof, Proposition, SignableBytes, SmallData, VerificationKey, Witness}
 import co.topl.brambl.wallet.WalletApi.{cryptoToPbKeyPair, pbKeyPairToCryotoKeyPair}
 import co.topl.crypto.generation.Bip32Indexes
 import co.topl.crypto.signing.ExtendedEd25519
@@ -52,6 +31,8 @@ import io.circe.Json
 import org.bouncycastle.util.Strings
 
 trait MockHelpers {
+  type F[A] = IO[A]
+
   val fakeMsgBind: SignableBytes = "transaction binding".getBytes.immutable.signable
 
   val MockIndices: Indices = Indices(0, 0, 0)

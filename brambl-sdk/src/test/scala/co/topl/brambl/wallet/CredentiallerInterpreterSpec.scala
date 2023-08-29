@@ -1,12 +1,13 @@
 package co.topl.brambl.wallet
 
-import cats.Id
 import cats.data.ValidatedNel
+import cats.effect.IO
 import cats.implicits._
 import co.topl.brambl.builders.locks.LockTemplate
 import co.topl.brambl.common.ContainsEvidence.Ops
 import co.topl.brambl.common.ContainsImmutable.instances._
 import co.topl.brambl.models.transaction.{IoTransaction, UnspentTransactionOutput}
+import co.topl.brambl.{Context, MockHelpers, MockWalletKeyApi, MockWalletStateApi}
 import co.topl.brambl.{Context, MockHelpers, MockWalletKeyApi, MockWalletStateApi}
 import co.topl.brambl.common.ContainsSignable.ContainsSignableTOps
 import co.topl.brambl.common.ContainsSignable.instances._
@@ -18,61 +19,70 @@ import co.topl.brambl.validation.TransactionSyntaxError
 import co.topl.crypto.generation.Bip32Indexes
 import co.topl.crypto.signing.ExtendedEd25519
 import co.topl.quivr.api.Proposer
-import co.topl.quivr.runtime.QuivrRuntimeErrors.ValidationError.{
-  EvaluationAuthorizationFailed,
-  LockedPropositionIsUnsatisfiable
-}
+import co.topl.quivr.runtime.QuivrRuntimeErrors.ValidationError.{EvaluationAuthorizationFailed, LockedPropositionIsUnsatisfiable}
 import com.google.protobuf.ByteString
 import quivr.models.{Int128, KeyPair, Preimage, Proof, Proposition, VerificationKey}
 import co.topl.brambl.wallet.WalletApi.{cryptoToPbKeyPair, pbKeyPairToCryotoKeyPair}
 import co.topl.crypto.encryption.VaultStore
+import munit.CatsEffectAssertions.assertIO
+import munit.CatsEffectSuite
 
 import scala.util.Random
 
-class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
-  val walletApi: WalletApi[Id] = WalletApi.make[Id](MockWalletKeyApi)
+class CredentiallerInterpreterSpec extends CatsEffectSuite with MockHelpers {
+  val walletApi: WalletApi[F] = WalletApi.make[F](MockWalletKeyApi)
 
   test("prove: Single Input Transaction with Attestation.Predicate > Provable propositions have non-empty proofs") {
-    val provenTx: IoTransaction =
-      CredentiallerInterpreter.make[Id](walletApi, MockWalletStateApi, MockMainKeyPair).prove(txFull)
-    val provenPredicate = provenTx.inputs.head.attestation.getPredicate
-    val sameLen = provenPredicate.lock.challenges.length == provenPredicate.responses.length
-    val nonEmpty = provenPredicate.responses.forall(proof => !proof.value.isEmpty)
-    assert(sameLen && nonEmpty)
-    assertEquals(provenTx.signable.value, txFull.signable.value)
+    assertIO(
+      for {
+        provenTx <- CredentiallerInterpreter.make[F](walletApi, MockWalletStateApi, MockMainKeyPair).prove(txFull)
+      } yield {
+        val provenPredicate = provenTx.inputs.head.attestation.getPredicate
+        val sameLen = provenPredicate.lock.challenges.length == provenPredicate.responses.length
+        val nonEmpty = provenPredicate.responses.forall(proof => !proof.value.isEmpty)
+        sameLen && nonEmpty && (provenTx.signable.value == txFull.signable.value)
+      },
+      true
+    )
   }
 
   test("prove: Single Input Transaction with Attestation.Predicate > Unprovable propositions have empty proofs") {
-    // Secrets are not available for the updated Signature and Digest propositions
-    val testSignatureProposition = Proposer.signatureProposer[Id].propose(("invalid-routine", MockChildKeyPair.vk))
-    val testDigestProposition = Proposer.digestProposer[Id].propose(("invalid-routine", MockDigest))
-    val testAttestation = Attestation().withPredicate(
-      Attestation.Predicate(
-        Lock.Predicate(
-          List(
-            Challenge().withRevealed(testSignatureProposition),
-            Challenge().withRevealed(testDigestProposition)
-          ),
-          2
-        ),
-        List(Proof(), Proof())
-      )
+    assertIO(
+      for {
+        // Secrets are not available for the updated Signature and Digest propositions
+        testSignatureProposition <- Proposer.signatureProposer[F].propose(("invalid-routine", MockChildKeyPair.vk))
+        testDigestProposition <- Proposer.digestProposer[F].propose(("invalid-routine", MockDigest))
+        testTx <- {
+          val testAttestation = Attestation().withPredicate(
+            Attestation.Predicate(
+              Lock.Predicate(
+                List(
+                  Challenge().withRevealed(testSignatureProposition),
+                  Challenge().withRevealed(testDigestProposition)
+                ),
+                2
+              ),
+              List(Proof(), Proof())
+            )
+          )
+          IO.pure(txFull.copy(inputs = txFull.inputs.map(stxo => stxo.copy(attestation = testAttestation))))
+        }
+        provenTx <- CredentiallerInterpreter.make[F](walletApi, MockWalletStateApi, MockMainKeyPair).prove(testTx)
+      } yield {
+        val provenPredicate = provenTx.inputs.head.attestation.getPredicate
+        val sameLen = provenPredicate.lock.challenges.length == provenPredicate.responses.length
+        val correctLen = provenPredicate.lock.challenges.length == 2
+        val allEmpty = provenPredicate.responses.forall(_.value.isEmpty) // Digest and Signature proofs are empty
+        sameLen && correctLen && allEmpty && (provenTx.signable.value == testTx.signable.value)
+      },
+      true
     )
-    val testTx = txFull.copy(inputs = txFull.inputs.map(stxo => stxo.copy(attestation = testAttestation)))
-    val provenTx: IoTransaction =
-      CredentiallerInterpreter.make[Id](walletApi, MockWalletStateApi, MockMainKeyPair).prove(testTx)
-    val provenPredicate = provenTx.inputs.head.attestation.getPredicate
-    val sameLen = provenPredicate.lock.challenges.length == provenPredicate.responses.length
-    val correctLen = provenPredicate.lock.challenges.length == 2
-    val allEmpty = provenPredicate.responses.forall(_.value.isEmpty) // Digest and Signature proofs are empty
-    assert(sameLen && correctLen && allEmpty)
-    assertEquals(provenTx.signable.value, testTx.signable.value)
   }
 
   test("validate: Single Input Transaction with Attestation.Predicate > Validation successful") {
-    val credentialler = CredentiallerInterpreter.make[Id](walletApi, MockWalletStateApi, MockMainKeyPair)
+    val credentialler = CredentiallerInterpreter.make[F](walletApi, MockWalletStateApi, MockMainKeyPair)
     val provenTx: IoTransaction = credentialler.prove(txFull)
-    val ctx = Context[Id](txFull, 50, _ => None) // Tick satisfies a proposition
+    val ctx = Context[F](txFull, 50, _ => None) // Tick satisfies a proposition
     val errsNum = credentialler.validate(provenTx, ctx).length
     // Although not all but propositions pass, threshold is met so authorization is successful
     // Transaction syntax is also valid
@@ -83,9 +93,9 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
     val negativeValue: Value =
       Value.defaultInstance.withLvl(Value.LVL(Int128(ByteString.copyFrom(BigInt(-1).toByteArray))))
     val testTx = txFull.copy(outputs = Seq(output.copy(value = negativeValue)))
-    val credentialler = CredentiallerInterpreter.make[Id](walletApi, MockWalletStateApi, MockMainKeyPair)
+    val credentialler = CredentiallerInterpreter.make[F](walletApi, MockWalletStateApi, MockMainKeyPair)
     val provenTx: IoTransaction = credentialler.prove(testTx)
-    val ctx = Context[Id](testTx, 500, _ => None) // Tick does not satisfies proposition
+    val ctx = Context[F](testTx, 500, _ => None) // Tick does not satisfies proposition
     val errs = credentialler.validate(provenTx, ctx)
     // Threshold is not met so authorization failed
     // Transaction syntax is also invalid
@@ -133,8 +143,8 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
   }
 
   test("proveAndValidate: Single Input Transaction with Attestation.Predicate > Validation successful") {
-    val credentialler = CredentiallerInterpreter.make[Id](walletApi, MockWalletStateApi, MockMainKeyPair)
-    val ctx = Context[Id](txFull, 50, _ => None) // Tick satisfies a proposition
+    val credentialler = CredentiallerInterpreter.make[F](walletApi, MockWalletStateApi, MockMainKeyPair)
+    val ctx = Context[F](txFull, 50, _ => None) // Tick satisfies a proposition
     val res = credentialler.proveAndValidate(txFull, ctx)
 
     assertEquals(res.isRight, true)
@@ -143,9 +153,9 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
   test("proveAndValidate: Single Input Transaction with Attestation.Predicate > Validation failed") {
     val negativeValue: Value =
       Value.defaultInstance.withLvl(Value.LVL(Int128(ByteString.copyFrom(BigInt(-1).toByteArray))))
-    val credentialler = CredentiallerInterpreter.make[Id](walletApi, MockWalletStateApi, MockMainKeyPair)
+    val credentialler = CredentiallerInterpreter.make[F](walletApi, MockWalletStateApi, MockMainKeyPair)
     val testTx = txFull.copy(outputs = Seq(output.copy(value = negativeValue)))
-    val ctx = Context[Id](testTx, 500, _ => None) // Tick does not satisfies proposition
+    val ctx = Context[F](testTx, 500, _ => None) // Tick does not satisfies proposition
     val res = credentialler.proveAndValidate(testTx, ctx)
     assertEquals(res.isLeft, true)
     assertEquals(res.swap.getOrElse(List.empty).length, 2)
@@ -154,10 +164,10 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
   test(
     "proveAndValidate: Credentialler initialized with a main key different than used to create Single Input Transaction with Attestation.Predicate > Validation Failed"
   ) {
-    val differentKeyPair = WalletApi.make[Id](MockWalletKeyApi).deriveChildKeys(MockMainKeyPair, Indices(0, 0, 1))
-    val credentialler = CredentiallerInterpreter.make[Id](walletApi, MockWalletStateApi, differentKeyPair)
+    val differentKeyPair = WalletApi.make[F](MockWalletKeyApi).deriveChildKeys(MockMainKeyPair, Indices(0, 0, 1))
+    val credentialler = CredentiallerInterpreter.make[F](walletApi, MockWalletStateApi, differentKeyPair)
     // Tick satisfies its proposition. Height does not.
-    val ctx = Context[Id](txFull, 50, _ => None)
+    val ctx = Context[F](txFull, 50, _ => None)
     val res = credentialler.proveAndValidate(txFull, ctx)
 
     assert(res.isLeft, s"Result expecting to be left. Received ${res}")
@@ -179,7 +189,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
   test("prove: Transaction with Threshold Proposition > Threshold Proof is correctly generated") {
     val testProposition =
       Challenge().withRevealed(
-        Proposer.thresholdProposer[Id].propose((Set(MockTickProposition, MockHeightProposition), 2))
+        Proposer.thresholdProposer[F].propose((Set(MockTickProposition, MockHeightProposition), 2))
       )
     val testTx = txFull.copy(inputs =
       List(
@@ -189,7 +199,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
       )
     )
     val provenTx: IoTransaction =
-      CredentiallerInterpreter.make[Id](walletApi, MockWalletStateApi, MockMainKeyPair).prove(testTx)
+      CredentiallerInterpreter.make[F](walletApi, MockWalletStateApi, MockMainKeyPair).prove(testTx)
     val provenPredicate = provenTx.inputs.head.attestation.getPredicate
     assert(provenPredicate.responses.length == 1)
     val threshProof = provenPredicate.responses.head
@@ -204,7 +214,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
 
   test("prove: Transaction with And Proposition > And Proof is correctly generated") {
     val testProposition =
-      Challenge().withRevealed(Proposer.andProposer[Id].propose((MockTickProposition, MockHeightProposition)))
+      Challenge().withRevealed(Proposer.andProposer[F].propose((MockTickProposition, MockHeightProposition)))
     val testTx = txFull.copy(inputs =
       List(
         inputFull.copy(attestation =
@@ -213,7 +223,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
       )
     )
     val provenTx: IoTransaction =
-      CredentiallerInterpreter.make[Id](walletApi, MockWalletStateApi, MockMainKeyPair).prove(testTx)
+      CredentiallerInterpreter.make[F](walletApi, MockWalletStateApi, MockMainKeyPair).prove(testTx)
     val provenPredicate = provenTx.inputs.head.attestation.getPredicate
     assert(provenPredicate.responses.length == 1)
     val andProof = provenPredicate.responses.head
@@ -226,7 +236,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
 
   test("prove: Transaction with Or Proposition > Or Proof is correctly generated") {
     val testProposition =
-      Challenge().withRevealed(Proposer.orProposer[Id].propose((MockTickProposition, MockHeightProposition)))
+      Challenge().withRevealed(Proposer.orProposer[F].propose((MockTickProposition, MockHeightProposition)))
     val testTx = txFull.copy(inputs =
       List(
         inputFull.copy(attestation =
@@ -235,7 +245,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
       )
     )
     val provenTx: IoTransaction =
-      CredentiallerInterpreter.make[Id](walletApi, MockWalletStateApi, MockMainKeyPair).prove(testTx)
+      CredentiallerInterpreter.make[F](walletApi, MockWalletStateApi, MockMainKeyPair).prove(testTx)
     val provenPredicate = provenTx.inputs.head.attestation.getPredicate
     assert(provenPredicate.responses.length == 1)
     val orProof = provenPredicate.responses.head
@@ -247,7 +257,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
   }
 
   test("prove: Transaction with Not Proposition > Not Proof is correctly generated") {
-    val testProposition = Challenge().withRevealed(Proposer.notProposer[Id].propose(MockTickProposition))
+    val testProposition = Challenge().withRevealed(Proposer.notProposer[F].propose(MockTickProposition))
     val testTx = txFull.copy(inputs =
       List(
         inputFull.copy(attestation =
@@ -256,7 +266,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
       )
     )
     val provenTx: IoTransaction =
-      CredentiallerInterpreter.make[Id](walletApi, MockWalletStateApi, MockMainKeyPair).prove(testTx)
+      CredentiallerInterpreter.make[F](walletApi, MockWalletStateApi, MockMainKeyPair).prove(testTx)
     val provenPredicate = provenTx.inputs.head.attestation.getPredicate
     assert(provenPredicate.responses.length == 1)
     val notProof = provenPredicate.responses.head
@@ -269,7 +279,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
   test("proveAndValidate: Transaction with Threshold Proposition > Unmet Threshold fails validation") {
     val testProposition =
       Challenge().withRevealed(
-        Proposer.thresholdProposer[Id].propose(Set(MockTickProposition, MockHeightProposition), 2)
+        Proposer.thresholdProposer[F].propose(Set(MockTickProposition, MockHeightProposition), 2)
       )
     val testTx = txFull.copy(inputs =
       List(
@@ -278,9 +288,9 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
         )
       )
     )
-    val ctx = Context[Id](testTx, 50, _ => None) // Tick should pass, height should fail
+    val ctx = Context[F](testTx, 50, _ => None) // Tick should pass, height should fail
     val res =
-      CredentiallerInterpreter.make[Id](walletApi, MockWalletStateApi, MockMainKeyPair).proveAndValidate(testTx, ctx)
+      CredentiallerInterpreter.make[F](walletApi, MockWalletStateApi, MockMainKeyPair).proveAndValidate(testTx, ctx)
     assert(res.isLeft)
     val validationErrs = res.swap.getOrElse(List.empty)
     assert(validationErrs.length == 1)
@@ -296,7 +306,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
 
   test("proveAndValidate: Transaction with And Proposition > If one inner proof fails, the And proof fails") {
     val testProposition =
-      Challenge().withRevealed(Proposer.andProposer[Id].propose((MockTickProposition, MockHeightProposition)))
+      Challenge().withRevealed(Proposer.andProposer[F].propose((MockTickProposition, MockHeightProposition)))
     val testTx = txFull.copy(inputs =
       List(
         inputFull.copy(attestation =
@@ -304,9 +314,9 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
         )
       )
     )
-    val ctx = Context[Id](testTx, 50, _ => None) // Tick should pass, height should fail
+    val ctx = Context[F](testTx, 50, _ => None) // Tick should pass, height should fail
     val res =
-      CredentiallerInterpreter.make[Id](walletApi, MockWalletStateApi, MockMainKeyPair).proveAndValidate(testTx, ctx)
+      CredentiallerInterpreter.make[F](walletApi, MockWalletStateApi, MockMainKeyPair).proveAndValidate(testTx, ctx)
     assert(res.isLeft)
     val validationErrs = res.swap.getOrElse(List.empty)
     assert(validationErrs.length == 1)
@@ -320,7 +330,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
 
   test("proveAndValidate: Transaction with Or Proposition > If both inner proofs fail, the Or proof fails") {
     val testProposition =
-      Challenge().withRevealed(Proposer.orProposer[Id].propose((MockTickProposition, MockHeightProposition)))
+      Challenge().withRevealed(Proposer.orProposer[F].propose((MockTickProposition, MockHeightProposition)))
     val testTx = txFull.copy(inputs =
       List(
         inputFull.copy(attestation =
@@ -328,9 +338,9 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
         )
       )
     )
-    val ctx = Context[Id](testTx, 500, _ => None) // Tick and height should fail
+    val ctx = Context[F](testTx, 500, _ => None) // Tick and height should fail
     val res =
-      CredentiallerInterpreter.make[Id](walletApi, MockWalletStateApi, MockMainKeyPair).proveAndValidate(testTx, ctx)
+      CredentiallerInterpreter.make[F](walletApi, MockWalletStateApi, MockMainKeyPair).proveAndValidate(testTx, ctx)
     assert(res.isLeft)
     val validationErrs = res.swap.getOrElse(List.empty)
     assert(validationErrs.length == 1)
@@ -345,7 +355,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
   }
 
   test("proveAndValidate: Transaction with Not Proposition > If inner proof succeeds, the Not proof fails") {
-    val testProposition = Challenge().withRevealed(Proposer.notProposer[Id].propose(MockTickProposition))
+    val testProposition = Challenge().withRevealed(Proposer.notProposer[F].propose(MockTickProposition))
     val testTx = txFull.copy(inputs =
       List(
         inputFull.copy(attestation =
@@ -353,9 +363,9 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
         )
       )
     )
-    val ctx = Context[Id](testTx, 50, _ => None) // Tick should pass
+    val ctx = Context[F](testTx, 50, _ => None) // Tick should pass
     val res =
-      CredentiallerInterpreter.make[Id](walletApi, MockWalletStateApi, MockMainKeyPair).proveAndValidate(testTx, ctx)
+      CredentiallerInterpreter.make[F](walletApi, MockWalletStateApi, MockMainKeyPair).proveAndValidate(testTx, ctx)
     assert(res.isLeft)
     val validationErrs = res.swap.getOrElse(List.empty)
     assert(validationErrs.length == 1)
@@ -371,7 +381,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
   test("proveAndValidate: Transaction with Threshold Proposition > Threshold met passes validation") {
     val testProposition =
       Challenge().withRevealed(
-        Proposer.thresholdProposer[Id].propose(Set(MockTickProposition, MockHeightProposition), 2)
+        Proposer.thresholdProposer[F].propose(Set(MockTickProposition, MockHeightProposition), 2)
       )
     val testTx = txFull.copy(inputs =
       List(
@@ -381,9 +391,9 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
       )
     )
     // Both Tick and Height should pass
-    val ctx = Context[Id](testTx, 50, Map("header" -> Datum().withHeader(Datum.Header(Event.Header(50)))).lift)
+    val ctx = Context[F](testTx, 50, Map("header" -> Datum().withHeader(Datum.Header(Event.Header(50)))).lift)
     val res =
-      CredentiallerInterpreter.make[Id](walletApi, MockWalletStateApi, MockMainKeyPair).proveAndValidate(testTx, ctx)
+      CredentiallerInterpreter.make[F](walletApi, MockWalletStateApi, MockMainKeyPair).proveAndValidate(testTx, ctx)
     assert(res.isRight)
     val provenTx: IoTransaction = res.toOption.get
     val provenPredicate = provenTx.inputs.head.attestation.getPredicate
@@ -398,7 +408,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
 
   test("proveAndValidate: Transaction with And Proposition > If both inner proofs pass, the And proof passes") {
     val testProposition =
-      Challenge().withRevealed(Proposer.andProposer[Id].propose((MockTickProposition, MockHeightProposition)))
+      Challenge().withRevealed(Proposer.andProposer[F].propose((MockTickProposition, MockHeightProposition)))
     val testTx = txFull.copy(inputs =
       List(
         inputFull.copy(attestation =
@@ -407,9 +417,9 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
       )
     )
     // Both Tick and Height should pass
-    val ctx = Context[Id](testTx, 50, Map("header" -> Datum().withHeader(Datum.Header(Event.Header(50)))).lift)
+    val ctx = Context[F](testTx, 50, Map("header" -> Datum().withHeader(Datum.Header(Event.Header(50)))).lift)
     val res =
-      CredentiallerInterpreter.make[Id](walletApi, MockWalletStateApi, MockMainKeyPair).proveAndValidate(testTx, ctx)
+      CredentiallerInterpreter.make[F](walletApi, MockWalletStateApi, MockMainKeyPair).proveAndValidate(testTx, ctx)
     assert(res.isRight)
     val provenTx: IoTransaction = res.toOption.get
     val provenPredicate = provenTx.inputs.head.attestation.getPredicate
@@ -424,7 +434,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
 
   test("proveAndValidate: Transaction with Or Proposition > If only one inner proof passes, the Or proof passes") {
     val testProposition =
-      Challenge().withRevealed(Proposer.orProposer[Id].propose((MockTickProposition, MockHeightProposition)))
+      Challenge().withRevealed(Proposer.orProposer[F].propose((MockTickProposition, MockHeightProposition)))
     val testTx = txFull.copy(inputs =
       List(
         inputFull.copy(attestation =
@@ -432,9 +442,9 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
         )
       )
     )
-    val ctx = Context[Id](testTx, 50, _ => None) // Tick should pass, height should fail
+    val ctx = Context[F](testTx, 50, _ => None) // Tick should pass, height should fail
     val res =
-      CredentiallerInterpreter.make[Id](walletApi, MockWalletStateApi, MockMainKeyPair).proveAndValidate(testTx, ctx)
+      CredentiallerInterpreter.make[F](walletApi, MockWalletStateApi, MockMainKeyPair).proveAndValidate(testTx, ctx)
     assert(res.isRight)
     val provenTx: IoTransaction = res.toOption.get
     val provenPredicate = provenTx.inputs.head.attestation.getPredicate
@@ -449,7 +459,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
 
   test("proveAndValidate: Transaction with Not Proposition > If inner proof fails with error, the Not proof succeeds") {
     // Locked should cause quivr runtime error
-    val testProposition = Challenge().withRevealed(Proposer.notProposer[Id].propose(MockLockedProposition))
+    val testProposition = Challenge().withRevealed(Proposer.notProposer[F].propose(MockLockedProposition))
     val testTx = txFull.copy(inputs =
       List(
         inputFull.copy(attestation =
@@ -457,9 +467,9 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
         )
       )
     )
-    val ctx = Context[Id](testTx, 50, _ => None)
+    val ctx = Context[F](testTx, 50, _ => None)
     val res =
-      CredentiallerInterpreter.make[Id](walletApi, MockWalletStateApi, MockMainKeyPair).proveAndValidate(testTx, ctx)
+      CredentiallerInterpreter.make[F](walletApi, MockWalletStateApi, MockMainKeyPair).proveAndValidate(testTx, ctx)
     assert(res.isRight)
     val provenTx: IoTransaction = res.toOption.get
     val provenPredicate = provenTx.inputs.head.attestation.getPredicate
@@ -474,7 +484,7 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
   test(
     "proveAndValidate: Transaction with Not Proposition > If inner proof fails with `false`, the Not proof succeeds"
   ) {
-    val testProposition = Challenge().withRevealed(Proposer.notProposer[Id].propose(MockTickProposition))
+    val testProposition = Challenge().withRevealed(Proposer.notProposer[F].propose(MockTickProposition))
     val testTx = txFull.copy(inputs =
       List(
         inputFull.copy(attestation =
@@ -482,9 +492,9 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
         )
       )
     )
-    val ctx = Context[Id](testTx, 500, _ => None) // Tick should fail
+    val ctx = Context[F](testTx, 500, _ => None) // Tick should fail
     val res =
-      CredentiallerInterpreter.make[Id](walletApi, MockWalletStateApi, MockMainKeyPair).proveAndValidate(testTx, ctx)
+      CredentiallerInterpreter.make[F](walletApi, MockWalletStateApi, MockMainKeyPair).proveAndValidate(testTx, ctx)
     assert(res.isRight)
     val provenTx: IoTransaction = res.toOption.get
     val provenPredicate = provenTx.inputs.head.attestation.getPredicate
@@ -511,52 +521,52 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
         Bip32Indexes.SoftIndex(bobIndices.z)
       )
     )
-    val bobSignatureProposition = Proposer.signatureProposer[Id].propose(("ExtendedEd25519", bobChildKey.vk))
+    val bobSignatureProposition = Proposer.signatureProposer[F].propose(("ExtendedEd25519", bobChildKey.vk))
     // To Mock someone else's DataApi
-    object NewWalletStateApi extends WalletStateAlgebra[Id] {
+    object NewWalletStateApi extends WalletStateAlgebra[F] {
       // The only relevant call is getIndices
       override def getIndicesBySignature(
         signatureProposition: Proposition.DigitalSignature
-      ): Id[Option[Indices]] =
+      ): F[Option[Indices]] =
         Map(
           bobSignatureProposition.value.digitalSignature.get.sizedEvidence -> bobIndices
         ).get(signatureProposition.sizedEvidence)
 
-      override def initWalletState(networkId:     Int, ledgerId: Int, vk: VerificationKey): Id[Unit] = ???
-      override def getPreimage(digestProposition: Proposition.Digest): Id[Option[Preimage]] = ???
-      override def getCurrentAddress: Id[String] = ???
+      override def initWalletState(networkId:     Int, ledgerId: Int, vk: VerificationKey): F[Unit] = ???
+      override def getPreimage(digestProposition: Proposition.Digest): F[Option[Preimage]] = ???
+      override def getCurrentAddress: F[String] = ???
       override def updateWalletState(
         lockPredicate: String,
         lockAddress:   String,
         routine:       Option[String],
         vk:            Option[String],
         indices:       Indices
-      ): Id[Unit] = ???
+      ): F[Unit] = ???
       override def getCurrentIndicesForFunds(
         party:     String,
         contract:  String,
         someState: Option[Int]
-      ): Id[Option[Indices]] = ???
+      ): F[Option[Indices]] = ???
       override def validateCurrentIndicesForFunds(
         party:     String,
         contract:  String,
         someState: Option[Int]
-      ): Id[ValidatedNel[String, Indices]] = ???
-      override def getNextIndicesForFunds(party: String, contract: String): Id[Option[Indices]] = ???
-      override def getLockByIndex(indices:       Indices): Id[Option[Lock.Predicate]] = ???
-      override def getAddress(party:   String, contract: String, someState: Option[Int]): Id[Option[String]] = ???
-      override def addEntityVks(party: String, contract: String, entities:  List[String]): Id[Unit] = ???
-      override def getEntityVks(party: String, contract: String): Id[Option[List[String]]] = ???
-      override def addNewLockTemplate(contract: String, lockTemplate: LockTemplate[Id]): Id[Unit] = ???
-      override def getLockTemplate(contract:    String): Id[Option[LockTemplate[Id]]] = ???
-      override def getLock(party:               String, contract:     String, nextState: Int): Id[Option[Lock]] = ???
+      ): F[ValidatedNel[String, Indices]] = ???
+      override def getNextIndicesForFunds(party: String, contract: String): F[Option[Indices]] = ???
+      override def getLockByIndex(indices:       Indices): F[Option[Lock.Predicate]] = ???
+      override def getAddress(party:   String, contract: String, someState: Option[Int]): F[Option[String]] = ???
+      override def addEntityVks(party: String, contract: String, entities:  List[String]): F[Unit] = ???
+      override def getEntityVks(party: String, contract: String): F[Option[List[String]]] = ???
+      override def addNewLockTemplate(contract: String, lockTemplate: LockTemplate[F]): F[Unit] = ???
+      override def getLockTemplate(contract:    String): F[Option[LockTemplate[F]]] = ???
+      override def getLock(party:               String, contract:     String, nextState: Int): F[Option[Lock]] = ???
     }
     val aliceDataApi = MockWalletStateApi
     val bobDataApi = NewWalletStateApi
     val innerPropositions = List(
-      Proposer.andProposer[Id].propose((MockTickProposition, aliceSignatureProposition)),
-      Proposer.orProposer[Id].propose((MockDigestProposition, MockLockedProposition)),
-      Proposer.notProposer[Id].propose(MockHeightProposition)
+      Proposer.andProposer[F].propose((MockTickProposition, aliceSignatureProposition)),
+      Proposer.orProposer[F].propose((MockDigestProposition, MockLockedProposition)),
+      Proposer.notProposer[F].propose(MockHeightProposition)
     )
     val testTx = txFull.copy(inputs =
       List(
@@ -565,9 +575,9 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
             Attestation.Predicate(
               Lock.Predicate(
                 List(
-                  Proposer.thresholdProposer[Id].propose((innerPropositions.toSet, innerPropositions.length)),
+                  Proposer.thresholdProposer[F].propose((innerPropositions.toSet, innerPropositions.length)),
                   Proposer
-                    .thresholdProposer[Id]
+                    .thresholdProposer[F]
                     .propose(((innerPropositions :+ bobSignatureProposition).toSet, innerPropositions.length + 1))
                 ).map(Challenge().withRevealed),
                 2
@@ -578,16 +588,16 @@ class CredentiallerInterpreterSpec extends munit.FunSuite with MockHelpers {
         )
       )
     )
-    val ctx = Context[Id](testTx, 50, _ => None) // Tick should pass, height should fail
+    val ctx = Context[F](testTx, 50, _ => None) // Tick should pass, height should fail
     // the following is used to mimic the initial proving of the transaction by alice.
-    val credentialler1 = CredentiallerInterpreter.make[Id](walletApi, aliceDataApi, aliceMainKey)
+    val credentialler1 = CredentiallerInterpreter.make[F](walletApi, aliceDataApi, aliceMainKey)
     val partiallyProven = credentialler1.prove(testTx) // should create a partially proven tx
     // Should not be validated since not sufficiently proven
     val res1 = credentialler1.validate(partiallyProven, ctx)
     assert(res1.length == 1)
     assertEquals(partiallyProven.signable.value, testTx.signable.value)
     // the following is used to mimic the second proving of the transaction by bob.
-    val credentialler2 = CredentiallerInterpreter.make[Id](walletApi, bobDataApi, bobMainKey)
+    val credentialler2 = CredentiallerInterpreter.make[F](walletApi, bobDataApi, bobMainKey)
     val completelyProven = credentialler2.prove(partiallyProven) // should create a completely proven tx
     // Should be validated since sufficiently proven
     val res2 = credentialler2.validate(completelyProven, ctx)

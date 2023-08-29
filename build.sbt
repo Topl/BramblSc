@@ -99,7 +99,7 @@ lazy val quivr4s = project
     commonSettings,
     publishSettings,
     Test / publishArtifact := true,
-    Test / parallelExecution := false,
+//    Test / parallelExecution := false,
     libraryDependencies ++=
       Dependencies.Quivr4s.sources ++
         Dependencies.Quivr4s.tests
