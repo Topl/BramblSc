@@ -5,6 +5,10 @@ import co.topl.brambl.models.box.Value
 import co.topl.brambl.models.transaction.Schedule
 import quivr.models.{Proof, Proposition}
 
+/**
+ * TransactionSyntaxError requires a cats.Show[TransactionSyntaxError] Node instance
+ * @see [[https://github.com/Topl/Bifrost/blob/dev/blockchain/src/main/scala/co/topl/blockchain/ToplRpcServer.scala#L31]]
+ */
 sealed abstract class TransactionSyntaxError extends ValidationError
 
 object TransactionSyntaxError {
@@ -55,6 +59,9 @@ object TransactionSyntaxError {
    */
   case object InvalidDataLength extends TransactionSyntaxError
 
+  /**
+   * A Syntax error indicating the constructor tokens group/series is invalid
+   */
   case class InvalidConstructorTokens(inputs: List[Value.Value], outputs: List[Value.Value])
       extends TransactionSyntaxError
 }

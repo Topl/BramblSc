@@ -300,6 +300,7 @@ object TransactionSyntaxInterpreter {
       )
 
     val validations =
+      (groupConstructorTokens.isEmpty && seriesConstructorTokens.isEmpty) ||
       utxoIsPresent(registrationsUtxo) &&
       groupConstructorTokens.map(_.groupId).forall(groupIdsOnPolicies.contains) &&
       seriesConstructorTokens.map(_.seriesId).forall(seriesIdsOnPolicies.contains) &&
