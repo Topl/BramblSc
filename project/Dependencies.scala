@@ -50,7 +50,7 @@ object Dependencies {
     "org.typelevel" %% "cats-core"   % catsCoreVersion,
     "org.typelevel" %% "mouse"       % "1.2.1",
     "org.typelevel" %% "cats-free"   % catsCoreVersion,
-    "org.typelevel" %% "cats-effect" % "3.4.11"
+    "org.typelevel" %% "cats-effect" % "3.5.1"
   )
 
   val simulacrum: Seq[ModuleID] = Seq(
