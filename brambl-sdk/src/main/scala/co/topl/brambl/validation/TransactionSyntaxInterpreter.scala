@@ -8,7 +8,9 @@ import co.topl.brambl.models.transaction.IoTransaction
 import co.topl.brambl.validation.algebras.TransactionSyntaxVerifier
 import co.topl.brambl.common.ContainsImmutable.ContainsImmutableTOps
 import co.topl.brambl.common.ContainsImmutable.instances._
+import co.topl.brambl.models.TransactionOutputAddress
 import co.topl.brambl.models.box.Attestation
+import co.topl.brambl.syntax._
 import quivr.models.{Int128, Proof, Proposition}
 
 object TransactionSyntaxInterpreter {
@@ -35,7 +37,8 @@ object TransactionSyntaxInterpreter {
       positiveOutputValuesValidation,
       sufficientFundsValidation,
       attestationValidation,
-      dataLengthValidation
+      dataLengthValidation,
+      groupSeriesConstructorTokensValidation
     )
 
   /**
@@ -158,17 +161,31 @@ object TransactionSyntaxInterpreter {
       f { case Value.Value.Lvl(v) => BigInt(v.quantity.value.toByteArray) },
       f { case Value.Value.Topl(v) => BigInt(v.quantity.value.toByteArray) },
       // Extract all Asset values and their quantities
-      f { case Value.Value.Asset(Value.Asset(_, Int128(q, _), _, _)) => BigInt(q.toByteArray) }
+      f { case Value.Value.Asset(Value.Asset(_, Int128(q, _), _, _)) => BigInt(q.toByteArray) },
+      f { case Value.Value.Group(Value.Group(_, Int128(q, _), _, _)) => BigInt(q.toByteArray) },
+      f { case Value.Value.Series(Value.Series(_, Int128(q, _), _, _, _, _)) => BigInt(q.toByteArray) }
     ).appendChain(
       // Extract all Asset values (grouped by asset label) and their quantities
       Chain.fromSeq(
         (transaction.inputs.map(_.value.value) ++ transaction.outputs.map(_.value.value))
-          .collect { case Value.Value.Asset(Value.Asset(label, _, _, _)) => label }
+          .collect {
+            case Value.Value.Asset(Value.Asset(label, _, _, _))            => label
+            case Value.Value.Group(Value.Group(groupId, _, _, _))          => groupId.value.toStringUtf8
+            case Value.Value.Series(Value.Series(seriesId, _, _, _, _, _)) => seriesId.value.toStringUtf8
+
+          }
           .toList
           .distinct
           .map(code =>
             f {
               case Value.Value.Asset(Value.Asset(label, Int128(q, _), _, _)) if label === code =>
+                BigInt(q.toByteArray)
+
+              case Value.Value.Group(Value.Group(groupId, Int128(q, _), _, _)) if groupId.value.toStringUtf8 === code =>
+                BigInt(q.toByteArray)
+
+              case Value.Value.Series(Value.Series(seriesId, Int128(q, _), _, _, _, _))
+                  if seriesId.value.toStringUtf8 === code =>
                 BigInt(q.toByteArray)
             }
           )
@@ -247,4 +264,56 @@ object TransactionSyntaxInterpreter {
       (),
       TransactionSyntaxError.InvalidDataLength
     )
+
+  /**
+   * The minting of a group-series constructor token requires to burn a certain amount of LVLs and to provide the policy that describes the group-series.
+   * This requires the submission of a minting transaction to the node. To support this kind of transactions, the following validations need to be performed on the transaction:
+   *
+   * Check Moving Constructor Tokens:  Validated on quantityBasedValidation
+   *  - Let 'g-s' be a group identifier, then the number of Group-Series Constructor Tokens with group identifier 'g-s' in the input is equal to the quantity of Group Constructor Tokens with identifier 'g-s' in the output.
+   *
+   * Check Minting Constructor Tokens: Let 'g-s' be a group identifier and 'p' the group-series policy whose digest is equal to 'g-s', a transaction is valid only if the all of the following statements are true:
+   *  - The policy 'p-s' is attached to the transaction.
+   *  - The number of group constructor tokens with identifier 'g-s' in the output of the transaction is strictly bigger than 0.
+   *  - The registration UTXO referenced in 'p-s' is present in the inputs and contains LVLs.
+   *
+   * @param transaction transaction
+   * @return
+   */
+  private def groupSeriesConstructorTokensValidation(
+    transaction: IoTransaction
+  ): ValidatedNec[TransactionSyntaxError, Unit] = {
+    val groupConstructorTokens = transaction.outputs.filter(_.value.value.isGroup).map(_.value.getGroup)
+    val seriesConstructorTokens = transaction.outputs.filter(_.value.value.isSeries).map(_.value.getSeries)
+
+    val groupRegistrationsUtxo = transaction.groupPolicies.map(_.event.registrationUtxo)
+    val seriesRegistrationsUtxo = transaction.seriesPolicies.map(_.event.registrationUtxo)
+    val registrationsUtxo = groupRegistrationsUtxo ++ seriesRegistrationsUtxo
+
+    val groupIdsOnPolicies = transaction.groupPolicies.map(_.event.computeId)
+    val seriesIdsOnPolicies = transaction.seriesPolicies.map(_.event.computeId)
+
+    def utxoIsPresent(addresses: Seq[TransactionOutputAddress]) =
+      transaction.inputs.exists(spentTxOutput =>
+        (addresses.isEmpty || addresses.contains(spentTxOutput.address)) &&
+        spentTxOutput.value.value.isLvl
+      )
+
+    val validations =
+      utxoIsPresent(registrationsUtxo) &&
+      groupConstructorTokens.map(_.groupId).forall(groupIdsOnPolicies.contains) &&
+      seriesConstructorTokens.map(_.seriesId).forall(seriesIdsOnPolicies.contains) &&
+      registrationsUtxo.size == registrationsUtxo.toSet.size
+
+    Validated.condNec(
+      validations,
+      (),
+      TransactionSyntaxError.InsufficientInputFunds(
+        transaction.inputs.map(_.value.value).toList,
+        transaction.outputs.filter(v => v.value.value.isSeries || v.value.value.isGroup).map(_.value.value).toList
+      )
+    )
+
+  }
+
 }

@@ -3,19 +3,13 @@ package co.topl.brambl.validation
 import cats.Id
 import cats.implicits._
 import co.topl.brambl.MockHelpers
-import co.topl.brambl.models.box.Attestation
-import co.topl.brambl.models.box.Challenge
-import co.topl.brambl.models.box.Lock
-import co.topl.brambl.models.box.Value
-import co.topl.brambl.models.transaction.Schedule
-import co.topl.quivr.api.Proposer
-import co.topl.quivr.api.Prover
+import co.topl.brambl.models.box.{Attestation, Challenge, Lock, Value}
+import co.topl.brambl.models.transaction.{IoTransaction, Schedule, SpentTransactionOutput, UnspentTransactionOutput}
+import co.topl.brambl.models.{Datum, Event, GroupId, SeriesId}
+import co.topl.brambl.syntax.{groupPolicyAsGroupPolicySyntaxOps, seriesPolicyAsSeriesPolicySyntaxOps}
+import co.topl.quivr.api.{Proposer, Prover}
 import com.google.protobuf.ByteString
-import quivr.models.Int128
-import quivr.models.Proof
-import quivr.models.Proposition
-import quivr.models.SmallData
-
+import quivr.models.{Int128, Proof, Proposition, SmallData}
 import scala.language.implicitConversions
 
 class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
@@ -86,7 +80,8 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
   }
 
   test("validate positive output quantities") {
-    val negativeValue: Value = Value().withLvl(Value.LVL(Int128(ByteString.copyFrom(BigInt(-1).toByteArray))))
+    val negativeValue: Value =
+      Value.defaultInstance.withLvl(Value.LVL(Int128(ByteString.copyFrom(BigInt(-1).toByteArray))))
     val testTx = txFull.copy(outputs = Seq(output.copy(value = negativeValue)))
     val validator = TransactionSyntaxInterpreter.make[Id]()
     val result = validator
@@ -97,12 +92,53 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
   }
 
   test("validate sufficient input funds") {
-    val tokenValueIn: Value = Value().withLvl(Value.LVL(Int128(ByteString.copyFrom(BigInt(100).toByteArray))))
-    val tokenValueOut: Value = Value().withLvl(Value.LVL(Int128(ByteString.copyFrom(BigInt(101).toByteArray))))
+    val tokenValueIn: Value =
+      Value.defaultInstance.withLvl(Value.LVL(Int128(ByteString.copyFrom(BigInt(100).toByteArray))))
+    val tokenValueOut: Value =
+      Value.defaultInstance.withLvl(Value.LVL(Int128(ByteString.copyFrom(BigInt(101).toByteArray))))
     val assetValueIn: Value =
-      Value().withAsset(Value.Asset("label", Int128(ByteString.copyFrom(BigInt(100).toByteArray)), SmallData()))
+      Value.defaultInstance.withAsset(
+        Value.Asset("label", Int128(ByteString.copyFrom(BigInt(100).toByteArray)), SmallData())
+      )
     val assetValueOut: Value =
-      Value().withAsset(Value.Asset("label", Int128(ByteString.copyFrom(BigInt(101).toByteArray)), SmallData()))
+      Value.defaultInstance.withAsset(
+        Value.Asset("label", Int128(ByteString.copyFrom(BigInt(101).toByteArray)), SmallData())
+      )
+
+    val groupPolicy = Event.GroupPolicy(label = "groupLabel", registrationUtxo = dummyTxoAddress)
+
+    val groupValueIn: Value =
+      Value.defaultInstance.withGroup(
+        Value.Group(
+          groupId = groupPolicy.computeId,
+          quantity = Int128(ByteString.copyFrom(BigInt(100).toByteArray))
+        )
+      )
+
+    val groupValueOut: Value =
+      Value.defaultInstance.withGroup(
+        Value.Group(
+          groupId = groupPolicy.computeId,
+          quantity = Int128(ByteString.copyFrom(BigInt(101).toByteArray))
+        )
+      )
+
+    val seriesPolicy = Event.SeriesPolicy(label = "groupLabel", registrationUtxo = dummyTxoAddress)
+    val seriesValueIn: Value =
+      Value.defaultInstance.withSeries(
+        Value.Series(
+          seriesId = seriesPolicy.computeId,
+          quantity = Int128(ByteString.copyFrom(BigInt(100).toByteArray))
+        )
+      )
+
+    val seriesValueOut: Value =
+      Value.defaultInstance.withSeries(
+        Value.Series(
+          seriesId = seriesPolicy.computeId,
+          quantity = Int128(ByteString.copyFrom(BigInt(101).toByteArray))
+        )
+      )
 
     def testTx(inputValue: Value, outputValue: Value) = TransactionSyntaxInterpreter
       .make[Id]()
@@ -120,7 +156,9 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
 
     val result = List(
       testTx(tokenValueIn, tokenValueOut), // Token Test
-      testTx(assetValueIn, assetValueOut) // Asset Test
+      testTx(assetValueIn, assetValueOut), // Asset Test
+      testTx(groupValueIn, groupValueOut), // Group Test
+      testTx(seriesValueIn, seriesValueOut) // Series Test
     ).forall(identity)
     assertEquals(result, true)
   }
@@ -174,4 +212,263 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
       .exists(_.toList.contains(TransactionSyntaxError.InvalidDataLength))
     assertEquals(result, true)
   }
+
+  test("validate that Group outputs that try to reference not LVLs input") {
+
+    val valueTopl: Value =
+      Value.defaultInstance.withTopl(Value.TOPL(Int128(ByteString.copyFrom(BigInt(1).toByteArray))))
+    val input = SpentTransactionOutput(dummyTxoAddress, attFull, valueTopl)
+    val txFull = IoTransaction.defaultInstance.withInputs(List(input)).withDatum(txDatum)
+    val groupPolicy = Event.GroupPolicy(label = "groupLabelA", registrationUtxo = dummyTxoAddress)
+
+    val groupA: Value =
+      Value.defaultInstance.withGroup(
+        Value.Group(
+          groupId = groupPolicy.computeId,
+          quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+        )
+      )
+    val output1: UnspentTransactionOutput = UnspentTransactionOutput(trivialLockAddress, groupA)
+    val testTx = txFull.copy(outputs = List(output1), groupPolicies = Seq(Datum.GroupPolicy(groupPolicy)))
+    val validator = TransactionSyntaxInterpreter.make[Id]()
+
+    val result = validator
+      .validate(testTx)
+      .swap
+      .exists(
+        _.toList.contains(
+          TransactionSyntaxError.InsufficientInputFunds(
+            testTx.inputs.map(_.value.value).toList,
+            testTx.outputs.map(_.value.value).toList
+          )
+        )
+      )
+    assertEquals(result, true)
+  }
+
+  test("validate that Series outputs that try to reference not LVLs input") {
+
+    val valueTopl: Value =
+      Value.defaultInstance.withTopl(Value.TOPL(Int128(ByteString.copyFrom(BigInt(1).toByteArray))))
+    val input = SpentTransactionOutput(dummyTxoAddress, attFull, valueTopl)
+    val txFull = IoTransaction.defaultInstance.withInputs(List(input)).withDatum(txDatum)
+    val seriesPolicy = Event.SeriesPolicy(label = "seriesLabelA", registrationUtxo = dummyTxoAddress)
+
+    val series: Value =
+      Value.defaultInstance.withSeries(
+        Value.Series(
+          seriesId = seriesPolicy.computeId,
+          quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+        )
+      )
+    val output1: UnspentTransactionOutput = UnspentTransactionOutput(trivialLockAddress, series)
+    val testTx = txFull.copy(outputs = List(output1), seriesPolicies = Seq(Datum.SeriesPolicy(seriesPolicy)))
+    val validator = TransactionSyntaxInterpreter.make[Id]()
+
+    val result = validator
+      .validate(testTx)
+      .swap
+      .exists(
+        _.toList.contains(
+          TransactionSyntaxError.InsufficientInputFunds(
+            testTx.inputs.map(_.value.value).toList,
+            testTx.outputs.map(_.value.value).toList
+          )
+        )
+      )
+    assertEquals(result, true)
+  }
+
+  test("validate that Group Contructor tokens includes the policy in the Iotx Datum") {
+
+    val valueTopl: Value =
+      Value.defaultInstance.withLvl(Value.LVL(Int128(ByteString.copyFrom(BigInt(1).toByteArray))))
+    val input = SpentTransactionOutput(dummyTxoAddress, attFull, valueTopl)
+    val txFull = IoTransaction.defaultInstance.withInputs(List(input)).withDatum(txDatum)
+    val groupPolicy = Event.GroupPolicy(label = "groupLabelA", registrationUtxo = dummyTxoAddress)
+
+    val group: Value =
+      Value.defaultInstance.withGroup(
+        Value.Group(
+          groupId = groupPolicy.computeId,
+          quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+        )
+      )
+    val output1: UnspentTransactionOutput = UnspentTransactionOutput(trivialLockAddress, group)
+    val testTx = txFull.copy(outputs = List(output1), groupPolicies = Seq.empty) // No policy
+    val validator = TransactionSyntaxInterpreter.make[Id]()
+
+    val result = validator
+      .validate(testTx)
+      .swap
+      .exists(
+        _.toList.contains(
+          TransactionSyntaxError.InsufficientInputFunds(
+            testTx.inputs.map(_.value.value).toList,
+            testTx.outputs.map(_.value.value).toList
+          )
+        )
+      )
+    assertEquals(result, true)
+  }
+
+  test("validate that Series Contructor tokens includes the policy in the Iotx Datum") {
+
+    val valueTopl = Value.defaultInstance.withLvl(Value.LVL(Int128(ByteString.copyFrom(BigInt(1).toByteArray))))
+    val input = SpentTransactionOutput(dummyTxoAddress, attFull, valueTopl)
+    val txFull = IoTransaction.defaultInstance.withInputs(List(input)).withDatum(txDatum)
+    val seriesPolicy = Event.SeriesPolicy(label = "seriesLabelA", registrationUtxo = dummyTxoAddress)
+
+    val series: Value =
+      Value.defaultInstance.withSeries(
+        Value.Series(
+          seriesId = seriesPolicy.computeId,
+          quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+        )
+      )
+    val output1: UnspentTransactionOutput = UnspentTransactionOutput(trivialLockAddress, series)
+    val testTx = txFull.copy(outputs = List(output1), seriesPolicies = Seq.empty) // No policy
+    val validator = TransactionSyntaxInterpreter.make[Id]()
+
+    val result = validator
+      .validate(testTx)
+      .swap
+      .exists(
+        _.toList.contains(
+          TransactionSyntaxError.InsufficientInputFunds(
+            testTx.inputs.map(_.value.value).toList,
+            testTx.outputs.map(_.value.value).toList
+          )
+        )
+      )
+    assertEquals(result, true)
+  }
+
+  test("validate there aren't two Group outputs that try to reference the same LVL input") {
+
+    val addressInput = txFull.inputs.head.address
+    val groupPolicyA = Event.GroupPolicy(label = "groupLabelA", registrationUtxo = addressInput)
+    val groupPolicyB = Event.GroupPolicy(label = "groupLabelB", registrationUtxo = addressInput)
+
+    val groupA: Value =
+      Value.defaultInstance.withGroup(
+        Value.Group(
+          groupId = groupPolicyA.computeId,
+          quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+        )
+      )
+    val groupB: Value =
+      Value.defaultInstance.withGroup(
+        Value.Group(
+          groupId = groupPolicyB.computeId,
+          quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+        )
+      )
+    val output1: UnspentTransactionOutput = UnspentTransactionOutput(trivialLockAddress, groupA)
+    val output2: UnspentTransactionOutput = UnspentTransactionOutput(trivialLockAddress, groupB)
+    val testTx = txFull.copy(
+      outputs = List(output1, output2),
+      groupPolicies = Seq(Datum.GroupPolicy(groupPolicyA), Datum.GroupPolicy(groupPolicyB))
+    )
+    val validator = TransactionSyntaxInterpreter.make[Id]()
+
+    val result = validator
+      .validate(testTx)
+      .swap
+      .exists(
+        _.toList.contains(
+          TransactionSyntaxError.InsufficientInputFunds(
+            testTx.inputs.map(_.value.value).toList,
+            testTx.outputs.map(_.value.value).toList
+          )
+        )
+      )
+    assertEquals(result, true)
+  }
+
+  test("validate there aren't two Series outputs that try to reference the same LVL input") {
+
+    val addressInput = txFull.inputs.head.address
+    val seriesPolicyA = Event.SeriesPolicy(label = "seriesLabelA", registrationUtxo = addressInput)
+    val seriesPolicyB = Event.SeriesPolicy(label = "seriesLabelB", registrationUtxo = addressInput)
+
+    val seriesA: Value =
+      Value.defaultInstance.withSeries(
+        Value.Series(
+          seriesId = seriesPolicyA.computeId,
+          quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+        )
+      )
+    val seriesB: Value =
+      Value.defaultInstance.withSeries(
+        Value.Series(
+          seriesId = seriesPolicyB.computeId,
+          quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+        )
+      )
+    val output1: UnspentTransactionOutput = UnspentTransactionOutput(trivialLockAddress, seriesA)
+    val output2: UnspentTransactionOutput = UnspentTransactionOutput(trivialLockAddress, seriesB)
+    val testTx = txFull.copy(
+      outputs = List(output1, output2),
+      seriesPolicies = Seq(Datum.SeriesPolicy(seriesPolicyA), Datum.SeriesPolicy(seriesPolicyB))
+    )
+    val validator = TransactionSyntaxInterpreter.make[Id]()
+
+    val result = validator
+      .validate(testTx)
+      .swap
+      .exists(
+        _.toList.contains(
+          TransactionSyntaxError.InsufficientInputFunds(
+            testTx.inputs.map(_.value.value).toList,
+            testTx.outputs.map(_.value.value).toList
+          )
+        )
+      )
+    assertEquals(result, true)
+  }
+
+  test("validate there aren't a Group and a Series outputs that try to reference the same LVL input") {
+
+    val addressInput = txFull.inputs.head.address
+    val groupPolicy = Event.GroupPolicy(label = "groupLabelA", registrationUtxo = addressInput)
+    val seriesPolicy = Event.SeriesPolicy(label = "seriesLabelB", registrationUtxo = addressInput)
+
+    val group: Value =
+      Value.defaultInstance.withGroup(
+        Value.Group(
+          groupId = groupPolicy.computeId,
+          quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+        )
+      )
+    val series: Value =
+      Value.defaultInstance.withSeries(
+        Value.Series(
+          seriesId = seriesPolicy.computeId,
+          quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+        )
+      )
+    val output1: UnspentTransactionOutput = UnspentTransactionOutput(trivialLockAddress, group)
+    val output2: UnspentTransactionOutput = UnspentTransactionOutput(trivialLockAddress, series)
+    val testTx = txFull.copy(
+      outputs = List(output1, output2),
+      groupPolicies = Seq(Datum.GroupPolicy(groupPolicy)),
+      seriesPolicies = Seq(Datum.SeriesPolicy(seriesPolicy))
+    )
+    val validator = TransactionSyntaxInterpreter.make[Id]()
+
+    val result = validator
+      .validate(testTx)
+      .swap
+      .exists(
+        _.toList.contains(
+          TransactionSyntaxError.InsufficientInputFunds(
+            testTx.inputs.map(_.value.value).toList,
+            testTx.outputs.map(_.value.value).toList
+          )
+        )
+      )
+    assertEquals(result, true)
+  }
+
 }

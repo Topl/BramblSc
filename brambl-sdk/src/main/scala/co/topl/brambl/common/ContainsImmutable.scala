@@ -1,9 +1,7 @@
 package co.topl.brambl.common
 
 import co.topl.brambl.models._
-import co.topl.brambl.models.box.Attestation
-import co.topl.brambl.models.box.Challenge
-import co.topl.brambl.models.box.{Box, Lock, Value}
+import co.topl.brambl.models.box.{Attestation, Box, Challenge, Lock, Value}
 import co.topl.brambl.models.common.ImmutableBytes
 import co.topl.brambl.models.transaction._
 import co.topl.consensus.models._
@@ -11,7 +9,6 @@ import co.topl.quivr.Tokens
 import com.google.protobuf.ByteString
 import quivr.models._
 import quivr.models.VerificationKey._
-
 import java.nio.charset.StandardCharsets
 import scala.language.implicitConversions
 
@@ -87,6 +84,8 @@ object ContainsImmutable {
       case Datum.Value.Epoch(v)         => v.immutable
       case Datum.Value.Header(v)        => v.immutable
       case Datum.Value.IoTransaction(v) => v.immutable
+      case Datum.Value.GroupPolicy(v)   => v.immutable
+      case Datum.Value.SeriesPolicy(v)  => v.immutable
       case e                            => throw new MatchError(e)
     }
 
@@ -95,11 +94,15 @@ object ContainsImmutable {
     implicit val epochDatumImmutable: ContainsImmutable[Datum.Epoch] = _.event.immutable
     implicit val headerDatumImmutable: ContainsImmutable[Datum.Header] = _.event.immutable
     implicit val ioTransactionDatumImmutable: ContainsImmutable[Datum.IoTransaction] = _.event.immutable
+    implicit val groupPolicyDatumImmutable: ContainsImmutable[Datum.GroupPolicy] = _.event.immutable
+    implicit val seriesPolicyDatumImmutable: ContainsImmutable[Datum.SeriesPolicy] = _.event.immutable
 
     implicit val ioTransactionImmutable: ContainsImmutable[IoTransaction] = (iotx: IoTransaction) =>
       iotx.inputs.immutable ++
       iotx.outputs.immutable ++
-      iotx.datum.immutable
+      iotx.datum.immutable ++
+      iotx.groupPolicies.immutable ++
+      iotx.seriesPolicies.immutable
 
     implicit val iotxScheduleImmutable: ContainsImmutable[Schedule] = (schedule: Schedule) =>
       schedule.min.immutable ++
@@ -120,10 +123,12 @@ object ContainsImmutable {
       box.value.immutable
 
     implicit val valueImmutable: ContainsImmutable[Value] = _.value match {
-      case Value.Value.Lvl(v)   => v.immutable
-      case Value.Value.Topl(v)  => v.immutable
-      case Value.Value.Asset(v) => v.immutable
-      case Value.Value.Empty    => Array[Byte](0).immutable
+      case Value.Value.Lvl(v)    => v.immutable
+      case Value.Value.Topl(v)   => v.immutable
+      case Value.Value.Asset(v)  => v.immutable
+      case Value.Value.Group(v)  => v.immutable
+      case Value.Value.Series(v) => v.immutable
+      case Value.Value.Empty     => Array[Byte](0).immutable
     }
 
     implicit val evidenceImmutable: ContainsImmutable[Evidence] =
@@ -147,6 +152,16 @@ object ContainsImmutable {
     implicit val transactionIdentifierImmutable: ContainsImmutable[TransactionId] =
       id =>
         Tags.Identifier.IoTransaction32.immutable ++
+        id.value.immutable
+
+    implicit val groupIdentifierImmutable: ContainsImmutable[GroupId] =
+      id =>
+        Tags.Identifier.Group32.immutable ++
+        id.value.immutable
+
+    implicit val seriesIdValueImmutable: ContainsImmutable[SeriesId] =
+      id =>
+        Tags.Identifier.Series32.immutable ++
         id.value.immutable
 
     implicit val transactionOutputAddressImmutable: ContainsImmutable[TransactionOutputAddress] =
@@ -175,6 +190,18 @@ object ContainsImmutable {
       asset.label.immutable ++
       asset.quantity.immutable ++
       asset.metadata.immutable
+
+    implicit val seriesValueImmutable: ContainsImmutable[Value.Series] = (series: Value.Series) =>
+      series.seriesId.immutable ++
+      series.quantity.immutable ++
+      series.tokenSupply.immutable ++
+      series.quantityDescriptor.value.immutable ++
+      series.fungibility.value.immutable
+
+    implicit val groupValueImmutable: ContainsImmutable[Value.Group] = (group: Value.Group) =>
+      group.groupId.immutable ++
+      group.quantity.immutable ++
+      group.fixedSeries.immutable
 
     implicit val signatureKesSumImmutable: ContainsImmutable[co.topl.consensus.models.SignatureKesSum] =
       v =>
@@ -276,12 +303,28 @@ object ContainsImmutable {
         event.schedule.immutable ++
         event.metadata.immutable
 
+    implicit val groupPolicyEventImmutable: ContainsImmutable[Event.GroupPolicy] =
+      event =>
+        event.label.immutable ++
+        event.fixedSeries.immutable ++
+        event.registrationUtxo.immutable
+
+    implicit val seriesPolicyEventImmutable: ContainsImmutable[Event.SeriesPolicy] =
+      event =>
+        event.label.immutable ++
+        event.tokenSupply.immutable ++
+        event.registrationUtxo.immutable ++
+        event.fungibility.value.immutable ++
+        event.quantityDescriptor.value.immutable
+
     implicit val eventImmutable: ContainsImmutable[Event] = _.value match {
       case Event.Value.Eon(e)           => eonEventImmutable.immutableBytes(e)
       case Event.Value.Era(e)           => eraEventImmutable.immutableBytes(e)
       case Event.Value.Epoch(e)         => epochEventImmutable.immutableBytes(e)
       case Event.Value.Header(e)        => headerEventImmutable.immutableBytes(e)
       case Event.Value.IoTransaction(e) => iotxEventImmutable.immutableBytes(e)
+      case Event.Value.GroupPolicy(e)   => groupPolicyEventImmutable.immutableBytes(e)
+      case Event.Value.SeriesPolicy(e)  => seriesPolicyEventImmutable.immutableBytes(e)
       case e                            => throw new MatchError(e)
     }
 
