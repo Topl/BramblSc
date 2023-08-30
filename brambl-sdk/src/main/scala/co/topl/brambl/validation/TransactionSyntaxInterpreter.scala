@@ -308,7 +308,7 @@ object TransactionSyntaxInterpreter {
     Validated.condNec(
       validations,
       (),
-      TransactionSyntaxError.InsufficientInputFunds(
+      TransactionSyntaxError.InvalidConstructorTokens(
         transaction.inputs.map(_.value.value).toList,
         transaction.outputs.filter(v => v.value.value.isSeries || v.value.value.isGroup).map(_.value.value).toList
       )

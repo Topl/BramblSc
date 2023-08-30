@@ -237,7 +237,7 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
       .swap
       .exists(
         _.toList.contains(
-          TransactionSyntaxError.InsufficientInputFunds(
+          TransactionSyntaxError.InvalidConstructorTokens(
             testTx.inputs.map(_.value.value).toList,
             testTx.outputs.map(_.value.value).toList
           )
@@ -270,7 +270,7 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
       .swap
       .exists(
         _.toList.contains(
-          TransactionSyntaxError.InsufficientInputFunds(
+          TransactionSyntaxError.InvalidConstructorTokens(
             testTx.inputs.map(_.value.value).toList,
             testTx.outputs.map(_.value.value).toList
           )
@@ -279,7 +279,7 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
     assertEquals(result, true)
   }
 
-  test("validate that Group Contructor tokens includes the policy in the Iotx Datum") {
+  test("validate that Group Constructor tokens includes the policy in the Iotx Datum") {
 
     val valueTopl: Value =
       Value.defaultInstance.withLvl(Value.LVL(Int128(ByteString.copyFrom(BigInt(1).toByteArray))))
@@ -303,7 +303,7 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
       .swap
       .exists(
         _.toList.contains(
-          TransactionSyntaxError.InsufficientInputFunds(
+          TransactionSyntaxError.InvalidConstructorTokens(
             testTx.inputs.map(_.value.value).toList,
             testTx.outputs.map(_.value.value).toList
           )
@@ -312,7 +312,7 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
     assertEquals(result, true)
   }
 
-  test("validate that Series Contructor tokens includes the policy in the Iotx Datum") {
+  test("validate that Series Constructor tokens includes the policy in the Iotx Datum") {
 
     val valueTopl = Value.defaultInstance.withLvl(Value.LVL(Int128(ByteString.copyFrom(BigInt(1).toByteArray))))
     val input = SpentTransactionOutput(dummyTxoAddress, attFull, valueTopl)
@@ -335,7 +335,7 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
       .swap
       .exists(
         _.toList.contains(
-          TransactionSyntaxError.InsufficientInputFunds(
+          TransactionSyntaxError.InvalidConstructorTokens(
             testTx.inputs.map(_.value.value).toList,
             testTx.outputs.map(_.value.value).toList
           )
@@ -377,7 +377,7 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
       .swap
       .exists(
         _.toList.contains(
-          TransactionSyntaxError.InsufficientInputFunds(
+          TransactionSyntaxError.InvalidConstructorTokens(
             testTx.inputs.map(_.value.value).toList,
             testTx.outputs.map(_.value.value).toList
           )
@@ -419,7 +419,7 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
       .swap
       .exists(
         _.toList.contains(
-          TransactionSyntaxError.InsufficientInputFunds(
+          TransactionSyntaxError.InvalidConstructorTokens(
             testTx.inputs.map(_.value.value).toList,
             testTx.outputs.map(_.value.value).toList
           )
@@ -462,7 +462,7 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
       .swap
       .exists(
         _.toList.contains(
-          TransactionSyntaxError.InsufficientInputFunds(
+          TransactionSyntaxError.InvalidConstructorTokens(
             testTx.inputs.map(_.value.value).toList,
             testTx.outputs.map(_.value.value).toList
           )

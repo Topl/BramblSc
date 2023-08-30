@@ -54,4 +54,7 @@ object TransactionSyntaxError {
    * A Syntax error indicating that the size of this transaction is invalid.
    */
   case object InvalidDataLength extends TransactionSyntaxError
+
+  case class InvalidConstructorTokens(inputs: List[Value.Value], outputs: List[Value.Value])
+      extends TransactionSyntaxError
 }
