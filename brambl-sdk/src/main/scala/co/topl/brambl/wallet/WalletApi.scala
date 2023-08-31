@@ -1,6 +1,6 @@
 package co.topl.brambl.wallet
 
-import cats.implicits.{catsSyntaxApplicativeId}
+import cats.implicits.catsSyntaxApplicativeId
 import co.topl.crypto.generation.mnemonic.{Entropy, MnemonicSize, MnemonicSizes}
 import cats.{Eq, Monad}
 import cats.implicits.{toFlatMapOps, toFunctorOps}
@@ -291,12 +291,14 @@ object WalletApi {
    * @param walletKeyApi The Api to use to handle wallet key persistence
    * @return A new WalletAPI instance
    */
-  def make[F[_]: Monad : Async](walletKeyApi: WalletKeyApiAlgebra[F]): WalletApi[F] = new WalletApi[F] {
+  def make[F[_]: Monad: Async](walletKeyApi: WalletKeyApiAlgebra[F]): WalletApi[F] = new WalletApi[F] {
     final val Purpose = 1852
     final val CoinType = 7091
     val kdf: Kdf[F] = SCrypt.make[F](SCrypt.SCryptParams(SCrypt.generateSalt))
     val cipher: Cipher[F] = Aes.make[F](Aes.AesParams(Aes.generateIv))
-    val extendedEd25519Resource: F[Resource[F, ExtendedEd25519]] = CatsUnsafeResource.make[F, ExtendedEd25519](new ExtendedEd25519, 1)
+
+    val extendedEd25519Resource: F[Resource[F, ExtendedEd25519]] =
+      CatsUnsafeResource.make[F, ExtendedEd25519](new ExtendedEd25519, 1)
 
     override def extractMainKey(
       vaultStore: VaultStore[F],
@@ -318,15 +320,16 @@ object WalletApi {
       require(keyPair.vk.vk.isExtendedEd25519, "keyPair must be an extended Ed25519 key")
       require(keyPair.sk.sk.isExtendedEd25519, "keyPair must be an extended Ed25519 key")
       for {
-        xCoordinate <- Monad[F].pure(Bip32Indexes.HardenedIndex(idx.x))
-        yCoordinate <- Monad[F].pure(Bip32Indexes.SoftIndex(idx.y))
-        zCoordinate <- Monad[F].pure(Bip32Indexes.SoftIndex(idx.z))
+        xCoordinate             <- Monad[F].pure(Bip32Indexes.HardenedIndex(idx.x))
+        yCoordinate             <- Monad[F].pure(Bip32Indexes.SoftIndex(idx.y))
+        zCoordinate             <- Monad[F].pure(Bip32Indexes.SoftIndex(idx.z))
         extendedEd25519Instance <- extendedEd25519Resource
         res <- extendedEd25519Instance.use(instance =>
-          Monad[F].pure(instance.deriveKeyPairFromChildPath(
-            keyPair.signingKey,
-            List(xCoordinate, yCoordinate, zCoordinate)
-          )
+          Monad[F].pure(
+            instance.deriveKeyPairFromChildPath(
+              keyPair.signingKey,
+              List(xCoordinate, yCoordinate, zCoordinate)
+            )
           )
         )
       } yield res
@@ -340,14 +343,15 @@ object WalletApi {
       require(keyPair.vk.vk.isExtendedEd25519, "keyPair must be an extended Ed25519 key")
       require(keyPair.sk.sk.isExtendedEd25519, "keyPair must be an extended Ed25519 key")
       for {
-        xCoordinate <- Monad[F].pure(Bip32Indexes.HardenedIndex(xParty))
-        yCoordinate <- Monad[F].pure(Bip32Indexes.SoftIndex(yContract))
+        xCoordinate             <- Monad[F].pure(Bip32Indexes.HardenedIndex(xParty))
+        yCoordinate             <- Monad[F].pure(Bip32Indexes.SoftIndex(yContract))
         extendedEd25519Instance <- extendedEd25519Resource
         res <- extendedEd25519Instance.use(instance =>
-          Monad[F].pure(instance.deriveKeyPairFromChildPath(
-            keyPair.signingKey,
-            List(xCoordinate, yCoordinate)
-          )
+          Monad[F].pure(
+            instance.deriveKeyPairFromChildPath(
+              keyPair.signingKey,
+              List(xCoordinate, yCoordinate)
+            )
           )
         )
       } yield res
@@ -362,7 +366,11 @@ object WalletApi {
         extendedEd25519Instance <- extendedEd25519Resource
         res <- extendedEd25519Instance.use(instance =>
           Monad[F].pure(
-            VerificationKey(VerificationKey.Vk.ExtendedEd25519(instance.deriveChildVerificationKey(vk.vk.extendedEd25519.get, Bip32Indexes.SoftIndex(idx))))
+            VerificationKey(
+              VerificationKey.Vk.ExtendedEd25519(
+                instance.deriveChildVerificationKey(vk.vk.extendedEd25519.get, Bip32Indexes.SoftIndex(idx))
+              )
+            )
           )
         )
       } yield res
@@ -426,7 +434,8 @@ object WalletApi {
           Monad[F].pure(
             instance.deriveKeyPairFromChildPath(
               extendedEd25519Initializer(instance).fromEntropy(entropy, passphrase),
-              List(purpose, coinType))
+              List(purpose, coinType)
+            )
           )
         )
       } yield res

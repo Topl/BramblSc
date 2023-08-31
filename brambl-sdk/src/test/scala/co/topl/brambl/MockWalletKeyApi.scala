@@ -29,14 +29,16 @@ object MockWalletKeyApi extends WalletKeyApiAlgebra[IO] with MockHelpers {
 
   override def getMainKeyVaultStore(
     name: String = "default"
-  ): IO[Either[WalletKeyException, VaultStore[Id]]] =
+  ): IO[Either[WalletKeyException, VaultStore[IO]]] =
     if (mainKeyVaultStoreInstance.getOrElse(name, Json.Null).isNull)
       IO.pure(Left(MainKeyVaultStoreNotInitialized))
     else
-      IO.pure(mainKeyVaultStoreInstance(name)
-        .as[VaultStore[Id]]
-        .left
-        .map(MainKeyVaultInvalid(_)))
+      IO.pure(
+        mainKeyVaultStoreInstance(name)
+          .as[VaultStore[IO]]
+          .left
+          .map(MainKeyVaultInvalid(_))
+      )
 
   override def updateMainKeyVaultStore(
     mainKeyVaultStore: VaultStore[IO],

@@ -19,7 +19,10 @@ import co.topl.brambl.validation.TransactionSyntaxError
 import co.topl.crypto.generation.Bip32Indexes
 import co.topl.crypto.signing.ExtendedEd25519
 import co.topl.quivr.api.Proposer
-import co.topl.quivr.runtime.QuivrRuntimeErrors.ValidationError.{EvaluationAuthorizationFailed, LockedPropositionIsUnsatisfiable}
+import co.topl.quivr.runtime.QuivrRuntimeErrors.ValidationError.{
+  EvaluationAuthorizationFailed,
+  LockedPropositionIsUnsatisfiable
+}
 import com.google.protobuf.ByteString
 import quivr.models.{Int128, KeyPair, Preimage, Proof, Proposition, VerificationKey}
 import co.topl.brambl.wallet.WalletApi.{cryptoToPbKeyPair, pbKeyPairToCryotoKeyPair}
@@ -51,7 +54,7 @@ class CredentiallerInterpreterSpec extends CatsEffectSuite with MockHelpers {
       for {
         // Secrets are not available for the updated Signature and Digest propositions
         testSignatureProposition <- Proposer.signatureProposer[F].propose(("invalid-routine", MockChildKeyPair.vk))
-        testDigestProposition <- Proposer.digestProposer[F].propose(("invalid-routine", MockDigest))
+        testDigestProposition    <- Proposer.digestProposer[F].propose(("invalid-routine", MockDigest))
         testTx <- {
           val testAttestation = Attestation().withPredicate(
             Attestation.Predicate(
@@ -85,7 +88,7 @@ class CredentiallerInterpreterSpec extends CatsEffectSuite with MockHelpers {
     assertIO(
       for {
         provenTx <- credentialler.prove(txFull)
-        errs <- credentialler.validate(provenTx, ctx)
+        errs     <- credentialler.validate(provenTx, ctx)
         // Although not all but propositions pass, threshold is met so authorization is successful
         // Transaction syntax is also valid
       } yield errs.length.isEmpty,
@@ -124,45 +127,44 @@ class CredentiallerInterpreterSpec extends CatsEffectSuite with MockHelpers {
     assertIO(
       errsWrapped.map(_.tail.head.asInstanceOf[AuthorizationFailed].errors.contains(LockedPropositionIsUnsatisfiable)),
       true,
-      s"AuthorizationFailed error expects errors Locked error. Received: ${errsWrapped.map(_.tail.head.asInstanceOf[AuthorizationFailed].errors)}"
+      s"AuthorizationFailed error expects errors Locked error. Received: ${errsWrapped
+          .map(_.tail.head.asInstanceOf[AuthorizationFailed].errors)}"
     )
     assertIO(
       for {
         provenAttestation <- provenTxWrapped.map(_.inputs.head.attestation.getPredicate)
-        errs <- errsWrapped
-      } yield {
-        errs.tail.head
-          .asInstanceOf[AuthorizationFailed]
-          .errors
-          // TODO: fix .getRevealed once implemented on the node
-          .contains(
-            EvaluationAuthorizationFailed(
-              provenAttestation.lock.challenges(3).getRevealed,
-              provenAttestation.responses(3)
-            )
+        errs              <- errsWrapped
+      } yield errs.tail.head
+        .asInstanceOf[AuthorizationFailed]
+        .errors
+        // TODO: fix .getRevealed once implemented on the node
+        .contains(
+          EvaluationAuthorizationFailed(
+            provenAttestation.lock.challenges(3).getRevealed,
+            provenAttestation.responses(3)
           )
-      },
+        ),
       true,
-      s"AuthorizationFailed error expects errors Height error. Received: ${errsWrapped.map(_.tail.head.asInstanceOf[AuthorizationFailed].errors)}"
+      s"AuthorizationFailed error expects errors Height error. Received: ${errsWrapped
+          .map(_.tail.head.asInstanceOf[AuthorizationFailed].errors)}"
     )
     assertIO(
       for {
         provenAttestation <- provenTxWrapped.map(_.inputs.head.attestation.getPredicate)
-        errs <- errsWrapped
-      } yield {
-        errs.tail.head
-          .asInstanceOf[AuthorizationFailed]
-          .errors
-          // TODO: fix .getRevealed once implemented on the node
-          .contains(
-            EvaluationAuthorizationFailed(
-              provenAttestation.lock.challenges(4).getRevealed,
-              provenAttestation.responses(4)
-            )
+        errs              <- errsWrapped
+      } yield errs.tail.head
+        .asInstanceOf[AuthorizationFailed]
+        .errors
+        // TODO: fix .getRevealed once implemented on the node
+        .contains(
+          EvaluationAuthorizationFailed(
+            provenAttestation.lock.challenges(4).getRevealed,
+            provenAttestation.responses(4)
           )
-      },
+        ),
       true,
-      s"AuthorizationFailed error expects errors Tick error. Received: ${errsWrapped.map(_.tail.head.asInstanceOf[AuthorizationFailed].errors)}"
+      s"AuthorizationFailed error expects errors Tick error. Received: ${errsWrapped
+          .map(_.tail.head.asInstanceOf[AuthorizationFailed].errors)}"
     )
   }
 
@@ -222,12 +224,16 @@ class CredentiallerInterpreterSpec extends CatsEffectSuite with MockHelpers {
   test("prove: Transaction with Threshold Proposition > Threshold Proof is correctly generated") {
     assertIO(
       for {
-        testProposition <- Proposer.thresholdProposer[F].propose((Set(MockTickProposition, MockHeightProposition), 2))
-        .map(Challenge().withRevealed(_))
+        testProposition <- Proposer
+          .thresholdProposer[F]
+          .propose((Set(MockTickProposition, MockHeightProposition), 2))
+          .map(Challenge().withRevealed(_))
         testTx = txFull.copy(inputs =
           List(
             inputFull.copy(attestation =
-              Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof())))
+              Attestation().withPredicate(
+                Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof()))
+              )
             )
           )
         )
@@ -238,7 +244,8 @@ class CredentiallerInterpreterSpec extends CatsEffectSuite with MockHelpers {
         val threshProof = provenPredicate.responses.head
         val validThreshold = (!threshProof.value.isEmpty) && (threshProof.value.isThreshold)
         val innerProofs = threshProof.value.threshold.get.responses
-        val validProofs = (innerProofs.length == 2) && (innerProofs.head.value.isTickRange) && (innerProofs(1).value.isHeightRange)
+        val validProofs =
+          (innerProofs.length == 2) && (innerProofs.head.value.isTickRange) && (innerProofs(1).value.isHeightRange)
         val validSignable = provenTx.signable.value == testTx.signable.value
         validLength && validThreshold && validProofs && validSignable
       },
@@ -249,11 +256,16 @@ class CredentiallerInterpreterSpec extends CatsEffectSuite with MockHelpers {
   test("prove: Transaction with And Proposition > And Proof is correctly generated") {
     assertIO(
       for {
-        testProposition <- Proposer.andProposer[F].propose((MockTickProposition, MockHeightProposition)).map(Challenge().withRevealed(_))
+        testProposition <- Proposer
+          .andProposer[F]
+          .propose((MockTickProposition, MockHeightProposition))
+          .map(Challenge().withRevealed(_))
         testTx = txFull.copy(inputs =
           List(
             inputFull.copy(attestation =
-              Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof())))
+              Attestation().withPredicate(
+                Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof()))
+              )
             )
           )
         )
@@ -262,7 +274,8 @@ class CredentiallerInterpreterSpec extends CatsEffectSuite with MockHelpers {
         val provenPredicate = provenTx.inputs.head.attestation.getPredicate
         val validLength = provenPredicate.responses.length == 1
         val andProof = provenPredicate.responses.head
-        val validAnd = (!andProof.value.isEmpty) && (andProof.value.isAnd) && (andProof.value.and.get.left.value.isTickRange) && (andProof.value.and.get.right.value.isHeightRange)
+        val validAnd =
+          (!andProof.value.isEmpty) && (andProof.value.isAnd) && (andProof.value.and.get.left.value.isTickRange) && (andProof.value.and.get.right.value.isHeightRange)
         val validSignable = provenTx.signable.value == testTx.signable.value
         validLength && validAnd && validSignable
       },
@@ -274,11 +287,16 @@ class CredentiallerInterpreterSpec extends CatsEffectSuite with MockHelpers {
   test("prove: Transaction with Or Proposition > Or Proof is correctly generated") {
     assertIO(
       for {
-        testProposition <- Proposer.orProposer[F].propose((MockTickProposition, MockHeightProposition)).map(Challenge().withRevealed(_))
+        testProposition <- Proposer
+          .orProposer[F]
+          .propose((MockTickProposition, MockHeightProposition))
+          .map(Challenge().withRevealed(_))
         testTx = txFull.copy(inputs =
           List(
             inputFull.copy(attestation =
-              Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof())))
+              Attestation().withPredicate(
+                Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof()))
+              )
             )
           )
         )
@@ -287,7 +305,8 @@ class CredentiallerInterpreterSpec extends CatsEffectSuite with MockHelpers {
         val provenPredicate = provenTx.inputs.head.attestation.getPredicate
         val validLength = provenPredicate.responses.length == 1
         val orProof = provenPredicate.responses.head
-        val validAnd = (!orProof.value.isEmpty) && (orProof.value.isOr) && (orProof.value.or.get.left.value.isTickRange) && (orProof.value.or.get.right.value.isHeightRange)
+        val validAnd =
+          (!orProof.value.isEmpty) && (orProof.value.isOr) && (orProof.value.or.get.left.value.isTickRange) && (orProof.value.or.get.right.value.isHeightRange)
         val validSignable = provenTx.signable.value == testTx.signable.value
         validLength && validAnd && validSignable
       },
@@ -302,7 +321,9 @@ class CredentiallerInterpreterSpec extends CatsEffectSuite with MockHelpers {
         testTx = txFull.copy(inputs =
           List(
             inputFull.copy(attestation =
-              Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof())))
+              Attestation().withPredicate(
+                Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof()))
+              )
             )
           )
         )
@@ -311,7 +332,8 @@ class CredentiallerInterpreterSpec extends CatsEffectSuite with MockHelpers {
         val provenPredicate = provenTx.inputs.head.attestation.getPredicate
         val validLength = provenPredicate.responses.length == 1
         val notProof = provenPredicate.responses.head
-        val validAnd = (!notProof.value.isEmpty) && (notProof.value.isNot) && (notProof.value.not.get.proof.value.isTickRange)
+        val validAnd =
+          (!notProof.value.isEmpty) && (notProof.value.isNot) && (notProof.value.not.get.proof.value.isTickRange)
         val validSignable = provenTx.signable.value == testTx.signable.value
         validLength && validAnd && validSignable
       },
@@ -322,16 +344,23 @@ class CredentiallerInterpreterSpec extends CatsEffectSuite with MockHelpers {
   test("proveAndValidate: Transaction with Threshold Proposition > Unmet Threshold fails validation") {
     assertIO(
       for {
-        testProposition <- Proposer.thresholdProposer[F].propose(Set(MockTickProposition, MockHeightProposition), 2).map(Challenge().withRevealed(_))
+        testProposition <- Proposer
+          .thresholdProposer[F]
+          .propose(Set(MockTickProposition, MockHeightProposition), 2)
+          .map(Challenge().withRevealed(_))
         testTx = txFull.copy(inputs =
           List(
             inputFull.copy(attestation =
-              Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof())))
+              Attestation().withPredicate(
+                Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof()))
+              )
             )
           )
         )
         ctx = Context[F](testTx, 50, _ => None) // Tick should pass, height should fail
-        provenTx <- CredentiallerInterpreter.make[F](walletApi, MockWalletStateApi, MockMainKeyPair).proveAndValidate(testTx, ctx)
+        provenTx <- CredentiallerInterpreter
+          .make[F](walletApi, MockWalletStateApi, MockMainKeyPair)
+          .proveAndValidate(testTx, ctx)
       } yield {
         val validationErrs = provenTx.swap.getOrElse(List.empty)
         val validLength = validationErrs.length == 1
@@ -339,7 +368,11 @@ class CredentiallerInterpreterSpec extends CatsEffectSuite with MockHelpers {
         val quivrErrs = validationErrs.head.asInstanceOf[AuthorizationFailed].errors
         val validQuivrErrs = (quivrErrs.length == 1) && (quivrErrs.head.isInstanceOf[EvaluationAuthorizationFailed])
         val err = quivrErrs.head.asInstanceOf[EvaluationAuthorizationFailed]
-        val validThreshold = (err.proposition == testProposition.getRevealed) && (err.proof.value.isThreshold) && (err.proof.value.threshold.get.responses.head.value.isTickRange) && (err.proof.value.threshold.get.responses(1).value.isHeightRange)
+        val validThreshold =
+          (err.proposition == testProposition.getRevealed) && (err.proof.value.isThreshold) && (err.proof.value.threshold.get.responses.head.value.isTickRange) && (err.proof.value.threshold.get
+            .responses(1)
+            .value
+            .isHeightRange)
         validLength && validQuivrErrs && validThreshold
       },
       true
@@ -349,16 +382,23 @@ class CredentiallerInterpreterSpec extends CatsEffectSuite with MockHelpers {
   test("proveAndValidate: Transaction with And Proposition > If one inner proof fails, the And proof fails") {
     assertIO(
       for {
-        testProposition <- Proposer.andProposer[F].propose((MockTickProposition, MockHeightProposition)).map(Challenge().withRevealed(_))
+        testProposition <- Proposer
+          .andProposer[F]
+          .propose((MockTickProposition, MockHeightProposition))
+          .map(Challenge().withRevealed(_))
         testTx = txFull.copy(inputs =
           List(
             inputFull.copy(attestation =
-              Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof())))
+              Attestation().withPredicate(
+                Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof()))
+              )
             )
           )
         )
         ctx = Context[F](testTx, 50, _ => None) // Tick should pass, height should fail
-        provenTx <- CredentiallerInterpreter.make[F](walletApi, MockWalletStateApi, MockMainKeyPair).proveAndValidate(testTx, ctx)
+        provenTx <- CredentiallerInterpreter
+          .make[F](walletApi, MockWalletStateApi, MockMainKeyPair)
+          .proveAndValidate(testTx, ctx)
       } yield {
         val validationErrs = provenTx.swap.getOrElse(List.empty)
         val validLength = validationErrs.length == 1
@@ -376,23 +416,31 @@ class CredentiallerInterpreterSpec extends CatsEffectSuite with MockHelpers {
   test("proveAndValidate: Transaction with Or Proposition > If both inner proofs fail, the Or proof fails") {
     assertIO(
       for {
-        testProposition <- Proposer.orProposer[F].propose((MockTickProposition, MockHeightProposition)).map(Challenge().withRevealed(_))
+        testProposition <- Proposer
+          .orProposer[F]
+          .propose((MockTickProposition, MockHeightProposition))
+          .map(Challenge().withRevealed(_))
         testTx = txFull.copy(inputs =
           List(
             inputFull.copy(attestation =
-              Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof())))
+              Attestation().withPredicate(
+                Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof()))
+              )
             )
           )
         )
         ctx = Context[F](testTx, 500, _ => None) // Tick and height should fail
-        provenTx <- CredentiallerInterpreter.make[F](walletApi, MockWalletStateApi, MockMainKeyPair).proveAndValidate(testTx, ctx)
+        provenTx <- CredentiallerInterpreter
+          .make[F](walletApi, MockWalletStateApi, MockMainKeyPair)
+          .proveAndValidate(testTx, ctx)
       } yield {
         val validationErrs = provenTx.swap.getOrElse(List.empty)
         val validLength = validationErrs.length == 1
         val quivrErrs = validationErrs.head.asInstanceOf[AuthorizationFailed].errors
         val validQuivrErrs = (quivrErrs.length == 1) && (quivrErrs.head.isInstanceOf[EvaluationAuthorizationFailed])
         val err = quivrErrs.head.asInstanceOf[EvaluationAuthorizationFailed]
-        val validOr = (err.proposition == testProposition.getRevealed) && (err.proof.value.isOr) && (err.proof.value.or.get.left.value.isTickRange) && (err.proof.value.or.get.right.value.isHeightRange)
+        val validOr =
+          (err.proposition == testProposition.getRevealed) && (err.proof.value.isOr) && (err.proof.value.or.get.left.value.isTickRange) && (err.proof.value.or.get.right.value.isHeightRange)
         validLength && validQuivrErrs && validOr
       },
       true
@@ -406,19 +454,24 @@ class CredentiallerInterpreterSpec extends CatsEffectSuite with MockHelpers {
         testTx = txFull.copy(inputs =
           List(
             inputFull.copy(attestation =
-              Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof())))
+              Attestation().withPredicate(
+                Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof()))
+              )
             )
           )
         )
         ctx = Context[F](testTx, 50, _ => None) // Tick should pass
-        provenTx <- CredentiallerInterpreter.make[F](walletApi, MockWalletStateApi, MockMainKeyPair).proveAndValidate(testTx, ctx)
+        provenTx <- CredentiallerInterpreter
+          .make[F](walletApi, MockWalletStateApi, MockMainKeyPair)
+          .proveAndValidate(testTx, ctx)
       } yield {
         val validationErrs = provenTx.swap.getOrElse(List.empty)
         val validLength = validationErrs.length == 1
         val quivrErrs = validationErrs.head.asInstanceOf[AuthorizationFailed].errors
         val validQuivrErrs = (quivrErrs.length == 1) && (quivrErrs.head.isInstanceOf[EvaluationAuthorizationFailed])
         val err = quivrErrs.head.asInstanceOf[EvaluationAuthorizationFailed]
-        val validOr = (err.proposition == testProposition.getRevealed) && (err.proof.value.isNot) && (err.proof.value.not.get.proof.value.isTickRange)
+        val validOr =
+          (err.proposition == testProposition.getRevealed) && (err.proof.value.isNot) && (err.proof.value.not.get.proof.value.isTickRange)
         validLength && validQuivrErrs && validOr
       },
       true
@@ -428,23 +481,34 @@ class CredentiallerInterpreterSpec extends CatsEffectSuite with MockHelpers {
   test("proveAndValidate: Transaction with Threshold Proposition > Threshold met passes validation") {
     assertIO(
       for {
-        testProposition <- Proposer.thresholdProposer[F].propose(Set(MockTickProposition, MockHeightProposition), 2).map(Challenge().withRevealed(_))
+        testProposition <- Proposer
+          .thresholdProposer[F]
+          .propose(Set(MockTickProposition, MockHeightProposition), 2)
+          .map(Challenge().withRevealed(_))
         testTx = txFull.copy(inputs =
           List(
             inputFull.copy(attestation =
-              Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof())))
+              Attestation().withPredicate(
+                Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof()))
+              )
             )
           )
         )
         // Both Tick and Height should pass
         ctx = Context[F](testTx, 50, Map("header" -> Datum().withHeader(Datum.Header(Event.Header(50)))).lift)
-        res <- CredentiallerInterpreter.make[F](walletApi, MockWalletStateApi, MockMainKeyPair).proveAndValidate(testTx, ctx)
+        res <- CredentiallerInterpreter
+          .make[F](walletApi, MockWalletStateApi, MockMainKeyPair)
+          .proveAndValidate(testTx, ctx)
       } yield {
         val provenTx: IoTransaction = res.toOption.get
         val provenPredicate = provenTx.inputs.head.attestation.getPredicate
         val validLength = provenPredicate.responses.length == 1
         val threshProof = provenPredicate.responses.head
-        val validThreshold = (!threshProof.value.isEmpty) && (threshProof.value.isThreshold) && (threshProof.value.threshold.get.responses.head.value.isTickRange) && (threshProof.value.threshold.get.responses(1).value.isHeightRange)
+        val validThreshold =
+          (!threshProof.value.isEmpty) && (threshProof.value.isThreshold) && (threshProof.value.threshold.get.responses.head.value.isTickRange) && (threshProof.value.threshold.get
+            .responses(1)
+            .value
+            .isHeightRange)
         val validSignable = provenTx.signable.value == testTx.signable.value
         validLength && validThreshold && validSignable
       },
@@ -455,23 +519,31 @@ class CredentiallerInterpreterSpec extends CatsEffectSuite with MockHelpers {
   test("proveAndValidate: Transaction with And Proposition > If both inner proofs pass, the And proof passes") {
     assertIO(
       for {
-        testProposition <- Proposer.andProposer[F].propose((MockTickProposition, MockHeightProposition)).map(Challenge().withRevealed(_))
+        testProposition <- Proposer
+          .andProposer[F]
+          .propose((MockTickProposition, MockHeightProposition))
+          .map(Challenge().withRevealed(_))
         testTx = txFull.copy(inputs =
           List(
             inputFull.copy(attestation =
-              Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof())))
+              Attestation().withPredicate(
+                Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof()))
+              )
             )
           )
         )
         // Both Tick and Height should pass
         ctx = Context[F](testTx, 50, Map("header" -> Datum().withHeader(Datum.Header(Event.Header(50)))).lift)
-        res <- CredentiallerInterpreter.make[F](walletApi, MockWalletStateApi, MockMainKeyPair).proveAndValidate(testTx, ctx)
+        res <- CredentiallerInterpreter
+          .make[F](walletApi, MockWalletStateApi, MockMainKeyPair)
+          .proveAndValidate(testTx, ctx)
       } yield {
         val provenTx: IoTransaction = res.toOption.get
         val provenPredicate = provenTx.inputs.head.attestation.getPredicate
         val validLength = provenPredicate.responses.length == 1
         val andProof = provenPredicate.responses.head
-        val validAnd = (!andProof.value.isEmpty) && (andProof.value.isAnd) && (andProof.value.and.get.left.value.isTickRange) && (andProof.value.and.get.left.value.isHeightRange)
+        val validAnd =
+          (!andProof.value.isEmpty) && (andProof.value.isAnd) && (andProof.value.and.get.left.value.isTickRange) && (andProof.value.and.get.right.value.isHeightRange)
         val validSignable = provenTx.signable.value == testTx.signable.value
         validLength && validAnd && validSignable
       },
@@ -482,22 +554,30 @@ class CredentiallerInterpreterSpec extends CatsEffectSuite with MockHelpers {
   test("proveAndValidate: Transaction with Or Proposition > If only one inner proof passes, the Or proof passes") {
     assertIO(
       for {
-        testProposition <- Proposer.orProposer[F].propose((MockTickProposition, MockHeightProposition)).map(Challenge().withRevealed(_))
+        testProposition <- Proposer
+          .orProposer[F]
+          .propose((MockTickProposition, MockHeightProposition))
+          .map(Challenge().withRevealed(_))
         testTx = txFull.copy(inputs =
           List(
             inputFull.copy(attestation =
-              Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof())))
+              Attestation().withPredicate(
+                Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof()))
+              )
             )
           )
         )
-        val ctx = Context[F](testTx, 50, _ => None) // Tick should pass, height should fail
-        res <- CredentiallerInterpreter.make[F](walletApi, MockWalletStateApi, MockMainKeyPair).proveAndValidate(testTx, ctx)
+        ctx = Context[F](testTx, 50, _ => None) // Tick should pass, height should fail
+        res <- CredentiallerInterpreter
+          .make[F](walletApi, MockWalletStateApi, MockMainKeyPair)
+          .proveAndValidate(testTx, ctx)
       } yield {
         val provenTx: IoTransaction = res.toOption.get
         val provenPredicate = provenTx.inputs.head.attestation.getPredicate
         val validLength = provenPredicate.responses.length == 1
         val orProof = provenPredicate.responses.head
-        val validOr = (!orProof.value.isEmpty) && (orProof.value.isOr) && (orProof.value.and.get.left.value.isTickRange) && (orProof.value.and.get.left.value.isHeightRange)
+        val validOr =
+          (!orProof.value.isEmpty) && (orProof.value.isOr) && (orProof.value.or.get.left.value.isTickRange) && (orProof.value.or.get.right.value.isHeightRange)
         val validSignable = provenTx.signable.value == testTx.signable.value
         validLength && validOr && validSignable
       },
@@ -513,18 +593,23 @@ class CredentiallerInterpreterSpec extends CatsEffectSuite with MockHelpers {
         testTx = txFull.copy(inputs =
           List(
             inputFull.copy(attestation =
-              Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof())))
+              Attestation().withPredicate(
+                Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof()))
+              )
             )
           )
         )
         ctx = Context[F](testTx, 50, _ => None)
-        res <- CredentiallerInterpreter.make[F](walletApi, MockWalletStateApi, MockMainKeyPair).proveAndValidate(testTx, ctx)
+        res <- CredentiallerInterpreter
+          .make[F](walletApi, MockWalletStateApi, MockMainKeyPair)
+          .proveAndValidate(testTx, ctx)
       } yield {
         val provenTx: IoTransaction = res.toOption.get
         val provenPredicate = provenTx.inputs.head.attestation.getPredicate
         val validLength = provenPredicate.responses.length == 1
         val notProof = provenPredicate.responses.head
-        val validNot = (!notProof.value.isEmpty) && (notProof.value.isNot) && (notProof.value.not.get.proof.value.isLocked)
+        val validNot =
+          (!notProof.value.isEmpty) && (notProof.value.isNot) && (notProof.value.not.get.proof.value.isLocked)
         val validSignable = provenTx.signable.value == testTx.signable.value
         validLength && validNot && validSignable
       },
@@ -541,18 +626,23 @@ class CredentiallerInterpreterSpec extends CatsEffectSuite with MockHelpers {
         testTx = txFull.copy(inputs =
           List(
             inputFull.copy(attestation =
-              Attestation().withPredicate(Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof())))
+              Attestation().withPredicate(
+                Attestation.Predicate(Lock.Predicate(List(testProposition), 1), List(Proof()))
+              )
             )
           )
         )
         ctx = Context[F](testTx, 500, _ => None) // Tick should fail
-        res <- CredentiallerInterpreter.make[F](walletApi, MockWalletStateApi, MockMainKeyPair).proveAndValidate(testTx, ctx)
+        res <- CredentiallerInterpreter
+          .make[F](walletApi, MockWalletStateApi, MockMainKeyPair)
+          .proveAndValidate(testTx, ctx)
       } yield {
         val provenTx: IoTransaction = res.toOption.get
         val provenPredicate = provenTx.inputs.head.attestation.getPredicate
         val validLength = provenPredicate.responses.length == 1
         val notProof = provenPredicate.responses.head
-        val validNot = (!notProof.value.isEmpty) && (notProof.value.isNot) && (notProof.value.not.get.proof.value.isTickRange)
+        val validNot =
+          (!notProof.value.isEmpty) && (notProof.value.isNot) && (notProof.value.not.get.proof.value.isTickRange)
         val validSignable = provenTx.signable.value == testTx.signable.value
         validLength && validNot && validSignable
       },
@@ -565,9 +655,10 @@ class CredentiallerInterpreterSpec extends CatsEffectSuite with MockHelpers {
   ) {
     val aliceSignatureProposition = MockSignatureProposition
     val aliceMainKey = MockMainKeyPair
-    val bobMainKey: KeyPair = (new ExtendedEd25519).deriveKeyPairFromSeed(Random.nextBytes(96))
+    val edInstance = new ExtendedEd25519
+    val bobMainKey: KeyPair = edInstance.deriveKeyPairFromSeed(Random.nextBytes(96))
     val bobIndices = Indices(8, 9, 10)
-    val bobChildKey: KeyPair = (new ExtendedEd25519).deriveKeyPairFromChildPath(
+    val bobChildKey: KeyPair = edInstance.deriveKeyPairFromChildPath(
       pbKeyPairToCryotoKeyPair(bobMainKey).signingKey,
       List(
         Bip32Indexes.HardenedIndex(bobIndices.x),
@@ -624,7 +715,7 @@ class CredentiallerInterpreterSpec extends CatsEffectSuite with MockHelpers {
     assertIO(
       for {
         andProp <- Proposer.andProposer[F].propose((MockTickProposition, aliceSignatureProposition))
-        orProp <- Proposer.orProposer[F].propose((MockDigestProposition, MockLockedProposition))
+        orProp  <- Proposer.orProposer[F].propose((MockDigestProposition, MockLockedProposition))
         notProp <- Proposer.notProposer[F].propose(MockHeightProposition)
         innerPropositions = List(andProp, orProp, notProp)
         bobProp <- bobSignatureProposition
@@ -650,7 +741,7 @@ class CredentiallerInterpreterSpec extends CatsEffectSuite with MockHelpers {
         ctx = Context[F](testTx, 50, _ => None) // Tick should pass, height should fail
         partiallyProven <- credentialler1.prove(testTx) // should create a partially proven tx
         // Should not be validated since not sufficiently proven
-        res1 <- credentialler1.validate(partiallyProven, ctx)
+        res1             <- credentialler1.validate(partiallyProven, ctx)
         completelyProven <- credentialler2.prove(partiallyProven) // should create a completely proven tx
         // Should be validated since sufficiently proven
         res2 <- credentialler2.validate(completelyProven, ctx)

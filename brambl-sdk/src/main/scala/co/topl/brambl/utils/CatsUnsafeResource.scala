@@ -1,17 +1,12 @@
 package co.topl.brambl.utils
 
-
-import cats.Id
 import cats.data.OptionT
 import cats.effect.Async
 import cats.effect.Resource
 import cats.effect.Sync
 import cats.effect.std.Queue
 import cats.implicits._
-import cats.{Applicative, Monad}
 import cats.implicits.{toFlatMapOps, toFunctorOps}
-import cats.implicits.catsSyntaxApplicativeId
-
 
 /**
  * Manages thread-unsafe resources in a thread-safe manner by utilizing a cats-effect queue. Inactive resources
