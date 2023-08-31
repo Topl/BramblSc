@@ -161,31 +161,17 @@ object TransactionSyntaxInterpreter {
       f { case Value.Value.Lvl(v) => BigInt(v.quantity.value.toByteArray) },
       f { case Value.Value.Topl(v) => BigInt(v.quantity.value.toByteArray) },
       // Extract all Asset values and their quantities
-      f { case Value.Value.Asset(Value.Asset(_, Int128(q, _), _, _)) => BigInt(q.toByteArray) },
-      f { case Value.Value.Group(Value.Group(_, Int128(q, _), _, _)) => BigInt(q.toByteArray) },
-      f { case Value.Value.Series(Value.Series(_, Int128(q, _), _, _, _, _)) => BigInt(q.toByteArray) }
+      f { case Value.Value.Asset(Value.Asset(_, Int128(q, _), _, _)) => BigInt(q.toByteArray) }
     ).appendChain(
       // Extract all Asset values (grouped by asset label) and their quantities
       Chain.fromSeq(
         (transaction.inputs.map(_.value.value) ++ transaction.outputs.map(_.value.value))
-          .collect {
-            case Value.Value.Asset(Value.Asset(label, _, _, _))            => label
-            case Value.Value.Group(Value.Group(groupId, _, _, _))          => groupId.value.toStringUtf8
-            case Value.Value.Series(Value.Series(seriesId, _, _, _, _, _)) => seriesId.value.toStringUtf8
-
-          }
+          .collect { case Value.Value.Asset(Value.Asset(label, _, _, _)) => label }
           .toList
           .distinct
           .map(code =>
             f {
               case Value.Value.Asset(Value.Asset(label, Int128(q, _), _, _)) if label === code =>
-                BigInt(q.toByteArray)
-
-              case Value.Value.Group(Value.Group(groupId, Int128(q, _), _, _)) if groupId.value.toStringUtf8 === code =>
-                BigInt(q.toByteArray)
-
-              case Value.Value.Series(Value.Series(seriesId, Int128(q, _), _, _, _, _))
-                  if seriesId.value.toStringUtf8 === code =>
                 BigInt(q.toByteArray)
             }
           )

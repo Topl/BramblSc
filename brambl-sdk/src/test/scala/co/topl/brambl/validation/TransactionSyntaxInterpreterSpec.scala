@@ -105,41 +105,6 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
         Value.Asset("label", Int128(ByteString.copyFrom(BigInt(101).toByteArray)), SmallData())
       )
 
-    val groupPolicy = Event.GroupPolicy(label = "groupLabel", registrationUtxo = dummyTxoAddress)
-
-    val groupValueIn: Value =
-      Value.defaultInstance.withGroup(
-        Value.Group(
-          groupId = groupPolicy.computeId,
-          quantity = Int128(ByteString.copyFrom(BigInt(100).toByteArray))
-        )
-      )
-
-    val groupValueOut: Value =
-      Value.defaultInstance.withGroup(
-        Value.Group(
-          groupId = groupPolicy.computeId,
-          quantity = Int128(ByteString.copyFrom(BigInt(101).toByteArray))
-        )
-      )
-
-    val seriesPolicy = Event.SeriesPolicy(label = "groupLabel", registrationUtxo = dummyTxoAddress)
-    val seriesValueIn: Value =
-      Value.defaultInstance.withSeries(
-        Value.Series(
-          seriesId = seriesPolicy.computeId,
-          quantity = Int128(ByteString.copyFrom(BigInt(100).toByteArray))
-        )
-      )
-
-    val seriesValueOut: Value =
-      Value.defaultInstance.withSeries(
-        Value.Series(
-          seriesId = seriesPolicy.computeId,
-          quantity = Int128(ByteString.copyFrom(BigInt(101).toByteArray))
-        )
-      )
-
     def testTx(inputValue: Value, outputValue: Value) = TransactionSyntaxInterpreter
       .make[Id]()
       .validate(
@@ -156,9 +121,7 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
 
     val result = List(
       testTx(tokenValueIn, tokenValueOut), // Token Test
-      testTx(assetValueIn, assetValueOut), // Asset Test
-      testTx(groupValueIn, groupValueOut), // Group Test
-      testTx(seriesValueIn, seriesValueOut) // Series Test
+      testTx(assetValueIn, assetValueOut) // Asset Test
     ).forall(identity)
     assertEquals(result, true)
   }
