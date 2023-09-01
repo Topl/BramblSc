@@ -291,7 +291,7 @@ object WalletApi {
    * @param walletKeyApi The Api to use to handle wallet key persistence
    * @return A new WalletAPI instance
    */
-  def make[F[_]: Monad: Async](walletKeyApi: WalletKeyApiAlgebra[F]): WalletApi[F] = new WalletApi[F] {
+  def make[F[_]: Async](walletKeyApi: WalletKeyApiAlgebra[F]): WalletApi[F] = new WalletApi[F] {
     final val Purpose = 1852
     final val CoinType = 7091
     val kdf: Kdf[F] = SCrypt.make[F](SCrypt.SCryptParams(SCrypt.generateSalt))
