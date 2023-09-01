@@ -1,6 +1,7 @@
 package co.topl.brambl
 
 import cats.Id
+import cats.effect.IO
 import cats.implicits.catsSyntaxOptionId
 import co.topl.brambl.builders.locks.LockTemplate.PredicateTemplate
 import co.topl.brambl.builders.locks.PropositionTemplate.{
@@ -52,6 +53,8 @@ import io.circe.Json
 import org.bouncycastle.util.Strings
 
 trait MockHelpers {
+  type F[A] = IO[A]
+
   val fakeMsgBind: SignableBytes = "transaction binding".getBytes.immutable.signable
 
   val MockIndices: Indices = Indices(0, 0, 0)
