@@ -2,7 +2,7 @@ package co.topl.brambl.builders
 
 import cats.Monad
 import co.topl.brambl.codecs.AddressCodecs
-import co.topl.brambl.models.{Datum, Event, LockAddress, LockId}
+import co.topl.brambl.models.{Datum, Event, GroupId, LockAddress, LockId, TransactionOutputAddress}
 import co.topl.brambl.models.box.{Attestation, Lock, Value}
 import co.topl.brambl.models.transaction.{IoTransaction, Schedule, SpentTransactionOutput, UnspentTransactionOutput}
 import co.topl.genus.services.Txo
@@ -11,6 +11,10 @@ import quivr.models.{Int128, Proof, SmallData}
 import co.topl.brambl.common.ContainsEvidence.Ops
 import co.topl.brambl.common.ContainsImmutable.instances._
 import cats.implicits._
+import co.topl.brambl.builders.TransactionBuilderApi.implicits.lockAddressOps
+import co.topl.brambl.dataApi.{BifrostQueryAlgebra, WalletStateAlgebra}
+import co.topl.brambl.models.Event.GroupPolicy
+import co.topl.brambl.syntax.groupPolicyAsGroupPolicySyntaxOps
 
 /**
  * Defines a builder for [[IoTransaction]]s
@@ -149,6 +153,51 @@ object TransactionBuilderApi {
           )
           .withDatum(datum)
       } yield ioTransaction
+
+      private def buildSimpleGroupMintingTransaction(
+        walletApi:   WalletStateAlgebra[F],
+        bifrostRpc:  BifrostQueryAlgebra[F],
+        groupPolicy: GroupPolicy,
+        lock:        Lock,
+        quantity:    Int128
+      ): F[IoTransaction] = {
+        val groupId = groupPolicy.computeId
+        for {
+          stxo  <- buildRegistrationStxo(walletApi, bifrostRpc, groupPolicy.registrationUtxo)
+          utxo  <- groupOutput(lock, quantity, groupId)
+          datum <- datum()
+        } yield IoTransaction(
+          inputs = Seq(stxo),
+          outputs = Seq(utxo),
+          datum = datum,
+          groupPolicies = Seq(Datum.GroupPolicy(groupPolicy))
+        )
+      }
+
+      private def buildRegistrationStxo(
+        walletApi:        WalletStateAlgebra[F],
+        bifrostRpc:       BifrostQueryAlgebra[F],
+        registrationUtxo: TransactionOutputAddress
+      ): F[SpentTransactionOutput] =
+        for {
+          // TODO: Handle .get with an error or with an option
+          tx <- bifrostRpc.fetchTransaction(registrationUtxo.id).map(_.get)
+          // TODO: Handle .get with an error or with an option
+          utxo = tx.outputs.get(registrationUtxo.index).get
+          // TODO: handle head
+          lockPredicate <- walletApi.getLockByAddress(utxo.address.toBase58()).map(_.head)
+          attestation   <- unprovenAttestation(lockPredicate)
+        } yield SpentTransactionOutput(address = registrationUtxo, attestation = attestation, value = utxo.value)
+
+      private def groupOutput(lock: Lock, quantity: Int128, groupId: GroupId): F[UnspentTransactionOutput] =
+        UnspentTransactionOutput(
+          LockAddress(
+            networkId,
+            ledgerId,
+            LockId(lock.sizedEvidence.digest.value)
+          ),
+          Value.defaultInstance.withGroup(Value.Group(groupId = groupId, quantity = quantity))
+        ).pure[F]
 
       override def lvlOutput(
         lockAddress: LockAddress,

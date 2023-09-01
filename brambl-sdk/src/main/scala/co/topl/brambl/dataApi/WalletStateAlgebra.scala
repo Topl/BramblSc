@@ -105,6 +105,15 @@ trait WalletStateAlgebra[F[_]] {
   def getLockByIndex(indices: Indices): F[Option[Lock.Predicate]]
 
   /**
+   * Get the lock predicate associated to the given lockAddress.
+   * For a given (network, ledger) pair (as specified in a lockAddress), there should be at most 1 corresponding lock predicate.
+   *
+   * @param lockAddress The lockAddress for which we are retrieving the lock for
+   * @return A list of lock predicates associated to the lockAddress.
+   */
+  def getLockByAddress(lockAddress: String): F[List[Lock.Predicate]]
+
+  /**
    * Get the lock address associated to the given party, contract and optional state
    *
    * @param party   A String label of the party to get the lock address for
