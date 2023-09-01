@@ -83,7 +83,7 @@ object WalletStateApi {
           )
           _              <- Sync[F].delay(rs.next())
           lock_predicate <- Sync[F].delay(rs.getString("lock_predicate"))
-        } yield Some(
+        } yield List(
           Lock.Predicate.parseFrom(
             Encoding.decodeFromBase58Check(lock_predicate).toOption.get
           )

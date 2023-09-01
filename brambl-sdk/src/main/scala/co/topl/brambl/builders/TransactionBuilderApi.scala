@@ -184,8 +184,8 @@ object TransactionBuilderApi {
           tx <- bifrostRpc.fetchTransaction(registrationUtxo.id).map(_.get)
           // TODO: Handle .get with an error or with an option
           utxo = tx.outputs.get(registrationUtxo.index).get
-          // TODO: handle head
-          lockPredicate <- walletApi.getLockByAddress(utxo.address.toBase58()).map(_.head)
+          // TODO: handle .get with an error or with an option
+          lockPredicate <- walletApi.getLockByAddress(utxo.address.toBase58()).map(_.get)
           attestation   <- unprovenAttestation(lockPredicate)
         } yield SpentTransactionOutput(address = registrationUtxo, attestation = attestation, value = utxo.value)
 
