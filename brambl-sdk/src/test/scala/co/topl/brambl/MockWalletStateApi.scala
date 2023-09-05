@@ -3,6 +3,7 @@ package co.topl.brambl
 import cats.Id
 import cats.data.ValidatedNel
 import cats.effect.IO
+import co.topl.brambl.builders.TransactionBuilderApi.implicits.lockAddressOps
 import co.topl.brambl.builders.locks.LockTemplate
 import co.topl.brambl.common.ContainsEvidence.Ops
 import co.topl.brambl.common.ContainsImmutable.instances._
@@ -24,11 +25,18 @@ object MockWalletStateApi extends WalletStateAlgebra[IO] with MockHelpers {
     MockDigestProposition.value.digest.get.sizedEvidence -> MockPreimage
   )
 
+  val lockAddressToLock: Map[String, Lock.Predicate] = Map(
+    trivialLockAddress.toBase58() -> trivialOutLock.getPredicate
+  )
+
   override def getIndicesBySignature(signatureProposition: Proposition.DigitalSignature): F[Option[Indices]] =
     IO.pure(propEvidenceToIdx.get(signatureProposition.sizedEvidence))
 
   override def getPreimage(digestProposition: Proposition.Digest): F[Option[Preimage]] =
     IO.pure(propEvidenceToPreimage.get(digestProposition.sizedEvidence))
+
+  override def getLockByAddress(lockAddress: String): F[Option[Lock.Predicate]] =
+    IO.pure(lockAddressToLock.get(lockAddress))
 
   // The following are not implemented since they are not used in the tests
   override def initWalletState(networkId: Int, ledgerId: Int, vk: VerificationKey): F[Unit] = ???
@@ -67,6 +75,4 @@ object MockWalletStateApi extends WalletStateAlgebra[IO] with MockHelpers {
   override def getLockTemplate(contract: String): F[Option[LockTemplate[F]]] = ???
 
   override def getLock(party: String, contract: String, nextState: Int): F[Option[Lock]] = ???
-
-  override def getLockByAddress(lockAddress: String): IO[Option[Lock.Predicate]] = ???
 }

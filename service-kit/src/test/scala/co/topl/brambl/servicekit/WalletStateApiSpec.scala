@@ -145,6 +145,10 @@ class WalletStateApiSpec extends CatsEffectSuite with BaseSpec {
     )
   }
 
+  testDirectory.test("getLockByAddress") { _ =>
+    ???
+  }
+
   testDirectory.test("getNextIndicesForFunds") { _ =>
     assertIO(
       for {
