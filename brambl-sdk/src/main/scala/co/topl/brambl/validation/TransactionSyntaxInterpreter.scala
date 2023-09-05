@@ -275,14 +275,11 @@ object TransactionSyntaxInterpreter {
     val groupRegistrationsUtxo = transaction.groupPolicies.map(_.event.registrationUtxo)
     val seriesRegistrationsUtxo = transaction.seriesPolicies.map(_.event.registrationUtxo)
     val registrationsUtxo = groupRegistrationsUtxo ++ seriesRegistrationsUtxo
-    val consumedQuantity =
-      (groupConstructorTokens.map(_.quantity.value.toByteArray).map(BigInt(_)) ++
-        seriesConstructorTokens.map(_.quantity.value.toByteArray).map(BigInt(_))).sum
 
     val groupIdsOnPolicies = transaction.groupPolicies.map(_.event.computeId)
     val seriesIdsOnPolicies = transaction.seriesPolicies.map(_.event.computeId)
 
-    def utxoIsPresent(addresses: Seq[TransactionOutputAddress]) =
+    def utxoIsPresent(addresses: Seq[TransactionOutputAddress], consumedQuantity: BigInt) =
       transaction.inputs.exists(spentTxOutput =>
         (addresses.isEmpty || addresses.contains(spentTxOutput.address)) &&
         spentTxOutput.value.value.isLvl &&
@@ -291,7 +288,14 @@ object TransactionSyntaxInterpreter {
 
     val validations =
       (groupConstructorTokens.isEmpty && seriesConstructorTokens.isEmpty) ||
-      utxoIsPresent(registrationsUtxo) &&
+      utxoIsPresent(
+        groupRegistrationsUtxo,
+        groupConstructorTokens.map(_.quantity.value.toByteArray).map(BigInt(_)).sum
+      ) &&
+      utxoIsPresent(
+        seriesRegistrationsUtxo,
+        seriesConstructorTokens.map(_.quantity.value.toByteArray).map(BigInt(_)).sum
+      ) &&
       groupConstructorTokens.map(_.groupId).forall(groupIdsOnPolicies.contains) &&
       seriesConstructorTokens.map(_.seriesId).forall(seriesIdsOnPolicies.contains) &&
       registrationsUtxo.size == registrationsUtxo.toSet.size
