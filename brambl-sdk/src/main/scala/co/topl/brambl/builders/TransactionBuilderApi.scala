@@ -1,6 +1,7 @@
 package co.topl.brambl.builders
 
 import cats.Monad
+import cats.data.EitherT
 import co.topl.brambl.codecs.AddressCodecs
 import co.topl.brambl.models.{Datum, Event, GroupId, LockAddress, LockId, TransactionOutputAddress}
 import co.topl.brambl.models.box.{Attestation, Lock, Value}
@@ -80,6 +81,27 @@ trait TransactionBuilderApi[F[_]] {
     recipientLockAddress:   LockAddress,
     amount:                 Long
   ): F[IoTransaction]
+
+  /**
+   * Builds a simple transaction to mint Group Constructor tokens
+   *
+   * @param walletStateApi API for retrieving wallet state
+   * @param bifrostRpc API for interacting with a blockchain node
+   * @param groupPolicy The group policy for which we are minting constructor tokens.
+   *                    This group policy specifies a registrationUtxo to be used as an input in this transaction. If
+   *                    retrieving the data of this UTXO fails (unable to fetch UTXO from the node or unable to retrieve
+   *                    its Lock from the wallet), an error will be returned.
+   * @param lock A Lock to encumber the newly minted constructor tokens
+   * @param quantity The quantity of constructor tokens to mint
+   * @return An unproven Group Constructor minting transaction if possible. Else, an error
+   */
+  def buildSimpleGroupMintingTransaction(
+    walletStateApi: WalletStateAlgebra[F],
+    bifrostRpc:     BifrostQueryAlgebra[F],
+    groupPolicy:    GroupPolicy,
+    lock:           Lock,
+    quantity:       Int128
+  ): F[Either[BuilderError, IoTransaction]]
 }
 
 object TransactionBuilderApi {
@@ -97,6 +119,8 @@ object TransactionBuilderApi {
     ): LockAddressOps = LockAddressOps(lockAddress)
 
   }
+
+  case class BuildStxoError(message: String, cause: Throwable = null) extends BuilderError(message, cause)
 
   def make[F[_]: Monad](
     networkId: Int,
@@ -154,40 +178,53 @@ object TransactionBuilderApi {
           .withDatum(datum)
       } yield ioTransaction
 
-      private def buildSimpleGroupMintingTransaction(
-        walletApi:   WalletStateAlgebra[F],
-        bifrostRpc:  BifrostQueryAlgebra[F],
-        groupPolicy: GroupPolicy,
-        lock:        Lock,
-        quantity:    Int128
-      ): F[IoTransaction] = {
-        val groupId = groupPolicy.computeId
+      override def buildSimpleGroupMintingTransaction(
+        walletStateApi: WalletStateAlgebra[F],
+        bifrostRpc:     BifrostQueryAlgebra[F],
+        groupPolicy:    GroupPolicy,
+        lock:           Lock,
+        quantity:       Int128
+      ): F[Either[BuilderError, IoTransaction]] =
         for {
-          stxo  <- buildRegistrationStxo(walletApi, bifrostRpc, groupPolicy.registrationUtxo)
-          utxo  <- groupOutput(lock, quantity, groupId)
-          datum <- datum()
-        } yield IoTransaction(
-          inputs = Seq(stxo),
-          outputs = Seq(utxo),
-          datum = datum,
-          groupPolicies = Seq(Datum.GroupPolicy(groupPolicy))
-        )
-      }
+          stxoRes <- buildRegistrationStxo(walletStateApi, bifrostRpc, groupPolicy.registrationUtxo)
+          utxo    <- groupOutput(lock, quantity, groupPolicy.computeId)
+          datum   <- datum()
+        } yield stxoRes match {
+          case Right(stxo) =>
+            IoTransaction(
+              inputs = Seq(stxo),
+              outputs = Seq(utxo),
+              datum = datum,
+              groupPolicies = Seq(Datum.GroupPolicy(groupPolicy))
+            ).asRight
+          case Left(err) => err.asLeft
+        }
 
       private def buildRegistrationStxo(
-        walletApi:        WalletStateAlgebra[F],
+        walletStateApi:   WalletStateAlgebra[F],
         bifrostRpc:       BifrostQueryAlgebra[F],
         registrationUtxo: TransactionOutputAddress
-      ): F[SpentTransactionOutput] =
-        for {
-          // TODO: Handle .get with an error or with an option
-          tx <- bifrostRpc.fetchTransaction(registrationUtxo.id).map(_.get)
-          // TODO: Handle .get with an error or with an option
-          utxo = tx.outputs.get(registrationUtxo.index).get
-          // TODO: handle .get with an error or with an option
-          lockPredicate <- walletApi.getLockByAddress(utxo.address.toBase58()).map(_.get)
-          attestation   <- unprovenAttestation(lockPredicate)
-        } yield SpentTransactionOutput(address = registrationUtxo, attestation = attestation, value = utxo.value)
+      ): F[Either[BuilderError, SpentTransactionOutput]] =
+        (for {
+          tx <- EitherT.fromOptionF(
+            bifrostRpc.fetchTransaction(registrationUtxo.id),
+            BuildStxoError(s"Could not retrieve TX with id ${registrationUtxo.id}")
+          )
+          utxo <- EitherT.fromOption[F](
+            tx.outputs.get(registrationUtxo.index),
+            BuildStxoError(
+              s"Could not retrieve UTXO with index ${registrationUtxo.index}. Total Outputs: ${tx.outputs.length}"
+            )
+          )
+          lockPredicate <- {
+            val address = utxo.address.toBase58()
+            EitherT.fromOptionF(
+              walletStateApi.getLockByAddress(address),
+              BuildStxoError(s"Could not retrieve Lock for Address $address")
+            )
+          }
+          attestation <- EitherT.right[BuilderError](unprovenAttestation(lockPredicate))
+        } yield SpentTransactionOutput(address = registrationUtxo, attestation = attestation, value = utxo.value)).value
 
       private def groupOutput(lock: Lock, quantity: Int128, groupId: GroupId): F[UnspentTransactionOutput] =
         UnspentTransactionOutput(

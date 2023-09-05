@@ -705,6 +705,8 @@ class CredentiallerInterpreterSpec extends CatsEffectSuite with MockHelpers {
       override def addNewLockTemplate(contract: String, lockTemplate: LockTemplate[F]): F[Unit] = ???
       override def getLockTemplate(contract:    String): F[Option[LockTemplate[F]]] = ???
       override def getLock(party:               String, contract:     String, nextState: Int): F[Option[Lock]] = ???
+
+      override def getLockByAddress(lockAddress: String): F[Option[Lock.Predicate]] = ???
     }
     val aliceDataApi = MockWalletStateApi
     val bobDataApi = NewWalletStateApi
