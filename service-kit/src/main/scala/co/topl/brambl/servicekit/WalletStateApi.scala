@@ -78,13 +78,13 @@ object WalletStateApi {
           rs <- Sync[F].blocking(
             stmnt.executeQuery(
               s"SELECT address, lock_predicate FROM " +
-              s"cartesian WHERE address = $lockAddress"
+              s"cartesian WHERE address = '$lockAddress'"
             )
           )
-          _              <- Sync[F].delay(rs.next())
+          hasNext        <- Sync[F].delay(rs.next())
           lock_predicate <- Sync[F].delay(rs.getString("lock_predicate"))
         } yield
-          if (rs.next())
+          if (hasNext)
             Some(
               Lock.Predicate.parseFrom(
                 Encoding.decodeFromBase58Check(lock_predicate).toOption.get
