@@ -287,22 +287,22 @@ object TransactionSyntaxInterpreter {
     val validations =
       // Constructor tokens are not involved, proceed
       (groupConstructorsOutput.isEmpty && seriesConstructorsOutput.isEmpty) ||
-        // Moving a constructor token, proceed
-        (groupConstructorsOutput.nonEmpty && transaction.inputs.exists(_.value.value.isGroup)) ||
-        // Moving a series token, proceed
-        (seriesConstructorsOutput.nonEmpty && transaction.inputs.exists(_.value.value.isSeries)) ||
-        // Creating a constructor token, validate rules
-        utxoIsPresent(
-          groupRegistrationsUtxo,
-          groupConstructorsOutput.map(_.quantity.value.toByteArray).map(BigInt(_)).sum
-        ) &&
-        utxoIsPresent(
-          seriesRegistrationsUtxo,
-          seriesConstructorsOutput.map(_.quantity.value.toByteArray).map(BigInt(_)).sum
-        ) &&
-        groupConstructorsOutput.map(_.groupId).forall(groupIdsOnPolicies.contains) &&
-        seriesConstructorsOutput.map(_.seriesId).forall(seriesIdsOnPolicies.contains) &&
-        registrationsUtxo.size == registrationsUtxo.toSet.size
+      // Moving a constructor token, proceed
+      (groupConstructorsOutput.nonEmpty && transaction.inputs.exists(_.value.value.isGroup)) ||
+      // Moving a series token, proceed
+      (seriesConstructorsOutput.nonEmpty && transaction.inputs.exists(_.value.value.isSeries)) ||
+      // Creating a constructor token, validate rules
+      utxoIsPresent(
+        groupRegistrationsUtxo,
+        groupConstructorsOutput.map(_.quantity.value.toByteArray).map(BigInt(_)).sum
+      ) &&
+      utxoIsPresent(
+        seriesRegistrationsUtxo,
+        seriesConstructorsOutput.map(_.quantity.value.toByteArray).map(BigInt(_)).sum
+      ) &&
+      groupConstructorsOutput.map(_.groupId).forall(groupIdsOnPolicies.contains) &&
+      seriesConstructorsOutput.map(_.seriesId).forall(seriesIdsOnPolicies.contains) &&
+      registrationsUtxo.size == registrationsUtxo.toSet.size
 
     Validated.condNec(
       validations,
