@@ -277,13 +277,6 @@ object TransactionSyntaxInterpreter {
     val groupIdsOnPolicies = transaction.groupPolicies.map(_.event.computeId)
     val seriesIdsOnPolicies = transaction.seriesPolicies.map(_.event.computeId)
 
-    def utxoIsPresent(addresses: Seq[TransactionOutputAddress], consumedQuantity: BigInt) =
-      transaction.inputs.exists(spentTxOutput =>
-        (addresses.isEmpty || addresses.contains(spentTxOutput.address)) &&
-        spentTxOutput.value.value.isLvl &&
-        BigInt(spentTxOutput.value.getLvl.quantity.value.toByteArray) >= consumedQuantity
-      )
-
     val validations =
       // Constructor tokens are not involved, proceed
       (groupConstructorsOutput.isEmpty && seriesConstructorsOutput.isEmpty) ||
@@ -291,15 +284,30 @@ object TransactionSyntaxInterpreter {
       (groupConstructorsOutput.nonEmpty && transaction.inputs.exists(_.value.value.isGroup)) ||
       // Moving a series token, proceed
       (seriesConstructorsOutput.nonEmpty && transaction.inputs.exists(_.value.value.isSeries)) ||
-      // Creating a constructor token, validate rules
-      utxoIsPresent(
-        groupRegistrationsUtxo,
-        groupConstructorsOutput.map(_.quantity.value.toByteArray).map(BigInt(_)).sum
-      ) &&
-      utxoIsPresent(
-        seriesRegistrationsUtxo,
-        seriesConstructorsOutput.map(_.quantity.value.toByteArray).map(BigInt(_)).sum
-      ) &&
+      // Creating a group constructor token, validate rules
+      transaction.groupPolicies.forall { policy =>
+        transaction.inputs.exists(spentTransactionOutput =>
+          spentTransactionOutput.address == policy.event.registrationUtxo &&
+          spentTransactionOutput.value.value.isLvl &&
+          BigInt(spentTransactionOutput.value.getLvl.quantity.value.toByteArray) >= groupConstructorsOutput
+            .filter(_.groupId == policy.event.computeId)
+            .map(_.quantity.value.toByteArray)
+            .map(BigInt(_))
+            .sum
+        )
+      } &&
+      // Creating a series constructor token, validate rules
+      transaction.seriesPolicies.forall { policy =>
+        transaction.inputs.exists(spentTransactionOutput =>
+          spentTransactionOutput.address == policy.event.registrationUtxo &&
+          spentTransactionOutput.value.value.isLvl &&
+          BigInt(spentTransactionOutput.value.getLvl.quantity.value.toByteArray) >= seriesConstructorsOutput
+            .filter(_.seriesId == policy.event.computeId)
+            .map(_.quantity.value.toByteArray)
+            .map(BigInt(_))
+            .sum
+        )
+      } &&
       groupConstructorsOutput.map(_.groupId).forall(groupIdsOnPolicies.contains) &&
       seriesConstructorsOutput.map(_.seriesId).forall(seriesIdsOnPolicies.contains) &&
       registrationsUtxo.size == registrationsUtxo.toSet.size
