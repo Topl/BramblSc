@@ -80,7 +80,7 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
     assertIO(txBuilder.unprovenAttestation(inPredicateLockFull), attFull)
   }
 
-  test("buildSimpleGroupMintingTransaction > Success") {
+  test("buildSimpleGroupMintingTransaction > Success, no change") {
     val mockGroupPolicy: GroupPolicy =
       GroupPolicy("Mock Group Policy", TransactionOutputAddress(0, 0, 0, txFull.computeId))
     val quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
@@ -108,6 +108,54 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       for {
         txRes <- txBuilder
           .buildSimpleGroupMintingTransaction(MockWalletStateApi, MockBifrostRpc, mockGroupPolicy, inLockFull, quantity)
+      } yield txRes match {
+        case Right(testTx) => testTx.computeId == expectedTx.computeId
+        case _             => false
+      },
+      true
+    )
+  }
+
+  test("buildSimpleGroupMintingTransaction > Success, with change") {
+    val mockGroupPolicy: GroupPolicy =
+      GroupPolicy("Mock Group Policy", TransactionOutputAddress(0, 0, 0, txFull.computeId))
+    val quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+    val expectedTx = IoTransaction.defaultInstance
+      .withDatum(txDatum)
+      .withGroupPolicies(Seq(Datum.GroupPolicy(mockGroupPolicy)))
+      .withInputs(
+        List(
+          SpentTransactionOutput(
+            mockGroupPolicy.registrationUtxo,
+            Attestation().withPredicate(Attestation.Predicate(trivialOutLock.getPredicate, List(Proof()))),
+            Value.defaultInstance.withLvl(Value.LVL(quantity))
+          )
+        )
+      )
+      .withOutputs(
+        List(
+          UnspentTransactionOutput(
+            trivialLockAddress,
+            Value.defaultInstance.withLvl(Value.LVL(quantity))
+          ),
+          UnspentTransactionOutput(
+            inLockFullAddress,
+            Value.defaultInstance.withGroup(Value.Group(groupId = mockGroupPolicy.computeId, quantity = quantity))
+          )
+        )
+      )
+    assertIO(
+      for {
+        txRes <- txBuilder
+          .buildSimpleGroupMintingTransaction(
+            MockWalletStateApi,
+            MockBifrostRpc,
+            mockGroupPolicy,
+            inLockFull,
+            quantity,
+            Some(trivialOutLock.getPredicate),
+            Some(quantity)
+          )
       } yield txRes match {
         case Right(testTx) => testTx.computeId == expectedTx.computeId
         case _             => false

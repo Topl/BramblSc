@@ -93,14 +93,20 @@ trait TransactionBuilderApi[F[_]] {
    *                    its Lock from the wallet), an error will be returned.
    * @param lock A Lock to encumber the newly minted constructor tokens
    * @param quantity The quantity of constructor tokens to mint
+   * @param lockPredicateForChange The predicate to use to build the registrationUtxo change output. If not provided
+   *                               there will be no change
+   * @param quantityForChange The quantity to use to build the registrationUtxo change output. If not provided there
+   *                          will be no change
    * @return An unproven Group Constructor minting transaction if possible. Else, an error
    */
   def buildSimpleGroupMintingTransaction(
-    walletStateApi: WalletStateAlgebra[F],
-    bifrostRpc:     BifrostQueryAlgebra[F],
-    groupPolicy:    GroupPolicy,
-    lock:           Lock,
-    quantity:       Int128
+    walletStateApi:         WalletStateAlgebra[F],
+    bifrostRpc:             BifrostQueryAlgebra[F],
+    groupPolicy:            GroupPolicy,
+    lock:                   Lock,
+    quantity:               Int128,
+    lockPredicateForChange: Option[Lock.Predicate] = None,
+    quantityForChange:      Option[Int128] = None
   ): F[Either[BuilderError, IoTransaction]]
 }
 
@@ -179,21 +185,27 @@ object TransactionBuilderApi {
       } yield ioTransaction
 
       override def buildSimpleGroupMintingTransaction(
-        walletStateApi: WalletStateAlgebra[F],
-        bifrostRpc:     BifrostQueryAlgebra[F],
-        groupPolicy:    GroupPolicy,
-        lock:           Lock,
-        quantity:       Int128
+        walletStateApi:         WalletStateAlgebra[F],
+        bifrostRpc:             BifrostQueryAlgebra[F],
+        groupPolicy:            GroupPolicy,
+        lock:                   Lock,
+        quantity:               Int128,
+        lockPredicateForChange: Option[Lock.Predicate] = None,
+        quantityForChange:      Option[Int128] = None
       ): F[Either[BuilderError, IoTransaction]] =
         for {
           stxoRes <- buildRegistrationStxo(walletStateApi, bifrostRpc, groupPolicy.registrationUtxo)
           utxo    <- groupOutput(lock, quantity, groupPolicy.computeId)
           datum   <- datum()
+          changeOutput <- (lockPredicateForChange, quantityForChange) match {
+            case (Some(lockPredicate), Some(quantity)) => lvlOutput(lockPredicate, quantity).map(Seq(_))
+            case _                                     => Seq.empty.pure[F]
+          }
         } yield stxoRes match {
           case Right(stxo) =>
             IoTransaction(
               inputs = Seq(stxo),
-              outputs = Seq(utxo),
+              outputs = changeOutput :+ utxo,
               datum = datum,
               groupPolicies = Seq(Datum.GroupPolicy(groupPolicy))
             ).asRight
