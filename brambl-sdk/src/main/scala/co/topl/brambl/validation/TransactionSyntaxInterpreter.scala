@@ -330,24 +330,20 @@ object TransactionSyntaxInterpreter {
   ): ValidatedNec[TransactionSyntaxError, Unit] = {
     val groupsIn = transaction.inputs.filter(_.value.value.isGroup).map(_.value.getGroup)
     val groupsOut = transaction.outputs.filter(_.value.value.isGroup).map(_.value.getGroup)
-    val groupIdsOnPolicies = transaction.groupPolicies.map(_.event.computeId)
 
     val seriesIn = transaction.inputs.filter(_.value.value.isSeries).map(_.value.getSeries)
     val seriesOut = transaction.outputs.filter(_.value.value.isSeries).map(_.value.getSeries)
-    val seriesIdsOnPolicies = transaction.seriesPolicies.map(_.event.computeId)
 
     val groupsValidation = groupsIn.forall { gIn =>
       groupsOut.exists(gOut =>
         gIn.groupId == gOut.groupId &&
-        gIn.quantity == gOut.quantity &&
-        groupIdsOnPolicies.contains(gIn.groupId)
+        gIn.quantity == gOut.quantity
       )
     }
     val seriesValidation = seriesIn.forall { sIn =>
       seriesOut.exists(sOut =>
         sIn.seriesId == sOut.seriesId &&
-        sIn.quantity == sOut.quantity &&
-        seriesIdsOnPolicies.contains(sIn.seriesId)
+        sIn.quantity == sOut.quantity
       )
     }
 
