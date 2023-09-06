@@ -267,8 +267,8 @@ object TransactionSyntaxInterpreter {
   private def groupSeriesConstructorTokensValidation(
     transaction: IoTransaction
   ): ValidatedNec[TransactionSyntaxError, Unit] = {
-    val groupConstructorTokens = transaction.outputs.filter(_.value.value.isGroup).map(_.value.getGroup)
-    val seriesConstructorTokens = transaction.outputs.filter(_.value.value.isSeries).map(_.value.getSeries)
+    val groupConstructorsOutput = transaction.outputs.filter(_.value.value.isGroup).map(_.value.getGroup)
+    val seriesConstructorsOutput = transaction.outputs.filter(_.value.value.isSeries).map(_.value.getSeries)
 
     val groupRegistrationsUtxo = transaction.groupPolicies.map(_.event.registrationUtxo)
     val seriesRegistrationsUtxo = transaction.seriesPolicies.map(_.event.registrationUtxo)
@@ -285,18 +285,24 @@ object TransactionSyntaxInterpreter {
       )
 
     val validations =
-      (groupConstructorTokens.isEmpty && seriesConstructorTokens.isEmpty) ||
-      utxoIsPresent(
-        groupRegistrationsUtxo,
-        groupConstructorTokens.map(_.quantity.value.toByteArray).map(BigInt(_)).sum
-      ) &&
-      utxoIsPresent(
-        seriesRegistrationsUtxo,
-        seriesConstructorTokens.map(_.quantity.value.toByteArray).map(BigInt(_)).sum
-      ) &&
-      groupConstructorTokens.map(_.groupId).forall(groupIdsOnPolicies.contains) &&
-      seriesConstructorTokens.map(_.seriesId).forall(seriesIdsOnPolicies.contains) &&
-      registrationsUtxo.size == registrationsUtxo.toSet.size
+      // Constructor tokens are not involved, proceed
+      (groupConstructorsOutput.isEmpty && seriesConstructorsOutput.isEmpty) ||
+        // Moving a constructor token, proceed
+        (groupConstructorsOutput.nonEmpty && transaction.inputs.exists(_.value.value.isGroup)) ||
+        // Moving a series token, proceed
+        (seriesConstructorsOutput.nonEmpty && transaction.inputs.exists(_.value.value.isSeries)) ||
+        // Creating a constructor token, validate rules
+        utxoIsPresent(
+          groupRegistrationsUtxo,
+          groupConstructorsOutput.map(_.quantity.value.toByteArray).map(BigInt(_)).sum
+        ) &&
+        utxoIsPresent(
+          seriesRegistrationsUtxo,
+          seriesConstructorsOutput.map(_.quantity.value.toByteArray).map(BigInt(_)).sum
+        ) &&
+        groupConstructorsOutput.map(_.groupId).forall(groupIdsOnPolicies.contains) &&
+        seriesConstructorsOutput.map(_.seriesId).forall(seriesIdsOnPolicies.contains) &&
+        registrationsUtxo.size == registrationsUtxo.toSet.size
 
     Validated.condNec(
       validations,

@@ -550,18 +550,17 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
     val testTx = txFull.copy(outputs = List(output1), groupPolicies = Seq.empty, seriesPolicies = Seq.empty)
     val validator = TransactionSyntaxInterpreter.make[Id]()
 
-    val result = validator
-      .validate(testTx)
-      .swap
-      .exists(
-        _.toList.contains(
-          TransactionSyntaxError.InsufficientInputFunds(
-            testTx.inputs.map(_.value.value).toList,
-            testTx.outputs.map(_.value.value).toList
-          )
+    val result = validator.validate(testTx).swap
+    val assertError = result.exists(
+      _.toList.contains(
+        TransactionSyntaxError.InsufficientInputFunds(
+          testTx.inputs.map(_.value.value).toList,
+          testTx.outputs.map(_.value.value).toList
         )
       )
-    assertEquals(result, true)
+    )
+    assertEquals(assertError, true)
+    assertEquals(result.map(_.toList.size).getOrElse(0), 1)
   }
 
   test("validate that Moving a Group Constructor token match quantities, but no policy is attached") {
@@ -589,18 +588,18 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
     val testTx = txFull.copy(outputs = List(output1), groupPolicies = Seq.empty, seriesPolicies = Seq.empty)
     val validator = TransactionSyntaxInterpreter.make[Id]()
 
-    val result = validator
-      .validate(testTx)
-      .swap
-      .exists(
-        _.toList.contains(
-          TransactionSyntaxError.InsufficientInputFunds(
-            testTx.inputs.map(_.value.value).toList,
-            testTx.outputs.map(_.value.value).toList
-          )
+    val result = validator.validate(testTx).swap
+    val assertError = result.exists(
+      _.toList.contains(
+        TransactionSyntaxError.InsufficientInputFunds(
+          testTx.inputs.map(_.value.value).toList,
+          testTx.outputs.map(_.value.value).toList
         )
       )
-    assertEquals(result, true)
+    )
+    assertEquals(assertError, true)
+    assertEquals(result.map(_.toList.size).getOrElse(0), 1)
+
   }
 
   test("validate that Moving a Group Constructor token match quantities, policy is attached but is different") {
@@ -633,18 +632,17 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
     )
     val validator = TransactionSyntaxInterpreter.make[Id]()
 
-    val result = validator
-      .validate(testTx)
-      .swap
-      .exists(
-        _.toList.contains(
-          TransactionSyntaxError.InsufficientInputFunds(
-            testTx.inputs.map(_.value.value).toList,
-            testTx.outputs.map(_.value.value).toList
-          )
+    val result = validator.validate(testTx).swap
+    val assertError = result.exists(
+      _.toList.contains(
+        TransactionSyntaxError.InsufficientInputFunds(
+          testTx.inputs.map(_.value.value).toList,
+          testTx.outputs.map(_.value.value).toList
         )
       )
-    assertEquals(result, true)
+    )
+    assertEquals(assertError, true)
+    assertEquals(result.map(_.toList.size).getOrElse(0), 1)
   }
 
   test("validate that Moving a Series Constructor token match quantities") {
@@ -673,18 +671,17 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
     val testTx = txFull.copy(outputs = List(output1), groupPolicies = Seq.empty, seriesPolicies = Seq.empty)
     val validator = TransactionSyntaxInterpreter.make[Id]()
 
-    val result = validator
-      .validate(testTx)
-      .swap
-      .exists(
-        _.toList.contains(
-          TransactionSyntaxError.InsufficientInputFunds(
-            testTx.inputs.map(_.value.value).toList,
-            testTx.outputs.map(_.value.value).toList
-          )
+    val result = validator.validate(testTx).swap
+    val assertError = result.exists(
+      _.toList.contains(
+        TransactionSyntaxError.InsufficientInputFunds(
+          testTx.inputs.map(_.value.value).toList,
+          testTx.outputs.map(_.value.value).toList
         )
       )
-    assertEquals(result, true)
+    )
+    assertEquals(assertError, true)
+    assertEquals(result.map(_.toList.size).getOrElse(0), 1)
   }
 
   test("validate that Moving a Series Constructor token, match quantities, no policy is attached") {
@@ -713,18 +710,17 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
     val testTx = txFull.copy(outputs = List(output1), groupPolicies = Seq.empty, seriesPolicies = Seq.empty)
     val validator = TransactionSyntaxInterpreter.make[Id]()
 
-    val result = validator
-      .validate(testTx)
-      .swap
-      .exists(
-        _.toList.contains(
-          TransactionSyntaxError.InsufficientInputFunds(
-            testTx.inputs.map(_.value.value).toList,
-            testTx.outputs.map(_.value.value).toList
-          )
+    val result = validator.validate(testTx).swap
+    val assertError = result.exists(
+      _.toList.contains(
+        TransactionSyntaxError.InsufficientInputFunds(
+          testTx.inputs.map(_.value.value).toList,
+          testTx.outputs.map(_.value.value).toList
         )
       )
-    assertEquals(result, true)
+    )
+    assertEquals(assertError, true)
+    assertEquals(result.map(_.toList.size).getOrElse(0), 1)
   }
 
   test("validate that Moving a Series Constructor token, match quantities, policy is attached but is different") {
@@ -758,17 +754,16 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
     )
     val validator = TransactionSyntaxInterpreter.make[Id]()
 
-    val result = validator
-      .validate(testTx)
-      .swap
-      .exists(
-        _.toList.contains(
-          TransactionSyntaxError.InsufficientInputFunds(
-            testTx.inputs.map(_.value.value).toList,
-            testTx.outputs.map(_.value.value).toList
-          )
+    val result = validator.validate(testTx).swap
+    val assertError = result.exists(
+      _.toList.contains(
+        TransactionSyntaxError.InsufficientInputFunds(
+          testTx.inputs.map(_.value.value).toList,
+          testTx.outputs.map(_.value.value).toList
         )
       )
-    assertEquals(result, true)
+    )
+    assertEquals(assertError, true)
+    assertEquals(result.map(_.toList.size).getOrElse(0), 1)
   }
 }
