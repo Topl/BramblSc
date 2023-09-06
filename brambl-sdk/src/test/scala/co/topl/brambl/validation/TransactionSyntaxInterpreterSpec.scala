@@ -244,9 +244,7 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
 
   test("validate that Group Constructor tokens includes the policy in the Iotx Datum") {
 
-    val valueTopl: Value =
-      Value.defaultInstance.withLvl(Value.LVL(Int128(ByteString.copyFrom(BigInt(1).toByteArray))))
-    val input = SpentTransactionOutput(dummyTxoAddress, attFull, valueTopl)
+    val input = SpentTransactionOutput(dummyTxoAddress, attFull, value)
     val txFull = IoTransaction.defaultInstance.withInputs(List(input)).withDatum(txDatum)
     val groupPolicy = Event.GroupPolicy(label = "groupLabelA", registrationUtxo = dummyTxoAddress)
 
@@ -277,8 +275,7 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
 
   test("validate that Series Constructor tokens includes the policy in the Iotx Datum") {
 
-    val valueTopl = Value.defaultInstance.withLvl(Value.LVL(Int128(ByteString.copyFrom(BigInt(1).toByteArray))))
-    val input = SpentTransactionOutput(dummyTxoAddress, attFull, valueTopl)
+    val input = SpentTransactionOutput(dummyTxoAddress, attFull, value)
     val txFull = IoTransaction.defaultInstance.withInputs(List(input)).withDatum(txDatum)
     val seriesPolicy = Event.SeriesPolicy(label = "seriesLabelA", registrationUtxo = dummyTxoAddress)
 
@@ -436,11 +433,8 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
 
   test("validate a Group and a Series that try to reference distinct LVL address input, wrong LVL for Series") {
 
-    val valueA: Value = Value.defaultInstance.withLvl(Value.LVL(Int128(ByteString.copyFrom(BigInt(1).toByteArray))))
-    val valueB: Value = Value.defaultInstance.withLvl(Value.LVL(Int128(ByteString.copyFrom(BigInt(1).toByteArray))))
-
-    val inputFullA: SpentTransactionOutput = SpentTransactionOutput(dummyTxoAddress, attFull, valueA)
-    val inputFullB: SpentTransactionOutput = SpentTransactionOutput(dummyTxoAddress.withIndex(2), attFull, valueB)
+    val inputFullA: SpentTransactionOutput = SpentTransactionOutput(dummyTxoAddress, attFull, value)
+    val inputFullB: SpentTransactionOutput = SpentTransactionOutput(dummyTxoAddress.withIndex(2), attFull, value)
     val txFull2Inputs = txFull.withInputs(Seq(inputFullA, inputFullB))
     val addressInputA = txFull2Inputs.inputs(0).address
     val addressInputB = txFull2Inputs.inputs(1).address
@@ -486,11 +480,8 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
 
   test("validate a Group and a Series that try to reference distinct LVL address input, wrong LVL for Group") {
 
-    val valueA: Value = Value.defaultInstance.withLvl(Value.LVL(Int128(ByteString.copyFrom(BigInt(1).toByteArray))))
-    val valueB: Value = Value.defaultInstance.withLvl(Value.LVL(Int128(ByteString.copyFrom(BigInt(1).toByteArray))))
-
-    val inputFullA: SpentTransactionOutput = SpentTransactionOutput(dummyTxoAddress, attFull, valueA)
-    val inputFullB: SpentTransactionOutput = SpentTransactionOutput(dummyTxoAddress.withIndex(2), attFull, valueB)
+    val inputFullA: SpentTransactionOutput = SpentTransactionOutput(dummyTxoAddress, attFull, value)
+    val inputFullB: SpentTransactionOutput = SpentTransactionOutput(dummyTxoAddress.withIndex(2), attFull, value)
     val txFull2Inputs = txFull.withInputs(Seq(inputFullA, inputFullB))
     val addressInputA = txFull2Inputs.inputs(0).address
     val addressInputB = txFull2Inputs.inputs(1).address
@@ -534,4 +525,250 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
     assertEquals(result, true)
   }
 
+  test("validate that Moving a Group Constructor token match quantities") {
+
+    val groupPolicy = Event.GroupPolicy(label = "groupLabelA", registrationUtxo = dummyTxoAddress)
+
+    val groupIn: Value =
+      Value.defaultInstance.withGroup(
+        Value.Group(
+          groupId = groupPolicy.computeId,
+          quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+        )
+      )
+    val input = SpentTransactionOutput(dummyTxoAddress, attFull, groupIn)
+    val txFull = IoTransaction.defaultInstance.withInputs(List(input)).withDatum(txDatum)
+
+    val groupOut: Value =
+      Value.defaultInstance.withGroup(
+        Value.Group(
+          groupId = groupPolicy.computeId,
+          quantity = Int128(ByteString.copyFrom(BigInt(2).toByteArray))
+        )
+      )
+    val output1: UnspentTransactionOutput = UnspentTransactionOutput(trivialLockAddress, groupOut)
+    val testTx = txFull.copy(outputs = List(output1), groupPolicies = Seq.empty, seriesPolicies = Seq.empty)
+    val validator = TransactionSyntaxInterpreter.make[Id]()
+
+    val result = validator
+      .validate(testTx)
+      .swap
+      .exists(
+        _.toList.contains(
+          TransactionSyntaxError.InsufficientInputFunds(
+            testTx.inputs.map(_.value.value).toList,
+            testTx.outputs.map(_.value.value).toList
+          )
+        )
+      )
+    assertEquals(result, true)
+  }
+
+  test("validate that Moving a Group Constructor token match quantities, but no policy is attached") {
+
+    val groupPolicy = Event.GroupPolicy(label = "groupLabelA", registrationUtxo = dummyTxoAddress)
+
+    val groupIn: Value =
+      Value.defaultInstance.withGroup(
+        Value.Group(
+          groupId = groupPolicy.computeId,
+          quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+        )
+      )
+    val input = SpentTransactionOutput(dummyTxoAddress, attFull, groupIn)
+    val txFull = IoTransaction.defaultInstance.withInputs(List(input)).withDatum(txDatum)
+
+    val groupOut: Value =
+      Value.defaultInstance.withGroup(
+        Value.Group(
+          groupId = groupPolicy.computeId,
+          quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+        )
+      )
+    val output1: UnspentTransactionOutput = UnspentTransactionOutput(trivialLockAddress, groupOut)
+    val testTx = txFull.copy(outputs = List(output1), groupPolicies = Seq.empty, seriesPolicies = Seq.empty)
+    val validator = TransactionSyntaxInterpreter.make[Id]()
+
+    val result = validator
+      .validate(testTx)
+      .swap
+      .exists(
+        _.toList.contains(
+          TransactionSyntaxError.InsufficientInputFunds(
+            testTx.inputs.map(_.value.value).toList,
+            testTx.outputs.map(_.value.value).toList
+          )
+        )
+      )
+    assertEquals(result, true)
+  }
+
+  test("validate that Moving a Group Constructor token match quantities, policy is attached but is different") {
+
+    val groupPolicy = Event.GroupPolicy(label = "groupLabelA", registrationUtxo = dummyTxoAddress)
+    val groupPolicyDifferent = Event.GroupPolicy(label = "otherPolicyLabel", registrationUtxo = dummyTxoAddress)
+
+    val groupIn: Value =
+      Value.defaultInstance.withGroup(
+        Value.Group(
+          groupId = groupPolicy.computeId,
+          quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+        )
+      )
+    val input = SpentTransactionOutput(dummyTxoAddress, attFull, groupIn)
+    val txFull = IoTransaction.defaultInstance.withInputs(List(input)).withDatum(txDatum)
+
+    val groupOut: Value =
+      Value.defaultInstance.withGroup(
+        Value.Group(
+          groupId = groupPolicy.computeId,
+          quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+        )
+      )
+    val output1: UnspentTransactionOutput = UnspentTransactionOutput(trivialLockAddress, groupOut)
+    val testTx = txFull.copy(
+      outputs = List(output1),
+      groupPolicies = Seq(Datum.GroupPolicy(groupPolicyDifferent)),
+      seriesPolicies = Seq.empty
+    )
+    val validator = TransactionSyntaxInterpreter.make[Id]()
+
+    val result = validator
+      .validate(testTx)
+      .swap
+      .exists(
+        _.toList.contains(
+          TransactionSyntaxError.InsufficientInputFunds(
+            testTx.inputs.map(_.value.value).toList,
+            testTx.outputs.map(_.value.value).toList
+          )
+        )
+      )
+    assertEquals(result, true)
+  }
+
+  test("validate that Moving a Series Constructor token match quantities") {
+
+    val seriesPolicy = Event.SeriesPolicy(label = "seriesLabelB", registrationUtxo = dummyTxoAddress)
+
+    val seriesIn: Value =
+      Value.defaultInstance.withSeries(
+        Value.Series(
+          seriesId = seriesPolicy.computeId,
+          quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+        )
+      )
+    val input = SpentTransactionOutput(dummyTxoAddress, attFull, seriesIn)
+    val txFull = IoTransaction.defaultInstance.withInputs(List(input)).withDatum(txDatum)
+
+    val seriesOut: Value =
+      Value.defaultInstance.withSeries(
+        Value.Series(
+          seriesId = seriesPolicy.computeId,
+          quantity = Int128(ByteString.copyFrom(BigInt(2).toByteArray))
+        )
+      )
+
+    val output1: UnspentTransactionOutput = UnspentTransactionOutput(trivialLockAddress, seriesOut)
+    val testTx = txFull.copy(outputs = List(output1), groupPolicies = Seq.empty, seriesPolicies = Seq.empty)
+    val validator = TransactionSyntaxInterpreter.make[Id]()
+
+    val result = validator
+      .validate(testTx)
+      .swap
+      .exists(
+        _.toList.contains(
+          TransactionSyntaxError.InsufficientInputFunds(
+            testTx.inputs.map(_.value.value).toList,
+            testTx.outputs.map(_.value.value).toList
+          )
+        )
+      )
+    assertEquals(result, true)
+  }
+
+  test("validate that Moving a Series Constructor token, match quantities, no policy is attached") {
+
+    val seriesPolicy = Event.SeriesPolicy(label = "seriesLabelB", registrationUtxo = dummyTxoAddress)
+
+    val seriesIn: Value =
+      Value.defaultInstance.withSeries(
+        Value.Series(
+          seriesId = seriesPolicy.computeId,
+          quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+        )
+      )
+    val input = SpentTransactionOutput(dummyTxoAddress, attFull, seriesIn)
+    val txFull = IoTransaction.defaultInstance.withInputs(List(input)).withDatum(txDatum)
+
+    val seriesOut: Value =
+      Value.defaultInstance.withSeries(
+        Value.Series(
+          seriesId = seriesPolicy.computeId,
+          quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+        )
+      )
+
+    val output1: UnspentTransactionOutput = UnspentTransactionOutput(trivialLockAddress, seriesOut)
+    val testTx = txFull.copy(outputs = List(output1), groupPolicies = Seq.empty, seriesPolicies = Seq.empty)
+    val validator = TransactionSyntaxInterpreter.make[Id]()
+
+    val result = validator
+      .validate(testTx)
+      .swap
+      .exists(
+        _.toList.contains(
+          TransactionSyntaxError.InsufficientInputFunds(
+            testTx.inputs.map(_.value.value).toList,
+            testTx.outputs.map(_.value.value).toList
+          )
+        )
+      )
+    assertEquals(result, true)
+  }
+
+  test("validate that Moving a Series Constructor token, match quantities, policy is attached but is different") {
+
+    val seriesPolicy = Event.SeriesPolicy(label = "seriesLabelB", registrationUtxo = dummyTxoAddress)
+    val seriesPolicyDifferent = Event.SeriesPolicy(label = "otherPolicyLabel", registrationUtxo = dummyTxoAddress)
+
+    val seriesIn: Value =
+      Value.defaultInstance.withSeries(
+        Value.Series(
+          seriesId = seriesPolicy.computeId,
+          quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+        )
+      )
+    val input = SpentTransactionOutput(dummyTxoAddress, attFull, seriesIn)
+    val txFull = IoTransaction.defaultInstance.withInputs(List(input)).withDatum(txDatum)
+
+    val seriesOut: Value =
+      Value.defaultInstance.withSeries(
+        Value.Series(
+          seriesId = seriesPolicy.computeId,
+          quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+        )
+      )
+
+    val output1: UnspentTransactionOutput = UnspentTransactionOutput(trivialLockAddress, seriesOut)
+    val testTx = txFull.copy(
+      outputs = List(output1),
+      groupPolicies = Seq.empty,
+      seriesPolicies = Seq(Datum.SeriesPolicy(seriesPolicyDifferent))
+    )
+    val validator = TransactionSyntaxInterpreter.make[Id]()
+
+    val result = validator
+      .validate(testTx)
+      .swap
+      .exists(
+        _.toList.contains(
+          TransactionSyntaxError.InsufficientInputFunds(
+            testTx.inputs.map(_.value.value).toList,
+            testTx.outputs.map(_.value.value).toList
+          )
+        )
+      )
+    assertEquals(result, true)
+  }
 }

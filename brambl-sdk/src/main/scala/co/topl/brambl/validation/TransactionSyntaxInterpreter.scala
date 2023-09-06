@@ -38,7 +38,8 @@ object TransactionSyntaxInterpreter {
       sufficientFundsValidation,
       attestationValidation,
       dataLengthValidation,
-      groupSeriesConstructorTokensValidation
+      groupSeriesConstructorTokensValidation,
+      exactlyFundsConstructorTokensValidation
     )
 
   /**
@@ -255,9 +256,6 @@ object TransactionSyntaxInterpreter {
    * The minting of a group-series constructor token requires to burn a certain amount of LVLs and to provide the policy that describes the group-series.
    * This requires the submission of a minting transaction to the node. To support this kind of transactions, the following validations need to be performed on the transaction:
    *
-   * Check Moving Constructor Tokens:  Validated on quantityBasedValidation
-   *  - Let 'g-s' be a group identifier, then the number of Group-Series Constructor Tokens with group identifier 'g-s' in the input is equal to the quantity of Group Constructor Tokens with identifier 'g-s' in the output.
-   *
    * Check Minting Constructor Tokens: Let 'g-s' be a group identifier and 'p' the group-series policy whose digest is equal to 'g-s', a transaction is valid only if the all of the following statements are true:
    *  - The policy 'p-s' is attached to the transaction.
    *  - The number of group constructor tokens with identifier 'g-s' in the output of the transaction is strictly bigger than 0.
@@ -309,6 +307,52 @@ object TransactionSyntaxInterpreter {
       )
     )
 
+  }
+
+  /**
+   * The minting of a group-series constructor token requires to burn a certain amount of LVLs and to provide the policy that describes the group-series.
+   * This requires the submission of a minting transaction to the node. To support this kind of transactions, the following validations need to be performed on the transaction:
+   *
+   * Check Moving Constructor Tokens:  Validated on quantityBasedValidation
+   *  - Let 'g-s' be a group identifier, then the number of Group-Series Constructor Tokens with group identifier 'g-s' in the input is equal to the quantity of Group Constructor Tokens with identifier 'g-s' in the output.
+   *
+   * @param transaction transaction
+   * @return
+   */
+  private def exactlyFundsConstructorTokensValidation(
+    transaction: IoTransaction
+  ): ValidatedNec[TransactionSyntaxError, Unit] = {
+    val groupsIn = transaction.inputs.filter(_.value.value.isGroup).map(_.value.getGroup)
+    val groupsOut = transaction.outputs.filter(_.value.value.isGroup).map(_.value.getGroup)
+    val groupIdsOnPolicies = transaction.groupPolicies.map(_.event.computeId)
+
+    val seriesIn = transaction.inputs.filter(_.value.value.isSeries).map(_.value.getSeries)
+    val seriesOut = transaction.outputs.filter(_.value.value.isSeries).map(_.value.getSeries)
+    val seriesIdsOnPolicies = transaction.seriesPolicies.map(_.event.computeId)
+
+    val groupsValidation = groupsIn.forall { gIn =>
+      groupsOut.exists(gOut =>
+        gIn.groupId == gOut.groupId &&
+        gIn.quantity == gOut.quantity &&
+        groupIdsOnPolicies.contains(gIn.groupId)
+      )
+    }
+    val seriesValidation = seriesIn.forall { sIn =>
+      seriesOut.exists(sOut =>
+        sIn.seriesId == sOut.seriesId &&
+        sIn.quantity == sOut.quantity &&
+        seriesIdsOnPolicies.contains(sIn.seriesId)
+      )
+    }
+
+    Validated.condNec(
+      groupsValidation && seriesValidation,
+      (),
+      TransactionSyntaxError.InsufficientInputFunds(
+        transaction.inputs.map(_.value.value).toList,
+        transaction.outputs.filter(v => v.value.value.isSeries || v.value.value.isGroup).map(_.value.value).toList
+      )
+    )
   }
 
 }
