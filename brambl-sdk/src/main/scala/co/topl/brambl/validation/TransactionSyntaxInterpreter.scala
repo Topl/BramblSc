@@ -289,11 +289,7 @@ object TransactionSyntaxInterpreter {
         transaction.inputs.exists(spentTransactionOutput =>
           spentTransactionOutput.address == policy.event.registrationUtxo &&
           spentTransactionOutput.value.value.isLvl &&
-          BigInt(spentTransactionOutput.value.getLvl.quantity.value.toByteArray) >= groupConstructorsOutput
-            .filter(_.groupId == policy.event.computeId)
-            .map(_.quantity.value.toByteArray)
-            .map(BigInt(_))
-            .sum
+          groupConstructorsOutput.map(_.groupId).contains(policy.event.computeId)
         )
       } &&
       // Creating a series constructor token, validate rules
@@ -301,11 +297,7 @@ object TransactionSyntaxInterpreter {
         transaction.inputs.exists(spentTransactionOutput =>
           spentTransactionOutput.address == policy.event.registrationUtxo &&
           spentTransactionOutput.value.value.isLvl &&
-          BigInt(spentTransactionOutput.value.getLvl.quantity.value.toByteArray) >= seriesConstructorsOutput
-            .filter(_.seriesId == policy.event.computeId)
-            .map(_.quantity.value.toByteArray)
-            .map(BigInt(_))
-            .sum
+          seriesConstructorsOutput.map(_.seriesId).contains(policy.event.computeId)
         )
       } &&
       groupConstructorsOutput.map(_.groupId).forall(groupIdsOnPolicies.contains) &&
