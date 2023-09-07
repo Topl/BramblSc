@@ -12,8 +12,6 @@ import quivr.models.{Int128, Proof, SmallData}
 import co.topl.brambl.common.ContainsEvidence.Ops
 import co.topl.brambl.common.ContainsImmutable.instances._
 import cats.implicits._
-import co.topl.brambl.builders.TransactionBuilderApi.implicits.lockAddressOps
-import co.topl.brambl.dataApi.{BifrostQueryAlgebra, WalletStateAlgebra}
 import co.topl.brambl.models.Event.GroupPolicy
 import co.topl.brambl.syntax.groupPolicyAsGroupPolicySyntaxOps
 
@@ -214,7 +212,7 @@ object TransactionBuilderApi {
               quantityForFee
             )
               .leftMap[BuilderError](
-                UnableToBuildTransaction("Unable to build transaction to mint group constructor tokens ", _)
+                UnableToBuildTransaction("Unable to build transaction to mint group constructor tokens", _)
               )
           )
           stxoAttestation <- EitherT.right[BuilderError](unprovenAttestation(registrationLock))
@@ -262,7 +260,7 @@ object TransactionBuilderApi {
             case (Some(lockAddr), Some(quantity)) =>
               val inputLvls = BigInt(registrationTxo.transactionOutput.value.value.lvl.get.quantity.value.toByteArray)
               val feeLvls = BigInt(quantity.value.toByteArray)
-              if (feeLvls < BigInt(0))
+              if (feeLvls <= BigInt(0))
                 UserInputError("If specified, quantityForFee must be positive").asLeft
               else if (feeLvls > inputLvls)
                 UserInputError(

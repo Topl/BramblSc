@@ -1,7 +1,8 @@
 package co.topl.brambl.builders
 
-import co.topl.brambl.builders.TransactionBuilderApi.BuildStxoError
-import co.topl.brambl.{MockBifrostRpc, MockHelpers, MockWalletStateApi}
+import cats.implicits.catsSyntaxOptionId
+import co.topl.brambl.builders.TransactionBuilderApi.{UnableToBuildTransaction, UserInputError}
+import co.topl.brambl.MockHelpers
 import co.topl.brambl.models.Event.GroupPolicy
 import co.topl.brambl.models.{Datum, LockAddress, TransactionOutputAddress}
 import co.topl.brambl.models.box.{Attestation, Value}
@@ -80,9 +81,9 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
     assertIO(txBuilder.unprovenAttestation(inPredicateLockFull), attFull)
   }
 
-  test("buildSimpleGroupMintingTransaction > Success, no change") {
+  test("buildSimpleGroupMintingTransaction > Success, no change (fee specified)") {
     val mockGroupPolicy: GroupPolicy =
-      GroupPolicy("Mock Group Policy", TransactionOutputAddress(0, 0, 0, txFull.computeId))
+      GroupPolicy("Mock Group Policy", dummyTxoAddress)
     val quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
@@ -91,53 +92,13 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
         List(
           SpentTransactionOutput(
             mockGroupPolicy.registrationUtxo,
-            Attestation().withPredicate(Attestation.Predicate(trivialOutLock.getPredicate, List(Proof()))),
+            Attestation().withPredicate(Attestation.Predicate(inPredicateLockFull, List(Proof()))),
             Value.defaultInstance.withLvl(Value.LVL(quantity))
           )
         )
       )
       .withOutputs(
         List(
-          UnspentTransactionOutput(
-            inLockFullAddress,
-            Value.defaultInstance.withGroup(Value.Group(groupId = mockGroupPolicy.computeId, quantity = quantity))
-          )
-        )
-      )
-    assertIO(
-      for {
-        txRes <- txBuilder
-          .buildSimpleGroupMintingTransaction(MockWalletStateApi, MockBifrostRpc, mockGroupPolicy, inLockFull, quantity)
-      } yield txRes match {
-        case Right(testTx) => testTx.computeId == expectedTx.computeId
-        case _             => false
-      },
-      true
-    )
-  }
-
-  test("buildSimpleGroupMintingTransaction > Success, with change") {
-    val mockGroupPolicy: GroupPolicy =
-      GroupPolicy("Mock Group Policy", TransactionOutputAddress(0, 0, 0, txFull.computeId))
-    val quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
-    val expectedTx = IoTransaction.defaultInstance
-      .withDatum(txDatum)
-      .withGroupPolicies(Seq(Datum.GroupPolicy(mockGroupPolicy)))
-      .withInputs(
-        List(
-          SpentTransactionOutput(
-            mockGroupPolicy.registrationUtxo,
-            Attestation().withPredicate(Attestation.Predicate(trivialOutLock.getPredicate, List(Proof()))),
-            Value.defaultInstance.withLvl(Value.LVL(quantity))
-          )
-        )
-      )
-      .withOutputs(
-        List(
-          UnspentTransactionOutput(
-            trivialLockAddress,
-            Value.defaultInstance.withLvl(Value.LVL(quantity))
-          ),
           UnspentTransactionOutput(
             inLockFullAddress,
             Value.defaultInstance.withGroup(Value.Group(groupId = mockGroupPolicy.computeId, quantity = quantity))
@@ -148,13 +109,13 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       for {
         txRes <- txBuilder
           .buildSimpleGroupMintingTransaction(
-            MockWalletStateApi,
-            MockBifrostRpc,
+            inputTxo,
+            inPredicateLockFull,
             mockGroupPolicy,
-            inLockFull,
             quantity,
-            Some(trivialOutLock.getPredicate),
-            Some(quantity)
+            inLockFullAddress,
+            trivialLockAddress.some,
+            quantity.some
           )
       } yield txRes match {
         case Right(testTx) => testTx.computeId == expectedTx.computeId
@@ -164,44 +125,300 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
     )
   }
 
-  test("buildSimpleGroupMintingTransaction > fails if registrationUtxo's TX is not known by Bifrost RPC") {
+  test("buildSimpleGroupMintingTransaction > Success, no change (fee unspecified)") {
     val mockGroupPolicy: GroupPolicy =
-      GroupPolicy("Mock Group Policy", TransactionOutputAddress(0, 0, 0, dummyTx.computeId))
-    val testTx = txBuilder.buildSimpleGroupMintingTransaction(
-      MockWalletStateApi,
-      MockBifrostRpc,
-      mockGroupPolicy,
-      inLockFull,
-      Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+      GroupPolicy("Mock Group Policy", dummyTxoAddress)
+    val quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+    val expectedTx = IoTransaction.defaultInstance
+      .withDatum(txDatum)
+      .withGroupPolicies(Seq(Datum.GroupPolicy(mockGroupPolicy)))
+      .withInputs(
+        List(
+          SpentTransactionOutput(
+            mockGroupPolicy.registrationUtxo,
+            Attestation().withPredicate(Attestation.Predicate(inPredicateLockFull, List(Proof()))),
+            Value.defaultInstance.withLvl(Value.LVL(quantity))
+          )
+        )
+      )
+      .withOutputs(
+        List(
+          UnspentTransactionOutput(
+            inLockFullAddress,
+            Value.defaultInstance.withGroup(Value.Group(groupId = mockGroupPolicy.computeId, quantity = quantity))
+          )
+        )
+      )
+    assertIO(
+      for {
+        txRes <- txBuilder
+          .buildSimpleGroupMintingTransaction(
+            inputTxo,
+            inPredicateLockFull,
+            mockGroupPolicy,
+            quantity,
+            inLockFullAddress
+          )
+      } yield txRes match {
+        case Right(testTx) => testTx.computeId == expectedTx.computeId
+        case _             => false
+      },
+      true
     )
-    assertIO(testTx, Left(BuildStxoError(s"Could not retrieve TX with id ${dummyTx.computeId}")))
   }
 
-  test("buildSimpleGroupMintingTransaction > fails if registrationUtxo's UTXO is not present in transaction") {
-    // txFull only has 1 output
+  test("buildSimpleGroupMintingTransaction > Success, with change") {
     val mockGroupPolicy: GroupPolicy =
-      GroupPolicy("Mock Group Policy", TransactionOutputAddress(0, 0, 1, txFull.computeId))
-    val testTx = txBuilder.buildSimpleGroupMintingTransaction(
-      MockWalletStateApi,
-      MockBifrostRpc,
-      mockGroupPolicy,
-      inLockFull,
-      Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+      GroupPolicy("Mock Group Policy", dummyTxoAddress)
+    val quantity3 = Int128(ByteString.copyFrom(BigInt(3).toByteArray))
+    val quantity2 = Int128(ByteString.copyFrom(BigInt(2).toByteArray))
+    val quantity1 = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+    val expectedTx = IoTransaction.defaultInstance
+      .withDatum(txDatum)
+      .withGroupPolicies(Seq(Datum.GroupPolicy(mockGroupPolicy)))
+      .withInputs(
+        List(
+          SpentTransactionOutput(
+            mockGroupPolicy.registrationUtxo,
+            Attestation().withPredicate(Attestation.Predicate(inPredicateLockFull, List(Proof()))),
+            Value.defaultInstance.withLvl(Value.LVL(quantity3))
+          )
+        )
+      )
+      .withOutputs(
+        List(
+          UnspentTransactionOutput(
+            trivialLockAddress,
+            Value.defaultInstance.withLvl(Value.LVL(quantity = quantity1))
+          ),
+          UnspentTransactionOutput(
+            inLockFullAddress,
+            Value.defaultInstance.withGroup(Value.Group(groupId = mockGroupPolicy.computeId, quantity = quantity1))
+          )
+        )
+      )
+    assertIO(
+      for {
+        txRes <- txBuilder
+          .buildSimpleGroupMintingTransaction(
+            inputTxo.copy(transactionOutput =
+              fullOutput.copy(value = Value.defaultInstance.withLvl(Value.LVL(quantity3)))
+            ),
+            inPredicateLockFull,
+            mockGroupPolicy,
+            quantity1,
+            inLockFullAddress,
+            trivialLockAddress.some,
+            quantity2.some
+          )
+      } yield txRes match {
+        case Right(testTx) => testTx.computeId == expectedTx.computeId
+        case _             => false
+      },
+      true
     )
-    assertIO(testTx, Left(BuildStxoError(s"Could not retrieve UTXO with index 1. Total Outputs: 1")))
   }
 
-  test("buildSimpleGroupMintingTransaction > fails if registrationUtxo's Lock is not known in Wallet State") {
-    // dummyTx is in MockBifrostRpc but not in walletState
+  test("buildSimpleGroupMintingTransaction > invalid registrationTxo") {
     val mockGroupPolicy: GroupPolicy =
-      GroupPolicy("Mock Group Policy", TransactionOutputAddress(0, 0, 0, txFullAlternative.computeId))
-    val testTx = txBuilder.buildSimpleGroupMintingTransaction(
-      MockWalletStateApi,
-      MockBifrostRpc,
-      mockGroupPolicy,
-      inLockFull,
-      Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+      GroupPolicy("Mock Group Policy", dummyTxoAddress.copy(network = 10))
+    val quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+
+    val testTx = txBuilder
+      .buildSimpleGroupMintingTransaction(
+        inputTxo,
+        inPredicateLockFull,
+        mockGroupPolicy,
+        quantity,
+        inLockFullAddress
+      )
+    assertIO(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          "Unable to build transaction to mint group constructor tokens",
+          UserInputError("registrationTxo does not match registrationUtxo")
+        )
+      )
     )
-    assertIO(testTx, Left(BuildStxoError(s"Could not retrieve Lock for Address $inLockFullAddress")))
+  }
+
+  test("buildSimpleGroupMintingTransaction > invalid registrationUtxo") {
+    val mockGroupPolicy: GroupPolicy =
+      GroupPolicy("Mock Group Policy", dummyTxoAddress)
+    val quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+
+    val testTx = txBuilder
+      .buildSimpleGroupMintingTransaction(
+        inputTxo.copy(transactionOutput =
+          fullOutput.copy(value = Value.defaultInstance.withTopl(Value.TOPL(quantity)))
+        ),
+        inPredicateLockFull,
+        mockGroupPolicy,
+        quantity,
+        inLockFullAddress
+      )
+    assertIO(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          "Unable to build transaction to mint group constructor tokens",
+          UserInputError("registrationUtxo does not contain LVLs")
+        )
+      )
+    )
+  }
+
+  test("buildSimpleGroupMintingTransaction > invalid registrationLock") {
+    val mockGroupPolicy: GroupPolicy =
+      GroupPolicy("Mock Group Policy", dummyTxoAddress)
+    val quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+
+    val testTx = txBuilder
+      .buildSimpleGroupMintingTransaction(
+        inputTxo,
+        trivialOutLock.getPredicate,
+        mockGroupPolicy,
+        quantity,
+        inLockFullAddress
+      )
+    assertIO(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          "Unable to build transaction to mint group constructor tokens",
+          UserInputError("registrationLock does not correspond to registrationTxo")
+        )
+      )
+    )
+  }
+
+  test("buildSimpleGroupMintingTransaction > invalid quantityToMint") {
+    val mockGroupPolicy: GroupPolicy =
+      GroupPolicy("Mock Group Policy", dummyTxoAddress)
+    val quantity = Int128(ByteString.copyFrom(BigInt(0).toByteArray))
+
+    val testTx = txBuilder
+      .buildSimpleGroupMintingTransaction(
+        inputTxo,
+        inPredicateLockFull,
+        mockGroupPolicy,
+        quantity,
+        inLockFullAddress
+      )
+    assertIO(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          "Unable to build transaction to mint group constructor tokens",
+          UserInputError("quantityToMint must be positive")
+        )
+      )
+    )
+  }
+
+  test("buildSimpleGroupMintingTransaction > changeLockAddress specified while quantityForFee not") {
+    val mockGroupPolicy: GroupPolicy =
+      GroupPolicy("Mock Group Policy", dummyTxoAddress)
+    val quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+
+    val testTx = txBuilder
+      .buildSimpleGroupMintingTransaction(
+        inputTxo,
+        inPredicateLockFull,
+        mockGroupPolicy,
+        quantity,
+        inLockFullAddress,
+        inLockFullAddress.some
+      )
+    assertIO(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          "Unable to build transaction to mint group constructor tokens",
+          UserInputError("changeLockAddress and quantityForFee must be both specified or both unspecified")
+        )
+      )
+    )
+  }
+
+  test("buildSimpleGroupMintingTransaction > quantityForFee specified while changeLockAddress not") {
+    val mockGroupPolicy: GroupPolicy =
+      GroupPolicy("Mock Group Policy", dummyTxoAddress)
+    val quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+
+    val testTx = txBuilder
+      .buildSimpleGroupMintingTransaction(
+        inputTxo,
+        inPredicateLockFull,
+        mockGroupPolicy,
+        quantity,
+        inLockFullAddress,
+        None,
+        quantity.some
+      )
+    assertIO(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          "Unable to build transaction to mint group constructor tokens",
+          UserInputError("changeLockAddress and quantityForFee must be both specified or both unspecified")
+        )
+      )
+    )
+  }
+
+  test("buildSimpleGroupMintingTransaction > invalid quantityForFee (non-positive)") {
+    val mockGroupPolicy: GroupPolicy =
+      GroupPolicy("Mock Group Policy", dummyTxoAddress)
+    val quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+    val quantity0 = Int128(ByteString.copyFrom(BigInt(0).toByteArray))
+
+    val testTx = txBuilder
+      .buildSimpleGroupMintingTransaction(
+        inputTxo,
+        inPredicateLockFull,
+        mockGroupPolicy,
+        quantity,
+        inLockFullAddress,
+        inLockFullAddress.some,
+        quantity0.some
+      )
+    assertIO(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          "Unable to build transaction to mint group constructor tokens",
+          UserInputError("If specified, quantityForFee must be positive")
+        )
+      )
+    )
+  }
+
+  test("buildSimpleGroupMintingTransaction > invalid quantityForFee (exceeds input)") {
+    val mockGroupPolicy: GroupPolicy =
+      GroupPolicy("Mock Group Policy", dummyTxoAddress)
+    val quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+    val quantity2 = Int128(ByteString.copyFrom(BigInt(2).toByteArray))
+
+    val testTx = txBuilder
+      .buildSimpleGroupMintingTransaction(
+        inputTxo,
+        inPredicateLockFull,
+        mockGroupPolicy,
+        quantity,
+        inLockFullAddress,
+        inLockFullAddress.some,
+        quantity2.some
+      )
+    assertIO(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          "Unable to build transaction to mint group constructor tokens",
+          UserInputError("If specified, quantityForFee must not exceed the LVLs contained in the registrationUtxo")
+        )
+      )
+    )
   }
 }
