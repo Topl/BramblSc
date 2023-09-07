@@ -267,8 +267,13 @@ object TransactionSyntaxInterpreter {
   private def groupSeriesConstructorTokensValidation(
     transaction: IoTransaction
   ): ValidatedNec[TransactionSyntaxError, Unit] = {
-    val groupConstructorsOutput = transaction.outputs.filter(_.value.value.isGroup).map(_.value.getGroup)
-    val seriesConstructorsOutput = transaction.outputs.filter(_.value.value.isSeries).map(_.value.getSeries)
+    val movedGroupConstructors = transaction.inputs.filter(_.value.value.isGroup).map(_.value.getGroup)
+    val groupConstructorsOutput =
+      transaction.outputs.filter(_.value.value.isGroup).map(_.value.getGroup) diff movedGroupConstructors
+
+    val movedSeriesConstructors = transaction.inputs.filter(_.value.value.isSeries).map(_.value.getSeries)
+    val seriesConstructorsOutput =
+      transaction.outputs.filter(_.value.value.isSeries).map(_.value.getSeries) diff movedSeriesConstructors
 
     val groupRegistrationsUtxo = transaction.groupPolicies.map(_.event.registrationUtxo)
     val seriesRegistrationsUtxo = transaction.seriesPolicies.map(_.event.registrationUtxo)
@@ -321,6 +326,8 @@ object TransactionSyntaxInterpreter {
    *
    * Check Moving Constructor Tokens:  Validated on quantityBasedValidation
    *  - Let 'g-s' be a group identifier, then the number of Group-Series Constructor Tokens with group identifier 'g-s' in the input is equal to the quantity of Group Constructor Tokens with identifier 'g-s' in the output.
+   *  - The registration UTXO referenced in $p$ is present in the inputs and contains enough LVLs to satisfy the cost of minting the group constructor tokens and to satisfy any outstanding amount of LVLs in the outputs.
+   *  "Outstanding amount" refers to the amount that is not satisfied by other inputs in the transaction.
    *
    * @param transaction transaction
    * @return
@@ -335,15 +342,13 @@ object TransactionSyntaxInterpreter {
     val seriesOut = transaction.outputs.filter(_.value.value.isSeries).map(_.value.getSeries)
 
     val groupsValidation = groupsIn.forall { gIn =>
-      groupsOut.exists(gOut =>
-        gIn.groupId == gOut.groupId &&
-        gIn.quantity == gOut.quantity
+      groupsOut.filter(_.groupId == gIn.groupId).map(_.quantity.value.toByteArray).map(BigInt(_)).sum == BigInt(
+        gIn.quantity.value.toByteArray
       )
     }
     val seriesValidation = seriesIn.forall { sIn =>
-      seriesOut.exists(sOut =>
-        sIn.seriesId == sOut.seriesId &&
-        sIn.quantity == sOut.quantity
+      seriesOut.filter(_.seriesId == sIn.seriesId).map(_.quantity.value.toByteArray).map(BigInt(_)).sum == BigInt(
+        sIn.quantity.value.toByteArray
       )
     }
 
