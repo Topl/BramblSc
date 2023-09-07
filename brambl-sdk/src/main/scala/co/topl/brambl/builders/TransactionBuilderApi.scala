@@ -83,30 +83,38 @@ trait TransactionBuilderApi[F[_]] {
   ): F[IoTransaction]
 
   /**
-   * Builds a simple transaction to mint Group Constructor tokens
+   * Builds a simple transaction to mint Group Constructor tokens.
+   * If successful, the transaction will have a single input (the registrationUtxo) and 1-2 outputs: the minted
+   * group constructor tokens and optionally a LVL change output.
    *
-   * @param walletStateApi API for retrieving wallet state
-   * @param bifrostRpc API for interacting with a blockchain node
-   * @param groupPolicy The group policy for which we are minting constructor tokens.
-   *                    This group policy specifies a registrationUtxo to be used as an input in this transaction. If
-   *                    retrieving the data of this UTXO fails (unable to fetch UTXO from the node or unable to retrieve
-   *                    its Lock from the wallet), an error will be returned.
-   * @param lock A Lock to encumber the newly minted constructor tokens
-   * @param quantity The quantity of constructor tokens to mint
-   * @param lockPredicateForChange The predicate to use to build the registrationUtxo change output. If not provided
-   *                               there will be no change
-   * @param quantityForChange The quantity to use to build the registrationUtxo change output. If not provided there
-   *                          will be no change
+   * @param registrationTxo The TXO that corresponds to the registrationUtxo to use as an input in this transaction.
+   *                        This TXO must contain LVLs, else an error will be returned.
+   * @param registrationLock The Predicate Lock that encumbers the funds in the registrationUtxo. This will be used in
+   *                         the attestation of the registrationUtxo input.
+   * @param groupPolicy The group policy for which we are minting constructor tokens. This group policy specifies a
+   *                    registrationUtxo to be used as an input in this transaction.
+   * @param quantityToMint The quantity of constructor tokens to mint
+   * @param mintedConstructorLockAddress The LockAddress to send the minted constructor tokens to.
+   * @param changeLockAddress The LockAddress to send any LVL change to. Must be provided if, and only if,
+   *                          quantityForFee is provided. If not, an error will be returned.
+   * @param quantityForFee The quantity to use as the fee to mint the group constructor token. If not provided,
+   *                       the entirety of the registrationUtxo will be used.
+   *                       - If less than the entirety of the registrationUtxo is specified, then the remainder will be
+   *                         sent to the changeLockAddress.
+   *                       - If more than the entirety of the registrationUtxo is specified, then an error will be
+   *                         returned.
+   *                       - If exactly the entirety of the registrationUtxo is specified, then there will be no change
+   *                         output.
    * @return An unproven Group Constructor minting transaction if possible. Else, an error
    */
   def buildSimpleGroupMintingTransaction(
-    walletStateApi:         WalletStateAlgebra[F],
-    bifrostRpc:             BifrostQueryAlgebra[F],
-    groupPolicy:            GroupPolicy,
-    lock:                   Lock,
-    quantity:               Int128,
-    lockPredicateForChange: Option[Lock.Predicate] = None,
-    quantityForChange:      Option[Int128] = None
+    registrationTxo:              Txo,
+    registrationLock:             Lock.Predicate,
+    groupPolicy:                  GroupPolicy,
+    quantityToMint:               Int128,
+    mintedConstructorLockAddress: LockAddress,
+    changeLockAddress:            Option[LockAddress] = None,
+    quantityForFee:               Option[Int128] = None
   ): F[Either[BuilderError, IoTransaction]]
 }
 
@@ -126,7 +134,8 @@ object TransactionBuilderApi {
 
   }
 
-  case class BuildStxoError(message: String, cause: Throwable = null) extends BuilderError(message, cause)
+  case class UserInputError(message: String) extends BuilderError(message, null)
+  case class UnableToBuildTransaction(message: String, cause: Throwable = null) extends BuilderError(message, cause)
 
   def make[F[_]: Monad](
     networkId: Int,
@@ -185,66 +194,100 @@ object TransactionBuilderApi {
       } yield ioTransaction
 
       override def buildSimpleGroupMintingTransaction(
-        walletStateApi:         WalletStateAlgebra[F],
-        bifrostRpc:             BifrostQueryAlgebra[F],
-        groupPolicy:            GroupPolicy,
-        lock:                   Lock,
-        quantity:               Int128,
-        lockPredicateForChange: Option[Lock.Predicate] = None,
-        quantityForChange:      Option[Int128] = None
-      ): F[Either[BuilderError, IoTransaction]] =
+        registrationTxo:              Txo,
+        registrationLock:             Lock.Predicate,
+        groupPolicy:                  GroupPolicy,
+        quantityToMint:               Int128,
+        mintedConstructorLockAddress: LockAddress,
+        changeLockAddress:            Option[LockAddress] = None,
+        quantityForFee:               Option[Int128] = None
+      ): F[Either[BuilderError, IoTransaction]] = (
         for {
-          stxoRes <- buildRegistrationStxo(walletStateApi, bifrostRpc, groupPolicy.registrationUtxo)
-          utxo    <- groupOutput(lock, quantity, groupPolicy.computeId)
-          datum   <- datum()
-          changeOutput <- (lockPredicateForChange, quantityForChange) match {
-            case (Some(lockPredicate), Some(quantity)) => lvlOutput(lockPredicate, quantity).map(Seq(_))
-            case _                                     => Seq.empty.pure[F]
-          }
-        } yield stxoRes match {
-          case Right(stxo) =>
-            IoTransaction(
-              inputs = Seq(stxo),
-              outputs = changeOutput :+ utxo,
-              datum = datum,
-              groupPolicies = Seq(Datum.GroupPolicy(groupPolicy))
-            ).asRight
-          case Left(err) => err.asLeft
-        }
-
-      private def buildRegistrationStxo(
-        walletStateApi:   WalletStateAlgebra[F],
-        bifrostRpc:       BifrostQueryAlgebra[F],
-        registrationUtxo: TransactionOutputAddress
-      ): F[Either[BuilderError, SpentTransactionOutput]] =
-        (for {
-          tx <- EitherT.fromOptionF(
-            bifrostRpc.fetchTransaction(registrationUtxo.id),
-            BuildStxoError(s"Could not retrieve TX with id ${registrationUtxo.id}")
-          )
-          utxo <- EitherT.fromOption[F](
-            tx.outputs.get(registrationUtxo.index),
-            BuildStxoError(
-              s"Could not retrieve UTXO with index ${registrationUtxo.index}. Total Outputs: ${tx.outputs.length}"
+          registrationLockAddr <- EitherT.right[BuilderError](lockAddress(Lock().withPredicate(registrationLock)))
+          change <- EitherT.fromEither[F](
+            validateGroupMintingParams(
+              registrationTxo,
+              registrationLockAddr,
+              groupPolicy,
+              quantityToMint,
+              changeLockAddress,
+              quantityForFee
             )
+              .leftMap[BuilderError](
+                UnableToBuildTransaction("Unable to build transaction to mint group constructor tokens ", _)
+              )
           )
-          lockPredicate <- {
-            val address = utxo.address.toBase58()
-            EitherT.fromOptionF(
-              walletStateApi.getLockByAddress(address),
-              BuildStxoError(s"Could not retrieve Lock for Address $address")
+          stxoAttestation <- EitherT.right[BuilderError](unprovenAttestation(registrationLock))
+          datum           <- EitherT.right[BuilderError](datum())
+          utxoMinted <- EitherT.right[BuilderError](
+            groupOutput(mintedConstructorLockAddress, quantityToMint, groupPolicy.computeId)
+          )
+        } yield IoTransaction(
+          inputs = Seq(
+            SpentTransactionOutput(
+              registrationTxo.outputAddress,
+              stxoAttestation,
+              registrationTxo.transactionOutput.value
             )
-          }
-          attestation <- EitherT.right[BuilderError](unprovenAttestation(lockPredicate))
-        } yield SpentTransactionOutput(address = registrationUtxo, attestation = attestation, value = utxo.value)).value
-
-      private def groupOutput(lock: Lock, quantity: Int128, groupId: GroupId): F[UnspentTransactionOutput] =
-        UnspentTransactionOutput(
-          LockAddress(
-            networkId,
-            ledgerId,
-            LockId(lock.sizedEvidence.digest.value)
           ),
+          outputs = change.toSeq :+ utxoMinted,
+          datum = datum,
+          groupPolicies = Seq(Datum.GroupPolicy(groupPolicy))
+        )
+      ).value
+
+      /**
+       * Validates the parameters for minting group constructor tokens
+       * If user parameters are invalid, return a UserInputError. Else, return the UTXO for the change output if any
+       */
+      private def validateGroupMintingParams(
+        registrationTxo:      Txo,
+        registrationLockAddr: LockAddress,
+        groupPolicy:          GroupPolicy,
+        quantityToMint:       Int128,
+        changeLockAddress:    Option[LockAddress] = None,
+        quantityForFee:       Option[Int128] = None
+      ): Either[UserInputError, Option[UnspentTransactionOutput]] =
+        if (registrationTxo.outputAddress != groupPolicy.registrationUtxo)
+          UserInputError("registrationTxo does not match registrationUtxo").asLeft
+        else if (!registrationTxo.transactionOutput.value.value.isLvl)
+          UserInputError("registrationUtxo does not contain LVLs").asLeft
+        else if (registrationLockAddr != registrationTxo.transactionOutput.address)
+          UserInputError("registrationLock does not correspond to registrationTxo").asLeft
+        else if (BigInt(quantityToMint.value.toByteArray) <= BigInt(0))
+          UserInputError("quantityToMint must be positive").asLeft
+        else
+          (changeLockAddress, quantityForFee) match {
+            case (None, None) => None.asRight
+            case (Some(lockAddr), Some(quantity)) =>
+              val inputLvls = BigInt(registrationTxo.transactionOutput.value.value.lvl.get.quantity.value.toByteArray)
+              val feeLvls = BigInt(quantity.value.toByteArray)
+              if (feeLvls < BigInt(0))
+                UserInputError("If specified, quantityForFee must be positive").asLeft
+              else if (feeLvls > inputLvls)
+                UserInputError(
+                  "If specified, quantityForFee must not exceed the LVLs contained in the registrationUtxo"
+                ).asLeft
+              else if (feeLvls == inputLvls)
+                None.asRight // No change
+              else
+                UnspentTransactionOutput(
+                  lockAddr,
+                  Value.defaultInstance.withLvl(
+                    Value.LVL(Int128(ByteString.copyFrom((inputLvls - feeLvls).toByteArray)))
+                  )
+                ).some.asRight
+            case _ =>
+              UserInputError("changeLockAddress and quantityForFee must be both specified or both unspecified").asLeft
+          }
+
+      private def groupOutput(
+        lockAddress: LockAddress,
+        quantity:    Int128,
+        groupId:     GroupId
+      ): F[UnspentTransactionOutput] =
+        UnspentTransactionOutput(
+          lockAddress,
           Value.defaultInstance.withGroup(Value.Group(groupId = groupId, quantity = quantity))
         ).pure[F]
 
