@@ -252,7 +252,7 @@ object TransactionBuilderApi {
       ): F[Either[BuilderError, IoTransaction]] = (
         for {
           registrationLockAddr <- EitherT.right[BuilderError](lockAddress(Lock().withPredicate(registrationLock)))
-          change <- EitherT.fromEither[F](
+          _ <- EitherT.fromEither[F](
             validateConstructorMintingParams(
               registrationTxo,
               registrationLockAddr,
