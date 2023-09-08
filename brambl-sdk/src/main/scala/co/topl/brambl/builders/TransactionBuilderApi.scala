@@ -12,8 +12,8 @@ import quivr.models.{Int128, Proof, SmallData}
 import co.topl.brambl.common.ContainsEvidence.Ops
 import co.topl.brambl.common.ContainsImmutable.instances._
 import cats.implicits._
-import co.topl.brambl.models.Event.GroupPolicy
-import co.topl.brambl.syntax.groupPolicyAsGroupPolicySyntaxOps
+import co.topl.brambl.models.Event.{GroupPolicy, SeriesPolicy}
+import co.topl.brambl.syntax.{groupPolicyAsGroupPolicySyntaxOps, seriesPolicyAsSeriesPolicySyntaxOps}
 
 /**
  * Defines a builder for [[IoTransaction]]s
@@ -114,6 +114,41 @@ trait TransactionBuilderApi[F[_]] {
     changeLockAddress:            Option[LockAddress] = None,
     quantityForFee:               Option[Int128] = None
   ): F[Either[BuilderError, IoTransaction]]
+
+  /**
+   * Builds a simple transaction to mint Series Constructor tokens.
+   * If successful, the transaction will have a single input (the registrationUtxo) and 1-2 outputs: the minted
+   * series constructor tokens and optionally a LVL change output.
+   *
+   * @param registrationTxo The TXO that corresponds to the registrationUtxo to use as an input in this transaction.
+   *                        This TXO must contain LVLs, else an error will be returned.
+   * @param registrationLock The Predicate Lock that encumbers the funds in the registrationUtxo. This will be used in
+   *                         the attestation of the registrationUtxo input.
+   * @param seriesPolicy The series policy for which we are minting constructor tokens. This series policy specifies a
+   *                    registrationUtxo to be used as an input in this transaction.
+   * @param quantityToMint The quantity of constructor tokens to mint
+   * @param mintedConstructorLockAddress The LockAddress to send the minted constructor tokens to.
+   * @param changeLockAddress The LockAddress to send any LVL change to. Must be provided if, and only if,
+   *                          quantityForFee is provided. If not, an error will be returned.
+   * @param quantityForFee The quantity to use as the fee to mint the series constructor token. If not provided,
+   *                       the entirety of the registrationUtxo will be used.
+   *                       - If less than the entirety of the registrationUtxo is specified, then the remainder will be
+   *                         sent to the changeLockAddress.
+   *                       - If more than the entirety of the registrationUtxo is specified, then an error will be
+   *                         returned.
+   *                       - If exactly the entirety of the registrationUtxo is specified, then there will be no change
+   *                         output.
+   * @return An unproven Series Constructor minting transaction if possible. Else, an error
+   */
+  def buildSimpleSeriesMintingTransaction(
+    registrationTxo:              Txo,
+    registrationLock:             Lock.Predicate,
+    seriesPolicy:                 SeriesPolicy,
+    quantityToMint:               Int128,
+    mintedConstructorLockAddress: LockAddress,
+    changeLockAddress:            Option[LockAddress] = None,
+    quantityForFee:               Option[Int128] = None
+  ): F[Either[BuilderError, IoTransaction]]
 }
 
 object TransactionBuilderApi {
@@ -203,10 +238,10 @@ object TransactionBuilderApi {
         for {
           registrationLockAddr <- EitherT.right[BuilderError](lockAddress(Lock().withPredicate(registrationLock)))
           change <- EitherT.fromEither[F](
-            validateGroupMintingParams(
+            validateConstructorMintingParams(
               registrationTxo,
               registrationLockAddr,
-              groupPolicy,
+              groupPolicy.registrationUtxo,
               quantityToMint,
               changeLockAddress,
               quantityForFee
@@ -234,19 +269,62 @@ object TransactionBuilderApi {
         )
       ).value
 
+      override def buildSimpleSeriesMintingTransaction(
+        registrationTxo:              Txo,
+        registrationLock:             Lock.Predicate,
+        seriesPolicy:                 SeriesPolicy,
+        quantityToMint:               Int128,
+        mintedConstructorLockAddress: LockAddress,
+        changeLockAddress:            Option[LockAddress] = None,
+        quantityForFee:               Option[Int128] = None
+      ): F[Either[BuilderError, IoTransaction]] = (
+        for {
+          registrationLockAddr <- EitherT.right[BuilderError](lockAddress(Lock().withPredicate(registrationLock)))
+          change <- EitherT.fromEither[F](
+            validateConstructorMintingParams(
+              registrationTxo,
+              registrationLockAddr,
+              seriesPolicy.registrationUtxo,
+              quantityToMint,
+              changeLockAddress,
+              quantityForFee
+            )
+              .leftMap[BuilderError](
+                UnableToBuildTransaction("Unable to build transaction to mint series constructor tokens", _)
+              )
+          )
+          stxoAttestation <- EitherT.right[BuilderError](unprovenAttestation(registrationLock))
+          datum           <- EitherT.right[BuilderError](datum())
+          utxoMinted <- EitherT.right[BuilderError](
+            seriesOutput(mintedConstructorLockAddress, quantityToMint, seriesPolicy)
+          )
+        } yield IoTransaction(
+          inputs = Seq(
+            SpentTransactionOutput(
+              registrationTxo.outputAddress,
+              stxoAttestation,
+              registrationTxo.transactionOutput.value
+            )
+          ),
+          outputs = change.toSeq :+ utxoMinted,
+          datum = datum,
+          seriesPolicies = Seq(Datum.SeriesPolicy(seriesPolicy))
+        )
+      ).value
+
       /**
        * Validates the parameters for minting group constructor tokens
        * If user parameters are invalid, return a UserInputError. Else, return the UTXO for the change output if any
        */
-      private def validateGroupMintingParams(
-        registrationTxo:      Txo,
-        registrationLockAddr: LockAddress,
-        groupPolicy:          GroupPolicy,
-        quantityToMint:       Int128,
-        changeLockAddress:    Option[LockAddress] = None,
-        quantityForFee:       Option[Int128] = None
+      private def validateConstructorMintingParams(
+        registrationTxo:        Txo,
+        registrationLockAddr:   LockAddress,
+        policyRegistrationUtxo: TransactionOutputAddress,
+        quantityToMint:         Int128,
+        changeLockAddress:      Option[LockAddress] = None,
+        quantityForFee:         Option[Int128] = None
       ): Either[UserInputError, Option[UnspentTransactionOutput]] =
-        if (registrationTxo.outputAddress != groupPolicy.registrationUtxo)
+        if (registrationTxo.outputAddress != policyRegistrationUtxo)
           UserInputError("registrationTxo does not match registrationUtxo").asLeft
         else if (!registrationTxo.transactionOutput.value.value.isLvl)
           UserInputError("registrationUtxo does not contain LVLs").asLeft
@@ -287,6 +365,24 @@ object TransactionBuilderApi {
         UnspentTransactionOutput(
           lockAddress,
           Value.defaultInstance.withGroup(Value.Group(groupId = groupId, quantity = quantity))
+        ).pure[F]
+
+      private def seriesOutput(
+        lockAddress: LockAddress,
+        quantity:    Int128,
+        policy:      SeriesPolicy
+      ): F[UnspentTransactionOutput] =
+        UnspentTransactionOutput(
+          lockAddress,
+          Value.defaultInstance.withSeries(
+            Value.Series(
+              seriesId = policy.computeId,
+              quantity = quantity,
+              tokenSupply = policy.tokenSupply,
+              quantityDescriptor = policy.quantityDescriptor,
+              fungibility = policy.fungibility
+            )
+          )
         ).pure[F]
 
       override def lvlOutput(

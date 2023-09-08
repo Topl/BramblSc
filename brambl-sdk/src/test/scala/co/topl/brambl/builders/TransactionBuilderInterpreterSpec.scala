@@ -3,11 +3,15 @@ package co.topl.brambl.builders
 import cats.implicits.catsSyntaxOptionId
 import co.topl.brambl.builders.TransactionBuilderApi.{UnableToBuildTransaction, UserInputError}
 import co.topl.brambl.MockHelpers
-import co.topl.brambl.models.Event.GroupPolicy
-import co.topl.brambl.models.{Datum, LockAddress, TransactionOutputAddress}
+import co.topl.brambl.models.Event.{GroupPolicy, SeriesPolicy}
+import co.topl.brambl.models.Datum
 import co.topl.brambl.models.box.{Attestation, Value}
 import co.topl.brambl.models.transaction.{IoTransaction, SpentTransactionOutput, UnspentTransactionOutput}
-import co.topl.brambl.syntax.{groupPolicyAsGroupPolicySyntaxOps, ioTransactionAsTransactionSyntaxOps}
+import co.topl.brambl.syntax.{
+  groupPolicyAsGroupPolicySyntaxOps,
+  ioTransactionAsTransactionSyntaxOps,
+  seriesPolicyAsSeriesPolicySyntaxOps
+}
 import com.google.protobuf.ByteString
 import quivr.models.{Int128, Proof}
 import munit.CatsEffectAssertions.assertIO
@@ -416,6 +420,371 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       Left(
         UnableToBuildTransaction(
           "Unable to build transaction to mint group constructor tokens",
+          UserInputError("If specified, quantityForFee must not exceed the LVLs contained in the registrationUtxo")
+        )
+      )
+    )
+  }
+
+  test("buildSimpleSeriesMintingTransaction > Success, no change (fee specified)") {
+    val mockSeriesPolicy: SeriesPolicy =
+      SeriesPolicy("Mock Series Policy", None, dummyTxoAddress)
+    val quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+    val expectedTx = IoTransaction.defaultInstance
+      .withDatum(txDatum)
+      .withSeriesPolicies(Seq(Datum.SeriesPolicy(mockSeriesPolicy)))
+      .withInputs(
+        List(
+          SpentTransactionOutput(
+            mockSeriesPolicy.registrationUtxo,
+            Attestation().withPredicate(Attestation.Predicate(inPredicateLockFull, List(Proof()))),
+            Value.defaultInstance.withLvl(Value.LVL(quantity))
+          )
+        )
+      )
+      .withOutputs(
+        List(
+          UnspentTransactionOutput(
+            inLockFullAddress,
+            Value.defaultInstance.withSeries(
+              Value.Series(
+                seriesId = mockSeriesPolicy.computeId,
+                quantity = quantity,
+                tokenSupply = mockSeriesPolicy.tokenSupply,
+                quantityDescriptor = mockSeriesPolicy.quantityDescriptor,
+                fungibility = mockSeriesPolicy.fungibility
+              )
+            )
+          )
+        )
+      )
+    assertIO(
+      for {
+        txRes <- txBuilder
+          .buildSimpleSeriesMintingTransaction(
+            inputTxo,
+            inPredicateLockFull,
+            mockSeriesPolicy,
+            quantity,
+            inLockFullAddress,
+            trivialLockAddress.some,
+            quantity.some
+          )
+      } yield txRes match {
+        case Right(testTx) => testTx.computeId == expectedTx.computeId
+        case _             => false
+      },
+      true
+    )
+  }
+
+  test("buildSimpleSeriesMintingTransaction > Success, no change (fee unspecified)") {
+    val mockSeriesPolicy: SeriesPolicy =
+      SeriesPolicy("Mock Series Policy", None, dummyTxoAddress)
+    val quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+    val expectedTx = IoTransaction.defaultInstance
+      .withDatum(txDatum)
+      .withSeriesPolicies(Seq(Datum.SeriesPolicy(mockSeriesPolicy)))
+      .withInputs(
+        List(
+          SpentTransactionOutput(
+            mockSeriesPolicy.registrationUtxo,
+            Attestation().withPredicate(Attestation.Predicate(inPredicateLockFull, List(Proof()))),
+            Value.defaultInstance.withLvl(Value.LVL(quantity))
+          )
+        )
+      )
+      .withOutputs(
+        List(
+          UnspentTransactionOutput(
+            inLockFullAddress,
+            Value.defaultInstance.withSeries(
+              Value.Series(
+                seriesId = mockSeriesPolicy.computeId,
+                quantity = quantity,
+                tokenSupply = mockSeriesPolicy.tokenSupply,
+                quantityDescriptor = mockSeriesPolicy.quantityDescriptor,
+                fungibility = mockSeriesPolicy.fungibility
+              )
+            )
+          )
+        )
+      )
+    assertIO(
+      for {
+        txRes <- txBuilder
+          .buildSimpleSeriesMintingTransaction(
+            inputTxo,
+            inPredicateLockFull,
+            mockSeriesPolicy,
+            quantity,
+            inLockFullAddress
+          )
+      } yield txRes match {
+        case Right(testTx) => testTx.computeId == expectedTx.computeId
+        case _             => false
+      },
+      true
+    )
+  }
+
+  test("buildSimpleSeriesMintingTransaction > Success, with change") {
+    val mockSeriesPolicy: SeriesPolicy =
+      SeriesPolicy("Mock Series Policy", None, dummyTxoAddress)
+    val quantity3 = Int128(ByteString.copyFrom(BigInt(3).toByteArray))
+    val quantity2 = Int128(ByteString.copyFrom(BigInt(2).toByteArray))
+    val quantity1 = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+    val expectedTx = IoTransaction.defaultInstance
+      .withDatum(txDatum)
+      .withSeriesPolicies(Seq(Datum.SeriesPolicy(mockSeriesPolicy)))
+      .withInputs(
+        List(
+          SpentTransactionOutput(
+            mockSeriesPolicy.registrationUtxo,
+            Attestation().withPredicate(Attestation.Predicate(inPredicateLockFull, List(Proof()))),
+            Value.defaultInstance.withLvl(Value.LVL(quantity3))
+          )
+        )
+      )
+      .withOutputs(
+        List(
+          UnspentTransactionOutput(
+            trivialLockAddress,
+            Value.defaultInstance.withLvl(Value.LVL(quantity = quantity1))
+          ),
+          UnspentTransactionOutput(
+            inLockFullAddress,
+            Value.defaultInstance.withSeries(
+              Value.Series(
+                seriesId = mockSeriesPolicy.computeId,
+                quantity = quantity1,
+                tokenSupply = mockSeriesPolicy.tokenSupply,
+                quantityDescriptor = mockSeriesPolicy.quantityDescriptor,
+                fungibility = mockSeriesPolicy.fungibility
+              )
+            )
+          )
+        )
+      )
+    assertIO(
+      for {
+        txRes <- txBuilder
+          .buildSimpleSeriesMintingTransaction(
+            inputTxo.copy(transactionOutput =
+              fullOutput.copy(value = Value.defaultInstance.withLvl(Value.LVL(quantity3)))
+            ),
+            inPredicateLockFull,
+            mockSeriesPolicy,
+            quantity1,
+            inLockFullAddress,
+            trivialLockAddress.some,
+            quantity2.some
+          )
+      } yield txRes match {
+        case Right(testTx) => testTx.computeId == expectedTx.computeId
+        case _             => false
+      },
+      true
+    )
+  }
+
+  test("buildSimpleSeriesMintingTransaction > invalid registrationTxo") {
+    val mockSeriesPolicy: SeriesPolicy =
+      SeriesPolicy("Mock Series Policy", None, dummyTxoAddress)
+    val quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+
+    val testTx = txBuilder
+      .buildSimpleSeriesMintingTransaction(
+        inputTxo,
+        inPredicateLockFull,
+        mockSeriesPolicy,
+        quantity,
+        inLockFullAddress
+      )
+    assertIO(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          "Unable to build transaction to mint series constructor tokens",
+          UserInputError("registrationTxo does not match registrationUtxo")
+        )
+      )
+    )
+  }
+
+  test("buildSimpleSeriesMintingTransaction > invalid registrationUtxo") {
+    val mockSeriesPolicy: SeriesPolicy =
+      SeriesPolicy("Mock Series Policy", None, dummyTxoAddress)
+    val quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+
+    val testTx = txBuilder
+      .buildSimpleSeriesMintingTransaction(
+        inputTxo.copy(transactionOutput =
+          fullOutput.copy(value = Value.defaultInstance.withTopl(Value.TOPL(quantity)))
+        ),
+        inPredicateLockFull,
+        mockSeriesPolicy,
+        quantity,
+        inLockFullAddress
+      )
+    assertIO(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          "Unable to build transaction to mint series constructor tokens",
+          UserInputError("registrationUtxo does not contain LVLs")
+        )
+      )
+    )
+  }
+
+  test("buildSimpleSeriesMintingTransaction > invalid registrationLock") {
+    val mockSeriesPolicy: SeriesPolicy =
+      SeriesPolicy("Mock Series Policy", None, dummyTxoAddress)
+    val quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+
+    val testTx = txBuilder
+      .buildSimpleSeriesMintingTransaction(
+        inputTxo,
+        trivialOutLock.getPredicate,
+        mockSeriesPolicy,
+        quantity,
+        inLockFullAddress
+      )
+    assertIO(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          "Unable to build transaction to mint series constructor tokens",
+          UserInputError("registrationLock does not correspond to registrationTxo")
+        )
+      )
+    )
+  }
+
+  test("buildSimpleSeriesMintingTransaction > invalid quantityToMint") {
+    val mockSeriesPolicy: SeriesPolicy =
+      SeriesPolicy("Mock Series Policy", None, dummyTxoAddress)
+    val quantity = Int128(ByteString.copyFrom(BigInt(0).toByteArray))
+
+    val testTx = txBuilder
+      .buildSimpleSeriesMintingTransaction(
+        inputTxo,
+        inPredicateLockFull,
+        mockSeriesPolicy,
+        quantity,
+        inLockFullAddress
+      )
+    assertIO(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          "Unable to build transaction to mint series constructor tokens",
+          UserInputError("quantityToMint must be positive")
+        )
+      )
+    )
+  }
+
+  test("buildSimpleSeriesMintingTransaction > changeLockAddress specified while quantityForFee not") {
+    val mockSeriesPolicy: SeriesPolicy =
+      SeriesPolicy("Mock Series Policy", None, dummyTxoAddress)
+    val quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+
+    val testTx = txBuilder
+      .buildSimpleSeriesMintingTransaction(
+        inputTxo,
+        inPredicateLockFull,
+        mockSeriesPolicy,
+        quantity,
+        inLockFullAddress,
+        inLockFullAddress.some
+      )
+    assertIO(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          "Unable to build transaction to mint series constructor tokens",
+          UserInputError("changeLockAddress and quantityForFee must be both specified or both unspecified")
+        )
+      )
+    )
+  }
+
+  test("buildSimpleSeriesMintingTransaction > quantityForFee specified while changeLockAddress not") {
+    val mockSeriesPolicy: SeriesPolicy =
+      SeriesPolicy("Mock Series Policy", None, dummyTxoAddress)
+    val quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+
+    val testTx = txBuilder
+      .buildSimpleSeriesMintingTransaction(
+        inputTxo,
+        inPredicateLockFull,
+        mockSeriesPolicy,
+        quantity,
+        inLockFullAddress,
+        None,
+        quantity.some
+      )
+    assertIO(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          "Unable to build transaction to mint series constructor tokens",
+          UserInputError("changeLockAddress and quantityForFee must be both specified or both unspecified")
+        )
+      )
+    )
+  }
+
+  test("buildSimpleSeriesMintingTransaction > invalid quantityForFee (non-positive)") {
+    val mockSeriesPolicy: SeriesPolicy =
+      SeriesPolicy("Mock Series Policy", None, dummyTxoAddress)
+    val quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+    val quantity0 = Int128(ByteString.copyFrom(BigInt(0).toByteArray))
+
+    val testTx = txBuilder
+      .buildSimpleSeriesMintingTransaction(
+        inputTxo,
+        inPredicateLockFull,
+        mockSeriesPolicy,
+        quantity,
+        inLockFullAddress,
+        inLockFullAddress.some,
+        quantity0.some
+      )
+    assertIO(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          "Unable to build transaction to mint series constructor tokens",
+          UserInputError("If specified, quantityForFee must be positive")
+        )
+      )
+    )
+  }
+
+  test("buildSimpleSeriesMintingTransaction > invalid quantityForFee (exceeds input)") {
+    val mockSeriesPolicy: SeriesPolicy =
+      SeriesPolicy("Mock Series Policy", None, dummyTxoAddress)
+    val quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+    val quantity2 = Int128(ByteString.copyFrom(BigInt(2).toByteArray))
+
+    val testTx = txBuilder
+      .buildSimpleSeriesMintingTransaction(
+        inputTxo,
+        inPredicateLockFull,
+        mockSeriesPolicy,
+        quantity,
+        inLockFullAddress,
+        inLockFullAddress.some,
+        quantity2.some
+      )
+    assertIO(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          "Unable to build transaction to mint series constructor tokens",
           UserInputError("If specified, quantityForFee must not exceed the LVLs contained in the registrationUtxo")
         )
       )
