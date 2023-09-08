@@ -72,6 +72,27 @@ object WalletStateApi {
         )
       }
 
+      def getLockByAddress(lockAddress: String): F[Option[Lock.Predicate]] = connection.use { conn =>
+        for {
+          stmnt <- Sync[F].blocking(conn.createStatement())
+          rs <- Sync[F].blocking(
+            stmnt.executeQuery(
+              s"SELECT address, lock_predicate FROM " +
+              s"cartesian WHERE address = '$lockAddress'"
+            )
+          )
+          hasNext        <- Sync[F].delay(rs.next())
+          lock_predicate <- Sync[F].delay(rs.getString("lock_predicate"))
+        } yield
+          if (hasNext)
+            Some(
+              Lock.Predicate.parseFrom(
+                Encoding.decodeFromBase58Check(lock_predicate).toOption.get
+              )
+            )
+          else None
+      }
+
       override def updateWalletState(
         lockPredicate: String,
         lockAddress:   String,

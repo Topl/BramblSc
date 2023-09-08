@@ -1,11 +1,13 @@
 package co.topl.brambl.servicekit
 
 import cats.effect.IO
+import co.topl.brambl.builders.TransactionBuilderApi.implicits.lockAddressOps
 import co.topl.brambl.builders.locks.{LockTemplate, PropositionTemplate}
-import co.topl.brambl.models.Indices
+import co.topl.brambl.common.ContainsEvidence.Ops
+import co.topl.brambl.common.ContainsImmutable.instances.lockImmutable
+import co.topl.brambl.models.{Indices, LockAddress, LockId}
 import co.topl.brambl.models.box.Lock
 import co.topl.brambl.utils.Encoding
-
 import com.google.protobuf.ByteString
 import munit.CatsEffectSuite
 import quivr.models.Digest
@@ -141,6 +143,39 @@ class WalletStateApiSpec extends CatsEffectSuite with BaseSpec {
         )
         lock <- walletStateApi.getLockByIndex(idx)
       } yield lock.isDefined && lock.get == predicate,
+      true
+    )
+  }
+
+  testDirectory.test("getLockByAddress") { _ =>
+    val predicate = Lock.Predicate(Seq(), 1)
+    val lockAddress = LockAddress(0, 0, LockId(Lock().withPredicate(predicate).sizedEvidence.digest.value))
+    assertIO(
+      for {
+        init <- walletStateApi
+          .initWalletState(NetworkConstants.PRIVATE_NETWORK_ID, NetworkConstants.MAIN_NETWORK_ID, mockMainKeyPair.vk)
+        update <- walletStateApi.updateWalletState(
+          Encoding.encodeToBase58Check(predicate.toByteArray),
+          lockAddress.toBase58(),
+          None,
+          None,
+          Indices(9, 9, 9)
+        )
+        lock <- walletStateApi.getLockByAddress(lockAddress.toBase58())
+      } yield lock.isDefined && lock.get == predicate,
+      true
+    )
+  }
+
+  testDirectory.test("getLockByAddress > LockAddress not known in Wallet State") { _ =>
+    val predicate = Lock.Predicate(Seq(), 1)
+    val lockAddress = LockAddress(0, 0, LockId(Lock().withPredicate(predicate).sizedEvidence.digest.value))
+    assertIO(
+      for {
+        init <- walletStateApi
+          .initWalletState(NetworkConstants.PRIVATE_NETWORK_ID, NetworkConstants.MAIN_NETWORK_ID, mockMainKeyPair.vk)
+        lock <- walletStateApi.getLockByAddress(lockAddress.toBase58())
+      } yield lock.isEmpty,
       true
     )
   }

@@ -3,6 +3,7 @@ package co.topl.brambl
 import cats.Id
 import cats.data.ValidatedNel
 import cats.effect.IO
+import co.topl.brambl.builders.TransactionBuilderApi.implicits.lockAddressOps
 import co.topl.brambl.builders.locks.LockTemplate
 import co.topl.brambl.common.ContainsEvidence.Ops
 import co.topl.brambl.common.ContainsImmutable.instances._
@@ -67,4 +68,6 @@ object MockWalletStateApi extends WalletStateAlgebra[IO] with MockHelpers {
   override def getLockTemplate(contract: String): F[Option[LockTemplate[F]]] = ???
 
   override def getLock(party: String, contract: String, nextState: Int): F[Option[Lock]] = ???
+
+  override def getLockByAddress(lockAddress: String): F[Option[Lock.Predicate]] = ???
 }

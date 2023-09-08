@@ -20,12 +20,14 @@ import co.topl.brambl.common.ContainsImmutable.ContainsImmutableTOps
 import co.topl.brambl.common.ContainsImmutable.instances._
 import co.topl.brambl.common.ContainsSignable.ContainsSignableTOps
 import co.topl.brambl.common.ContainsSignable.instances._
+import co.topl.brambl.models.Event.GroupPolicy
 import co.topl.brambl.models._
 import co.topl.brambl.models.box.Attestation
 import co.topl.brambl.models.box.Challenge
 import co.topl.brambl.models.box.Lock
 import co.topl.brambl.models.box.Value
 import co.topl.brambl.models.transaction._
+import co.topl.brambl.syntax.ioTransactionAsTransactionSyntaxOps
 import co.topl.brambl.utils.Encoding.encodeToBase58
 import co.topl.crypto.hash.Blake2b256
 import co.topl.quivr.api.Proposer
@@ -162,6 +164,8 @@ trait MockHelpers {
 
   val output: UnspentTransactionOutput = UnspentTransactionOutput(trivialLockAddress, value)
 
+  val fullOutput: UnspentTransactionOutput = UnspentTransactionOutput(inLockFullAddress, value)
+
   val attFull: Attestation = Attestation().withPredicate(
     Attestation.Predicate(inPredicateLockFull, List.fill(inPredicateLockFull.challenges.length)(Proof()))
   )
@@ -171,8 +175,10 @@ trait MockHelpers {
   val txFull: IoTransaction =
     IoTransaction.defaultInstance.withInputs(List(inputFull)).withOutputs(List(output)).withDatum(txDatum)
 
+  val txFullAlternative: IoTransaction = txFull.copy(outputs = Seq(fullOutput))
+
   val inputTxo: Txo = Txo(
-    UnspentTransactionOutput(inLockFullAddress, value),
+    fullOutput,
     UNSPENT,
     dummyTxoAddress
   )
