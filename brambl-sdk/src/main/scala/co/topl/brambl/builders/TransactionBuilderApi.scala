@@ -14,6 +14,7 @@ import co.topl.brambl.common.ContainsImmutable.instances._
 import cats.implicits._
 import co.topl.brambl.builders.TransactionBuilderApi.UserInputValidations._
 import co.topl.brambl.models.Event.{GroupPolicy, SeriesPolicy}
+import co.topl.brambl.models.box.Value.Series
 import co.topl.brambl.syntax.{groupPolicyAsGroupPolicySyntaxOps, seriesPolicyAsSeriesPolicySyntaxOps}
 import io.circe.Json
 
@@ -199,6 +200,16 @@ object TransactionBuilderApi {
     def isLvls(testValue: Value.Value, testLabel: String): ValidatedNec[UserInputError, Unit] =
       Validated.condNec(testValue.isLvl, (), UserInputError(s"$testLabel does not contain LVLs"))
 
+    def isGroup(testValue: Value.Value, testLabel: String): ValidatedNec[UserInputError, Unit] =
+      Validated.condNec(testValue.isGroup, (), UserInputError(s"$testLabel does not contain Group Constructor Tokens"))
+
+    def isSeries(testValue: Value.Value, testLabel: String): ValidatedNec[UserInputError, Unit] =
+      Validated.condNec(
+        testValue.isSeries,
+        (),
+        UserInputError(s"$testLabel does not contain Series Constructor Tokens")
+      )
+
     def inputLockMatch(
       testAddr:      LockAddress,
       expectedAddr:  LockAddress,
@@ -217,6 +228,22 @@ object TransactionBuilderApi {
         (),
         UserInputError(s"$testLabel must be positive")
       )
+
+    def validMintingSupply(
+      testQuantity: Int128,
+      seriesToken:  Series,
+      testLabel:    String
+    ): ValidatedNec[UserInputError, Unit] =
+      (testQuantity, seriesToken.tokenSupply, seriesToken.quantity) match {
+        case (_, None, _) => ().validNec[UserInputError] // unlimited supply
+        case (d, Some(supply), a) =>
+          val desiredQ = BigInt(d.value.toByteArray)
+          val availableQ = BigInt(a.value.toByteArray)
+          if (desiredQ % supply != 0) UserInputError(s"$testLabel must be a multiple of token supply").invalidNec[Unit]
+          else if (desiredQ > availableQ * supply)
+            UserInputError(s"$testLabel must be less than total token supply available.").invalidNec[Unit]
+          else ().validNec[UserInputError]
+      }
   }
 
   def make[F[_]: Monad](
@@ -396,24 +423,31 @@ object TransactionBuilderApi {
         seriesTxo:        Txo,
         groupLockAddr:    LockAddress,
         seriesLockAddr:   LockAddress
-      ): Either[UserInputError, Unit] =
-        if (mintingStatement.groupTokenUtxo != groupTxo.outputAddress)
-          UserInputError("registrationTxo does not match registrationUtxo").asLeft
-        else if (mintingStatement.seriesTokenUtxo != seriesTxo.outputAddress)
-          UserInputError("registrationTxo does not match registrationUtxo").asLeft
-        else if (!groupTxo.transactionOutput.value.value.isGroup)
-          UserInputError("registrationUtxo does not contain LVLs").asLeft
-        else if (!seriesTxo.transactionOutput.value.value.isSeries)
-          UserInputError("registrationUtxo does not contain LVLs").asLeft
-        else if (groupLockAddr != groupTxo.transactionOutput.address)
-          UserInputError("registrationLock does not correspond to registrationTxo").asLeft
-        else if (seriesLockAddr != seriesTxo.transactionOutput.address)
-          UserInputError("registrationLock does not correspond to registrationTxo").asLeft
-        else if (BigInt(mintingStatement.quantity.value.toByteArray) <= BigInt(0))
-          UserInputError("quantityToMint must be positive").asLeft
-        else if (BigInt(mintingStatement.quantity.value.toByteArray) <= BigInt(0))
-          UserInputError("quantityToMint must be positive").asLeft
-        else ().asRight
+      ): Either[NonEmptyChain[UserInputError], Unit] =
+        Chain(
+          txoAddressMatch(groupTxo.outputAddress, mintingStatement.groupTokenUtxo, "groupTxo", "groupTokenUtxo"),
+          txoAddressMatch(seriesTxo.outputAddress, mintingStatement.seriesTokenUtxo, "seriesTxo", "seriesTokenUtxo"),
+          isGroup(groupTxo.transactionOutput.value.value, "groupTxo"),
+          isSeries(seriesTxo.transactionOutput.value.value, "seriesTxo"),
+          inputLockMatch(
+            groupLockAddr,
+            groupTxo.transactionOutput.address,
+            "groupLock",
+            "groupTxo"
+          ),
+          inputLockMatch(
+            seriesLockAddr,
+            seriesTxo.transactionOutput.address,
+            "seriesLock",
+            "seriesTxo"
+          ),
+          positiveQuantity(mintingStatement.quantity, "quantity to mint"),
+          validMintingSupply(
+            mintingStatement.quantity,
+            seriesTxo.transactionOutput.value.value.series.get,
+            "quantity to mint"
+          )
+        ).fold.toEither
 
       private def groupOutput(
         lockAddress: LockAddress,
