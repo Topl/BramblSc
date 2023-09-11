@@ -1,10 +1,10 @@
 package co.topl.brambl.builders
 
 import cats.Monad
-import cats.data.EitherT
+import cats.data.{Chain, EitherT, NonEmptyChain, Validated, ValidatedNec}
 import co.topl.brambl.codecs.AddressCodecs
 import co.topl.brambl.models.{Datum, Event, GroupId, LockAddress, LockId, TransactionOutputAddress}
-import co.topl.brambl.models.box.{Attestation, Lock, Value}
+import co.topl.brambl.models.box.{AssetMintingStatement, Attestation, Lock, Value}
 import co.topl.brambl.models.transaction.{IoTransaction, Schedule, SpentTransactionOutput, UnspentTransactionOutput}
 import co.topl.genus.services.Txo
 import com.google.protobuf.ByteString
@@ -12,8 +12,10 @@ import quivr.models.{Int128, Proof, SmallData}
 import co.topl.brambl.common.ContainsEvidence.Ops
 import co.topl.brambl.common.ContainsImmutable.instances._
 import cats.implicits._
+import co.topl.brambl.builders.TransactionBuilderApi.UserInputValidations._
 import co.topl.brambl.models.Event.{GroupPolicy, SeriesPolicy}
 import co.topl.brambl.syntax.{groupPolicyAsGroupPolicySyntaxOps, seriesPolicyAsSeriesPolicySyntaxOps}
+import io.circe.Json
 
 /**
  * Defines a builder for [[IoTransaction]]s
@@ -127,6 +129,42 @@ trait TransactionBuilderApi[F[_]] {
     quantityToMint:               Int128,
     mintedConstructorLockAddress: LockAddress
   ): F[Either[BuilderError, IoTransaction]]
+
+  /**
+   * Builds a simple transaction to mint asset tokens.
+   * If successful, the transaction will have two inputs (the group and series constructor token UTXOs) and 2-3 outputs.
+   * The first output will be the minted asset tokens. The second output will be the group constructor tokens (since
+   * they are never burned). The potential third output will be the series constructor tokens that were not burned.
+   *
+   * @param mintingStatement      The minting statement that specifies the asset to mint.
+   * @param groupTxo              The TXO that corresponds to the groupTokenUtxo (in the asset minting statement) to use
+   *                              as an input in this transaction. This TXO must contain group constructor tokens, else
+   *                              an error will be returned. None of this TXO will be burned.
+   * @param seriesTxo             The TXO that corresponds to the seriesTokenUtxo (in the asset minting statement) to
+   *                              use as an input in this transaction. This TXO must contain series constructor tokens,
+   *                              else an error will be returned. If the "tokenSupply" field in the series constructor
+   *                              tokens is present, then the quantity of asset tokens to mint has to be a multiple of
+   *                              this field, else an error will be returned. In this case, minting each multiple of
+   *                              "tokenSupply" quantity of assets will burn a single series constructor token.
+   * @param groupLock             The Predicate Lock that encumbers the funds in the groupTxo. This will be used in the
+   *                              attestation of the groupTxo input.
+   * @param seriesLock            The Predicate Lock that encumbers the funds in the seriesTxo. This will be used in the
+   *                              attestation of the seriesTxo input.
+   * @param mintedAssetLockAddress The LockAddress to send the minted asset tokens to.
+   * @param ephemeralMetadata     Optional ephemeral metadata to include in the minted asset tokens.
+   * @param commitment            Optional commitment to include in the minted asset tokens.
+   * @return An unproven asset minting transaction if possible. Else, an error
+   */
+  def buildSimpleAssetMintingTransaction(
+    mintingStatement:       AssetMintingStatement,
+    groupTxo:               Txo,
+    seriesTxo:              Txo,
+    groupLock:              Lock.Predicate,
+    seriesLock:             Lock.Predicate,
+    mintedAssetLockAddress: LockAddress,
+    ephemeralMetadata:      Option[Json],
+    commitment:             Option[Array[Byte]]
+  ): F[Either[BuilderError, IoTransaction]]
 }
 
 object TransactionBuilderApi {
@@ -146,7 +184,40 @@ object TransactionBuilderApi {
   }
 
   case class UserInputError(message: String) extends BuilderError(message, null)
-  case class UnableToBuildTransaction(message: String, cause: Throwable = null) extends BuilderError(message, cause)
+  case class UnableToBuildTransaction(message: String, causes: List[Throwable] = List()) extends BuilderError(message)
+
+  object UserInputValidations {
+
+    def txoAddressMatch(
+      testAddr:      TransactionOutputAddress,
+      expectedAddr:  TransactionOutputAddress,
+      testLabel:     String,
+      expectedLabel: String
+    ): ValidatedNec[UserInputError, Unit] =
+      Validated.condNec(testAddr == expectedAddr, (), UserInputError(s"$testLabel does not match $expectedLabel"))
+
+    def isLvls(testValue: Value.Value, testLabel: String): ValidatedNec[UserInputError, Unit] =
+      Validated.condNec(testValue.isLvl, (), UserInputError(s"$testLabel does not contain LVLs"))
+
+    def inputLockMatch(
+      testAddr:      LockAddress,
+      expectedAddr:  LockAddress,
+      testLabel:     String,
+      expectedLabel: String
+    ): ValidatedNec[UserInputError, Unit] =
+      Validated.condNec(
+        testAddr == expectedAddr,
+        (),
+        UserInputError(s"$testLabel does not correspond to $expectedLabel")
+      )
+
+    def positiveQuantity(testQuantity: Int128, testLabel: String): ValidatedNec[UserInputError, Unit] =
+      Validated.condNec(
+        BigInt(testQuantity.value.toByteArray) > BigInt(0),
+        (),
+        UserInputError(s"$testLabel must be positive")
+      )
+  }
 
   def make[F[_]: Monad](
     networkId: Int,
@@ -220,8 +291,8 @@ object TransactionBuilderApi {
               groupPolicy.registrationUtxo,
               quantityToMint
             )
-              .leftMap[BuilderError](
-                UnableToBuildTransaction("Unable to build transaction to mint group constructor tokens", _)
+              .leftMap[BuilderError](errs =>
+                UnableToBuildTransaction("Unable to build transaction to mint group constructor tokens", errs.toList)
               )
           )
           stxoAttestation <- EitherT.right[BuilderError](unprovenAttestation(registrationLock))
@@ -259,8 +330,8 @@ object TransactionBuilderApi {
               seriesPolicy.registrationUtxo,
               quantityToMint
             )
-              .leftMap[BuilderError](
-                UnableToBuildTransaction("Unable to build transaction to mint series constructor tokens", _)
+              .leftMap[BuilderError](errs =>
+                UnableToBuildTransaction("Unable to build transaction to mint series constructor tokens", errs.toList)
               )
           )
           stxoAttestation <- EitherT.right[BuilderError](unprovenAttestation(registrationLock))
@@ -282,8 +353,19 @@ object TransactionBuilderApi {
         )
       ).value
 
+      override def buildSimpleAssetMintingTransaction(
+        mintingStatement:       AssetMintingStatement,
+        groupTxo:               Txo,
+        seriesTxo:              Txo,
+        groupLock:              Lock.Predicate,
+        seriesLock:             Lock.Predicate,
+        mintedAssetLockAddress: LockAddress,
+        ephemeralMetadata:      Option[Json],
+        commitment:             Option[Array[Byte]]
+      ): F[Either[BuilderError, IoTransaction]] = ???
+
       /**
-       * Validates the parameters for minting group constructor tokens
+       * Validates the parameters for minting group and series constructor tokens
        * If user parameters are invalid, return a UserInputError.
        */
       private def validateConstructorMintingParams(
@@ -291,14 +373,45 @@ object TransactionBuilderApi {
         registrationLockAddr:   LockAddress,
         policyRegistrationUtxo: TransactionOutputAddress,
         quantityToMint:         Int128
+      ): Either[NonEmptyChain[UserInputError], Unit] =
+        Chain(
+          txoAddressMatch(registrationTxo.outputAddress, policyRegistrationUtxo, "registrationTxo", "registrationUtxo"),
+          isLvls(registrationTxo.transactionOutput.value.value, "registrationUtxo"),
+          inputLockMatch(
+            registrationLockAddr,
+            registrationTxo.transactionOutput.address,
+            "registrationLock",
+            "registrationTxo"
+          ),
+          positiveQuantity(quantityToMint, "quantityToMint")
+        ).fold.toEither
+
+      /**
+       * Validates the parameters for minting asset tokens
+       * If user parameters are invalid, return a UserInputError.
+       */
+      private def validateAssetMintingParams(
+        mintingStatement: AssetMintingStatement,
+        groupTxo:         Txo,
+        seriesTxo:        Txo,
+        groupLockAddr:    LockAddress,
+        seriesLockAddr:   LockAddress
       ): Either[UserInputError, Unit] =
-        if (registrationTxo.outputAddress != policyRegistrationUtxo)
+        if (mintingStatement.groupTokenUtxo != groupTxo.outputAddress)
           UserInputError("registrationTxo does not match registrationUtxo").asLeft
-        else if (!registrationTxo.transactionOutput.value.value.isLvl)
+        else if (mintingStatement.seriesTokenUtxo != seriesTxo.outputAddress)
+          UserInputError("registrationTxo does not match registrationUtxo").asLeft
+        else if (!groupTxo.transactionOutput.value.value.isGroup)
           UserInputError("registrationUtxo does not contain LVLs").asLeft
-        else if (registrationLockAddr != registrationTxo.transactionOutput.address)
+        else if (!seriesTxo.transactionOutput.value.value.isSeries)
+          UserInputError("registrationUtxo does not contain LVLs").asLeft
+        else if (groupLockAddr != groupTxo.transactionOutput.address)
           UserInputError("registrationLock does not correspond to registrationTxo").asLeft
-        else if (BigInt(quantityToMint.value.toByteArray) <= BigInt(0))
+        else if (seriesLockAddr != seriesTxo.transactionOutput.address)
+          UserInputError("registrationLock does not correspond to registrationTxo").asLeft
+        else if (BigInt(mintingStatement.quantity.value.toByteArray) <= BigInt(0))
+          UserInputError("quantityToMint must be positive").asLeft
+        else if (BigInt(mintingStatement.quantity.value.toByteArray) <= BigInt(0))
           UserInputError("quantityToMint must be positive").asLeft
         else ().asRight
 
