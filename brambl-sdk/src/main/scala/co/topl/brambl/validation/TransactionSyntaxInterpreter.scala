@@ -127,8 +127,6 @@ object TransactionSyntaxInterpreter {
 
   /**
    * Ensure the input value quantities exceed or equal the (non-minting) output value quantities
-   *
-   * TODO: IoTransaction model currently does not support minting
    */
   private def sufficientFundsValidation(
     transaction: IoTransaction
