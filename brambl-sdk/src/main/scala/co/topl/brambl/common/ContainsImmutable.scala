@@ -1,12 +1,13 @@
 package co.topl.brambl.common
 
 import co.topl.brambl.models._
-import co.topl.brambl.models.box.{Attestation, Box, Challenge, Lock, Value}
+import co.topl.brambl.models.box.{Attestation, Box, Challenge, FungibilityType, Lock, QuantityDescriptorType, Value}
 import co.topl.brambl.models.common.ImmutableBytes
 import co.topl.brambl.models.transaction._
 import co.topl.consensus.models._
 import co.topl.quivr.Tokens
 import com.google.protobuf.ByteString
+import com.google.protobuf.struct.Struct
 import quivr.models._
 import quivr.models.VerificationKey._
 import java.nio.charset.StandardCharsets
@@ -45,6 +46,8 @@ object ContainsImmutable {
 
     implicit val stringImmutable: ContainsImmutable[String] = (string: String) =>
       string.getBytes(StandardCharsets.UTF_8)
+
+    implicit val structImmutable: ContainsImmutable[Struct] = _.toByteArray.immutable
 
     implicit def seqImmutable[T: ContainsImmutable]: ContainsImmutable[Seq[T]] = (seq: Seq[T]) =>
       seq.zipWithIndex.foldLeft(ImmutableBytes()) { case (acc, (item, index)) =>
@@ -186,10 +189,22 @@ object ContainsImmutable {
     implicit val toplValueImmutable: ContainsImmutable[Value.TOPL] =
       v => v.quantity.immutable ++ v.registration.immutable
 
+    implicit val fungibilityImmutable: ContainsImmutable[FungibilityType] =
+      _.value.immutable
+
+    implicit val quantityDescriptorImmutable: ContainsImmutable[QuantityDescriptorType] =
+      _.value.immutable
+
     implicit val assetValueImmutable: ContainsImmutable[Value.Asset] = (asset: Value.Asset) =>
-      asset.label.immutable ++
+      asset.groupId.immutable ++
+      asset.seriesId.immutable ++
       asset.quantity.immutable ++
-      asset.metadata.immutable
+      asset.groupAlloy.immutable ++
+      asset.seriesAlloy.immutable ++
+      asset.fungibility.immutable ++
+      asset.quantityDescriptor.immutable ++
+      asset.ephemeralMetadata.immutable ++
+      asset.commitment.immutable
 
     implicit val seriesValueImmutable: ContainsImmutable[Value.Series] = (series: Value.Series) =>
       series.seriesId.immutable ++

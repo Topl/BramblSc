@@ -7,7 +7,7 @@ object Dependencies {
     val catsCoreVersion = "2.9.0"
     val simulacrumVersion = "1.0.1"
     val circeVersion = "0.14.5"
-    val protobufSpecsVersion = "2.0.0-alpha4+1-d751a916-SNAPSHOT"
+    val protobufSpecsVersion = "2.0.0-alpha4+3-ee5641bf-SNAPSHOT" // requires protobuf release, commit on main
     val mUnitTeVersion = "0.7.29"
   }
 
