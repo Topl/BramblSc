@@ -3,8 +3,8 @@ package co.topl.brambl.builders
 import cats.Monad
 import cats.data.{Chain, EitherT, NonEmptyChain, Validated, ValidatedNec}
 import co.topl.brambl.codecs.AddressCodecs
-import co.topl.brambl.models.{Datum, Event, GroupId, LockAddress, LockId, TransactionOutputAddress}
-import co.topl.brambl.models.box.{AssetMintingStatement, Attestation, Lock, Value}
+import co.topl.brambl.models.{Datum, Event, GroupId, LockAddress, LockId, SeriesId, TransactionOutputAddress}
+import co.topl.brambl.models.box.{AssetMintingStatement, Attestation, FungibilityType, Lock, QuantityDescriptorType, Value}
 import co.topl.brambl.models.transaction.{IoTransaction, Schedule, SpentTransactionOutput, UnspentTransactionOutput}
 import co.topl.genus.services.Txo
 import com.google.protobuf.ByteString
@@ -209,6 +209,14 @@ object TransactionBuilderApi {
         (),
         UserInputError(s"$testLabel does not contain Series Constructor Tokens")
       )
+    def fixedSeriesMatch(testValue: Option[SeriesId], expectedValue: SeriesId): ValidatedNec[UserInputError, Unit] = testValue match {
+      case None => ().validNec[UserInputError]
+      case Some(fixedSeries) => Validated.condNec(
+        fixedSeries == expectedValue,
+        (),
+        UserInputError(s"fixedSeries does not match provided Series ID")
+      )
+    }
 
     def inputLockMatch(
       testAddr:      LockAddress,
@@ -364,7 +372,8 @@ object TransactionBuilderApi {
           stxoAttestation <- EitherT.right[BuilderError](unprovenAttestation(registrationLock))
           datum           <- EitherT.right[BuilderError](datum())
           utxoMinted <- EitherT.right[BuilderError](
-            seriesOutput(mintedConstructorLockAddress, quantityToMint, seriesPolicy)
+            seriesOutput(mintedConstructorLockAddress, quantityToMint, seriesPolicy.computeId, seriesPolicy.tokenSupply,
+              seriesPolicy.fungibility, seriesPolicy.quantityDescriptor)
           )
         } yield IoTransaction(
           inputs = Seq(
@@ -389,7 +398,75 @@ object TransactionBuilderApi {
         mintedAssetLockAddress: LockAddress,
         ephemeralMetadata:      Option[Json],
         commitment:             Option[Array[Byte]]
-      ): F[Either[BuilderError, IoTransaction]] = ???
+      ): F[Either[BuilderError, IoTransaction]] = (
+        for {
+          groupLockAddr <- EitherT.right[BuilderError](lockAddress(Lock().withPredicate(groupLock)))
+          seriesLockAddr <- EitherT.right[BuilderError](lockAddress(Lock().withPredicate(seriesLock)))
+          _ <- EitherT.fromEither[F](
+            validateAssetMintingParams(
+              mintingStatement,
+              groupTxo,
+              seriesTxo,
+              groupLockAddr,
+              seriesLockAddr
+            )
+              .leftMap[BuilderError](errs =>
+                UnableToBuildTransaction("Unable to build transaction to mint asset tokens", errs.toList)
+              )
+          )
+          groupAttestation <- EitherT.right[BuilderError](unprovenAttestation(groupLock))
+          seriesAttestation <- EitherT.right[BuilderError](unprovenAttestation(seriesLock))
+          datum <- EitherT.right[BuilderError](datum())
+          //TODO: Clean up
+          utxoMinted <- EitherT.right[BuilderError](
+            assetOutput(mintedAssetLockAddress, mintingStatement.quantity, groupTxo.transactionOutput.value.value.group.get.groupId, seriesTxo.transactionOutput.value.value.series.get.seriesId,
+              seriesTxo.transactionOutput.value.value.series.get.fungibility, seriesTxo.transactionOutput.value.value.series.get.quantityDescriptor,
+              ephemeralMetadata, commitment
+            )
+          )
+          groupOutput <- EitherT.right[BuilderError](
+            groupOutput(groupTxo.transactionOutput.address, groupTxo.transactionOutput.value.value.group.get.quantity, groupTxo.transactionOutput.value.value.group.get.groupId)
+          )
+          // TODO: Fixme
+          seriesOutput <- {
+            val addr = seriesTxo.transactionOutput.address
+            val token = seriesTxo.transactionOutput.value.value.series.get
+            val available = BigInt(token.quantity.value.toByteArray)
+            val quantity: BigInt = if(token.tokenSupply.isEmpty) available else {
+              val toMint = BigInt(mintingStatement.quantity.value.toByteArray)
+              val supply = token.tokenSupply.get
+              val numUsed = toMint / supply
+              available - numUsed
+            }
+            if(quantity > BigInt(0))
+              EitherT.right[BuilderError](
+                seriesOutput(addr, Int128(
+                  ByteString.copyFrom(
+                    quantity.toByteArray
+                  )
+                ), token.seriesId,
+                  token.tokenSupply, token.fungibility, token.quantityDescriptor)
+              )
+            else EitherT.right[BuilderError](None)
+          }
+        } yield IoTransaction(
+          inputs = Seq(
+            SpentTransactionOutput(
+              groupTxo.outputAddress,
+              groupAttestation,
+              groupTxo.transactionOutput.value
+            ),
+            SpentTransactionOutput(
+              seriesTxo.outputAddress,
+              seriesAttestation,
+              seriesTxo.transactionOutput.value
+            )
+          ),
+          outputs = Seq(utxoMinted),
+          datum = datum,
+           // TODO: Minting statements should be added to Transaction
+        )
+        ).value
 
       /**
        * Validates the parameters for minting group and series constructor tokens
@@ -446,7 +523,8 @@ object TransactionBuilderApi {
             mintingStatement.quantity,
             seriesTxo.transactionOutput.value.value.series.get,
             "quantity to mint"
-          )
+          ),
+          fixedSeriesMatch(groupTxo.transactionOutput.value.value.group.get.fixedSeries, seriesTxo.transactionOutput.value.value.series.get.seriesId)
         ).fold.toEither
 
       private def groupOutput(
@@ -462,19 +540,37 @@ object TransactionBuilderApi {
       private def seriesOutput(
         lockAddress: LockAddress,
         quantity:    Int128,
-        policy:      SeriesPolicy
+        seriesId: SeriesId,
+        tokenSupply: Option[Int],
+        fungibility: FungibilityType,
+        quantityDescriptor: QuantityDescriptorType
       ): F[UnspentTransactionOutput] =
         UnspentTransactionOutput(
           lockAddress,
           Value.defaultInstance.withSeries(
             Value.Series(
-              seriesId = policy.computeId,
+              seriesId = seriesId,
               quantity = quantity,
-              tokenSupply = policy.tokenSupply,
-              quantityDescriptor = policy.quantityDescriptor,
-              fungibility = policy.fungibility
+              tokenSupply = tokenSupply,
+              quantityDescriptor = quantityDescriptor,
+              fungibility = fungibility
             )
           )
+        ).pure[F]
+
+      private def assetOutput(
+        lockAddress: LockAddress,
+        quantity:    Int128,
+        groupId: GroupId,
+        seriesId: SeriesId,
+        fungibilityType: FungibilityType,
+        quantityDescriptorType: QuantityDescriptorType,
+        metadata: Option[Json],
+        commitment: Option[Array[Byte]]
+      ): F[UnspentTransactionOutput] =
+        UnspentTransactionOutput(
+          lockAddress,
+          ???
         ).pure[F]
 
       override def lvlOutput(
