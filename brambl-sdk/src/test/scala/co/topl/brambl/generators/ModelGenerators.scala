@@ -44,6 +44,20 @@ trait IdentifierGenerator extends EvidenceGenerator {
         evidence <- arbitraryEvidenceSized.arbitrary
       } yield AccumulatorRootId(evidence.digest.value)
     )
+
+  implicit val arbitraryGroupId: Arbitrary[GroupId] =
+    Arbitrary(
+      for {
+        evidence <- arbitraryEvidenceSized.arbitrary
+      } yield GroupId(evidence.digest.value)
+    )
+
+  implicit val arbitrarySeriesId: Arbitrary[SeriesId] =
+    Arbitrary(
+      for {
+        evidence <- arbitraryEvidenceSized.arbitrary
+      } yield SeriesId(evidence.digest.value)
+    )
 }
 
 trait LockAddressGenerator extends IdentifierGenerator {
