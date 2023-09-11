@@ -30,7 +30,7 @@ object Dependencies {
   )
 
   val scalatest: Seq[ModuleID] = Seq(
-    "org.scalatest"    %% "scalatest"                     % "3.2.16",
+    "org.scalatest"    %% "scalatest"                     % "3.2.17",
     "com.ironcorelabs" %% "cats-scalatest"                % "3.1.1",
     "org.typelevel"    %% "cats-effect-testing-scalatest" % "1.5.0"
   )
