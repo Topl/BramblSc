@@ -1,11 +1,12 @@
 package co.topl.brambl.builders
 
 import cats.Id
+import cats.implicits.catsSyntaxOptionId
 import co.topl.brambl.MockHelpers
 import co.topl.brambl.builders.TransactionBuilderApi.{UnableToBuildTransaction, UserInputError}
 import co.topl.brambl.models.Datum
 import co.topl.brambl.models.Event.{GroupPolicy, SeriesPolicy}
-import co.topl.brambl.models.box.{Attestation, Value}
+import co.topl.brambl.models.box.{AssetMintingStatement, Attestation, Value}
 import co.topl.brambl.models.transaction.{IoTransaction, SpentTransactionOutput, UnspentTransactionOutput}
 import co.topl.brambl.syntax.{
   groupPolicyAsGroupPolicySyntaxOps,
@@ -14,8 +15,11 @@ import co.topl.brambl.syntax.{
 }
 import com.google.protobuf.ByteString
 import quivr.models.{Int128, Proof}
+import co.topl.brambl.generators.IdentifierGenerator
+import co.topl.genus.services.Txo
+import co.topl.genus.services.TxoState.UNSPENT
 
-class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers {
+class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers with IdentifierGenerator {
   val txBuilder: TransactionBuilderApi[Id] = TransactionBuilderApi.make[Id](0, 0)
 
   test("buildSimpleLvlTransaction > No change") {
@@ -352,4 +356,63 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       )
     )
   }
+
+  test("buildSimpleAssetMintingTransaction > success, token supply unlimited (full series in output)") {
+    val quantity = Int128(ByteString.copyFrom(BigInt(10).toByteArray))
+
+    val seriesAddr = dummyTxoAddress.copy(index = 0)
+    val mockSeriesPolicy: SeriesPolicy = SeriesPolicy("Mock Series Policy", None, seriesAddr)
+    val seriesValue = Value.defaultInstance.withSeries(Value.Series(mockSeriesPolicy.computeId, quantity, None))
+    val seriesTxo = Txo(UnspentTransactionOutput(inLockFullAddress, seriesValue), UNSPENT, seriesAddr)
+    val seriesLock = inPredicateLockFull
+
+    val groupAddr = dummyTxoAddress.copy(index = 1)
+    val mockGroupPolicy: GroupPolicy = GroupPolicy("Mock Group Policy", groupAddr)
+    val groupValue = Value.defaultInstance.withGroup(Value.Group(mockGroupPolicy.computeId, quantity))
+    val groupTxo = Txo(UnspentTransactionOutput(inLockFullAddress, groupValue), UNSPENT, groupAddr)
+    val groupLock = inPredicateLockFull
+
+    val outAddr = trivialLockAddress
+    val statement: AssetMintingStatement = AssetMintingStatement(groupAddr, seriesAddr, quantity)
+    val mintedValue = Value.defaultInstance.withAsset(
+      Value.Asset(mockGroupPolicy.computeId.some, mockSeriesPolicy.computeId.some, quantity)
+    )
+
+    val expectedTx = IoTransaction.defaultInstance
+      .withDatum(txDatum)
+      .withMintingStatements(Seq(statement))
+      .withInputs(
+        List(
+          SpentTransactionOutput(groupAddr, attFull, groupValue),
+          SpentTransactionOutput(seriesAddr, attFull, seriesValue)
+        )
+      )
+      .withOutputs(
+        List(
+          UnspentTransactionOutput(inLockFullAddress, seriesValue),
+          UnspentTransactionOutput(trivialLockAddress, mintedValue),
+          UnspentTransactionOutput(inLockFullAddress, groupValue)
+        )
+      )
+    val txRes = txBuilder
+      .buildSimpleAssetMintingTransaction(statement, groupTxo, seriesTxo, groupLock, seriesLock, outAddr, None, None)
+    assert(txRes.isRight && txRes.toOption.get.computeId == expectedTx.computeId)
+  }
+  test("buildSimpleAssetMintingTransaction > success, mint token supply quantity (series in output)") {}
+  test("buildSimpleAssetMintingTransaction > success, mint multiple token supply quantity (series in output)") {}
+  test("buildSimpleAssetMintingTransaction > success, mint ALL token supply quantity (series not in output)") {}
+  test("buildSimpleAssetMintingTransaction > success, group and series fungible (IDs set, alloys unset)") {}
+  test("buildSimpleAssetMintingTransaction > success, group fungible (groupId and seriesAlloy set)") {}
+  test("buildSimpleAssetMintingTransaction > success, series fungible (seriesId and groupAllow set)") {}
+  test("buildSimpleAssetMintingTransaction > success, fixedSeries provided") {}
+  test("buildSimpleAssetMintingTransaction > invalid groupTxo") {}
+  test("buildSimpleAssetMintingTransaction > invalid seriesTxo") {}
+  test("buildSimpleAssetMintingTransaction > invalid groupUtxo") {}
+  test("buildSimpleAssetMintingTransaction > invalid seriesUtxo") {}
+  test("buildSimpleAssetMintingTransaction > invalid groupLock") {}
+  test("buildSimpleAssetMintingTransaction > invalid seriesLock") {}
+  test("buildSimpleAssetMintingTransaction > invalid quantity to mint (non positive)") {}
+  test("buildSimpleAssetMintingTransaction > invalid quantity to mint (not a multiple of token supply)") {}
+  test("buildSimpleAssetMintingTransaction > invalid quantity to mint (exceeds available)") {}
+  test("buildSimpleAssetMintingTransaction > invalid seriesId (fixedSeries provided)") {}
 }
