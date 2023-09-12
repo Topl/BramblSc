@@ -344,7 +344,7 @@ object TransactionBuilderApi {
           stxoAttestation <- EitherT.right[BuilderError](unprovenAttestation(registrationLock))
           datum           <- EitherT.right[BuilderError](datum())
           utxoMinted <- EitherT.right[BuilderError](
-            groupOutput(mintedConstructorLockAddress, quantityToMint, groupPolicy.computeId)
+            groupOutput(mintedConstructorLockAddress, quantityToMint, groupPolicy.computeId, groupPolicy.fixedSeries)
           )
         } yield IoTransaction(
           inputs = Seq(
@@ -449,7 +449,12 @@ object TransactionBuilderApi {
             )
           )
           groupOutput <- EitherT.right[BuilderError](
-            groupOutput(groupTxo.transactionOutput.address, groupToken.quantity, groupToken.groupId)
+            groupOutput(
+              groupTxo.transactionOutput.address,
+              groupToken.quantity,
+              groupToken.groupId,
+              groupToken.fixedSeries
+            )
           )
           seriesOutputSeq <- {
             val inputQuantity = BigInt(seriesToken.quantity.value.toByteArray)
@@ -563,11 +568,14 @@ object TransactionBuilderApi {
       private def groupOutput(
         lockAddress: LockAddress,
         quantity:    Int128,
-        groupId:     GroupId
+        groupId:     GroupId,
+        fixedSeries: Option[SeriesId]
       ): F[UnspentTransactionOutput] =
         UnspentTransactionOutput(
           lockAddress,
-          Value.defaultInstance.withGroup(Value.Group(groupId = groupId, quantity = quantity))
+          Value.defaultInstance.withGroup(
+            Value.Group(groupId = groupId, quantity = quantity, fixedSeries = fixedSeries)
+          )
         ).pure[F]
 
       private def seriesOutput(
