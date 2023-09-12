@@ -218,15 +218,18 @@ object TransactionBuilderApi {
         UserInputError(s"$testLabel does not contain Series Constructor Tokens")
       )
 
-    def fixedSeriesMatch(testValue: Option[SeriesId], expectedValue: SeriesId): ValidatedNec[UserInputError, Unit] =
-      testValue match {
-        case None => ().validNec[UserInputError]
-        case Some(fixedSeries) =>
+    def fixedSeriesMatch(
+      testValue:     Option[SeriesId],
+      expectedValue: Option[SeriesId]
+    ): ValidatedNec[UserInputError, Unit] =
+      (testValue, expectedValue) match {
+        case (Some(fixedSeries), Some(expectedSeries)) =>
           Validated.condNec(
-            fixedSeries == expectedValue,
+            fixedSeries == expectedSeries,
             (),
             UserInputError(s"fixedSeries does not match provided Series ID")
           )
+        case _ => ().validNec[UserInputError]
       }
 
     def inputLockMatch(
@@ -249,19 +252,20 @@ object TransactionBuilderApi {
       )
 
     def validMintingSupply(
-      testQuantity: Int128,
-      seriesToken:  Series,
-      testLabel:    String
+      testQuantity:   Int128,
+      seriesTokenOpt: Option[Series],
+      testLabel:      String
     ): ValidatedNec[UserInputError, Unit] =
-      (testQuantity, seriesToken.tokenSupply, seriesToken.quantity) match {
-        case (_, None, _) => ().validNec[UserInputError] // unlimited supply
-        case (d, Some(supply), a) =>
+      (testQuantity, seriesTokenOpt) match {
+        case (d, Some(Series(_, a, Some(tokenSupply), _, _, _))) =>
           val desiredQ = BigInt(d.value.toByteArray)
           val availableQ = BigInt(a.value.toByteArray)
-          if (desiredQ % supply != 0) UserInputError(s"$testLabel must be a multiple of token supply").invalidNec[Unit]
-          else if (desiredQ > availableQ * supply)
+          if (desiredQ % tokenSupply != 0)
+            UserInputError(s"$testLabel must be a multiple of token supply").invalidNec[Unit]
+          else if (desiredQ > availableQ * tokenSupply)
             UserInputError(s"$testLabel must be less than total token supply available.").invalidNec[Unit]
           else ().validNec[UserInputError]
+        case _ => ().validNec[UserInputError]
       }
   }
 
@@ -556,12 +560,12 @@ object TransactionBuilderApi {
           positiveQuantity(mintingStatement.quantity, "quantity to mint"),
           validMintingSupply(
             mintingStatement.quantity,
-            seriesTxo.transactionOutput.value.value.series.get,
+            seriesTxo.transactionOutput.value.value.series,
             "quantity to mint"
           ),
           fixedSeriesMatch(
-            groupTxo.transactionOutput.value.value.group.get.fixedSeries,
-            seriesTxo.transactionOutput.value.value.series.get.seriesId
+            groupTxo.transactionOutput.value.value.group.flatMap(_.fixedSeries),
+            seriesTxo.transactionOutput.value.value.series.map(_.seriesId)
           )
         ).fold.toEither
 

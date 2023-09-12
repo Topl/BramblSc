@@ -363,13 +363,13 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
   test("buildSimpleAssetMintingTransaction > success, token supply unlimited (full series in output)") {
     val quantity = Int128(ByteString.copyFrom(BigInt(10).toByteArray))
 
-    val seriesAddr = dummyTxoAddress.copy(index = 0)
+    val seriesAddr = dummyTxoAddress.copy(index = 1)
     val mockSeriesPolicy: SeriesPolicy = SeriesPolicy("Mock Series Policy", None, seriesAddr)
     val seriesValue = Value.defaultInstance.withSeries(Value.Series(mockSeriesPolicy.computeId, quantity, None))
     val seriesTxo = Txo(UnspentTransactionOutput(inLockFullAddress, seriesValue), UNSPENT, seriesAddr)
     val seriesLock = inPredicateLockFull
 
-    val groupAddr = dummyTxoAddress.copy(index = 1)
+    val groupAddr = dummyTxoAddress.copy(index = 2)
     val mockGroupPolicy: GroupPolicy = GroupPolicy("Mock Group Policy", groupAddr)
     val groupValue = Value.defaultInstance.withGroup(Value.Group(mockGroupPolicy.computeId, quantity))
     val groupTxo = Txo(UnspentTransactionOutput(inLockFullAddress, groupValue), UNSPENT, groupAddr)
@@ -407,14 +407,14 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
     val outQuantity = Int128(ByteString.copyFrom(BigInt(9).toByteArray))
     val mintedQuantity = Int128(ByteString.copyFrom(BigInt(5).toByteArray))
 
-    val seriesAddr = dummyTxoAddress.copy(index = 0)
+    val seriesAddr = dummyTxoAddress.copy(index = 1)
     val mockSeriesPolicy: SeriesPolicy = SeriesPolicy("Mock Series Policy", 5.some, seriesAddr)
     val seriesValue = Value.defaultInstance.withSeries(Value.Series(mockSeriesPolicy.computeId, fullQuantity, 5.some))
     val seriesTxo = Txo(UnspentTransactionOutput(inLockFullAddress, seriesValue), UNSPENT, seriesAddr)
     val seriesOut = Value.defaultInstance.withSeries(Value.Series(mockSeriesPolicy.computeId, outQuantity, 5.some))
     val seriesLock = inPredicateLockFull
 
-    val groupAddr = dummyTxoAddress.copy(index = 1)
+    val groupAddr = dummyTxoAddress.copy(index = 2)
     val mockGroupPolicy: GroupPolicy = GroupPolicy("Mock Group Policy", groupAddr)
     val groupValue = Value.defaultInstance.withGroup(Value.Group(mockGroupPolicy.computeId, fullQuantity))
     val groupTxo = Txo(UnspentTransactionOutput(inLockFullAddress, groupValue), UNSPENT, groupAddr)
@@ -452,14 +452,14 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
     val outQuantity = Int128(ByteString.copyFrom(BigInt(5).toByteArray))
     val mintedQuantity = Int128(ByteString.copyFrom(BigInt(25).toByteArray))
 
-    val seriesAddr = dummyTxoAddress.copy(index = 0)
+    val seriesAddr = dummyTxoAddress.copy(index = 1)
     val mockSeriesPolicy: SeriesPolicy = SeriesPolicy("Mock Series Policy", 5.some, seriesAddr)
     val seriesValue = Value.defaultInstance.withSeries(Value.Series(mockSeriesPolicy.computeId, fullQuantity, 5.some))
     val seriesTxo = Txo(UnspentTransactionOutput(inLockFullAddress, seriesValue), UNSPENT, seriesAddr)
     val seriesOut = Value.defaultInstance.withSeries(Value.Series(mockSeriesPolicy.computeId, outQuantity, 5.some))
     val seriesLock = inPredicateLockFull
 
-    val groupAddr = dummyTxoAddress.copy(index = 1)
+    val groupAddr = dummyTxoAddress.copy(index = 2)
     val mockGroupPolicy: GroupPolicy = GroupPolicy("Mock Group Policy", groupAddr)
     val groupValue = Value.defaultInstance.withGroup(Value.Group(mockGroupPolicy.computeId, fullQuantity))
     val groupTxo = Txo(UnspentTransactionOutput(inLockFullAddress, groupValue), UNSPENT, groupAddr)
@@ -496,13 +496,13 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
     val fullQuantity = Int128(ByteString.copyFrom(BigInt(10).toByteArray))
     val mintedQuantity = Int128(ByteString.copyFrom(BigInt(50).toByteArray))
 
-    val seriesAddr = dummyTxoAddress.copy(index = 0)
+    val seriesAddr = dummyTxoAddress.copy(index = 1)
     val mockSeriesPolicy: SeriesPolicy = SeriesPolicy("Mock Series Policy", 5.some, seriesAddr)
     val seriesValue = Value.defaultInstance.withSeries(Value.Series(mockSeriesPolicy.computeId, fullQuantity, 5.some))
     val seriesTxo = Txo(UnspentTransactionOutput(inLockFullAddress, seriesValue), UNSPENT, seriesAddr)
     val seriesLock = inPredicateLockFull
 
-    val groupAddr = dummyTxoAddress.copy(index = 1)
+    val groupAddr = dummyTxoAddress.copy(index = 2)
     val mockGroupPolicy: GroupPolicy = GroupPolicy("Mock Group Policy", groupAddr)
     val groupValue = Value.defaultInstance.withGroup(Value.Group(mockGroupPolicy.computeId, fullQuantity))
     val groupTxo = Txo(UnspentTransactionOutput(inLockFullAddress, groupValue), UNSPENT, groupAddr)
@@ -537,7 +537,7 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
   test("buildSimpleAssetMintingTransaction > success, group and series fungible (IDs set, alloys unset)") {
     val quantity = Int128(ByteString.copyFrom(BigInt(10).toByteArray))
 
-    val seriesAddr = dummyTxoAddress.copy(index = 0)
+    val seriesAddr = dummyTxoAddress.copy(index = 1)
     val mockSeriesPolicy: SeriesPolicy =
       SeriesPolicy("Mock Series Policy", None, seriesAddr, fungibility = GROUP_AND_SERIES)
     val seriesValue = Value.defaultInstance.withSeries(
@@ -546,7 +546,7 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
     val seriesTxo = Txo(UnspentTransactionOutput(inLockFullAddress, seriesValue), UNSPENT, seriesAddr)
     val seriesLock = inPredicateLockFull
 
-    val groupAddr = dummyTxoAddress.copy(index = 1)
+    val groupAddr = dummyTxoAddress.copy(index = 2)
     val mockGroupPolicy: GroupPolicy = GroupPolicy("Mock Group Policy", groupAddr)
     val groupValue = Value.defaultInstance.withGroup(Value.Group(mockGroupPolicy.computeId, quantity))
     val groupTxo = Txo(UnspentTransactionOutput(inLockFullAddress, groupValue), UNSPENT, groupAddr)
@@ -582,14 +582,14 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
   test("buildSimpleAssetMintingTransaction > success, group fungible (groupId and seriesAlloy set)") {
     val quantity = Int128(ByteString.copyFrom(BigInt(10).toByteArray))
 
-    val seriesAddr = dummyTxoAddress.copy(index = 0)
+    val seriesAddr = dummyTxoAddress.copy(index = 1)
     val mockSeriesPolicy: SeriesPolicy = SeriesPolicy("Mock Series Policy", None, seriesAddr, fungibility = GROUP)
     val seriesValue =
       Value.defaultInstance.withSeries(Value.Series(mockSeriesPolicy.computeId, quantity, fungibility = GROUP))
     val seriesTxo = Txo(UnspentTransactionOutput(inLockFullAddress, seriesValue), UNSPENT, seriesAddr)
     val seriesLock = inPredicateLockFull
 
-    val groupAddr = dummyTxoAddress.copy(index = 1)
+    val groupAddr = dummyTxoAddress.copy(index = 2)
     val mockGroupPolicy: GroupPolicy = GroupPolicy("Mock Group Policy", groupAddr)
     val groupValue = Value.defaultInstance.withGroup(Value.Group(mockGroupPolicy.computeId, quantity))
     val groupTxo = Txo(UnspentTransactionOutput(inLockFullAddress, groupValue), UNSPENT, groupAddr)
@@ -627,14 +627,14 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
   test("buildSimpleAssetMintingTransaction > success, series fungible (seriesId and groupAllow set)") {
     val quantity = Int128(ByteString.copyFrom(BigInt(10).toByteArray))
 
-    val seriesAddr = dummyTxoAddress.copy(index = 0)
+    val seriesAddr = dummyTxoAddress.copy(index = 1)
     val mockSeriesPolicy: SeriesPolicy = SeriesPolicy("Mock Series Policy", None, seriesAddr, fungibility = SERIES)
     val seriesValue =
       Value.defaultInstance.withSeries(Value.Series(mockSeriesPolicy.computeId, quantity, fungibility = SERIES))
     val seriesTxo = Txo(UnspentTransactionOutput(inLockFullAddress, seriesValue), UNSPENT, seriesAddr)
     val seriesLock = inPredicateLockFull
 
-    val groupAddr = dummyTxoAddress.copy(index = 1)
+    val groupAddr = dummyTxoAddress.copy(index = 2)
     val mockGroupPolicy: GroupPolicy = GroupPolicy("Mock Group Policy", groupAddr)
     val groupValue = Value.defaultInstance.withGroup(Value.Group(mockGroupPolicy.computeId, quantity))
     val groupTxo = Txo(UnspentTransactionOutput(inLockFullAddress, groupValue), UNSPENT, groupAddr)
@@ -674,13 +674,13 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
   test("buildSimpleAssetMintingTransaction > success, fixedSeries provided") {
     val quantity = Int128(ByteString.copyFrom(BigInt(10).toByteArray))
 
-    val seriesAddr = dummyTxoAddress.copy(index = 0)
+    val seriesAddr = dummyTxoAddress.copy(index = 1)
     val mockSeriesPolicy: SeriesPolicy = SeriesPolicy("Mock Series Policy", None, seriesAddr)
     val seriesValue = Value.defaultInstance.withSeries(Value.Series(mockSeriesPolicy.computeId, quantity, None))
     val seriesTxo = Txo(UnspentTransactionOutput(inLockFullAddress, seriesValue), UNSPENT, seriesAddr)
     val seriesLock = inPredicateLockFull
 
-    val groupAddr = dummyTxoAddress.copy(index = 1)
+    val groupAddr = dummyTxoAddress.copy(index = 2)
     val fixedSeries = mockSeriesPolicy.computeId.some
     val mockGroupPolicy: GroupPolicy = GroupPolicy("Mock Group Policy", groupAddr, fixedSeries)
     val groupValue = Value.defaultInstance.withGroup(Value.Group(mockGroupPolicy.computeId, quantity, fixedSeries))
@@ -713,26 +713,295 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       .buildSimpleAssetMintingTransaction(statement, groupTxo, seriesTxo, groupLock, seriesLock, outAddr, None, None)
     assert(txRes.isRight && txRes.toOption.get.computeId == expectedTx.computeId)
   }
-  test("buildSimpleAssetMintingTransaction > invalid groupTxo") {}
-  test("buildSimpleAssetMintingTransaction > invalid seriesTxo") {}
-  test("buildSimpleAssetMintingTransaction > invalid groupUtxo") {}
-  test("buildSimpleAssetMintingTransaction > invalid seriesUtxo") {}
-  test("buildSimpleAssetMintingTransaction > invalid groupLock") {}
-  test("buildSimpleAssetMintingTransaction > invalid seriesLock") {}
-  test("buildSimpleAssetMintingTransaction > invalid quantity to mint (non positive)") {}
-  test("buildSimpleAssetMintingTransaction > invalid quantity to mint (not a multiple of token supply)") {}
-  test("buildSimpleAssetMintingTransaction > invalid quantity to mint (exceeds available)") {}
 
-  test("buildSimpleAssetMintingTransaction > invalid seriesId (fixedSeries provided)") {
+  test("buildSimpleAssetMintingTransaction > invalid groupTxo") {
     val quantity = Int128(ByteString.copyFrom(BigInt(10).toByteArray))
 
-    val seriesAddr = dummyTxoAddress.copy(index = 0)
+    val seriesAddr = dummyTxoAddress.copy(index = 1)
     val mockSeriesPolicy: SeriesPolicy = SeriesPolicy("Mock Series Policy", None, seriesAddr)
     val seriesValue = Value.defaultInstance.withSeries(Value.Series(mockSeriesPolicy.computeId, quantity, None))
     val seriesTxo = Txo(UnspentTransactionOutput(inLockFullAddress, seriesValue), UNSPENT, seriesAddr)
     val seriesLock = inPredicateLockFull
 
-    val groupAddr = dummyTxoAddress.copy(index = 1)
+    val groupAddr = dummyTxoAddress.copy(index = 2)
+    val mockGroupPolicy: GroupPolicy = GroupPolicy("Mock Group Policy", groupAddr)
+    val groupValue = Value.defaultInstance.withGroup(Value.Group(mockGroupPolicy.computeId, quantity))
+    val groupTxo = Txo(UnspentTransactionOutput(inLockFullAddress, groupValue), UNSPENT, dummyTxoAddress)
+    val groupLock = inPredicateLockFull
+
+    val outAddr = trivialLockAddress
+    val statement: AssetMintingStatement = AssetMintingStatement(groupAddr, seriesAddr, quantity)
+
+    val testTx = txBuilder
+      .buildSimpleAssetMintingTransaction(statement, groupTxo, seriesTxo, groupLock, seriesLock, outAddr, None, None)
+    assertEquals(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          "Unable to build transaction to mint asset tokens",
+          List(UserInputError(s"groupTxo does not match groupTokenUtxo"))
+        )
+      )
+    )
+  }
+
+  test("buildSimpleAssetMintingTransaction > invalid seriesTxo") {
+    val quantity = Int128(ByteString.copyFrom(BigInt(10).toByteArray))
+
+    val seriesAddr = dummyTxoAddress.copy(index = 1)
+    val mockSeriesPolicy: SeriesPolicy = SeriesPolicy("Mock Series Policy", None, seriesAddr)
+    val seriesValue = Value.defaultInstance.withSeries(Value.Series(mockSeriesPolicy.computeId, quantity, None))
+    val seriesTxo = Txo(UnspentTransactionOutput(inLockFullAddress, seriesValue), UNSPENT, dummyTxoAddress)
+    val seriesLock = inPredicateLockFull
+
+    val groupAddr = dummyTxoAddress.copy(index = 2)
+    val mockGroupPolicy: GroupPolicy = GroupPolicy("Mock Group Policy", groupAddr)
+    val groupValue = Value.defaultInstance.withGroup(Value.Group(mockGroupPolicy.computeId, quantity))
+    val groupTxo = Txo(UnspentTransactionOutput(inLockFullAddress, groupValue), UNSPENT, groupAddr)
+    val groupLock = inPredicateLockFull
+
+    val outAddr = trivialLockAddress
+    val statement: AssetMintingStatement = AssetMintingStatement(groupAddr, seriesAddr, quantity)
+
+    val testTx = txBuilder
+      .buildSimpleAssetMintingTransaction(statement, groupTxo, seriesTxo, groupLock, seriesLock, outAddr, None, None)
+    assertEquals(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          "Unable to build transaction to mint asset tokens",
+          List(UserInputError(s"seriesTxo does not match seriesTokenUtxo"))
+        )
+      )
+    )
+  }
+
+  test("buildSimpleAssetMintingTransaction > invalid groupUtxo") {
+    val quantity = Int128(ByteString.copyFrom(BigInt(10).toByteArray))
+
+    val seriesAddr = dummyTxoAddress.copy(index = 1)
+    val mockSeriesPolicy: SeriesPolicy = SeriesPolicy("Mock Series Policy", None, seriesAddr)
+    val seriesValue = Value.defaultInstance.withSeries(Value.Series(mockSeriesPolicy.computeId, quantity, None))
+    val seriesTxo = Txo(UnspentTransactionOutput(inLockFullAddress, seriesValue), UNSPENT, seriesAddr)
+    val seriesLock = inPredicateLockFull
+
+    val groupAddr = dummyTxoAddress.copy(index = 2)
+    val groupTxo = Txo(UnspentTransactionOutput(inLockFullAddress, value), UNSPENT, groupAddr)
+    val groupLock = inPredicateLockFull
+
+    val outAddr = trivialLockAddress
+    val statement: AssetMintingStatement = AssetMintingStatement(groupAddr, seriesAddr, quantity)
+
+    val testTx = txBuilder
+      .buildSimpleAssetMintingTransaction(statement, groupTxo, seriesTxo, groupLock, seriesLock, outAddr, None, None)
+    assertEquals(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          "Unable to build transaction to mint asset tokens",
+          List(UserInputError(s"groupTxo does not contain Group Constructor Tokens"))
+        )
+      )
+    )
+  }
+
+  test("buildSimpleAssetMintingTransaction > invalid seriesUtxo") {
+    val quantity = Int128(ByteString.copyFrom(BigInt(10).toByteArray))
+
+    val seriesAddr = dummyTxoAddress.copy(index = 1)
+    val seriesTxo = Txo(UnspentTransactionOutput(inLockFullAddress, value), UNSPENT, seriesAddr)
+    val seriesLock = inPredicateLockFull
+
+    val groupAddr = dummyTxoAddress.copy(index = 2)
+    val mockGroupPolicy: GroupPolicy = GroupPolicy("Mock Group Policy", groupAddr)
+    val groupValue = Value.defaultInstance.withGroup(Value.Group(mockGroupPolicy.computeId, quantity))
+    val groupTxo = Txo(UnspentTransactionOutput(inLockFullAddress, groupValue), UNSPENT, groupAddr)
+    val groupLock = inPredicateLockFull
+
+    val outAddr = trivialLockAddress
+    val statement: AssetMintingStatement = AssetMintingStatement(groupAddr, seriesAddr, quantity)
+
+    val testTx = txBuilder
+      .buildSimpleAssetMintingTransaction(statement, groupTxo, seriesTxo, groupLock, seriesLock, outAddr, None, None)
+    assertEquals(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          "Unable to build transaction to mint asset tokens",
+          List(UserInputError(s"seriesTxo does not contain Series Constructor Tokens"))
+        )
+      )
+    )
+  }
+
+  test("buildSimpleAssetMintingTransaction > invalid groupLock") {
+    val quantity = Int128(ByteString.copyFrom(BigInt(10).toByteArray))
+
+    val seriesAddr = dummyTxoAddress.copy(index = 1)
+    val mockSeriesPolicy: SeriesPolicy = SeriesPolicy("Mock Series Policy", None, seriesAddr)
+    val seriesValue = Value.defaultInstance.withSeries(Value.Series(mockSeriesPolicy.computeId, quantity, None))
+    val seriesTxo = Txo(UnspentTransactionOutput(inLockFullAddress, seriesValue), UNSPENT, seriesAddr)
+    val seriesLock = inPredicateLockFull
+
+    val groupAddr = dummyTxoAddress.copy(index = 2)
+    val mockGroupPolicy: GroupPolicy = GroupPolicy("Mock Group Policy", groupAddr)
+    val groupValue = Value.defaultInstance.withGroup(Value.Group(mockGroupPolicy.computeId, quantity))
+    val groupTxo = Txo(UnspentTransactionOutput(inLockFullAddress, groupValue), UNSPENT, groupAddr)
+    val groupLock = trivialOutLock.getPredicate
+
+    val outAddr = trivialLockAddress
+    val statement: AssetMintingStatement = AssetMintingStatement(groupAddr, seriesAddr, quantity)
+
+    val testTx = txBuilder
+      .buildSimpleAssetMintingTransaction(statement, groupTxo, seriesTxo, groupLock, seriesLock, outAddr, None, None)
+    assertEquals(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          "Unable to build transaction to mint asset tokens",
+          List(UserInputError(s"groupLock does not correspond to groupTxo"))
+        )
+      )
+    )
+  }
+
+  test("buildSimpleAssetMintingTransaction > invalid seriesLock") {
+    val quantity = Int128(ByteString.copyFrom(BigInt(10).toByteArray))
+
+    val seriesAddr = dummyTxoAddress.copy(index = 1)
+    val mockSeriesPolicy: SeriesPolicy = SeriesPolicy("Mock Series Policy", None, seriesAddr)
+    val seriesValue = Value.defaultInstance.withSeries(Value.Series(mockSeriesPolicy.computeId, quantity, None))
+    val seriesTxo = Txo(UnspentTransactionOutput(inLockFullAddress, seriesValue), UNSPENT, seriesAddr)
+    val seriesLock = trivialOutLock.getPredicate
+
+    val groupAddr = dummyTxoAddress.copy(index = 2)
+    val mockGroupPolicy: GroupPolicy = GroupPolicy("Mock Group Policy", groupAddr)
+    val groupValue = Value.defaultInstance.withGroup(Value.Group(mockGroupPolicy.computeId, quantity))
+    val groupTxo = Txo(UnspentTransactionOutput(inLockFullAddress, groupValue), UNSPENT, groupAddr)
+    val groupLock = inPredicateLockFull
+
+    val outAddr = trivialLockAddress
+    val statement: AssetMintingStatement = AssetMintingStatement(groupAddr, seriesAddr, quantity)
+
+    val testTx = txBuilder
+      .buildSimpleAssetMintingTransaction(statement, groupTxo, seriesTxo, groupLock, seriesLock, outAddr, None, None)
+    assertEquals(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          "Unable to build transaction to mint asset tokens",
+          List(UserInputError(s"seriesLock does not correspond to seriesTxo"))
+        )
+      )
+    )
+  }
+
+  test("buildSimpleAssetMintingTransaction > invalid quantity to mint (non positive)") {
+    val quantity = Int128(ByteString.copyFrom(BigInt(10).toByteArray))
+    val quantityInvalid = Int128(ByteString.copyFrom(BigInt(-1).toByteArray))
+
+    val seriesAddr = dummyTxoAddress.copy(index = 1)
+    val mockSeriesPolicy: SeriesPolicy = SeriesPolicy("Mock Series Policy", None, seriesAddr)
+    val seriesValue = Value.defaultInstance.withSeries(Value.Series(mockSeriesPolicy.computeId, quantity, None))
+    val seriesTxo = Txo(UnspentTransactionOutput(inLockFullAddress, seriesValue), UNSPENT, seriesAddr)
+    val seriesLock = inPredicateLockFull
+
+    val groupAddr = dummyTxoAddress.copy(index = 2)
+    val mockGroupPolicy: GroupPolicy = GroupPolicy("Mock Group Policy", groupAddr)
+    val groupValue = Value.defaultInstance.withGroup(Value.Group(mockGroupPolicy.computeId, quantity))
+    val groupTxo = Txo(UnspentTransactionOutput(inLockFullAddress, groupValue), UNSPENT, groupAddr)
+    val groupLock = inPredicateLockFull
+
+    val outAddr = trivialLockAddress
+    val statement: AssetMintingStatement = AssetMintingStatement(groupAddr, seriesAddr, quantityInvalid)
+
+    val testTx = txBuilder
+      .buildSimpleAssetMintingTransaction(statement, groupTxo, seriesTxo, groupLock, seriesLock, outAddr, None, None)
+    assertEquals(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          "Unable to build transaction to mint asset tokens",
+          List(UserInputError(s"quantity to mint must be positive"))
+        )
+      )
+    )
+  }
+
+  test("buildSimpleAssetMintingTransaction > invalid quantity to mint (not a multiple of token supply)") {
+    val quantity = Int128(ByteString.copyFrom(BigInt(10).toByteArray))
+    val quantityInvalid = Int128(ByteString.copyFrom(BigInt(7).toByteArray))
+
+    val seriesAddr = dummyTxoAddress.copy(index = 1)
+    val mockSeriesPolicy: SeriesPolicy = SeriesPolicy("Mock Series Policy", 5.some, seriesAddr)
+    val seriesValue = Value.defaultInstance.withSeries(Value.Series(mockSeriesPolicy.computeId, quantity, 5.some))
+    val seriesTxo = Txo(UnspentTransactionOutput(inLockFullAddress, seriesValue), UNSPENT, seriesAddr)
+    val seriesLock = inPredicateLockFull
+
+    val groupAddr = dummyTxoAddress.copy(index = 2)
+    val mockGroupPolicy: GroupPolicy = GroupPolicy("Mock Group Policy", groupAddr)
+    val groupValue = Value.defaultInstance.withGroup(Value.Group(mockGroupPolicy.computeId, quantity))
+    val groupTxo = Txo(UnspentTransactionOutput(inLockFullAddress, groupValue), UNSPENT, groupAddr)
+    val groupLock = inPredicateLockFull
+
+    val outAddr = trivialLockAddress
+    val statement: AssetMintingStatement = AssetMintingStatement(groupAddr, seriesAddr, quantityInvalid)
+
+    val testTx = txBuilder
+      .buildSimpleAssetMintingTransaction(statement, groupTxo, seriesTxo, groupLock, seriesLock, outAddr, None, None)
+    assertEquals(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          "Unable to build transaction to mint asset tokens",
+          List(UserInputError(s"quantity to mint must be a multiple of token supply"))
+        )
+      )
+    )
+  }
+
+  test("buildSimpleAssetMintingTransaction > invalid quantity to mint (exceeds available)") {
+    val quantity = Int128(ByteString.copyFrom(BigInt(10).toByteArray))
+    val quantityInvalid = Int128(ByteString.copyFrom(BigInt(55).toByteArray))
+
+    val seriesAddr = dummyTxoAddress.copy(index = 1)
+    val mockSeriesPolicy: SeriesPolicy = SeriesPolicy("Mock Series Policy", 5.some, seriesAddr)
+    val seriesValue = Value.defaultInstance.withSeries(Value.Series(mockSeriesPolicy.computeId, quantity, 5.some))
+    val seriesTxo = Txo(UnspentTransactionOutput(inLockFullAddress, seriesValue), UNSPENT, seriesAddr)
+    val seriesLock = inPredicateLockFull
+
+    val groupAddr = dummyTxoAddress.copy(index = 2)
+    val mockGroupPolicy: GroupPolicy = GroupPolicy("Mock Group Policy", groupAddr)
+    val groupValue = Value.defaultInstance.withGroup(Value.Group(mockGroupPolicy.computeId, quantity))
+    val groupTxo = Txo(UnspentTransactionOutput(inLockFullAddress, groupValue), UNSPENT, groupAddr)
+    val groupLock = inPredicateLockFull
+
+    val outAddr = trivialLockAddress
+    val statement: AssetMintingStatement = AssetMintingStatement(groupAddr, seriesAddr, quantityInvalid)
+
+    val testTx = txBuilder
+      .buildSimpleAssetMintingTransaction(statement, groupTxo, seriesTxo, groupLock, seriesLock, outAddr, None, None)
+    assertEquals(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          "Unable to build transaction to mint asset tokens",
+          List(UserInputError(s"quantity to mint must be less than total token supply available."))
+        )
+      )
+    )
+  }
+
+  test("buildSimpleAssetMintingTransaction > invalid seriesId (fixedSeries provided)") {
+    val quantity = Int128(ByteString.copyFrom(BigInt(10).toByteArray))
+
+    val seriesAddr = dummyTxoAddress.copy(index = 1)
+    val mockSeriesPolicy: SeriesPolicy = SeriesPolicy("Mock Series Policy", None, seriesAddr)
+    val seriesValue = Value.defaultInstance.withSeries(Value.Series(mockSeriesPolicy.computeId, quantity, None))
+    val seriesTxo = Txo(UnspentTransactionOutput(inLockFullAddress, seriesValue), UNSPENT, seriesAddr)
+    val seriesLock = inPredicateLockFull
+
+    val groupAddr = dummyTxoAddress.copy(index = 2)
     val fixedSeries = mockSeriesPolicy.copy("different series").computeId.some
     val mockGroupPolicy: GroupPolicy = GroupPolicy("Mock Group Policy", groupAddr, fixedSeries)
     val groupValue = Value.defaultInstance.withGroup(Value.Group(mockGroupPolicy.computeId, quantity, fixedSeries))
