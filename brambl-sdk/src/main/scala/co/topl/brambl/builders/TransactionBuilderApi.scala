@@ -244,9 +244,9 @@ object TransactionBuilderApi {
         UserInputError(s"$testLabel does not correspond to $expectedLabel")
       )
 
-    def positiveQuantity(testQuantity: Int128, testLabel: String): ValidatedNec[UserInputError, Unit] =
+    def positiveQuantity(testQuantity: Option[Int128], testLabel: String): ValidatedNec[UserInputError, Unit] =
       Validated.condNec(
-        BigInt(testQuantity.value.toByteArray) > BigInt(0),
+        testQuantity.isEmpty || BigInt(testQuantity.get.value.toByteArray) > BigInt(0),
         (),
         UserInputError(s"$testLabel must be positive")
       )
@@ -526,7 +526,7 @@ object TransactionBuilderApi {
             "registrationLock",
             "registrationTxo"
           ),
-          positiveQuantity(quantityToMint, "quantityToMint")
+          positiveQuantity(quantityToMint.some, "quantityToMint")
         ).fold.toEither
 
       /**
@@ -557,7 +557,11 @@ object TransactionBuilderApi {
             "seriesLock",
             "seriesTxo"
           ),
-          positiveQuantity(mintingStatement.quantity, "quantity to mint"),
+          positiveQuantity(mintingStatement.quantity.some, "quantity to mint"),
+          positiveQuantity(
+            seriesTxo.transactionOutput.value.value.series.map(_.quantity),
+            "quantity of input series constructor tokens"
+          ),
           validMintingSupply(
             mintingStatement.quantity,
             seriesTxo.transactionOutput.value.value.series,

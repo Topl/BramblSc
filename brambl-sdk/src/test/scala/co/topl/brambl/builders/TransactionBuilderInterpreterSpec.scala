@@ -897,7 +897,7 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
 
   test("buildSimpleAssetMintingTransaction > invalid quantity to mint (non positive)") {
     val quantity = Int128(ByteString.copyFrom(BigInt(10).toByteArray))
-    val quantityInvalid = Int128(ByteString.copyFrom(BigInt(-1).toByteArray))
+    val quantityInvalid = Int128(ByteString.copyFrom(BigInt(0).toByteArray))
 
     val seriesAddr = dummyTxoAddress.copy(index = 1)
     val mockSeriesPolicy: SeriesPolicy = SeriesPolicy("Mock Series Policy", None, seriesAddr)
@@ -922,6 +922,42 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
         UnableToBuildTransaction(
           "Unable to build transaction to mint asset tokens",
           List(UserInputError(s"quantity to mint must be positive"))
+        )
+      )
+    )
+  }
+
+  test("buildSimpleAssetMintingTransaction > invalid quantity to mint (non positive stxo)") {
+    val quantity = Int128(ByteString.copyFrom(BigInt(10).toByteArray))
+    val quantityInvalid = Int128(ByteString.copyFrom(BigInt(0).toByteArray))
+
+    val seriesAddr = dummyTxoAddress.copy(index = 1)
+    val mockSeriesPolicy: SeriesPolicy = SeriesPolicy("Mock Series Policy", 5.some, seriesAddr)
+    val seriesValue =
+      Value.defaultInstance.withSeries(Value.Series(mockSeriesPolicy.computeId, quantityInvalid, 5.some))
+    val seriesTxo = Txo(UnspentTransactionOutput(inLockFullAddress, seriesValue), UNSPENT, seriesAddr)
+    val seriesLock = inPredicateLockFull
+
+    val groupAddr = dummyTxoAddress.copy(index = 2)
+    val mockGroupPolicy: GroupPolicy = GroupPolicy("Mock Group Policy", groupAddr)
+    val groupValue = Value.defaultInstance.withGroup(Value.Group(mockGroupPolicy.computeId, quantity))
+    val groupTxo = Txo(UnspentTransactionOutput(inLockFullAddress, groupValue), UNSPENT, groupAddr)
+    val groupLock = inPredicateLockFull
+
+    val outAddr = trivialLockAddress
+    val statement: AssetMintingStatement = AssetMintingStatement(groupAddr, seriesAddr, quantity)
+
+    val testTx = txBuilder
+      .buildSimpleAssetMintingTransaction(statement, groupTxo, seriesTxo, groupLock, seriesLock, outAddr, None, None)
+    assertEquals(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          "Unable to build transaction to mint asset tokens",
+          List(
+            UserInputError(s"quantity of input series constructor tokens must be positive"),
+            UserInputError(s"quantity to mint must be less than total token supply available.")
+          )
         )
       )
     )
