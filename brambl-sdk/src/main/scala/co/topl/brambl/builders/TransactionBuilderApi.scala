@@ -267,6 +267,13 @@ object TransactionBuilderApi {
           else ().validNec[UserInputError]
         case _ => ().validNec[UserInputError]
       }
+
+    def fungibilityType(testType: Option[FungibilityType]): ValidatedNec[UserInputError, Unit] =
+      Validated.condNec(
+        testType.isEmpty || testType.get == FungibilityType.GROUP_AND_SERIES,
+        (),
+        UserInputError(s"Unsupported fungibility type. We currently only support GROUP_AND_SERIES")
+      )
   }
 
   def make[F[_]: Monad](
@@ -570,7 +577,8 @@ object TransactionBuilderApi {
           fixedSeriesMatch(
             groupTxo.transactionOutput.value.value.group.flatMap(_.fixedSeries),
             seriesTxo.transactionOutput.value.value.series.map(_.seriesId)
-          )
+          ),
+          fungibilityType(seriesTxo.transactionOutput.value.value.series.map(_.fungibility))
         ).fold.toEither
 
       private def groupOutput(

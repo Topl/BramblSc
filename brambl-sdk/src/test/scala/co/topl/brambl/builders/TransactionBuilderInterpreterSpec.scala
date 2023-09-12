@@ -578,7 +578,7 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
     assert(txRes.isRight && txRes.toOption.get.computeId == expectedTx.computeId)
   }
 
-  test("buildSimpleAssetMintingTransaction > success, group fungible (groupId and seriesAlloy set)") {
+  test("buildSimpleAssetMintingTransaction > fail, group fungible (currently not supported)") {
     val quantity = Int128(ByteString.copyFrom(BigInt(10).toByteArray))
 
     val seriesAddr = dummyTxoAddress.copy(index = 1)
@@ -596,34 +596,21 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
 
     val outAddr = trivialLockAddress
     val statement: AssetMintingStatement = AssetMintingStatement(groupAddr, seriesAddr, quantity)
-    val seriesAlloy =
-      merkleRootFromBlake2bEvidence(seriesIdValueImmutable).sizedEvidence(List(mockSeriesPolicy.computeId)).digest.value
-    val mintedValue = Value.defaultInstance.withAsset(
-      Value.Asset(mockGroupPolicy.computeId.some, None, quantity, None, seriesAlloy.some, fungibility = GROUP)
-    )
 
-    val expectedTx = IoTransaction.defaultInstance
-      .withDatum(txDatum)
-      .withMintingStatements(Seq(statement))
-      .withInputs(
-        List(
-          SpentTransactionOutput(groupAddr, attFull, groupValue),
-          SpentTransactionOutput(seriesAddr, attFull, seriesValue)
-        )
-      )
-      .withOutputs(
-        List(
-          UnspentTransactionOutput(inLockFullAddress, seriesValue),
-          UnspentTransactionOutput(trivialLockAddress, mintedValue),
-          UnspentTransactionOutput(inLockFullAddress, groupValue)
-        )
-      )
-    val txRes = txBuilder
+    val testTx = txBuilder
       .buildSimpleAssetMintingTransaction(statement, groupTxo, seriesTxo, groupLock, seriesLock, outAddr, None, None)
-    assert(txRes.isRight && txRes.toOption.get.computeId == expectedTx.computeId)
+    assertEquals(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          "Unable to build transaction to mint asset tokens",
+          List(UserInputError(s"Unsupported fungibility type. We currently only support GROUP_AND_SERIES"))
+        )
+      )
+    )
   }
 
-  test("buildSimpleAssetMintingTransaction > success, series fungible (seriesId and groupAllow set)") {
+  test("buildSimpleAssetMintingTransaction > success, series fungible (currently not supported)") {
     val quantity = Int128(ByteString.copyFrom(BigInt(10).toByteArray))
 
     val seriesAddr = dummyTxoAddress.copy(index = 1)
@@ -641,33 +628,18 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
 
     val outAddr = trivialLockAddress
     val statement: AssetMintingStatement = AssetMintingStatement(groupAddr, seriesAddr, quantity)
-    val groupAlloy = merkleRootFromBlake2bEvidence(groupIdentifierImmutable)
-      .sizedEvidence(List(mockGroupPolicy.computeId))
-      .digest
-      .value
-    val mintedValue = Value.defaultInstance.withAsset(
-      Value.Asset(None, mockSeriesPolicy.computeId.some, quantity, groupAlloy.some, None, fungibility = SERIES)
-    )
 
-    val expectedTx = IoTransaction.defaultInstance
-      .withDatum(txDatum)
-      .withMintingStatements(Seq(statement))
-      .withInputs(
-        List(
-          SpentTransactionOutput(groupAddr, attFull, groupValue),
-          SpentTransactionOutput(seriesAddr, attFull, seriesValue)
-        )
-      )
-      .withOutputs(
-        List(
-          UnspentTransactionOutput(inLockFullAddress, seriesValue),
-          UnspentTransactionOutput(trivialLockAddress, mintedValue),
-          UnspentTransactionOutput(inLockFullAddress, groupValue)
-        )
-      )
-    val txRes = txBuilder
+    val testTx = txBuilder
       .buildSimpleAssetMintingTransaction(statement, groupTxo, seriesTxo, groupLock, seriesLock, outAddr, None, None)
-    assert(txRes.isRight && txRes.toOption.get.computeId == expectedTx.computeId)
+    assertEquals(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          "Unable to build transaction to mint asset tokens",
+          List(UserInputError(s"Unsupported fungibility type. We currently only support GROUP_AND_SERIES"))
+        )
+      )
+    )
   }
 
   test("buildSimpleAssetMintingTransaction > success, fixedSeries provided") {
