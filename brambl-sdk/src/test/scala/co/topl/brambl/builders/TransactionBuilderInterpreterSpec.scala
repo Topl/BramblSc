@@ -17,12 +17,11 @@ import co.topl.brambl.syntax.{
 }
 import com.google.protobuf.ByteString
 import quivr.models.{Int128, Proof}
-import co.topl.brambl.generators.IdentifierGenerator
 import co.topl.brambl.models.box.FungibilityType.{GROUP, GROUP_AND_SERIES, SERIES}
 import co.topl.genus.services.Txo
 import co.topl.genus.services.TxoState.UNSPENT
 
-class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers with IdentifierGenerator {
+class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers {
   val txBuilder: TransactionBuilderApi[Id] = TransactionBuilderApi.make[Id](0, 0)
 
   test("buildSimpleLvlTransaction > No change") {
