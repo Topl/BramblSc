@@ -25,9 +25,6 @@ import co.topl.brambl.models.Event.{GroupPolicy, SeriesPolicy}
 import co.topl.brambl.models.box.Value.Series
 import co.topl.brambl.syntax.{groupPolicyAsGroupPolicySyntaxOps, seriesPolicyAsSeriesPolicySyntaxOps}
 import com.google.protobuf.struct.Struct
-import io.circe.Json
-import io.circe._
-import io.circe.syntax._
 
 /**
  * Defines a builder for [[IoTransaction]]s
@@ -496,8 +493,8 @@ object TransactionBuilderApi {
             )
           ),
           outputs = seriesOutputSeq :+ utxoMinted :+ groupOutput,
-          datum = datum
-          // TODO: Minting statements should be added to Transaction
+          datum = datum,
+          mintingStatements = Seq(mintingStatement)
         )
       ).value
 
