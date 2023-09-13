@@ -8,7 +8,6 @@ import co.topl.brambl.models.transaction.IoTransaction
 import co.topl.brambl.validation.algebras.TransactionSyntaxVerifier
 import co.topl.brambl.common.ContainsImmutable.ContainsImmutableTOps
 import co.topl.brambl.common.ContainsImmutable.instances._
-import co.topl.brambl.models.TransactionOutputAddress
 import co.topl.brambl.models.box.Attestation
 import co.topl.brambl.syntax._
 import quivr.models.{Int128, Proof, Proposition}
@@ -37,7 +36,8 @@ object TransactionSyntaxInterpreter {
       positiveOutputValuesValidation,
       sufficientFundsValidation,
       attestationValidation,
-      dataLengthValidation
+      dataLengthValidation,
+      assetEqualFundsValidation
     )
 
   /**
@@ -232,4 +232,69 @@ object TransactionSyntaxInterpreter {
       (),
       TransactionSyntaxError.InvalidDataLength
     )
+
+  /**
+   * AssetEqualFundsValidation For each asset: input assets + minted assets == total asset output
+   * @param transaction - transaction
+   * @return
+   */
+  private def assetEqualFundsValidation(transaction: IoTransaction): ValidatedNec[TransactionSyntaxError, Unit] = {
+
+    import co.topl.brambl.common.OrderInstances.instances._
+
+    val inputAssets =
+      transaction.inputs.filter(_.value.value.isAsset).map(_.value.getAsset)
+
+    val groupIdsOnMintedStatements =
+      transaction.inputs
+        .filter(_.value.value.isGroup)
+        .filter(sto => transaction.mintingStatements.map(_.groupTokenUtxo).contains(sto.address))
+        .map(_.value.getGroup.groupId)
+
+    val seriesIdsOnMintedStatements =
+      transaction.inputs
+        .filter(_.value.value.isSeries)
+        .filter(sto => transaction.mintingStatements.map(_.seriesTokenUtxo).contains(sto.address))
+        .map(_.value.getSeries.seriesId)
+
+    val mintedAsset = transaction.outputs
+      .filter(_.value.value.isAsset)
+      .map(_.value.getAsset)
+      .filter(asset =>
+        asset.groupId.isDefined &&
+        asset.seriesId.isDefined &&
+        groupIdsOnMintedStatements.contains(asset.groupId.get) &&
+        seriesIdsOnMintedStatements.contains(asset.seriesId.get)
+      )
+
+    val totalInputAssets =
+      (inputAssets ++ mintedAsset)
+        .map(a => (a.id, BigInt(a.quantity.value.toByteArray)))
+        .groupBy(_._1)
+        .view
+        .mapValues(_.map(_._2).sum)
+        .toSeq
+        .sorted
+
+    val totalOutputAssets = transaction.outputs
+      .filter(_.value.value.isAsset)
+      .map(_.value.getAsset)
+      .map(a => (a.id, BigInt(a.quantity.value.toByteArray)))
+      .groupBy(_._1)
+      .view
+      .mapValues(_.map(_._2).sum)
+      .toSeq
+      .sorted
+
+    Validated.condNec(
+      totalInputAssets == totalOutputAssets,
+      (),
+      TransactionSyntaxError.InsufficientInputFunds(
+        transaction.inputs.map(_.value.value).toList,
+        transaction.outputs.map(_.value.value).toList
+      )
+    )
+
+  }
+
 }
