@@ -66,6 +66,63 @@ trait TransactionBuilderApi[F[_]] {
   def lvlOutput(lockAddress: LockAddress, amount: Int128): F[UnspentTransactionOutput]
 
   /**
+   * Builds a group constructor unspent transaction output for the given parameters
+   * @param lockAddress The lock address to use to build the group constructor output
+   * @param quantity The quantity to use to build the group constructor output
+   * @param groupId The group id to use to build the group constructor output
+   * @param fixedSeries The fixed series to use to build the group constructor output
+   * @return An unspent transaction output containing group constructor tokens
+   */
+  def groupOutput(
+    lockAddress: LockAddress,
+    quantity:    Int128,
+    groupId:     GroupId,
+    fixedSeries: Option[SeriesId]
+  ): F[UnspentTransactionOutput]
+
+  /**
+   * Builds a series constructor unspent transaction output for the given parameters
+   * @param lockAddress The lock address to use to build the series constructor output
+   * @param quantity The quantity to use to build the series constructor output
+   * @param seriesId The series id to use to build the series constructor output
+   * @param tokenSupply The token supply to use to build the series constructor output
+   * @param fungibility The fungibility type to use to build the series constructor output
+   * @param quantityDescriptor The quantity descriptor type to use to build the series constructor output
+   * @return
+   */
+  def seriesOutput(
+    lockAddress:        LockAddress,
+    quantity:           Int128,
+    seriesId:           SeriesId,
+    tokenSupply:        Option[Int],
+    fungibility:        FungibilityType,
+    quantityDescriptor: QuantityDescriptorType
+  ): F[UnspentTransactionOutput]
+
+  /**
+   * Builds an asset unspent transaction output for the given parameters
+   * @param lockAddress The lock address to use to build the asset output
+   * @param quantity The quantity to use to build the asset output
+   * @param groupId The group id to use to build the asset output
+   * @param seriesId The series id to use to build the asset output
+   * @param fungibilityType The fungibility type to use to build the asset output
+   * @param quantityDescriptorType The quantity descriptor type to use to build the asset output
+   * @param metadata The metadata to use to build the asset output
+   * @param commitment The commitment to use to build the asset output
+   * @return An unspent transaction output containing asset tokens
+   */
+  def assetOutput(
+    lockAddress:            LockAddress,
+    quantity:               Int128,
+    groupId:                GroupId,
+    seriesId:               SeriesId,
+    fungibilityType:        FungibilityType,
+    quantityDescriptorType: QuantityDescriptorType,
+    metadata:               Option[Struct],
+    commitment:             Option[ByteString]
+  ): F[UnspentTransactionOutput]
+
+  /**
    * Builds a datum with default values for a transaction. The schedule is defaulted to use the current timestamp, with
    * min and max slot being 0 and Long.MaxValue respectively.
    *
@@ -108,7 +165,7 @@ trait TransactionBuilderApi[F[_]] {
     amount:               Long,
     recipientLockAddress: LockAddress,
     changeLockAddress:    LockAddress
-  )
+  ): F[Either[BuilderError, IoTransaction]]
 
   /**
    * Builds a transaction to transfer a certain amount of Group Constructor Tokens (given by groupId). The transaction
@@ -131,7 +188,7 @@ trait TransactionBuilderApi[F[_]] {
     amount:               Long,
     recipientLockAddress: LockAddress,
     changeLockAddress:    LockAddress
-  )
+  ): F[Either[BuilderError, IoTransaction]]
 
   /**
    * Builds a transaction to transfer a certain amount of Series Constructor Tokens (given by seriesId). The transaction
@@ -154,7 +211,7 @@ trait TransactionBuilderApi[F[_]] {
     amount:               Long,
     recipientLockAddress: LockAddress,
     changeLockAddress:    LockAddress
-  )
+  ): F[Either[BuilderError, IoTransaction]]
 
   /**
    * Builds a transaction to transfer a certain amount of Asset Tokens (given by groupId and/or seriesId). The
@@ -182,7 +239,7 @@ trait TransactionBuilderApi[F[_]] {
     amount:               Long,
     recipientLockAddress: LockAddress,
     changeLockAddress:    LockAddress
-  )
+  ): F[Either[BuilderError, IoTransaction]]
 
   /**
    * Builds a simple transaction to mint Group Constructor tokens.
@@ -433,7 +490,7 @@ object TransactionBuilderApi {
         amount:               Long,
         recipientLockAddress: LockAddress,
         changeLockAddress:    LockAddress
-      ): Unit = ???
+      ): F[Either[BuilderError, IoTransaction]] = ???
 
       override def buildGroupTransferTransaction(
         groupId:              GroupId,
@@ -442,7 +499,7 @@ object TransactionBuilderApi {
         amount:               Long,
         recipientLockAddress: LockAddress,
         changeLockAddress:    LockAddress
-      ): Unit = ???
+      ): F[Either[BuilderError, IoTransaction]] = ???
 
       override def buildSeriesTransferTransaction(
         seriesId:             SeriesId,
@@ -451,7 +508,7 @@ object TransactionBuilderApi {
         amount:               Long,
         recipientLockAddress: LockAddress,
         changeLockAddress:    LockAddress
-      ): Unit = ???
+      ): F[Either[BuilderError, IoTransaction]] = ???
 
       override def buildAssetTransferTransaction(
         groupId:              Option[GroupId],
@@ -461,7 +518,7 @@ object TransactionBuilderApi {
         amount:               Long,
         recipientLockAddress: LockAddress,
         changeLockAddress:    LockAddress
-      ): Unit = ???
+      ): F[Either[BuilderError, IoTransaction]] = ???
 
       override def buildSimpleGroupMintingTransaction(
         registrationTxo:              Txo,
@@ -712,7 +769,7 @@ object TransactionBuilderApi {
           fungibilityType(seriesTxo.transactionOutput.value.value.series.map(_.fungibility))
         ).fold.toEither
 
-      private def groupOutput(
+      override def groupOutput(
         lockAddress: LockAddress,
         quantity:    Int128,
         groupId:     GroupId,
@@ -725,7 +782,7 @@ object TransactionBuilderApi {
           )
         ).pure[F]
 
-      private def seriesOutput(
+      override def seriesOutput(
         lockAddress:        LockAddress,
         quantity:           Int128,
         seriesId:           SeriesId,
@@ -746,7 +803,7 @@ object TransactionBuilderApi {
           )
         ).pure[F]
 
-      private def assetOutput(
+      override def assetOutput(
         lockAddress:            LockAddress,
         quantity:               Int128,
         groupId:                GroupId,
