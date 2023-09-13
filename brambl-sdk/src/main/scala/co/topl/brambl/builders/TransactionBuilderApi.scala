@@ -92,6 +92,99 @@ trait TransactionBuilderApi[F[_]] {
   ): F[IoTransaction]
 
   /**
+   * Builds a transaction to transfer a certain amount of LVLs. The transaction will also transfer any other tokens that
+   * are encumbered by the same predicate as the LVLs to the change address.
+   *
+   * @param txos  All the TXOs encumbered by the Lock given by lockPredicateFrom. These TXOs must contain at least the
+   *              necessary quantity (given by amount) of LVLs, else an error will be returned.
+   * @param lockPredicateFrom The Lock Predicate encumbering the txos
+   * @param amount The amount of LVLs to transfer to the recipient
+   * @param recipientLockAddress The LockAddress of the recipient
+   * @param changeLockAddress A LockAddress to send the txos that are not going to the recipient
+   */
+  def buildLvlTransferTransaction(
+    txos:                 Seq[Txo],
+    lockPredicateFrom:    Lock.Predicate,
+    amount:               Long,
+    recipientLockAddress: LockAddress,
+    changeLockAddress:    LockAddress
+  )
+
+  /**
+   * Builds a transaction to transfer a certain amount of Group Constructor Tokens (given by groupId). The transaction
+   * will also transfer any other tokens that are encumbered by the same predicate as the Group Constructor Tokens to
+   * the change address.
+   *
+   * @param groupId The GroupId of the Group Constructor Tokens to transfer to the recipient
+   * @param txos  All the TXOs encumbered by the Lock given by lockPredicateFrom. These TXOs must contain at least the
+   *              necessary quantity (given by amount) of the identified Group Constructor Tokens, else an error will be
+   *              returned.
+   * @param lockPredicateFrom The Lock Predicate encumbering the txos
+   * @param amount The amount of identified Group Constructor Tokens to transfer to the recipient
+   * @param recipientLockAddress The LockAddress of the recipient
+   * @param changeLockAddress A LockAddress to send the txos that are not going to the recipient
+   */
+  def buildGroupTransferTransaction(
+    groupId:              GroupId,
+    txos:                 Seq[Txo],
+    lockPredicateFrom:    Lock.Predicate,
+    amount:               Long,
+    recipientLockAddress: LockAddress,
+    changeLockAddress:    LockAddress
+  )
+
+  /**
+   * Builds a transaction to transfer a certain amount of Series Constructor Tokens (given by seriesId). The transaction
+   * will also transfer any other tokens that are encumbered by the same predicate as the Series Constructor Tokens to
+   * the change address.
+   *
+   * @param seriesId The SeriesId of the Series Constructor Tokens to transfer to the recipient
+   * @param txos  All the TXOs encumbered by the Lock given by lockPredicateFrom. These TXOs must contain at least the
+   *              necessary quantity (given by amount) of the identified Series Constructor Tokens, else an error will be
+   *              returned.
+   * @param lockPredicateFrom The Lock Predicate encumbering the txos
+   * @param amount The amount of identified Series Constructor Tokens to transfer to the recipient
+   * @param recipientLockAddress The LockAddress of the recipient
+   * @param changeLockAddress A LockAddress to send the txos that are not going to the recipient
+   */
+  def buildSeriesTransferTransaction(
+    seriesId:             SeriesId,
+    txos:                 Seq[Txo],
+    lockPredicateFrom:    Lock.Predicate,
+    amount:               Long,
+    recipientLockAddress: LockAddress,
+    changeLockAddress:    LockAddress
+  )
+
+  /**
+   * Builds a transaction to transfer a certain amount of Asset Tokens (given by groupId and/or seriesId). The
+   * transaction will also transfer any other tokens that are encumbered by the same predicate as the Asset Tokens to
+   * the change address.
+   *
+   * We currently only support assets with fungibility type GROUP_AND_SERIES.
+   *
+   * @param groupId The GroupId of the Asset Tokens (if fungibility is type GROUP or GROUP_AND_SERIES) to transfer to
+   *                the recipient. If fungibility is type SERIES, this parameter is ignored.
+   * @param seriesId The SeriesId of the Asset Tokens (if fungibility is type SERIES or GROUP_AND_SERIES) to transfer to
+   *                 the recipient. If fungibility is type GROUP, this parameter is ignored.
+   * @param txos  All the TXOs encumbered by the Lock given by lockPredicateFrom. These TXOs must contain at least the
+   *              necessary quantity (given by amount) of the identified Asset Tokens, else an error will be returned.
+   * @param lockPredicateFrom The Lock Predicate encumbering the txos
+   * @param amount The amount of identified Asset Tokens to transfer to the recipient
+   * @param recipientLockAddress The LockAddress of the recipient
+   * @param changeLockAddress A LockAddress to send the txos that are not going to the recipient
+   */
+  def buildAssetTransferTransaction(
+    groupId:              Option[GroupId],
+    seriesId:             Option[SeriesId],
+    txos:                 Seq[Txo],
+    lockPredicateFrom:    Lock.Predicate,
+    amount:               Long,
+    recipientLockAddress: LockAddress,
+    changeLockAddress:    LockAddress
+  )
+
+  /**
    * Builds a simple transaction to mint Group Constructor tokens.
    * If successful, the transaction will have a single input (the registrationUtxo) and a single output (the minted
    * group constructor tokens).
@@ -144,6 +237,8 @@ trait TransactionBuilderApi[F[_]] {
    * If successful, the transaction will have two inputs (the group and series constructor token UTXOs) and 2-3 outputs.
    * The first output will be the minted asset tokens. The second output will be the group constructor tokens (since
    * they are never burned). The potential third output will be the series constructor tokens that were not burned.
+   *
+   * We currently only support assets with fungibility type GROUP_AND_SERIES.
    *
    * @param mintingStatement      The minting statement that specifies the asset to mint.
    * @param groupTxo              The TXO that corresponds to the groupTokenUtxo (in the asset minting statement) to use
@@ -331,6 +426,42 @@ object TransactionBuilderApi {
           )
           .withDatum(datum)
       } yield ioTransaction
+
+      override def buildLvlTransferTransaction(
+        txos:                 Seq[Txo],
+        lockPredicateFrom:    Lock.Predicate,
+        amount:               Long,
+        recipientLockAddress: LockAddress,
+        changeLockAddress:    LockAddress
+      ): Unit = ???
+
+      override def buildGroupTransferTransaction(
+        groupId:              GroupId,
+        txos:                 Seq[Txo],
+        lockPredicateFrom:    Lock.Predicate,
+        amount:               Long,
+        recipientLockAddress: LockAddress,
+        changeLockAddress:    LockAddress
+      ): Unit = ???
+
+      override def buildSeriesTransferTransaction(
+        seriesId:             SeriesId,
+        txos:                 Seq[Txo],
+        lockPredicateFrom:    Lock.Predicate,
+        amount:               Long,
+        recipientLockAddress: LockAddress,
+        changeLockAddress:    LockAddress
+      ): Unit = ???
+
+      override def buildAssetTransferTransaction(
+        groupId:              Option[GroupId],
+        seriesId:             Option[SeriesId],
+        txos:                 Seq[Txo],
+        lockPredicateFrom:    Lock.Predicate,
+        amount:               Long,
+        recipientLockAddress: LockAddress,
+        changeLockAddress:    LockAddress
+      ): Unit = ???
 
       override def buildSimpleGroupMintingTransaction(
         registrationTxo:              Txo,
