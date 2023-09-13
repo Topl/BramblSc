@@ -22,7 +22,7 @@ import co.topl.brambl.common.ContainsEvidence.merkleRootFromBlake2bEvidence
 import cats.implicits._
 import co.topl.brambl.builders.TransactionBuilderApi.UserInputValidations._
 import co.topl.brambl.models.Event.{GroupPolicy, SeriesPolicy}
-import co.topl.brambl.models.box.Value.Series
+import co.topl.brambl.models.box.Value.{Asset, Group, LVL, Series}
 import co.topl.brambl.syntax.{groupPolicyAsGroupPolicySyntaxOps, seriesPolicyAsSeriesPolicySyntaxOps}
 import com.google.protobuf.struct.Struct
 
@@ -490,7 +490,114 @@ object TransactionBuilderApi {
         amount:               Long,
         recipientLockAddress: LockAddress,
         changeLockAddress:    LockAddress
-      ): F[Either[BuilderError, IoTransaction]] = ???
+      ): F[Either[BuilderError, IoTransaction]] = (
+        for {
+          _ <- EitherT.fromEither[F](
+            validatePlaceholder()
+              .leftMap[BuilderError](errs =>
+                UnableToBuildTransaction("Unable to build transaction to transfer LVLs", errs.toList)
+              )
+          )
+          stxoAttestation <- EitherT.right[BuilderError](unprovenAttestation(lockPredicateFrom))
+          datum           <- EitherT.right[BuilderError](datum())
+          (otherTxoValues, lvlValues) = txos
+            .map(_.transactionOutput.value)
+            .partitionMap(value => value.value.lvl.toRight(value))
+          transferredUtxo <- EitherT.right[BuilderError](
+            lvlOutput(recipientLockAddress, Int128(ByteString.copyFrom(BigInt(amount).toByteArray)))
+          )
+          totalQuantity = lvlValues.foldLeft(BigInt(0))((acc, lvl) => acc + BigInt(lvl.quantity.value.toByteArray))
+          change <- {
+            val leftover = totalQuantity - BigInt(amount)
+            val changeOutput =
+              if (leftover > BigInt(0))
+                lvlOutput(changeLockAddress, Int128(ByteString.copyFrom(leftover.toByteArray))).map(Seq(_))
+              else Seq.empty[UnspentTransactionOutput].pure[F]
+            EitherT.right[BuilderError](changeOutput)
+          }
+        } yield IoTransaction(
+          inputs = txos.map(x =>
+            SpentTransactionOutput(
+              x.outputAddress,
+              stxoAttestation,
+              x.transactionOutput.value
+            )
+          ),
+          outputs = transferredUtxo +: change ++: groupAndBuildOutputs(otherTxoValues, changeLockAddress),
+          datum = datum
+        )
+      ).value
+
+      // TODO: This needs to be updated when we want to support multiple fungibility types
+      private def groupAndBuildOutputs(values: Seq[Value], lockAddress: LockAddress): Seq[UnspentTransactionOutput] = {
+        val groupedValues = values.groupBy(value =>
+          value.value match {
+            case Value.Value.Lvl(LVL(_, _))                          => "lvl"
+            case Value.Value.Group(Group(groupId, _, _, _))          => s"group_$groupId"
+            case Value.Value.Series(Series(seriesId, _, _, _, _, _)) => s"series_$seriesId"
+            case Value.Value.Asset(Asset(Some(groupId), Some(seriesId), _, _, _, _, _, _, _, _)) =>
+              s"asset_${groupId}_${seriesId}"
+          }
+        )
+        // TODO: clean up this code
+        groupedValues.values.toSeq
+          .map(v =>
+            v.reduceLeft[Value]((acc, value) =>
+              acc.value match {
+                case Value.Value.Lvl(LVL(Int128(quantity, _), _)) =>
+                  value.withLvl(
+                    value.value.lvl.get.copy(quantity =
+                      Int128(
+                        ByteString.copyFrom(
+                          (BigInt(quantity.toByteArray) + BigInt(
+                            value.value.lvl.get.quantity.value.toByteArray
+                          )).toByteArray
+                        )
+                      )
+                    )
+                  )
+                case Value.Value.Group(Group(_, Int128(quantity, _), _, _)) =>
+                  value.withGroup(
+                    value.value.group.get.copy(quantity =
+                      Int128(
+                        ByteString.copyFrom(
+                          (BigInt(quantity.toByteArray) + BigInt(
+                            value.value.lvl.get.quantity.value.toByteArray
+                          )).toByteArray
+                        )
+                      )
+                    )
+                  )
+                case Value.Value.Series(Series(_, Int128(quantity, _), _, _, _, _)) =>
+                  value.withSeries(
+                    value.value.series.get.copy(quantity =
+                      Int128(
+                        ByteString.copyFrom(
+                          (BigInt(quantity.toByteArray) + BigInt(
+                            value.value.lvl.get.quantity.value.toByteArray
+                          )).toByteArray
+                        )
+                      )
+                    )
+                  )
+                case Value.Value.Asset(Asset(_, _, Int128(quantity, _), _, _, _, _, _, _, _)) =>
+                  value.withAsset(
+                    value.value.asset.get.copy(quantity =
+                      Int128(
+                        ByteString.copyFrom(
+                          (BigInt(quantity.toByteArray) + BigInt(
+                            value.value.lvl.get.quantity.value.toByteArray
+                          )).toByteArray
+                        )
+                      )
+                    )
+                  )
+                case _ => acc
+              }
+            )
+          )
+          .map(value => UnspentTransactionOutput(lockAddress, value))
+      }
 
       override def buildGroupTransferTransaction(
         groupId:              GroupId,
@@ -701,6 +808,8 @@ object TransactionBuilderApi {
           mintingStatements = Seq(mintingStatement)
         )
       ).value
+
+      private def validatePlaceholder(): Either[NonEmptyChain[UserInputError], Unit] = ???
 
       /**
        * Validates the parameters for minting group and series constructor tokens
