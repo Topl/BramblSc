@@ -562,7 +562,7 @@ object TransactionBuilderApi {
                       Int128(
                         ByteString.copyFrom(
                           (BigInt(quantity.toByteArray) + BigInt(
-                            value.value.lvl.get.quantity.value.toByteArray
+                            value.value.group.get.quantity.value.toByteArray
                           )).toByteArray
                         )
                       )
@@ -574,7 +574,7 @@ object TransactionBuilderApi {
                       Int128(
                         ByteString.copyFrom(
                           (BigInt(quantity.toByteArray) + BigInt(
-                            value.value.lvl.get.quantity.value.toByteArray
+                            value.value.series.get.quantity.value.toByteArray
                           )).toByteArray
                         )
                       )
@@ -586,7 +586,7 @@ object TransactionBuilderApi {
                       Int128(
                         ByteString.copyFrom(
                           (BigInt(quantity.toByteArray) + BigInt(
-                            value.value.lvl.get.quantity.value.toByteArray
+                            value.value.asset.get.quantity.value.toByteArray
                           )).toByteArray
                         )
                       )
