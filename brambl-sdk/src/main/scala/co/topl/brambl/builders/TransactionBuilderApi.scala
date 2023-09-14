@@ -27,13 +27,13 @@ import co.topl.brambl.syntax.{
   bigIntAsInt128,
   groupPolicyAsGroupPolicySyntaxOps,
   int128AsBigInt,
-  intAsInt128,
   longAsInt128,
   seriesPolicyAsSeriesPolicySyntaxOps
 }
 import com.google.protobuf.struct.Struct
 
 import scala.language.implicitConversions
+import scala.util.{Failure, Success, Try}
 
 /**
  * Defines a builder for [[IoTransaction]]s
@@ -497,19 +497,15 @@ object TransactionBuilderApi {
           )
           stxoAttestation <- EitherT.right[BuilderError](unprovenAttestation(lockPredicateFrom))
           datum           <- EitherT.right[BuilderError](datum())
-          (otherTxoValues, lvlValues) = txos
-            .map(_.transactionOutput.value)
-            .partitionMap(value => value.value.lvl.toRight(value))
-          transferredUtxo <- EitherT.right[BuilderError](lvlOutput(recipientLockAddress, amount))
-          totalQuantity = lvlValues.foldLeft(BigInt(0))((acc, lvl) => acc + lvl.quantity)
-          change <- {
-            val leftover = totalQuantity - amount
-            val changeOutput =
-              if (leftover > 0)
-                lvlOutput(changeLockAddress, leftover).map(Seq(_))
-              else Seq.empty[UnspentTransactionOutput].pure[F]
-            EitherT.right[BuilderError](changeOutput)
-          }
+          (otherTxoValues, lvlValues) = txos.map(_.transactionOutput.value.value).partition(_.isLvl)
+          otherTokenUtxos <- groupAndBuildOutputs(otherTxoValues, changeLockAddress) // TODO wrap error
+          mergedLvls      <- mergeAllValues(lvlValues) // TODO wrap error
+          lvlUtxos <- buildRecipientAndChangeOutputs(
+            mergedLvls,
+            amount,
+            recipientLockAddress,
+            changeLockAddress
+          ) // TODO wrap error
         } yield IoTransaction(
           inputs = txos.map(x =>
             SpentTransactionOutput(
@@ -518,67 +514,137 @@ object TransactionBuilderApi {
               x.transactionOutput.value
             )
           ),
-          outputs = transferredUtxo +: change ++: groupAndBuildOutputs(otherTxoValues, changeLockAddress),
+          outputs = lvlUtxos ++ otherTokenUtxos,
           datum = datum
         )
       ).value
 
-      private def groupAndBuildOutputs(values: Seq[Value], lockAddress: LockAddress): Seq[UnspentTransactionOutput] =
-        mergeValues(values.map(_.value))
-          .map(v => UnspentTransactionOutput(lockAddress, Value.defaultInstance.withValue(v)))
+      private def groupAndBuildOutputs(
+        values:      Seq[Value.Value],
+        lockAddress: LockAddress
+      ): EitherT[F, BuilderError, Seq[UnspentTransactionOutput]] =
+        for {
+          groupedAndMergeVals <- groupAndMergeValues(values)
+        } yield groupedAndMergeVals.map(v => UnspentTransactionOutput(lockAddress, Value.defaultInstance.withValue(v)))
 
-      private def mergeValues(values: Seq[Value.Value]): Seq[Value.Value] =
-        groupValues(values).map(_.reduceLeft(merge2Values))
+      private def buildRecipientAndChangeOutputs(
+        value:            Value.Value,
+        amount:           Int128,
+        recipientAddress: LockAddress,
+        changeAddress:    LockAddress
+      ): EitherT[F, BuilderError, Seq[UnspentTransactionOutput]] =
+        for {
+          (recipientVal, changeVal) <- splitValue(value, amount)
+          recipientUtxo = UnspentTransactionOutput(recipientAddress, Value.defaultInstance.withValue(recipientVal))
+          changeUtxoSeq = changeVal.map(v =>
+            UnspentTransactionOutput(changeAddress, Value.defaultInstance.withValue(v))
+          )
+        } yield recipientUtxo +: changeUtxoSeq.toSeq
+
+      // values may be of different types, so we need to group them by type before merging
+      private def groupAndMergeValues(values: Seq[Value.Value]): EitherT[F, BuilderError, Seq[Value.Value]] =
+        for {
+          groupedVals <- groupValues(values)
+          mergedVals  <- groupedVals.map(mergeAllValues).sequence
+        } yield mergedVals
+
+      // values assumed to be same type
+      private def mergeAllValues(values: Seq[Value.Value]): EitherT[F, BuilderError, Value.Value] = values
+        .map(EitherT.rightT[F, BuilderError](_)) // reduce expects the same type
+        .reduce((acc, cur) =>
+          for {
+            v1     <- acc
+            v2     <- cur
+            merged <- merge2Values(v1, v2)
+          } yield merged
+        )
 
       // TODO: This needs to be updated when we want to support multiple fungibility types
-      private def merge2Values(value1: Value.Value, value2: Value.Value): Value.Value = (value1, value2) match {
-        case (Value.Value.Lvl(value @ LVL(quantity1, _)), Value.Value.Lvl(LVL(quantity2, _))) =>
-          Value.Value.Lvl(value.copy(quantity = quantity1 + quantity2))
-        case (Value.Value.Group(value @ Group(_, quantity1, _, _)), Value.Value.Group(Group(_, quantity2, _, _))) =>
-          Value.Value.Group(value.copy(quantity = quantity1 + quantity2))
-        case (
-              Value.Value.Series(value @ Series(_, quantity1, _, _, _, _)),
-              Value.Value.Series(Series(_, quantity2, _, _, _, _))
-            ) =>
-          Value.Value.Series(value.copy(quantity = quantity1 + quantity2))
-        case (
-              Value.Value.Asset(value @ Asset(_, _, quantity1, _, _, _, _, _, _, _)),
-              Value.Value.Asset(Asset(_, _, quantity2, _, _, _, _, _, _, _))
-            ) =>
-          Value.Value.Asset(value.copy(quantity = quantity1 + quantity2))
-      }
-
-      // TODO: This needs to be updated when we want to support multiple fungibility types
-      private def splitValue(value: Value.Value, amount: Int128): Seq[Value.Value] = {
-        def splitQuantities(quantity: Int128): Seq[Int128] = {
-//          Seq
-          val change = quantity - amount
-          if (change > 0) Seq(amount) :+ (change)
-          else Seq(amount)
+      private def merge2Values(value1: Value.Value, value2: Value.Value): EitherT[F, BuilderError, Value.Value] =
+        (value1, value2) match {
+          case (Value.Value.Lvl(value @ LVL(quantity1, _)), Value.Value.Lvl(LVL(quantity2, _))) =>
+            EitherT.rightT(Value.Value.Lvl(value.copy(quantity = quantity1 + quantity2)))
+          case (Value.Value.Group(value @ Group(_, quantity1, _, _)), Value.Value.Group(Group(_, quantity2, _, _))) =>
+            EitherT.rightT(Value.Value.Group(value.copy(quantity = quantity1 + quantity2)))
+          case (
+                Value.Value.Series(value @ Series(_, quantity1, _, _, _, _)),
+                Value.Value.Series(Series(_, quantity2, _, _, _, _))
+              ) =>
+            EitherT.rightT(Value.Value.Series(value.copy(quantity = quantity1 + quantity2)))
+          case (
+                Value.Value.Asset(value @ Asset(_, _, quantity1, _, _, _, _, _, _, _)),
+                Value.Value.Asset(Asset(_, _, quantity2, _, _, _, _, _, _, _))
+              ) =>
+            EitherT.rightT(Value.Value.Asset(value.copy(quantity = quantity1 + quantity2)))
+          case _ =>
+            EitherT.leftT[F, Value.Value](
+              UnableToBuildTransaction(
+                "Unable to merge values since they are not of the same type or are of an unsupported type"
+              )
+            )
         }
+
+      // TODO: This needs to be updated when we want to support multiple fungibility types
+      private def splitValue(
+        value:  Value.Value,
+        amount: Int128
+      ): EitherT[F, BuilderError, (Value.Value, Option[Value.Value])] = {
+        def change(quantity: Int128): Option[BigInt] = if (quantity > amount) (quantity - amount).some else None
         value match {
           case Value.Value.Lvl(value @ LVL(quantity, _)) =>
-            splitQuantities(quantity).map(q => Value.Value.Lvl(value.copy(quantity = q)))
+            EitherT.rightT(
+              (
+                Value.Value.Lvl(value.copy(quantity = amount)),
+                change(quantity).map(c => Value.Value.Lvl(value.copy(quantity = c)))
+              )
+            )
           case Value.Value.Group(value @ Group(_, quantity, _, _)) =>
-            splitQuantities(quantity).map(q => Value.Value.Group(value.copy(quantity = q)))
+            EitherT.rightT(
+              (
+                Value.Value.Group(value.copy(quantity = amount)),
+                change(quantity).map(c => Value.Value.Group(value.copy(quantity = c)))
+              )
+            )
           case Value.Value.Series(value @ Series(_, quantity, _, _, _, _)) =>
-            splitQuantities(quantity).map(q => Value.Value.Series(value.copy(quantity = q)))
+            EitherT.rightT(
+              (
+                Value.Value.Series(value.copy(quantity = amount)),
+                change(quantity).map(c => Value.Value.Series(value.copy(quantity = c)))
+              )
+            )
           case Value.Value.Asset(value @ Asset(_, _, quantity, _, _, _, _, _, _, _)) =>
-            splitQuantities(quantity).map(q => Value.Value.Asset(value.copy(quantity = q)))
+            EitherT.rightT(
+              (
+                Value.Value.Asset(value.copy(quantity = amount)),
+                change(quantity).map(c => Value.Value.Asset(value.copy(quantity = c)))
+              )
+            )
+          case _ =>
+            EitherT.leftT[F, (Value.Value, Option[Value.Value])](
+              UnableToBuildTransaction("Unable to split values due to unsupported type")
+            )
         }
       }
 
       // TODO: This needs to be updated when we want to support multiple fungibility types
-      private def groupValues(values: Seq[Value.Value]): Seq[Seq[Value.Value]] = values
-        .groupBy {
-          case Value.Value.Lvl(LVL(_, _))                          => "lvl"
-          case Value.Value.Group(Group(groupId, _, _, _))          => s"group_$groupId"
-          case Value.Value.Series(Series(seriesId, _, _, _, _, _)) => s"series_$seriesId"
-          case Value.Value.Asset(Asset(Some(groupId), Some(seriesId), _, _, _, _, _, _, _, _)) =>
-            s"asset_${groupId}_${seriesId}"
-        }
-        .values
-        .toSeq
+      private def groupValues(values: Seq[Value.Value]): EitherT[F, BuilderError, Seq[Seq[Value.Value]]] = Try(
+        values
+          .groupBy {
+            case Value.Value.Lvl(LVL(_, _))                          => "lvl"
+            case Value.Value.Group(Group(groupId, _, _, _))          => s"group_$groupId"
+            case Value.Value.Series(Series(seriesId, _, _, _, _, _)) => s"series_$seriesId"
+            case Value.Value.Asset(Asset(Some(groupId), Some(seriesId), _, _, _, _, _, _, _, _)) =>
+              s"asset_${groupId}_${seriesId}"
+          }
+          .values
+          .toSeq
+      ) match {
+        case Success(value) => EitherT.rightT(value)
+        case Failure(err) =>
+          EitherT.leftT[F, Seq[Seq[Value.Value]]](
+            UnableToBuildTransaction("Unable to group values due to match errors ", List(err))
+          )
+      }
 
       override def buildGroupTransferTransaction(
         groupId:              GroupId,
