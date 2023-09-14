@@ -24,12 +24,16 @@ import co.topl.brambl.builders.TransactionBuilderApi.UserInputValidations._
 import co.topl.brambl.models.Event.{GroupPolicy, SeriesPolicy}
 import co.topl.brambl.models.box.Value.{Asset, Group, LVL, Series}
 import co.topl.brambl.syntax.{
-  bigIntAsInt128SyntaxOps,
+  bigIntAsInt128,
   groupPolicyAsGroupPolicySyntaxOps,
-  int128Ops,
+  int128AsBigInt,
+  intAsInt128,
+  longAsInt128,
   seriesPolicyAsSeriesPolicySyntaxOps
 }
 import com.google.protobuf.struct.Struct
+
+import scala.language.implicitConversions
 
 /**
  * Defines a builder for [[IoTransaction]]s
@@ -403,22 +407,21 @@ object TransactionBuilderApi {
 
     def positiveQuantity(testQuantity: Option[Int128], testLabel: String): ValidatedNec[UserInputError, Unit] =
       Validated.condNec(
-        testQuantity.isEmpty || testQuantity.get.toBigInt > BigInt(0),
+        testQuantity.isEmpty || testQuantity.get > 0,
         (),
         UserInputError(s"$testLabel must be positive")
       )
 
     def validMintingSupply(
-      testQuantity:   Int128,
-      seriesTokenOpt: Option[Series],
-      testLabel:      String
+      desiredQuantity: Int128,
+      seriesTokenOpt:  Option[Series],
+      testLabel:       String
     ): ValidatedNec[UserInputError, Unit] =
       seriesTokenOpt match {
-        case Some(Series(_, a, Some(tokenSupply), _, _, _)) =>
-          val desiredQ = testQuantity.toBigInt
-          if (desiredQ % tokenSupply != 0)
+        case Some(Series(_, availableQuantity, Some(tokenSupply), _, _, _)) =>
+          if (desiredQuantity % tokenSupply != 0)
             UserInputError(s"$testLabel must be a multiple of token supply").invalidNec[Unit]
-          else if (desiredQ > a.toBigInt * tokenSupply)
+          else if (desiredQuantity > availableQuantity * tokenSupply)
             UserInputError(s"$testLabel must be less than total token supply available.").invalidNec[Unit]
           else ().validNec[UserInputError]
         case _ => ().validNec[UserInputError]
@@ -452,12 +455,12 @@ object TransactionBuilderApi {
               BigInt(0)
             )((acc, x) =>
               acc + x.transactionOutput.value.value.lvl
-                .map(y => y.quantity.toBigInt)
-                .getOrElse(BigInt(0))
+                .map(_.quantity: BigInt)
+                .getOrElse(0)
             )
         datum                 <- datum()
-        lvlOutputForChange    <- lvlOutput(lockPredicateForChange, BigInt(totalValues.toLong - amount).toInt128)
-        lvlOutputForRecipient <- lvlOutput(recipientLockAddress, BigInt(amount).toInt128)
+        lvlOutputForChange    <- lvlOutput(lockPredicateForChange, totalValues - amount)
+        lvlOutputForRecipient <- lvlOutput(recipientLockAddress, amount)
         ioTransaction = IoTransaction.defaultInstance
           .withInputs(
             lvlTxos.map(x =>
@@ -470,7 +473,7 @@ object TransactionBuilderApi {
           )
           .withOutputs(
             // If there is no change, we don't need to add it to the outputs
-            if (totalValues.toLong - amount > 0)
+            if (totalValues - amount > 0)
               Seq(lvlOutputForRecipient) :+ lvlOutputForChange
             else
               Seq(lvlOutputForRecipient)
@@ -497,15 +500,13 @@ object TransactionBuilderApi {
           (otherTxoValues, lvlValues) = txos
             .map(_.transactionOutput.value)
             .partitionMap(value => value.value.lvl.toRight(value))
-          transferredUtxo <- EitherT.right[BuilderError](
-            lvlOutput(recipientLockAddress, BigInt(amount).toInt128)
-          )
-          totalQuantity = lvlValues.foldLeft(BigInt(0))((acc, lvl) => acc + lvl.quantity.toBigInt)
+          transferredUtxo <- EitherT.right[BuilderError](lvlOutput(recipientLockAddress, amount))
+          totalQuantity = lvlValues.foldLeft(BigInt(0))((acc, lvl) => acc + lvl.quantity)
           change <- {
-            val leftover = totalQuantity - BigInt(amount)
+            val leftover = totalQuantity - amount
             val changeOutput =
-              if (leftover > BigInt(0))
-                lvlOutput(changeLockAddress, leftover.toInt128).map(Seq(_))
+              if (leftover > 0)
+                lvlOutput(changeLockAddress, leftover).map(Seq(_))
               else Seq.empty[UnspentTransactionOutput].pure[F]
             EitherT.right[BuilderError](changeOutput)
           }
@@ -530,7 +531,7 @@ object TransactionBuilderApi {
         groupValues(values).map(_.reduceLeft(merge2Values))
 
       // TODO: This needs to be updated when we want to support multiple fungibility types
-      private def merge2Values[T <: Value.Value](value1: T, value2: T): Value.Value = (value1, value2) match {
+      private def merge2Values(value1: Value.Value, value2: Value.Value): Value.Value = (value1, value2) match {
         case (Value.Value.Lvl(value @ LVL(quantity1, _)), Value.Value.Lvl(LVL(quantity2, _))) =>
           Value.Value.Lvl(value.copy(quantity = quantity1 + quantity2))
         case (Value.Value.Group(value @ Group(_, quantity1, _, _)), Value.Value.Group(Group(_, quantity2, _, _))) =>
@@ -545,6 +546,26 @@ object TransactionBuilderApi {
               Value.Value.Asset(Asset(_, _, quantity2, _, _, _, _, _, _, _))
             ) =>
           Value.Value.Asset(value.copy(quantity = quantity1 + quantity2))
+      }
+
+      // TODO: This needs to be updated when we want to support multiple fungibility types
+      private def splitValue(value: Value.Value, amount: Int128): Seq[Value.Value] = {
+        def splitQuantities(quantity: Int128): Seq[Int128] = {
+//          Seq
+          val change = quantity - amount
+          if (change > 0) Seq(amount) :+ (change)
+          else Seq(amount)
+        }
+        value match {
+          case Value.Value.Lvl(value @ LVL(quantity, _)) =>
+            splitQuantities(quantity).map(q => Value.Value.Lvl(value.copy(quantity = q)))
+          case Value.Value.Group(value @ Group(_, quantity, _, _)) =>
+            splitQuantities(quantity).map(q => Value.Value.Group(value.copy(quantity = q)))
+          case Value.Value.Series(value @ Series(_, quantity, _, _, _, _)) =>
+            splitQuantities(quantity).map(q => Value.Value.Series(value.copy(quantity = q)))
+          case Value.Value.Asset(value @ Asset(_, _, quantity, _, _, _, _, _, _, _)) =>
+            splitQuantities(quantity).map(q => Value.Value.Asset(value.copy(quantity = q)))
+        }
       }
 
       // TODO: This needs to be updated when we want to support multiple fungibility types
@@ -723,15 +744,15 @@ object TransactionBuilderApi {
             )
           )
           seriesOutputSeq <- {
-            val inputQuantity = seriesToken.quantity.toBigInt
+            val inputQuantity = seriesToken.quantity
             val outputQuantity: BigInt =
               if (seriesToken.tokenSupply.isEmpty) inputQuantity
-              else inputQuantity - (mintingStatement.quantity.toBigInt / seriesToken.tokenSupply.get)
-            if (outputQuantity > BigInt(0))
+              else inputQuantity - (mintingStatement.quantity / seriesToken.tokenSupply.get)
+            if (outputQuantity > 0)
               EitherT.right[BuilderError](
                 seriesOutput(
                   seriesTxo.transactionOutput.address,
-                  outputQuantity.toInt128,
+                  outputQuantity,
                   seriesToken.seriesId,
                   seriesToken.tokenSupply,
                   seriesToken.fungibility,
