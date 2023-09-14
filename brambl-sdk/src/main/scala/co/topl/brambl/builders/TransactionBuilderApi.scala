@@ -354,6 +354,7 @@ object TransactionBuilderApi {
   }
 
   case class UserInputError(message: String) extends BuilderError(message, null)
+  case class BuilderRuntimeError(message: String, cause: Throwable = null) extends BuilderError(message, cause)
   case class UnableToBuildTransaction(message: String, causes: List[Throwable] = List()) extends BuilderError(message)
 
   object UserInputValidations {
@@ -487,25 +488,22 @@ object TransactionBuilderApi {
         amount:               Long,
         recipientLockAddress: LockAddress,
         changeLockAddress:    LockAddress
-      ): F[Either[BuilderError, IoTransaction]] = (
-        for {
+      ): F[Either[BuilderError, IoTransaction]] = {
+        def wrapErrs(errs: List[BuilderError]): BuilderError =
+          UnableToBuildTransaction("Unable to build transaction to transfer LVLs", errs)
+        val transaction = for {
           _ <- EitherT.fromEither[F](
             validatePlaceholder()
-              .leftMap[BuilderError](errs =>
-                UnableToBuildTransaction("Unable to build transaction to transfer LVLs", errs.toList)
-              )
+              .leftMap[BuilderError](e => wrapErrs(e.toList))
           )
           stxoAttestation <- EitherT.right[BuilderError](unprovenAttestation(lockPredicateFrom))
           datum           <- EitherT.right[BuilderError](datum())
           (otherTxoValues, lvlValues) = txos.map(_.transactionOutput.value.value).partition(_.isLvl)
-          otherTokenUtxos <- groupAndBuildOutputs(otherTxoValues, changeLockAddress) // TODO wrap error
-          mergedLvls      <- mergeAllValues(lvlValues) // TODO wrap error
-          lvlUtxos <- buildRecipientAndChangeOutputs(
-            mergedLvls,
-            amount,
-            recipientLockAddress,
-            changeLockAddress
-          ) // TODO wrap error
+          otherTokenUtxos <-
+            groupAndBuildOutputs(otherTxoValues, changeLockAddress).leftMap[BuilderError](e => wrapErrs(List(e)))
+          mergedLvls <- mergeAllValues(lvlValues).leftMap[BuilderError](e => wrapErrs(List(e)))
+          lvlUtxos <- buildRecipientAndChangeOutputs(mergedLvls, amount, recipientLockAddress, changeLockAddress)
+            .leftMap[BuilderError](e => wrapErrs(List(e)))
         } yield IoTransaction(
           inputs = txos.map(x =>
             SpentTransactionOutput(
@@ -517,7 +515,8 @@ object TransactionBuilderApi {
           outputs = lvlUtxos ++ otherTokenUtxos,
           datum = datum
         )
-      ).value
+        transaction.value
+      }
 
       private def groupAndBuildOutputs(
         values:      Seq[Value.Value],
@@ -578,7 +577,7 @@ object TransactionBuilderApi {
             EitherT.rightT(Value.Value.Asset(value.copy(quantity = quantity1 + quantity2)))
           case _ =>
             EitherT.leftT[F, Value.Value](
-              UnableToBuildTransaction(
+              BuilderRuntimeError(
                 "Unable to merge values since they are not of the same type or are of an unsupported type"
               )
             )
@@ -621,7 +620,7 @@ object TransactionBuilderApi {
             )
           case _ =>
             EitherT.leftT[F, (Value.Value, Option[Value.Value])](
-              UnableToBuildTransaction("Unable to split values due to unsupported type")
+              BuilderRuntimeError("Unable to split values due to unsupported type")
             )
         }
       }
@@ -641,9 +640,7 @@ object TransactionBuilderApi {
       ) match {
         case Success(value) => EitherT.rightT(value)
         case Failure(err) =>
-          EitherT.leftT[F, Seq[Seq[Value.Value]]](
-            UnableToBuildTransaction("Unable to group values due to match errors ", List(err))
-          )
+          EitherT.leftT[F, Seq[Seq[Value.Value]]](BuilderRuntimeError("Unable to group values due to match error", err))
       }
 
       override def buildGroupTransferTransaction(
