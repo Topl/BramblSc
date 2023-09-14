@@ -23,7 +23,12 @@ import cats.implicits._
 import co.topl.brambl.builders.TransactionBuilderApi.UserInputValidations._
 import co.topl.brambl.models.Event.{GroupPolicy, SeriesPolicy}
 import co.topl.brambl.models.box.Value.{Asset, Group, LVL, Series}
-import co.topl.brambl.syntax.{groupPolicyAsGroupPolicySyntaxOps, seriesPolicyAsSeriesPolicySyntaxOps}
+import co.topl.brambl.syntax.{
+  bigIntAsInt128SyntaxOps,
+  groupPolicyAsGroupPolicySyntaxOps,
+  int128Ops,
+  seriesPolicyAsSeriesPolicySyntaxOps
+}
 import com.google.protobuf.struct.Struct
 
 /**
@@ -504,14 +509,14 @@ object TransactionBuilderApi {
             .map(_.transactionOutput.value)
             .partitionMap(value => value.value.lvl.toRight(value))
           transferredUtxo <- EitherT.right[BuilderError](
-            lvlOutput(recipientLockAddress, Int128(ByteString.copyFrom(BigInt(amount).toByteArray)))
+            lvlOutput(recipientLockAddress, BigInt(amount).toInt128)
           )
-          totalQuantity = lvlValues.foldLeft(BigInt(0))((acc, lvl) => acc + BigInt(lvl.quantity.value.toByteArray))
+          totalQuantity = lvlValues.foldLeft(BigInt(0))((acc, lvl) => acc + lvl.quantity.toBigInt)
           change <- {
             val leftover = totalQuantity - BigInt(amount)
             val changeOutput =
               if (leftover > BigInt(0))
-                lvlOutput(changeLockAddress, Int128(ByteString.copyFrom(leftover.toByteArray))).map(Seq(_))
+                lvlOutput(changeLockAddress, leftover.toInt128).map(Seq(_))
               else Seq.empty[UnspentTransactionOutput].pure[F]
             EitherT.right[BuilderError](changeOutput)
           }
@@ -537,52 +542,20 @@ object TransactionBuilderApi {
 
       // TODO: This needs to be updated when we want to support multiple fungibility types
       private def merge2Values[T <: Value.Value](value1: T, value2: T): Value.Value = (value1, value2) match {
-        case (Value.Value.Lvl(value @ LVL(Int128(quantity1, _), _)), Value.Value.Lvl(LVL(Int128(quantity2, _), _))) =>
-          Value.Value.Lvl(
-            value.copy(quantity =
-              Int128(
-                ByteString.copyFrom(
-                  (BigInt(quantity1.toByteArray) + BigInt(quantity2.toByteArray)).toByteArray
-                )
-              )
-            )
-          )
+        case (Value.Value.Lvl(value @ LVL(quantity1, _)), Value.Value.Lvl(LVL(quantity2, _))) =>
+          Value.Value.Lvl(value.copy(quantity = quantity1 + quantity2))
         case (Value.Value.Group(value @ Group(_, quantity1, _, _)), Value.Value.Group(Group(_, quantity2, _, _))) =>
-          Value.Value.Group(
-            value.copy(quantity =
-              Int128(
-                ByteString.copyFrom(
-                  (BigInt(quantity1.toByteArray) + BigInt(quantity2.toByteArray)).toByteArray
-                )
-              )
-            )
-          )
+          Value.Value.Group(value.copy(quantity = quantity1 + quantity2))
         case (
               Value.Value.Series(value @ Series(_, quantity1, _, _, _, _)),
               Value.Value.Series(Series(_, quantity2, _, _, _, _))
             ) =>
-          Value.Value.Series(
-            value.copy(quantity =
-              Int128(
-                ByteString.copyFrom(
-                  (BigInt(quantity1.toByteArray) + BigInt(quantity2.toByteArray)).toByteArray
-                )
-              )
-            )
-          )
+          Value.Value.Series(value.copy(quantity = quantity1 + quantity2))
         case (
               Value.Value.Asset(value @ Asset(_, _, quantity1, _, _, _, _, _, _, _)),
               Value.Value.Asset(Asset(_, _, quantity2, _, _, _, _, _, _, _))
             ) =>
-          Value.Value.Asset(
-            value.copy(quantity =
-              Int128(
-                ByteString.copyFrom(
-                  (BigInt(quantity1.toByteArray) + BigInt(quantity2.toByteArray)).toByteArray
-                )
-              )
-            )
-          )
+          Value.Value.Asset(value.copy(quantity = quantity1 + quantity2))
       }
 
       // TODO: This needs to be updated when we want to support multiple fungibility types
