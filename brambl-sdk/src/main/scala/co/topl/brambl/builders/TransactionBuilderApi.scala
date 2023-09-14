@@ -488,17 +488,81 @@ object TransactionBuilderApi {
         amount:               Long,
         recipientLockAddress: LockAddress,
         changeLockAddress:    LockAddress
+      ): F[Either[BuilderError, IoTransaction]] =
+        buildTransferTransaction(txos, lockPredicateFrom, amount, recipientLockAddress, changeLockAddress, _.isLvl)
+
+      override def buildGroupTransferTransaction(
+        groupId:              GroupId,
+        txos:                 Seq[Txo],
+        lockPredicateFrom:    Lock.Predicate,
+        amount:               Long,
+        recipientLockAddress: LockAddress,
+        changeLockAddress:    LockAddress
+      ): F[Either[BuilderError, IoTransaction]] =
+        buildTransferTransaction(
+          txos,
+          lockPredicateFrom,
+          amount,
+          recipientLockAddress,
+          changeLockAddress,
+          value => value.isGroup && value.group.get.groupId == groupId
+        )
+
+      override def buildSeriesTransferTransaction(
+        seriesId:             SeriesId,
+        txos:                 Seq[Txo],
+        lockPredicateFrom:    Lock.Predicate,
+        amount:               Long,
+        recipientLockAddress: LockAddress,
+        changeLockAddress:    LockAddress
+      ): F[Either[BuilderError, IoTransaction]] =
+        buildTransferTransaction(
+          txos,
+          lockPredicateFrom,
+          amount,
+          recipientLockAddress,
+          changeLockAddress,
+          value => value.isSeries && value.series.get.seriesId == seriesId
+        )
+
+      override def buildAssetTransferTransaction(
+        groupId:              Option[GroupId],
+        seriesId:             Option[SeriesId],
+        txos:                 Seq[Txo],
+        lockPredicateFrom:    Lock.Predicate,
+        amount:               Long,
+        recipientLockAddress: LockAddress,
+        changeLockAddress:    LockAddress
+      ): F[Either[BuilderError, IoTransaction]] =
+        buildTransferTransaction(
+          txos,
+          lockPredicateFrom,
+          amount,
+          recipientLockAddress,
+          changeLockAddress,
+          // TODO: This needs to be updated when we want to support multiple fungibility types
+          value => value.isAsset && value.asset.get.groupId == groupId && value.asset.get.seriesId == seriesId
+        )
+
+      private def buildTransferTransaction(
+        txos:                 Seq[Txo],
+        lockPredicateFrom:    Lock.Predicate,
+        amount:               Long,
+        recipientLockAddress: LockAddress,
+        changeLockAddress:    LockAddress,
+        toTransferPred:       (Value.Value) => Boolean
       ): F[Either[BuilderError, IoTransaction]] = {
         def wrapErrs(errs: List[BuilderError]): BuilderError =
-          UnableToBuildTransaction("Unable to build transaction to transfer LVLs", errs)
+          UnableToBuildTransaction("Unable to build transaction to transfer tokens", errs)
+
         val transaction = for {
           _ <- EitherT.fromEither[F](
-            validatePlaceholder()
+            validateTransferParams()
               .leftMap[BuilderError](e => wrapErrs(e.toList))
           )
           stxoAttestation <- EitherT.right[BuilderError](unprovenAttestation(lockPredicateFrom))
           datum           <- EitherT.right[BuilderError](datum())
-          (otherTxoValues, lvlValues) = txos.map(_.transactionOutput.value.value).partition(_.isLvl)
+          (otherTxoValues, lvlValues) = txos.map(_.transactionOutput.value.value).partition(toTransferPred)
           otherTokenUtxos <-
             groupAndBuildOutputs(otherTxoValues, changeLockAddress).leftMap[BuilderError](e => wrapErrs(List(e)))
           mergedLvls <- mergeAllValues(lvlValues).leftMap[BuilderError](e => wrapErrs(List(e)))
@@ -642,34 +706,6 @@ object TransactionBuilderApi {
         case Failure(err) =>
           EitherT.leftT[F, Seq[Seq[Value.Value]]](BuilderRuntimeError("Unable to group values due to match error", err))
       }
-
-      override def buildGroupTransferTransaction(
-        groupId:              GroupId,
-        txos:                 Seq[Txo],
-        lockPredicateFrom:    Lock.Predicate,
-        amount:               Long,
-        recipientLockAddress: LockAddress,
-        changeLockAddress:    LockAddress
-      ): F[Either[BuilderError, IoTransaction]] = ???
-
-      override def buildSeriesTransferTransaction(
-        seriesId:             SeriesId,
-        txos:                 Seq[Txo],
-        lockPredicateFrom:    Lock.Predicate,
-        amount:               Long,
-        recipientLockAddress: LockAddress,
-        changeLockAddress:    LockAddress
-      ): F[Either[BuilderError, IoTransaction]] = ???
-
-      override def buildAssetTransferTransaction(
-        groupId:              Option[GroupId],
-        seriesId:             Option[SeriesId],
-        txos:                 Seq[Txo],
-        lockPredicateFrom:    Lock.Predicate,
-        amount:               Long,
-        recipientLockAddress: LockAddress,
-        changeLockAddress:    LockAddress
-      ): F[Either[BuilderError, IoTransaction]] = ???
 
       override def buildSimpleGroupMintingTransaction(
         registrationTxo:              Txo,
@@ -844,7 +880,8 @@ object TransactionBuilderApi {
         )
       ).value
 
-      private def validatePlaceholder(): Either[NonEmptyChain[UserInputError], Unit] = ???
+      // TODO: implement
+      private def validateTransferParams(): Either[NonEmptyChain[UserInputError], Unit] = ???
 
       /**
        * Validates the parameters for minting group and series constructor tokens
