@@ -550,7 +550,12 @@ object TransactionBuilderApi {
         amount:               Long,
         recipientLockAddress: LockAddress,
         changeLockAddress:    LockAddress,
-        toTransferPred:       (Value.Value) => Boolean
+        // TODO: add validation to ensure all values that satisfy this are of the same type
+        // for ex: txos: (A1, A2, A3, A1, A1). and given partition [toTransfer, otherTxos]
+        // general use case if we want to transfer A1 is [(A1, A1, A1), (A2, A3)]
+        // But we don't want to allow [(A1, A2, A1, A1), (A3)] because toTransfer is of different types
+        // however we [(A1, A1), (A1, A2, A3)] is okay because toTransfer is of the same type. otherTxos can be of different types
+        toTransferPred: (Value.Value) => Boolean
       ): F[Either[BuilderError, IoTransaction]] = {
         def wrapErrs(errs: List[BuilderError]): BuilderError =
           UnableToBuildTransaction("Unable to build transaction to transfer tokens", errs)
@@ -562,11 +567,16 @@ object TransactionBuilderApi {
           )
           stxoAttestation <- EitherT.right[BuilderError](unprovenAttestation(lockPredicateFrom))
           datum           <- EitherT.right[BuilderError](datum())
-          (otherTxoValues, lvlValues) = txos.map(_.transactionOutput.value.value).partition(toTransferPred)
+          (transferValues, otherTxoValues) = txos.map(_.transactionOutput.value.value).partition(toTransferPred)
           otherTokenUtxos <-
             groupAndBuildOutputs(otherTxoValues, changeLockAddress).leftMap[BuilderError](e => wrapErrs(List(e)))
-          mergedLvls <- mergeAllValues(lvlValues).leftMap[BuilderError](e => wrapErrs(List(e)))
-          lvlUtxos <- buildRecipientAndChangeOutputs(mergedLvls, amount, recipientLockAddress, changeLockAddress)
+          mergedTransferVals <- mergeAllValues(transferValues).leftMap[BuilderError](e => wrapErrs(List(e)))
+          transferUtxos <- buildRecipientAndChangeOutputs(
+            mergedTransferVals,
+            amount,
+            recipientLockAddress,
+            changeLockAddress
+          )
             .leftMap[BuilderError](e => wrapErrs(List(e)))
         } yield IoTransaction(
           inputs = txos.map(x =>
@@ -576,7 +586,7 @@ object TransactionBuilderApi {
               x.transactionOutput.value
             )
           ),
-          outputs = lvlUtxos ++ otherTokenUtxos,
+          outputs = transferUtxos ++ otherTokenUtxos,
           datum = datum
         )
         transaction.value
