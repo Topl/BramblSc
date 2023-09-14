@@ -528,76 +528,74 @@ object TransactionBuilderApi {
         )
       ).value
 
+      private def groupAndBuildOutputs(values: Seq[Value], lockAddress: LockAddress): Seq[UnspentTransactionOutput] =
+        mergeValues(values.map(_.value))
+          .map(v => UnspentTransactionOutput(lockAddress, Value.defaultInstance.withValue(v)))
+
+      private def mergeValues(values: Seq[Value.Value]): Seq[Value.Value] =
+        groupValues(values).map(_.reduceLeft(merge2Values))
+
       // TODO: This needs to be updated when we want to support multiple fungibility types
-      private def groupAndBuildOutputs(values: Seq[Value], lockAddress: LockAddress): Seq[UnspentTransactionOutput] = {
-        val groupedValues = values.groupBy(value =>
-          value.value match {
-            case Value.Value.Lvl(LVL(_, _))                          => "lvl"
-            case Value.Value.Group(Group(groupId, _, _, _))          => s"group_$groupId"
-            case Value.Value.Series(Series(seriesId, _, _, _, _, _)) => s"series_$seriesId"
-            case Value.Value.Asset(Asset(Some(groupId), Some(seriesId), _, _, _, _, _, _, _, _)) =>
-              s"asset_${groupId}_${seriesId}"
-          }
-        )
-        // TODO: clean up this code
-        groupedValues.values.toSeq
-          .map(v =>
-            v.reduceLeft[Value]((acc, value) =>
-              acc.value match {
-                case Value.Value.Lvl(LVL(Int128(quantity, _), _)) =>
-                  value.withLvl(
-                    value.value.lvl.get.copy(quantity =
-                      Int128(
-                        ByteString.copyFrom(
-                          (BigInt(quantity.toByteArray) + BigInt(
-                            value.value.lvl.get.quantity.value.toByteArray
-                          )).toByteArray
-                        )
-                      )
-                    )
-                  )
-                case Value.Value.Group(Group(_, Int128(quantity, _), _, _)) =>
-                  value.withGroup(
-                    value.value.group.get.copy(quantity =
-                      Int128(
-                        ByteString.copyFrom(
-                          (BigInt(quantity.toByteArray) + BigInt(
-                            value.value.group.get.quantity.value.toByteArray
-                          )).toByteArray
-                        )
-                      )
-                    )
-                  )
-                case Value.Value.Series(Series(_, Int128(quantity, _), _, _, _, _)) =>
-                  value.withSeries(
-                    value.value.series.get.copy(quantity =
-                      Int128(
-                        ByteString.copyFrom(
-                          (BigInt(quantity.toByteArray) + BigInt(
-                            value.value.series.get.quantity.value.toByteArray
-                          )).toByteArray
-                        )
-                      )
-                    )
-                  )
-                case Value.Value.Asset(Asset(_, _, Int128(quantity, _), _, _, _, _, _, _, _)) =>
-                  value.withAsset(
-                    value.value.asset.get.copy(quantity =
-                      Int128(
-                        ByteString.copyFrom(
-                          (BigInt(quantity.toByteArray) + BigInt(
-                            value.value.asset.get.quantity.value.toByteArray
-                          )).toByteArray
-                        )
-                      )
-                    )
-                  )
-                case _ => acc
-              }
+      private def merge2Values[T <: Value.Value](value1: T, value2: T): Value.Value = (value1, value2) match {
+        case (Value.Value.Lvl(value @ LVL(Int128(quantity1, _), _)), Value.Value.Lvl(LVL(Int128(quantity2, _), _))) =>
+          Value.Value.Lvl(
+            value.copy(quantity =
+              Int128(
+                ByteString.copyFrom(
+                  (BigInt(quantity1.toByteArray) + BigInt(quantity2.toByteArray)).toByteArray
+                )
+              )
             )
           )
-          .map(value => UnspentTransactionOutput(lockAddress, value))
+        case (Value.Value.Group(value @ Group(_, quantity1, _, _)), Value.Value.Group(Group(_, quantity2, _, _))) =>
+          Value.Value.Group(
+            value.copy(quantity =
+              Int128(
+                ByteString.copyFrom(
+                  (BigInt(quantity1.toByteArray) + BigInt(quantity2.toByteArray)).toByteArray
+                )
+              )
+            )
+          )
+        case (
+              Value.Value.Series(value @ Series(_, quantity1, _, _, _, _)),
+              Value.Value.Series(Series(_, quantity2, _, _, _, _))
+            ) =>
+          Value.Value.Series(
+            value.copy(quantity =
+              Int128(
+                ByteString.copyFrom(
+                  (BigInt(quantity1.toByteArray) + BigInt(quantity2.toByteArray)).toByteArray
+                )
+              )
+            )
+          )
+        case (
+              Value.Value.Asset(value @ Asset(_, _, quantity1, _, _, _, _, _, _, _)),
+              Value.Value.Asset(Asset(_, _, quantity2, _, _, _, _, _, _, _))
+            ) =>
+          Value.Value.Asset(
+            value.copy(quantity =
+              Int128(
+                ByteString.copyFrom(
+                  (BigInt(quantity1.toByteArray) + BigInt(quantity2.toByteArray)).toByteArray
+                )
+              )
+            )
+          )
       }
+
+      // TODO: This needs to be updated when we want to support multiple fungibility types
+      private def groupValues(values: Seq[Value.Value]): Seq[Seq[Value.Value]] = values
+        .groupBy {
+          case Value.Value.Lvl(LVL(_, _))                          => "lvl"
+          case Value.Value.Group(Group(groupId, _, _, _))          => s"group_$groupId"
+          case Value.Value.Series(Series(seriesId, _, _, _, _, _)) => s"series_$seriesId"
+          case Value.Value.Asset(Asset(Some(groupId), Some(seriesId), _, _, _, _, _, _, _, _)) =>
+            s"asset_${groupId}_${seriesId}"
+        }
+        .values
+        .toSeq
 
       override def buildGroupTransferTransaction(
         groupId:              GroupId,
