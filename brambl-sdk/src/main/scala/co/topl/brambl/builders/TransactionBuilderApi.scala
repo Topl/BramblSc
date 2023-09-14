@@ -403,7 +403,7 @@ object TransactionBuilderApi {
 
     def positiveQuantity(testQuantity: Option[Int128], testLabel: String): ValidatedNec[UserInputError, Unit] =
       Validated.condNec(
-        testQuantity.isEmpty || BigInt(testQuantity.get.value.toByteArray) > BigInt(0),
+        testQuantity.isEmpty || testQuantity.get.toBigInt > BigInt(0),
         (),
         UserInputError(s"$testLabel must be positive")
       )
@@ -413,13 +413,12 @@ object TransactionBuilderApi {
       seriesTokenOpt: Option[Series],
       testLabel:      String
     ): ValidatedNec[UserInputError, Unit] =
-      (testQuantity, seriesTokenOpt) match {
-        case (d, Some(Series(_, a, Some(tokenSupply), _, _, _))) =>
-          val desiredQ = BigInt(d.value.toByteArray)
-          val availableQ = BigInt(a.value.toByteArray)
+      seriesTokenOpt match {
+        case Some(Series(_, a, Some(tokenSupply), _, _, _)) =>
+          val desiredQ = testQuantity.toBigInt
           if (desiredQ % tokenSupply != 0)
             UserInputError(s"$testLabel must be a multiple of token supply").invalidNec[Unit]
-          else if (desiredQ > availableQ * tokenSupply)
+          else if (desiredQ > a.toBigInt * tokenSupply)
             UserInputError(s"$testLabel must be less than total token supply available.").invalidNec[Unit]
           else ().validNec[UserInputError]
         case _ => ().validNec[UserInputError]
@@ -453,22 +452,12 @@ object TransactionBuilderApi {
               BigInt(0)
             )((acc, x) =>
               acc + x.transactionOutput.value.value.lvl
-                .map(y => BigInt(y.quantity.value.toByteArray))
+                .map(y => y.quantity.toBigInt)
                 .getOrElse(BigInt(0))
             )
-        datum <- datum()
-        lvlOutputForChange <- lvlOutput(
-          lockPredicateForChange,
-          Int128(
-            ByteString.copyFrom(
-              BigInt(totalValues.toLong - amount).toByteArray
-            )
-          )
-        )
-        lvlOutputForRecipient <- lvlOutput(
-          recipientLockAddress,
-          Int128(ByteString.copyFrom(BigInt(amount).toByteArray))
-        )
+        datum                 <- datum()
+        lvlOutputForChange    <- lvlOutput(lockPredicateForChange, BigInt(totalValues.toLong - amount).toInt128)
+        lvlOutputForRecipient <- lvlOutput(recipientLockAddress, BigInt(amount).toInt128)
         ioTransaction = IoTransaction.defaultInstance
           .withInputs(
             lvlTxos.map(x =>
@@ -734,24 +723,15 @@ object TransactionBuilderApi {
             )
           )
           seriesOutputSeq <- {
-            val inputQuantity = BigInt(seriesToken.quantity.value.toByteArray)
+            val inputQuantity = seriesToken.quantity.toBigInt
             val outputQuantity: BigInt =
               if (seriesToken.tokenSupply.isEmpty) inputQuantity
-              else {
-                val toMint = BigInt(mintingStatement.quantity.value.toByteArray)
-                val supply = seriesToken.tokenSupply.get
-                val numUsed = toMint / supply
-                inputQuantity - numUsed
-              }
+              else inputQuantity - (mintingStatement.quantity.toBigInt / seriesToken.tokenSupply.get)
             if (outputQuantity > BigInt(0))
               EitherT.right[BuilderError](
                 seriesOutput(
                   seriesTxo.transactionOutput.address,
-                  Int128(
-                    ByteString.copyFrom(
-                      outputQuantity.toByteArray
-                    )
-                  ),
+                  outputQuantity.toInt128,
                   seriesToken.seriesId,
                   seriesToken.tokenSupply,
                   seriesToken.fungibility,
