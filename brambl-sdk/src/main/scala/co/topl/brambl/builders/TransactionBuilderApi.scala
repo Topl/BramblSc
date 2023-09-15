@@ -22,12 +22,16 @@ import co.topl.brambl.common.ContainsEvidence.merkleRootFromBlake2bEvidence
 import cats.implicits._
 import co.topl.brambl.builders.TransactionBuilderApi.UserInputValidations._
 import co.topl.brambl.models.Event.{GroupPolicy, SeriesPolicy}
-import co.topl.brambl.models.box.Value.{Asset, Group, Series, Value => BoxValue}
+import co.topl.brambl.models.box.Value.{Asset, Group, LVL, Series, Value => BoxValue}
 import co.topl.brambl.syntax.{
+  assetAsBoxVal,
   bigIntAsInt128,
+  groupAsBoxVal,
   groupPolicyAsGroupPolicySyntaxOps,
   int128AsBigInt,
   longAsInt128,
+  lvlAsBoxVal,
+  seriesAsBoxVal,
   seriesPolicyAsSeriesPolicySyntaxOps
 }
 import com.google.protobuf.struct.Struct
@@ -623,14 +627,10 @@ object TransactionBuilderApi {
       // TODO: This needs to be updated when we want to support multiple fungibility types
       private def merge2Values(value1: BoxValue, value2: BoxValue): EitherT[F, BuilderError, BoxValue] =
         (value1, value2) match {
-          case (BoxValue.Lvl(v1), BoxValue.Lvl(v2)) =>
-            EitherT.rightT(BoxValue.Lvl(v1.withQuantity(v1.quantity + v2.quantity)))
-          case (BoxValue.Group(v1), BoxValue.Group(v2)) =>
-            EitherT.rightT(BoxValue.Group(v1.withQuantity(v1.quantity + v2.quantity)))
-          case (BoxValue.Series(v1), BoxValue.Series(v2)) =>
-            EitherT.rightT(BoxValue.Series(v1.withQuantity(v1.quantity + v2.quantity)))
-          case (BoxValue.Asset(v1), BoxValue.Asset(v2)) =>
-            EitherT.rightT(BoxValue.Asset(v1.withQuantity(v1.quantity + v2.quantity)))
+          case (BoxValue.Lvl(v1), BoxValue.Lvl(v2))       => EitherT.rightT(v1.withQuantity(v1.quantity + v2.quantity))
+          case (BoxValue.Group(v1), BoxValue.Group(v2))   => EitherT.rightT(v1.withQuantity(v1.quantity + v2.quantity))
+          case (BoxValue.Series(v1), BoxValue.Series(v2)) => EitherT.rightT(v1.withQuantity(v1.quantity + v2.quantity))
+          case (BoxValue.Asset(v1), BoxValue.Asset(v2))   => EitherT.rightT(v1.withQuantity(v1.quantity + v2.quantity))
           case _ =>
             EitherT.leftT(
               BuilderRuntimeError("Unable to merge values since they are not the same type or unsupported")
@@ -638,17 +638,14 @@ object TransactionBuilderApi {
         }
 
       // TODO: This needs to be updated when we want to support multiple fungibility types
-      private def splitValue(
-        value:  BoxValue,
-        amount: Int128
-      ): EitherT[F, BuilderError, (BoxValue, Option[BoxValue])] = {
-        def change(q: Int128, cb: Int128 => BoxValue): Option[BoxValue] = if (q > amount) cb(q - amount).some else None
-        def buildValues(q: Int128, cb: Int128 => BoxValue): (BoxValue, Option[BoxValue]) = (cb(amount), change(q, cb))
+      private def splitValue(value: BoxValue, qOut: Int128): EitherT[F, BuilderError, (BoxValue, Option[BoxValue])] = {
+        def change(q:      Int128, cb: Int128 => BoxValue) = if (q > qOut) cb(q - qOut).some else None
+        def buildValues(q: Int128, cb: Int128 => BoxValue) = (cb(qOut), change(q, cb))
         value match {
-          case BoxValue.Lvl(v)    => EitherT.rightT(buildValues(v.quantity, c => BoxValue.Lvl(v.withQuantity(c))))
-          case BoxValue.Group(v)  => EitherT.rightT(buildValues(v.quantity, c => BoxValue.Group(v.withQuantity(c))))
-          case BoxValue.Series(v) => EitherT.rightT(buildValues(v.quantity, c => BoxValue.Series(v.withQuantity(c))))
-          case BoxValue.Asset(v)  => EitherT.rightT(buildValues(v.quantity, c => BoxValue.Asset(v.withQuantity(c))))
+          case BoxValue.Lvl(v)    => EitherT.rightT(buildValues(v.quantity, v.withQuantity))
+          case BoxValue.Group(v)  => EitherT.rightT(buildValues(v.quantity, v.withQuantity))
+          case BoxValue.Series(v) => EitherT.rightT(buildValues(v.quantity, v.withQuantity))
+          case BoxValue.Asset(v)  => EitherT.rightT(buildValues(v.quantity, v.withQuantity))
           case _ =>
             EitherT.leftT(
               BuilderRuntimeError("Unable to split values due to unsupported type")
