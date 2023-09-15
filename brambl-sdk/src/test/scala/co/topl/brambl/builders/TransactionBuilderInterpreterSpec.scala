@@ -3,9 +3,7 @@ package co.topl.brambl.builders
 import cats.Id
 import cats.implicits.catsSyntaxOptionId
 import co.topl.brambl.MockHelpers
-import co.topl.brambl.builders.TransactionBuilderApi.{UnableToBuildTransaction, UserInputError}
-import co.topl.brambl.common.ContainsEvidence.merkleRootFromBlake2bEvidence
-import co.topl.brambl.common.ContainsImmutable.instances.{groupIdentifierImmutable, seriesIdValueImmutable}
+import co.topl.brambl.builders.TransactionBuilderApi.UnableToBuildTransaction
 import co.topl.brambl.models.Datum
 import co.topl.brambl.models.Event.{GroupPolicy, SeriesPolicy}
 import co.topl.brambl.models.box.{AssetMintingStatement, Attestation, Value}
@@ -138,8 +136,7 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       testTx,
       Left(
         UnableToBuildTransaction(
-          "Unable to build transaction to mint group constructor tokens",
-          List(UserInputError("registrationTxo does not match registrationUtxo"))
+          Seq(UserInputError("registrationTxo does not match registrationUtxo"))
         )
       )
     )
@@ -164,8 +161,7 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       testTx,
       Left(
         UnableToBuildTransaction(
-          "Unable to build transaction to mint group constructor tokens",
-          List(UserInputError("registrationUtxo does not contain LVLs"))
+          Seq(UserInputError("registrationUtxo does not contain LVLs"))
         )
       )
     )
@@ -188,8 +184,7 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       testTx,
       Left(
         UnableToBuildTransaction(
-          "Unable to build transaction to mint group constructor tokens",
-          List(UserInputError("registrationLock does not correspond to registrationTxo"))
+          Seq(UserInputError("registrationLock does not correspond to registrationTxo"))
         )
       )
     )
@@ -212,8 +207,7 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       testTx,
       Left(
         UnableToBuildTransaction(
-          "Unable to build transaction to mint group constructor tokens",
-          List(UserInputError("quantityToMint must be positive"))
+          Seq(UserInputError("quantityToMint must be positive"))
         )
       )
     )
@@ -278,8 +272,7 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       testTx,
       Left(
         UnableToBuildTransaction(
-          "Unable to build transaction to mint series constructor tokens",
-          List(UserInputError("registrationTxo does not match registrationUtxo"))
+          Seq(UserInputError("registrationTxo does not match registrationUtxo"))
         )
       )
     )
@@ -304,8 +297,7 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       testTx,
       Left(
         UnableToBuildTransaction(
-          "Unable to build transaction to mint series constructor tokens",
-          List(UserInputError("registrationUtxo does not contain LVLs"))
+          Seq(UserInputError("registrationUtxo does not contain LVLs"))
         )
       )
     )
@@ -328,8 +320,7 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       testTx,
       Left(
         UnableToBuildTransaction(
-          "Unable to build transaction to mint series constructor tokens",
-          List(UserInputError("registrationLock does not correspond to registrationTxo"))
+          Seq(UserInputError("registrationLock does not correspond to registrationTxo"))
         )
       )
     )
@@ -352,8 +343,7 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       testTx,
       Left(
         UnableToBuildTransaction(
-          "Unable to build transaction to mint series constructor tokens",
-          List(UserInputError("quantityToMint must be positive"))
+          Seq(UserInputError("quantityToMint must be positive"))
         )
       )
     )
@@ -603,8 +593,7 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       testTx,
       Left(
         UnableToBuildTransaction(
-          "Unable to build transaction to mint asset tokens",
-          List(UserInputError(s"Unsupported fungibility type. We currently only support GROUP_AND_SERIES"))
+          Seq(UserInputError(s"Unsupported fungibility type. We currently only support GROUP_AND_SERIES"))
         )
       )
     )
@@ -635,8 +624,7 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       testTx,
       Left(
         UnableToBuildTransaction(
-          "Unable to build transaction to mint asset tokens",
-          List(UserInputError(s"Unsupported fungibility type. We currently only support GROUP_AND_SERIES"))
+          Seq(UserInputError(s"Unsupported fungibility type. We currently only support GROUP_AND_SERIES"))
         )
       )
     )
@@ -709,8 +697,7 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       testTx,
       Left(
         UnableToBuildTransaction(
-          "Unable to build transaction to mint asset tokens",
-          List(UserInputError(s"groupTxo does not match groupTokenUtxo"))
+          Seq(UserInputError(s"groupTxo does not match groupTokenUtxo"))
         )
       )
     )
@@ -740,8 +727,7 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       testTx,
       Left(
         UnableToBuildTransaction(
-          "Unable to build transaction to mint asset tokens",
-          List(UserInputError(s"seriesTxo does not match seriesTokenUtxo"))
+          Seq(UserInputError(s"seriesTxo does not match seriesTokenUtxo"))
         )
       )
     )
@@ -769,8 +755,7 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       testTx,
       Left(
         UnableToBuildTransaction(
-          "Unable to build transaction to mint asset tokens",
-          List(UserInputError(s"groupTxo does not contain Group Constructor Tokens"))
+          Seq(UserInputError(s"groupTxo does not contain Group Constructor Tokens"))
         )
       )
     )
@@ -798,8 +783,7 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       testTx,
       Left(
         UnableToBuildTransaction(
-          "Unable to build transaction to mint asset tokens",
-          List(UserInputError(s"seriesTxo does not contain Series Constructor Tokens"))
+          Seq(UserInputError(s"seriesTxo does not contain Series Constructor Tokens"))
         )
       )
     )
@@ -829,8 +813,7 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       testTx,
       Left(
         UnableToBuildTransaction(
-          "Unable to build transaction to mint asset tokens",
-          List(UserInputError(s"groupLock does not correspond to groupTxo"))
+          Seq(UserInputError(s"groupLock does not correspond to groupTxo"))
         )
       )
     )
@@ -860,8 +843,7 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       testTx,
       Left(
         UnableToBuildTransaction(
-          "Unable to build transaction to mint asset tokens",
-          List(UserInputError(s"seriesLock does not correspond to seriesTxo"))
+          Seq(UserInputError(s"seriesLock does not correspond to seriesTxo"))
         )
       )
     )
@@ -892,8 +874,7 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       testTx,
       Left(
         UnableToBuildTransaction(
-          "Unable to build transaction to mint asset tokens",
-          List(UserInputError(s"quantity to mint must be positive"))
+          Seq(UserInputError(s"quantity to mint must be positive"))
         )
       )
     )
@@ -925,8 +906,7 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       testTx,
       Left(
         UnableToBuildTransaction(
-          "Unable to build transaction to mint asset tokens",
-          List(
+          Seq(
             UserInputError(s"quantity of input series constructor tokens must be positive"),
             UserInputError(s"quantity to mint must be less than total token supply available.")
           )
@@ -960,8 +940,7 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       testTx,
       Left(
         UnableToBuildTransaction(
-          "Unable to build transaction to mint asset tokens",
-          List(UserInputError(s"quantity to mint must be a multiple of token supply"))
+          Seq(UserInputError(s"quantity to mint must be a multiple of token supply"))
         )
       )
     )
@@ -992,8 +971,7 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       testTx,
       Left(
         UnableToBuildTransaction(
-          "Unable to build transaction to mint asset tokens",
-          List(UserInputError(s"quantity to mint must be less than total token supply available."))
+          Seq(UserInputError(s"quantity to mint must be less than total token supply available."))
         )
       )
     )
@@ -1024,8 +1002,7 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       testTx,
       Left(
         UnableToBuildTransaction(
-          "Unable to build transaction to mint asset tokens",
-          List(UserInputError(s"fixedSeries does not match provided Series ID"))
+          Seq(UserInputError(s"fixedSeries does not match provided Series ID"))
         )
       )
     )

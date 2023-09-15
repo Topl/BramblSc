@@ -1,7 +1,7 @@
 package co.topl.brambl.builders
 
-import cats.{Foldable, Monad}
-import cats.data.{Chain, EitherT, NonEmptyChain, Validated, ValidatedNec}
+import cats.Monad
+import cats.data.{EitherT, NonEmptyChain}
 import co.topl.brambl.codecs.AddressCodecs
 import co.topl.brambl.models.{Datum, Event, GroupId, LockAddress, LockId, SeriesId, TransactionOutputAddress}
 import co.topl.brambl.models.box.{
@@ -20,7 +20,7 @@ import co.topl.brambl.common.ContainsEvidence.Ops
 import co.topl.brambl.common.ContainsImmutable.instances.{groupIdentifierImmutable, seriesIdValueImmutable, _}
 import co.topl.brambl.common.ContainsEvidence.merkleRootFromBlake2bEvidence
 import cats.implicits._
-import co.topl.brambl.builders.TransactionBuilderApi.UserInputValidations._
+import co.topl.brambl.builders.UserInputValidations.TransactionBuilder._
 import co.topl.brambl.models.Event.{GroupPolicy, SeriesPolicy}
 import co.topl.brambl.models.box.Value.{Asset, Group, LVL, Series, Value => BoxValue}
 import co.topl.brambl.syntax.{
@@ -357,88 +357,10 @@ object TransactionBuilderApi {
 
   }
 
-  case class UserInputError(message: String) extends BuilderError(message, null)
-  case class BuilderRuntimeError(message: String, cause: Throwable = null) extends BuilderError(message, cause)
-  case class UnableToBuildTransaction(message: String, causes: List[Throwable] = List()) extends BuilderError(message)
+  case class UnableToBuildTransaction(causes: Seq[Throwable]) extends BuilderError("Failed to build transaction")
 
-  object UserInputValidations {
-
-    def txoAddressMatch(
-      testAddr:      TransactionOutputAddress,
-      expectedAddr:  TransactionOutputAddress,
-      testLabel:     String,
-      expectedLabel: String
-    ): ValidatedNec[UserInputError, Unit] =
-      Validated.condNec(testAddr == expectedAddr, (), UserInputError(s"$testLabel does not match $expectedLabel"))
-
-    def isLvls(testValue: BoxValue, testLabel: String): ValidatedNec[UserInputError, Unit] =
-      Validated.condNec(testValue.isLvl, (), UserInputError(s"$testLabel does not contain LVLs"))
-
-    def isGroup(testValue: BoxValue, testLabel: String): ValidatedNec[UserInputError, Unit] =
-      Validated.condNec(testValue.isGroup, (), UserInputError(s"$testLabel does not contain Group Constructor Tokens"))
-
-    def isSeries(testValue: BoxValue, testLabel: String): ValidatedNec[UserInputError, Unit] =
-      Validated.condNec(
-        testValue.isSeries,
-        (),
-        UserInputError(s"$testLabel does not contain Series Constructor Tokens")
-      )
-
-    def fixedSeriesMatch(
-      testValue:     Option[SeriesId],
-      expectedValue: Option[SeriesId]
-    ): ValidatedNec[UserInputError, Unit] =
-      (testValue, expectedValue) match {
-        case (Some(fixedSeries), Some(expectedSeries)) =>
-          Validated.condNec(
-            fixedSeries == expectedSeries,
-            (),
-            UserInputError(s"fixedSeries does not match provided Series ID")
-          )
-        case _ => ().validNec[UserInputError]
-      }
-
-    def inputLockMatch(
-      testAddr:      LockAddress,
-      expectedAddr:  LockAddress,
-      testLabel:     String,
-      expectedLabel: String
-    ): ValidatedNec[UserInputError, Unit] =
-      Validated.condNec(
-        testAddr == expectedAddr,
-        (),
-        UserInputError(s"$testLabel does not correspond to $expectedLabel")
-      )
-
-    def positiveQuantity(testQuantity: Option[Int128], testLabel: String): ValidatedNec[UserInputError, Unit] =
-      Validated.condNec(
-        testQuantity.isEmpty || testQuantity.get > 0,
-        (),
-        UserInputError(s"$testLabel must be positive")
-      )
-
-    def validMintingSupply(
-      desiredQuantity: Int128,
-      seriesTokenOpt:  Option[Series],
-      testLabel:       String
-    ): ValidatedNec[UserInputError, Unit] =
-      seriesTokenOpt match {
-        case Some(Series(_, availableQuantity, Some(tokenSupply), _, _, _)) =>
-          if (desiredQuantity % tokenSupply != 0)
-            UserInputError(s"$testLabel must be a multiple of token supply").invalidNec[Unit]
-          else if (desiredQuantity > availableQuantity * tokenSupply)
-            UserInputError(s"$testLabel must be less than total token supply available.").invalidNec[Unit]
-          else ().validNec[UserInputError]
-        case _ => ().validNec[UserInputError]
-      }
-
-    def fungibilityType(testType: Option[FungibilityType]): ValidatedNec[UserInputError, Unit] =
-      Validated.condNec(
-        testType.isEmpty || testType.get == FungibilityType.GROUP_AND_SERIES,
-        (),
-        UserInputError(s"Unsupported fungibility type. We currently only support GROUP_AND_SERIES")
-      )
-  }
+  private def wrapErr(e: Throwable): BuilderError = UnableToBuildTransaction(Seq(e))
+  private def wrapErr(e: NonEmptyChain[Throwable]): BuilderError = UnableToBuildTransaction(e.toList)
 
   def make[F[_]: Monad](
     networkId: Int,
@@ -560,16 +482,13 @@ object TransactionBuilderApi {
         // But we don't want to allow [(A1, A2, A1, A1), (A3)] because toTransfer is of different types
         // however we [(A1, A1), (A1, A2, A3)] is okay because toTransfer is of the same type. otherTxos can be of different types
         toTransferPred: (BoxValue) => Boolean
-      ): F[Either[BuilderError, IoTransaction]] = {
-        def wrapErrs(errs: List[BuilderError]): BuilderError =
-          UnableToBuildTransaction("Unable to build transaction to transfer tokens", errs)
-        def wrapErr(err: BuilderError): BuilderError = wrapErrs(List(err))
-
-        val transaction = for {
-          _ <- EitherT.fromEither[F](
-            validateTransferParams()
-              .leftMap(e => wrapErrs(e.toList))
-          )
+      ): F[Either[BuilderError, IoTransaction]] = (
+        for {
+          _ <- EitherT
+            .fromEither[F](
+              validateTransferParams()
+            )
+            .leftMap(wrapErr)
           stxoAttestation <- EitherT.right(unprovenAttestation(lockPredicateFrom))
           datum           <- EitherT.right(datum())
           (transferValues, otherTxoValues) = txos.map(_.transactionOutput.value.value).partition(toTransferPred)
@@ -581,8 +500,7 @@ object TransactionBuilderApi {
           outputs = transferUtxos ++ otherTokenUtxos,
           datum = datum
         )
-        transaction.value
-      }
+      ).value
 
       private def groupAndBuildUtxos(
         values:      Seq[BoxValue],
@@ -679,17 +597,16 @@ object TransactionBuilderApi {
       ): F[Either[BuilderError, IoTransaction]] = (
         for {
           registrationLockAddr <- EitherT.right[BuilderError](lockAddress(Lock().withPredicate(registrationLock)))
-          _ <- EitherT.fromEither[F](
-            validateConstructorMintingParams(
-              registrationTxo,
-              registrationLockAddr,
-              groupPolicy.registrationUtxo,
-              quantityToMint
-            )
-              .leftMap[BuilderError](errs =>
-                UnableToBuildTransaction("Unable to build transaction to mint group constructor tokens", errs.toList)
+          _ <- EitherT
+            .fromEither[F](
+              validateConstructorMintingParams(
+                registrationTxo,
+                registrationLockAddr,
+                groupPolicy.registrationUtxo,
+                quantityToMint
               )
-          )
+            )
+            .leftMap(wrapErr)
           stxoAttestation <- EitherT.right[BuilderError](unprovenAttestation(registrationLock))
           datum           <- EitherT.right[BuilderError](datum())
           utxoMinted <- EitherT.right[BuilderError](
@@ -718,17 +635,16 @@ object TransactionBuilderApi {
       ): F[Either[BuilderError, IoTransaction]] = (
         for {
           registrationLockAddr <- EitherT.right[BuilderError](lockAddress(Lock().withPredicate(registrationLock)))
-          _ <- EitherT.fromEither[F](
-            validateConstructorMintingParams(
-              registrationTxo,
-              registrationLockAddr,
-              seriesPolicy.registrationUtxo,
-              quantityToMint
-            )
-              .leftMap[BuilderError](errs =>
-                UnableToBuildTransaction("Unable to build transaction to mint series constructor tokens", errs.toList)
+          _ <- EitherT
+            .fromEither[F](
+              validateConstructorMintingParams(
+                registrationTxo,
+                registrationLockAddr,
+                seriesPolicy.registrationUtxo,
+                quantityToMint
               )
-          )
+            )
+            .leftMap(wrapErr)
           stxoAttestation <- EitherT.right[BuilderError](unprovenAttestation(registrationLock))
           datum           <- EitherT.right[BuilderError](datum())
           utxoMinted <- EitherT.right[BuilderError](
@@ -768,18 +684,17 @@ object TransactionBuilderApi {
         for {
           groupLockAddr  <- EitherT.right[BuilderError](lockAddress(Lock().withPredicate(groupLock)))
           seriesLockAddr <- EitherT.right[BuilderError](lockAddress(Lock().withPredicate(seriesLock)))
-          _ <- EitherT.fromEither[F](
-            validateAssetMintingParams(
-              mintingStatement,
-              groupTxo,
-              seriesTxo,
-              groupLockAddr,
-              seriesLockAddr
-            )
-              .leftMap[BuilderError](errs =>
-                UnableToBuildTransaction("Unable to build transaction to mint asset tokens", errs.toList)
+          _ <- EitherT
+            .fromEither[F](
+              validateAssetMintingParams(
+                mintingStatement,
+                groupTxo,
+                seriesTxo,
+                groupLockAddr,
+                seriesLockAddr
               )
-          )
+            )
+            .leftMap(wrapErr)
           groupAttestation  <- EitherT.right[BuilderError](unprovenAttestation(groupLock))
           seriesAttestation <- EitherT.right[BuilderError](unprovenAttestation(seriesLock))
           datum             <- EitherT.right[BuilderError](datum())
@@ -842,76 +757,6 @@ object TransactionBuilderApi {
           mintingStatements = Seq(mintingStatement)
         )
       ).value
-
-      // TODO: implement
-      private def validateTransferParams(): Either[NonEmptyChain[UserInputError], Unit] = ???
-
-      /**
-       * Validates the parameters for minting group and series constructor tokens
-       * If user parameters are invalid, return a UserInputError.
-       */
-      private def validateConstructorMintingParams(
-        registrationTxo:        Txo,
-        registrationLockAddr:   LockAddress,
-        policyRegistrationUtxo: TransactionOutputAddress,
-        quantityToMint:         Int128
-      ): Either[NonEmptyChain[UserInputError], Unit] =
-        Chain(
-          txoAddressMatch(registrationTxo.outputAddress, policyRegistrationUtxo, "registrationTxo", "registrationUtxo"),
-          isLvls(registrationTxo.transactionOutput.value.value, "registrationUtxo"),
-          inputLockMatch(
-            registrationLockAddr,
-            registrationTxo.transactionOutput.address,
-            "registrationLock",
-            "registrationTxo"
-          ),
-          positiveQuantity(quantityToMint.some, "quantityToMint")
-        ).fold.toEither
-
-      /**
-       * Validates the parameters for minting asset tokens
-       * If user parameters are invalid, return a UserInputError.
-       */
-      private def validateAssetMintingParams(
-        mintingStatement: AssetMintingStatement,
-        groupTxo:         Txo,
-        seriesTxo:        Txo,
-        groupLockAddr:    LockAddress,
-        seriesLockAddr:   LockAddress
-      ): Either[NonEmptyChain[UserInputError], Unit] =
-        Chain(
-          txoAddressMatch(groupTxo.outputAddress, mintingStatement.groupTokenUtxo, "groupTxo", "groupTokenUtxo"),
-          txoAddressMatch(seriesTxo.outputAddress, mintingStatement.seriesTokenUtxo, "seriesTxo", "seriesTokenUtxo"),
-          isGroup(groupTxo.transactionOutput.value.value, "groupTxo"),
-          isSeries(seriesTxo.transactionOutput.value.value, "seriesTxo"),
-          inputLockMatch(
-            groupLockAddr,
-            groupTxo.transactionOutput.address,
-            "groupLock",
-            "groupTxo"
-          ),
-          inputLockMatch(
-            seriesLockAddr,
-            seriesTxo.transactionOutput.address,
-            "seriesLock",
-            "seriesTxo"
-          ),
-          positiveQuantity(mintingStatement.quantity.some, "quantity to mint"),
-          positiveQuantity(
-            seriesTxo.transactionOutput.value.value.series.map(_.quantity),
-            "quantity of input series constructor tokens"
-          ),
-          validMintingSupply(
-            mintingStatement.quantity,
-            seriesTxo.transactionOutput.value.value.series,
-            "quantity to mint"
-          ),
-          fixedSeriesMatch(
-            groupTxo.transactionOutput.value.value.group.flatMap(_.fixedSeries),
-            seriesTxo.transactionOutput.value.value.series.map(_.seriesId)
-          ),
-          fungibilityType(seriesTxo.transactionOutput.value.value.series.map(_.fungibility))
-        ).fold.toEither
 
       override def groupOutput(
         lockAddress: LockAddress,
