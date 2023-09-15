@@ -37,7 +37,8 @@ object TransactionSyntaxInterpreter {
       sufficientFundsValidation,
       attestationValidation,
       dataLengthValidation,
-      assetEqualFundsValidation
+      assetEqualFundsValidation,
+      assetNoRepeatedUtxosValidation
     )
 
   /**
@@ -296,5 +297,26 @@ object TransactionSyntaxInterpreter {
     )
 
   }
+
+  /**
+   * Asset No Repeated Utxos Validation
+   * - For all assets minting statement ams1, ams2, ...,  Should not contain repeated UTXOs
+   *
+   * @param transaction - transaction
+   * @return
+   */
+  private def assetNoRepeatedUtxosValidation(transaction: IoTransaction): ValidatedNec[TransactionSyntaxError, Unit] =
+    NonEmptyChain
+      .fromSeq(
+        transaction.mintingStatements
+          .flatMap(stm => Seq(stm.groupTokenUtxo, stm.seriesTokenUtxo))
+          .groupBy(identity)
+          .collect {
+            case (address, seqAddresses) if seqAddresses.size > 1 =>
+              TransactionSyntaxError.DuplicateInput(address)
+          }
+          .toSeq
+      )
+      .fold(().validNec[TransactionSyntaxError])(_.invalid[Unit])
 
 }
