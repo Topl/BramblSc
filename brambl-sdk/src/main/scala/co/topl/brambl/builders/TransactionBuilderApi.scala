@@ -32,7 +32,14 @@ import co.topl.brambl.syntax.{
   longAsInt128,
   lvlAsBoxVal,
   seriesAsBoxVal,
-  seriesPolicyAsSeriesPolicySyntaxOps
+  seriesPolicyAsSeriesPolicySyntaxOps,
+  valueToQuantitySyntaxOps,
+  valueToTypeIdentifierSyntaxOps,
+  AssetType,
+  GroupType,
+  LvlType,
+  SeriesType,
+  ValueTypeIdentifier
 }
 import com.google.protobuf.struct.Struct
 
@@ -185,7 +192,7 @@ trait TransactionBuilderApi[F[_]] {
    * will also transfer any other tokens that are encumbered by the same predicate as the Group Constructor Tokens to
    * the change address.
    *
-   * @param groupId The GroupId of the Group Constructor Tokens to transfer to the recipient
+   * @param groupId The Group Identifier of the Group Constructor Tokens to transfer to the recipient
    * @param txos  All the TXOs encumbered by the Lock given by lockPredicateFrom. These TXOs must contain at least the
    *              necessary quantity (given by amount) of the identified Group Constructor Tokens, else an error will be
    *              returned.
@@ -195,7 +202,7 @@ trait TransactionBuilderApi[F[_]] {
    * @param changeLockAddress A LockAddress to send the txos that are not going to the recipient
    */
   def buildGroupTransferTransaction(
-    groupId:              GroupId,
+    groupId:              GroupType,
     txos:                 Seq[Txo],
     lockPredicateFrom:    Lock.Predicate,
     amount:               Long,
@@ -208,7 +215,7 @@ trait TransactionBuilderApi[F[_]] {
    * will also transfer any other tokens that are encumbered by the same predicate as the Series Constructor Tokens to
    * the change address.
    *
-   * @param seriesId The SeriesId of the Series Constructor Tokens to transfer to the recipient
+   * @param seriesId The Series Identifier of the Series Constructor Tokens to transfer to the recipient
    * @param txos  All the TXOs encumbered by the Lock given by lockPredicateFrom. These TXOs must contain at least the
    *              necessary quantity (given by amount) of the identified Series Constructor Tokens, else an error will be
    *              returned.
@@ -218,7 +225,7 @@ trait TransactionBuilderApi[F[_]] {
    * @param changeLockAddress A LockAddress to send the txos that are not going to the recipient
    */
   def buildSeriesTransferTransaction(
-    seriesId:             SeriesId,
+    seriesId:             SeriesType,
     txos:                 Seq[Txo],
     lockPredicateFrom:    Lock.Predicate,
     amount:               Long,
@@ -233,10 +240,7 @@ trait TransactionBuilderApi[F[_]] {
    *
    * We currently only support assets with fungibility type GROUP_AND_SERIES.
    *
-   * @param groupId The GroupId of the Asset Tokens (if fungibility is type GROUP or GROUP_AND_SERIES) to transfer to
-   *                the recipient. If fungibility is type SERIES, this parameter is ignored.
-   * @param seriesId The SeriesId of the Asset Tokens (if fungibility is type SERIES or GROUP_AND_SERIES) to transfer to
-   *                 the recipient. If fungibility is type GROUP, this parameter is ignored.
+   * @param assetId The Asset Identifier of the Asset Tokens to transfer to the recipient.
    * @param txos  All the TXOs encumbered by the Lock given by lockPredicateFrom. These TXOs must contain at least the
    *              necessary quantity (given by amount) of the identified Asset Tokens, else an error will be returned.
    * @param lockPredicateFrom The Lock Predicate encumbering the txos
@@ -245,8 +249,7 @@ trait TransactionBuilderApi[F[_]] {
    * @param changeLockAddress A LockAddress to send the txos that are not going to the recipient
    */
   def buildAssetTransferTransaction(
-    groupId:              Option[GroupId],
-    seriesId:             Option[SeriesId],
+    assetId:              AssetType,
     txos:                 Seq[Txo],
     lockPredicateFrom:    Lock.Predicate,
     amount:               Long,
@@ -380,11 +383,7 @@ object TransactionBuilderApi {
           lvlTxos
             .foldLeft(
               BigInt(0)
-            )((acc, x) =>
-              acc + x.transactionOutput.value.value.lvl
-                .map(_.quantity: BigInt)
-                .getOrElse(0)
-            )
+            )((acc, x) => acc + x.transactionOutput.value.value.quantity)
         datum                 <- datum()
         lvlOutputForChange    <- lvlOutput(lockPredicateForChange, totalValues - amount)
         lvlOutputForRecipient <- lvlOutput(recipientLockAddress, amount)
@@ -415,60 +414,37 @@ object TransactionBuilderApi {
         recipientLockAddress: LockAddress,
         changeLockAddress:    LockAddress
       ): F[Either[BuilderError, IoTransaction]] =
-        buildTransferTransaction(txos, lockPredicateFrom, amount, recipientLockAddress, changeLockAddress, _.isLvl)
+        buildTransferTransaction(txos, lockPredicateFrom, amount, recipientLockAddress, changeLockAddress, LvlType)
 
       override def buildGroupTransferTransaction(
-        groupId:              GroupId,
+        groupId:              GroupType,
         txos:                 Seq[Txo],
         lockPredicateFrom:    Lock.Predicate,
         amount:               Long,
         recipientLockAddress: LockAddress,
         changeLockAddress:    LockAddress
       ): F[Either[BuilderError, IoTransaction]] =
-        buildTransferTransaction(
-          txos,
-          lockPredicateFrom,
-          amount,
-          recipientLockAddress,
-          changeLockAddress,
-          value => value.isGroup && value.group.get.groupId == groupId
-        )
+        buildTransferTransaction(txos, lockPredicateFrom, amount, recipientLockAddress, changeLockAddress, groupId)
 
       override def buildSeriesTransferTransaction(
-        seriesId:             SeriesId,
+        seriesId:             SeriesType,
         txos:                 Seq[Txo],
         lockPredicateFrom:    Lock.Predicate,
         amount:               Long,
         recipientLockAddress: LockAddress,
         changeLockAddress:    LockAddress
       ): F[Either[BuilderError, IoTransaction]] =
-        buildTransferTransaction(
-          txos,
-          lockPredicateFrom,
-          amount,
-          recipientLockAddress,
-          changeLockAddress,
-          value => value.isSeries && value.series.get.seriesId == seriesId
-        )
+        buildTransferTransaction(txos, lockPredicateFrom, amount, recipientLockAddress, changeLockAddress, seriesId)
 
       override def buildAssetTransferTransaction(
-        groupId:              Option[GroupId],
-        seriesId:             Option[SeriesId],
+        assetId:              AssetType,
         txos:                 Seq[Txo],
         lockPredicateFrom:    Lock.Predicate,
         amount:               Long,
         recipientLockAddress: LockAddress,
         changeLockAddress:    LockAddress
       ): F[Either[BuilderError, IoTransaction]] =
-        buildTransferTransaction(
-          txos,
-          lockPredicateFrom,
-          amount,
-          recipientLockAddress,
-          changeLockAddress,
-          // TODO: This needs to be updated when we want to support multiple fungibility types
-          value => value.isAsset && value.asset.get.groupId == groupId && value.asset.get.seriesId == seriesId
-        )
+        buildTransferTransaction(txos, lockPredicateFrom, amount, recipientLockAddress, changeLockAddress, assetId)
 
       private def buildTransferTransaction(
         txos:              Seq[Txo],
@@ -476,116 +452,54 @@ object TransactionBuilderApi {
         amount:            Long,
         recipientLockAddr: LockAddress,
         changeLockAddr:    LockAddress,
-        // TODO: add validation to ensure all values that satisfy this are of the same type
-        // for ex: txos: (A1, A2, A3, A1, A1). and given partition [toTransfer, otherTxos]
-        // general use case if we want to transfer A1 is [(A1, A1, A1), (A2, A3)]
-        // But we don't want to allow [(A1, A2, A1, A1), (A3)] because toTransfer is of different types
-        // however we [(A1, A1), (A1, A2, A3)] is okay because toTransfer is of the same type. otherTxos can be of different types
-        toTransferPred: (BoxValue) => Boolean
+        transferType:      ValueTypeIdentifier
       ): F[Either[BuilderError, IoTransaction]] = (
         for {
-          _ <- EitherT
-            .fromEither[F](
-              validateTransferParams()
-            )
-            .leftMap(wrapErr)
+          fromLockAddr <- EitherT.right(lockAddress(Lock().withPredicate(lockPredicateFrom)))
+          _ <- EitherT.fromEither[F](validateTransferParams(txos, fromLockAddr, amount, transferType)).leftMap(wrapErr)
           stxoAttestation <- EitherT.right(unprovenAttestation(lockPredicateFrom))
           datum           <- EitherT.right(datum())
-          (transferValues, otherTxoValues) = txos.map(_.transactionOutput.value.value).partition(toTransferPred)
-          otherTokenUtxos <- groupAndBuildUtxos(otherTxoValues, changeLockAddr).leftMap(wrapErr)
-          transferVal     <- mergeAllValues(transferValues).leftMap(wrapErr)
-          transferUtxos <- buildRecipientUtxos(transferVal, amount, recipientLockAddr, changeLockAddr).leftMap(wrapErr)
-        } yield IoTransaction(
-          inputs = txos.map(x => SpentTransactionOutput(x.outputAddress, stxoAttestation, x.transactionOutput.value)),
-          outputs = transferUtxos ++ otherTokenUtxos,
-          datum = datum
-        )
+          stxos           <- buildStxos(txos, stxoAttestation).leftMap(wrapErr)
+          utxos           <- buildUtxos(txos, transferType, amount, recipientLockAddr, changeLockAddr).leftMap(wrapErr)
+        } yield IoTransaction(inputs = stxos, outputs = utxos, datum = datum)
       ).value
 
-      private def groupAndBuildUtxos(
-        values:      Seq[BoxValue],
-        lockAddress: LockAddress
-      ): EitherT[F, BuilderError, Seq[UnspentTransactionOutput]] =
-        for {
-          groupedAndMergeVals <- groupAndMergeValues(values)
-        } yield groupedAndMergeVals.map(v => UnspentTransactionOutput(lockAddress, Value.defaultInstance.withValue(v)))
+      private def buildStxos(
+        txos: Seq[Txo],
+        att:  Attestation
+      ): EitherT[F, BuilderError, Seq[SpentTransactionOutput]] =
+        EitherT.rightT(txos.map(x => SpentTransactionOutput(x.outputAddress, att, x.transactionOutput.value)))
 
-      private def buildRecipientUtxos(
-        value:            BoxValue,
+      private def buildUtxos(
+        txos:             Seq[Txo],
+        transferType:     ValueTypeIdentifier,
         amount:           Int128,
         recipientAddress: LockAddress,
         changeAddress:    LockAddress
-      ): EitherT[F, BuilderError, Seq[UnspentTransactionOutput]] =
-        for {
-          (recipientVal, changeVal) <- splitValue(value, amount)
-          recipientUtxo = UnspentTransactionOutput(recipientAddress, Value.defaultInstance.withValue(recipientVal))
-          changeUtxoSeq = changeVal.map(v =>
-            UnspentTransactionOutput(changeAddress, Value.defaultInstance.withValue(v))
-          )
-        } yield recipientUtxo +: changeUtxoSeq.toSeq
-
-      // values may be of different types, so we need to group them by type before merging
-      private def groupAndMergeValues(values: Seq[BoxValue]): EitherT[F, BuilderError, Seq[BoxValue]] =
-        for {
-          groupedVals <- groupValues(values)
-          mergedVals  <- groupedVals.map(mergeAllValues).sequence
-        } yield mergedVals
-
-      // values assumed to be same type
-      private def mergeAllValues(values: Seq[BoxValue]): EitherT[F, BuilderError, BoxValue] = values
-        .map(EitherT.rightT[F, BuilderError](_)) // reduce expects the same type
-        .reduce((acc, cur) =>
-          for {
-            v1     <- acc
-            v2     <- cur
-            merged <- merge2Values(v1, v2)
-          } yield merged
-        )
-
-      // TODO: This needs to be updated when we want to support multiple fungibility types
-      private def merge2Values(value1: BoxValue, value2: BoxValue): EitherT[F, BuilderError, BoxValue] =
-        (value1, value2) match {
-          case (BoxValue.Lvl(v1), BoxValue.Lvl(v2))       => EitherT.rightT(v1.withQuantity(v1.quantity + v2.quantity))
-          case (BoxValue.Group(v1), BoxValue.Group(v2))   => EitherT.rightT(v1.withQuantity(v1.quantity + v2.quantity))
-          case (BoxValue.Series(v1), BoxValue.Series(v2)) => EitherT.rightT(v1.withQuantity(v1.quantity + v2.quantity))
-          case (BoxValue.Asset(v1), BoxValue.Asset(v2))   => EitherT.rightT(v1.withQuantity(v1.quantity + v2.quantity))
-          case _ =>
-            EitherT.leftT(
-              BuilderRuntimeError("Unable to merge values since they are not the same type or unsupported")
-            )
-        }
-
-      // TODO: This needs to be updated when we want to support multiple fungibility types
-      private def splitValue(value: BoxValue, qOut: Int128): EitherT[F, BuilderError, (BoxValue, Option[BoxValue])] = {
-        def change(q:      Int128, cb: Int128 => BoxValue) = if (q > qOut) cb(q - qOut).some else None
-        def buildValues(q: Int128, cb: Int128 => BoxValue) = (cb(qOut), change(q, cb))
-        value match {
-          case BoxValue.Lvl(v)    => EitherT.rightT(buildValues(v.quantity, v.withQuantity))
-          case BoxValue.Group(v)  => EitherT.rightT(buildValues(v.quantity, v.withQuantity))
-          case BoxValue.Series(v) => EitherT.rightT(buildValues(v.quantity, v.withQuantity))
-          case BoxValue.Asset(v)  => EitherT.rightT(buildValues(v.quantity, v.withQuantity))
-          case _ =>
-            EitherT.leftT(
-              BuilderRuntimeError("Unable to split values due to unsupported type")
-            )
-        }
+      ): EitherT[F, BuilderError, Seq[UnspentTransactionOutput]] = Try {
+        val groupedValues = txos.map(_.transactionOutput.value.value).groupBy(_.typeIdentifier)
+        val identifiedValue = mergeAllValues(groupedValues(transferType))
+        val otherValues = (groupedValues - transferType).values.map(mergeAllValues).toSeq
+        val (recipientVal, changeVal) = splitValue(identifiedValue, amount)
+        val changeUtxos = (changeVal.toSeq ++ otherValues)
+          .map(v => UnspentTransactionOutput(changeAddress, Value.defaultInstance.withValue(v)))
+        UnspentTransactionOutput(recipientAddress, Value.defaultInstance.withValue(recipientVal)) +: changeUtxos
+      } match {
+        case Success(utxos) => EitherT.rightT(utxos)
+        case Failure(err)   => EitherT.leftT(BuilderRuntimeError("Failed to build utxos", err))
       }
 
-      // TODO: This needs to be updated when we want to support multiple fungibility types
-      private def groupValues(values: Seq[BoxValue]): EitherT[F, BuilderError, Seq[Seq[BoxValue]]] = Try(
-        values
-          .groupBy {
-            case BoxValue.Lvl(_)    => "lvl"
-            case BoxValue.Group(g)  => s"group_${g.groupId}"
-            case BoxValue.Series(s) => s"series_${s.seriesId}"
-            case BoxValue.Asset(a)  => s"asset_${a.groupId}_${a.seriesId}"
-          }
-          .values
-          .toSeq
-      ) match {
-        case Success(value) => EitherT.rightT(value)
-        case Failure(err) =>
-          EitherT.leftT(BuilderRuntimeError("Unable to group values due to match error", err))
+      // TODO: This needs to be updated when we want to support multiple fungibility types (need 2 update alloys)
+      // values assumed to be same type
+      private def mergeAllValues(values: Seq[BoxValue]): BoxValue =
+        values.reduce((acc, v) => acc.setQuantity(acc.quantity + v.quantity))
+
+      // TODO: This needs to be updated when we want to support multiple fungibility types (need 2 update alloys)
+      private def splitValue(value: BoxValue, qOut: Int128): (BoxValue, Option[BoxValue]) = {
+        def change(q:      Int128, cb: Int128 => BoxValue) = if (q > qOut) cb(q - qOut).some else None
+        def buildValues(q: Int128, cb: Int128 => BoxValue) = (cb(qOut), change(q, cb))
+
+        buildValues(value.quantity, value.setQuantity)
       }
 
       override def buildSimpleGroupMintingTransaction(
@@ -608,18 +522,13 @@ object TransactionBuilderApi {
             )
             .leftMap(wrapErr)
           stxoAttestation <- EitherT.right[BuilderError](unprovenAttestation(registrationLock))
+          stxos           <- buildStxos(Seq(registrationTxo), stxoAttestation).leftMap(wrapErr)
           datum           <- EitherT.right[BuilderError](datum())
           utxoMinted <- EitherT.right[BuilderError](
             groupOutput(mintedConstructorLockAddress, quantityToMint, groupPolicy.computeId, groupPolicy.fixedSeries)
           )
         } yield IoTransaction(
-          inputs = Seq(
-            SpentTransactionOutput(
-              registrationTxo.outputAddress,
-              stxoAttestation,
-              registrationTxo.transactionOutput.value
-            )
-          ),
+          inputs = stxos,
           outputs = Seq(utxoMinted),
           datum = datum,
           groupPolicies = Seq(Datum.GroupPolicy(groupPolicy))
@@ -646,6 +555,7 @@ object TransactionBuilderApi {
             )
             .leftMap(wrapErr)
           stxoAttestation <- EitherT.right[BuilderError](unprovenAttestation(registrationLock))
+          stxos           <- buildStxos(Seq(registrationTxo), stxoAttestation).leftMap(wrapErr)
           datum           <- EitherT.right[BuilderError](datum())
           utxoMinted <- EitherT.right[BuilderError](
             seriesOutput(
@@ -658,13 +568,7 @@ object TransactionBuilderApi {
             )
           )
         } yield IoTransaction(
-          inputs = Seq(
-            SpentTransactionOutput(
-              registrationTxo.outputAddress,
-              stxoAttestation,
-              registrationTxo.transactionOutput.value
-            )
-          ),
+          inputs = stxos,
           outputs = Seq(utxoMinted),
           datum = datum,
           seriesPolicies = Seq(Datum.SeriesPolicy(seriesPolicy))

@@ -6,7 +6,13 @@ import co.topl.brambl.models.box.{AssetMintingStatement, FungibilityType}
 import co.topl.brambl.models.{LockAddress, SeriesId, TransactionOutputAddress}
 import co.topl.brambl.models.box.Value._
 import quivr.models.Int128
-import co.topl.brambl.syntax.int128AsBigInt
+import co.topl.brambl.syntax.{
+  int128AsBigInt,
+  longAsInt128,
+  valueToQuantitySyntaxOps,
+  valueToTypeIdentifierSyntaxOps,
+  ValueTypeIdentifier
+}
 import co.topl.genus.services.Txo
 
 object UserInputValidations {
@@ -58,6 +64,17 @@ object UserInputValidations {
       UserInputError(s"$testLabel does not correspond to $expectedLabel")
     )
 
+  def allInputLocksMatch(
+    testAddrs:     Seq[LockAddress],
+    expectedAddr:  LockAddress,
+    expectedLabel: String
+  ): ValidatedNec[UserInputError, Unit] =
+    Validated.condNec(
+      testAddrs.forall(_ == expectedAddr),
+      (),
+      UserInputError(s"every lock does not correspond to $expectedLabel")
+    )
+
   def positiveQuantity(testQuantity: Option[Int128], testLabel: String): ValidatedNec[UserInputError, Unit] =
     Validated.condNec(
       testQuantity.isEmpty || testQuantity.get > 0,
@@ -80,6 +97,17 @@ object UserInputValidations {
       case _ => ().validNec[UserInputError]
     }
 
+  def validTransferSupply(
+    desiredQuantity: Int128,
+    testValues:      Seq[Value]
+  ): ValidatedNec[UserInputError, Unit] =
+    Validated.condNec(
+      testValues.foldLeft(BigInt(0))((acc, q) => acc + q.quantity) >= desiredQuantity,
+      (),
+      UserInputError(s"All tokens selected to transfer do not have enough funds to transfer")
+    )
+
+  // The following two validations are temporary until we support all fungibility types
   def fungibilityType(testType: Option[FungibilityType]): ValidatedNec[UserInputError, Unit] =
     Validated.condNec(
       testType.isEmpty || testType.get == FungibilityType.GROUP_AND_SERIES,
@@ -87,10 +115,31 @@ object UserInputValidations {
       UserInputError(s"Unsupported fungibility type. We currently only support GROUP_AND_SERIES")
     )
 
+  def allValidFungibilityTypes(testValues: Seq[Value]): ValidatedNec[UserInputError, Unit] =
+    Validated.condNec(
+      // Any asset tokens must have valid fungibility
+      testValues.forall(v => !v.isAsset || v.asset.get.fungibility == FungibilityType.GROUP_AND_SERIES),
+      (),
+      UserInputError(s"All asset tokens must have valid fungibility type. We currently only support GROUP_AND_SERIES")
+    )
+
   object TransactionBuilder {
 
-    // TODO: implement
-    def validateTransferParams(): Either[NonEmptyChain[UserInputError], Unit] = ???
+    def validateTransferParams(
+      txos:               Seq[Txo],
+      fromLockAddr:       LockAddress,
+      amount:             Long,
+      transferIdentifier: ValueTypeIdentifier
+    ): Either[NonEmptyChain[UserInputError], Unit] = {
+      val allValues = txos.map(_.transactionOutput.value.value)
+      val transferValues = allValues.filter(_.typeIdentifier == transferIdentifier)
+      Chain(
+        positiveQuantity(Some(amount), "quantity to transfer"),
+        allInputLocksMatch(txos.map(_.transactionOutput.address), fromLockAddr, "fromLockAddr"),
+        validTransferSupply(amount, transferValues),
+        allValidFungibilityTypes(allValues)
+      ).fold.toEither
+    }
 
     /**
      * Validates the parameters for minting group and series constructor tokens
