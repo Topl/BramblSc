@@ -20,14 +20,19 @@ import co.topl.brambl.common.ContainsImmutable.ContainsImmutableTOps
 import co.topl.brambl.common.ContainsImmutable.instances._
 import co.topl.brambl.common.ContainsSignable.ContainsSignableTOps
 import co.topl.brambl.common.ContainsSignable.instances._
-import co.topl.brambl.models.Event.GroupPolicy
+import co.topl.brambl.models.Event.{GroupPolicy, SeriesPolicy}
 import co.topl.brambl.models._
 import co.topl.brambl.models.box.Attestation
 import co.topl.brambl.models.box.Challenge
+import co.topl.brambl.models.box.FungibilityType.{GROUP, SERIES}
 import co.topl.brambl.models.box.Lock
 import co.topl.brambl.models.box.Value
 import co.topl.brambl.models.transaction._
-import co.topl.brambl.syntax.ioTransactionAsTransactionSyntaxOps
+import co.topl.brambl.syntax.{
+  groupPolicyAsGroupPolicySyntaxOps,
+  ioTransactionAsTransactionSyntaxOps,
+  seriesPolicyAsSeriesPolicySyntaxOps
+}
 import co.topl.brambl.utils.Encoding.encodeToBase58
 import co.topl.crypto.hash.Blake2b256
 import co.topl.quivr.api.Proposer
@@ -125,8 +130,10 @@ trait MockHelpers {
       dummyTxIdentifier
     )
 
+  val quantity: Int128 = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+
   val value: Value =
-    Value.defaultInstance.withLvl(Value.LVL(Int128(ByteString.copyFrom(BigInt(1).toByteArray))))
+    Value.defaultInstance.withLvl(Value.LVL(quantity))
 
   val trivialOutLock: Lock =
     Lock().withPredicate(Lock.Predicate(List(Challenge().withRevealed(Proposer.tickProposer[Id].propose(5, 15))), 1))
@@ -186,6 +193,24 @@ trait MockHelpers {
   val mockVks: List[VerificationKey] = List(
     MockChildKeyPair.vk,
     (new ExtendedEd25519).deriveKeyPairFromSeed(Array.fill(96)(1: Byte)).vk
+  )
+
+  val mockSeriesPolicy: SeriesPolicy = SeriesPolicy("Mock Series Policy", None, dummyTxoAddress)
+  val mockGroupPolicy: GroupPolicy = GroupPolicy("Mock Group Policy", dummyTxoAddress)
+
+  val seriesValue: Value = Value.defaultInstance.withSeries(Value.Series(mockSeriesPolicy.computeId, quantity, None))
+  val groupValue: Value = Value.defaultInstance.withGroup(Value.Group(mockGroupPolicy.computeId, quantity))
+
+  val assetGroupSeries: Value = Value.defaultInstance.withAsset(
+    Value.Asset(mockGroupPolicy.computeId.some, mockSeriesPolicy.computeId.some, quantity)
+  )
+
+  val assetGroup: Value = Value.defaultInstance.withAsset(
+    Value.Asset(mockGroupPolicy.computeId.some, None, quantity, None, None, GROUP)
+  )
+
+  val assetSeries: Value = Value.defaultInstance.withAsset(
+    Value.Asset(None, mockSeriesPolicy.computeId.some, quantity, None, None, SERIES)
   )
 
   object ExpectedLockedProposition {
