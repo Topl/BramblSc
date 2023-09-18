@@ -9,9 +9,15 @@ import co.topl.brambl.models.Event.{GroupPolicy, SeriesPolicy}
 import co.topl.brambl.models.box.{AssetMintingStatement, Attestation, Value}
 import co.topl.brambl.models.transaction.{IoTransaction, SpentTransactionOutput, UnspentTransactionOutput}
 import co.topl.brambl.syntax.{
+  assetAsBoxVal,
+  groupAsBoxVal,
   groupPolicyAsGroupPolicySyntaxOps,
   ioTransactionAsTransactionSyntaxOps,
-  seriesPolicyAsSeriesPolicySyntaxOps
+  seriesAsBoxVal,
+  seriesPolicyAsSeriesPolicySyntaxOps,
+  GroupAndSeriesFungible,
+  GroupType,
+  SeriesType
 }
 import com.google.protobuf.ByteString
 import quivr.models.{Int128, Proof}
@@ -1006,5 +1012,359 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
         )
       )
     )
+  }
+
+  private def valToTxo(value: Value) = Txo(UnspentTransactionOutput(inLockFullAddress, value), UNSPENT, dummyTxoAddress)
+
+  private val mockSeriesPolicyAlt = SeriesPolicy("Mock Series Policy", None, dummyTxoAddress.copy(index = 44))
+  private val mockGroupPolicyAlt = GroupPolicy("Mock Group Policy", dummyTxoAddress.copy(index = 55))
+
+  private val mockTxos = Seq(
+    value,
+    value.copy(), // exact duplicate
+    groupValue,
+    groupValue.copy(), // exact duplicate
+    groupValue.copy(groupValue.getGroup.copy(groupId = mockGroupPolicyAlt.computeId)), // diff group
+    seriesValue,
+    seriesValue.copy(), // exact duplicate
+    seriesValue.copy(seriesValue.getSeries.copy(seriesId = mockSeriesPolicyAlt.computeId)), // diff series
+    assetGroupSeries,
+    assetGroupSeries.copy(), // exact duplicate
+    assetGroupSeries.copy(
+      assetGroupSeries.getAsset.copy(
+        groupId = mockGroupPolicyAlt.computeId.some,
+        seriesId = mockSeriesPolicyAlt.computeId.some
+      )
+    ) // diff group and series
+  ).map(valToTxo)
+
+  test("buildLvlTransferTransaction > underlying error fails (unsupported token type)") {
+    val testTx = txBuilder.buildLvlTransferTransaction(
+      mockTxos :+ valToTxo(Value.defaultInstance.withTopl(Value.TOPL(quantity))),
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress
+    )
+    assertEquals(testTx, Left(UnableToBuildTransaction(Seq(UserInputError(s"Invalid value type")))))
+  }
+
+  test("buildGroupTransferTransaction > underlying error fails (unsupported token type)") {
+    val testTx = txBuilder.buildGroupTransferTransaction(
+      GroupType(mockGroupPolicy.computeId),
+      mockTxos :+ valToTxo(Value.defaultInstance.withTopl(Value.TOPL(quantity))),
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress
+    )
+    assertEquals(testTx, Left(UnableToBuildTransaction(Seq(UserInputError(s"Invalid value type")))))
+  }
+
+  test("buildSeriesTransferTransaction > underlying error fails (unsupported token type)") {
+    val testTx = txBuilder.buildSeriesTransferTransaction(
+      SeriesType(mockSeriesPolicy.computeId),
+      mockTxos :+ valToTxo(Value.defaultInstance.withTopl(Value.TOPL(quantity))),
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress
+    )
+    assertEquals(testTx, Left(UnableToBuildTransaction(Seq(UserInputError(s"Invalid value type")))))
+  }
+
+  test("buildAssetTransferTransaction > underlying error fails (unsupported token type)") {
+    val testTx = txBuilder.buildAssetTransferTransaction(
+      GroupAndSeriesFungible(mockGroupPolicy.computeId, mockSeriesPolicy.computeId),
+      mockTxos :+ valToTxo(Value.defaultInstance.withTopl(Value.TOPL(quantity))),
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress
+    )
+    assertEquals(testTx, Left(UnableToBuildTransaction(Seq(UserInputError(s"Invalid value type")))))
+  }
+
+  // Below to be implemented
+  test("buildLvlTransferTransaction > quantity to transfer is non positive") {
+    val testTx = txBuilder.buildLvlTransferTransaction(
+      mockTxos,
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress
+    )
+    assert(true)
+  }
+
+  test("buildGroupTransferTransaction > quantity to transfer is non positive") {
+    val testTx = txBuilder.buildGroupTransferTransaction(
+      GroupType(mockGroupPolicy.computeId),
+      mockTxos,
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress
+    )
+    assert(true)
+  }
+
+  test("buildSeriesTransferTransaction > quantity to transfer is non positive") {
+    val testTx = txBuilder.buildSeriesTransferTransaction(
+      SeriesType(mockSeriesPolicy.computeId),
+      mockTxos,
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress
+    )
+    assert(true)
+  }
+
+  test("buildAssetTransferTransaction > quantity to transfer is non positive") {
+    val testTx = txBuilder.buildAssetTransferTransaction(
+      GroupAndSeriesFungible(mockGroupPolicy.computeId, mockSeriesPolicy.computeId),
+      mockTxos,
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress
+    )
+    assert(true)
+  }
+
+  test("buildLvlTransferTransaction > a txo isnt tied to lockPredicateFrom") {
+    val testTx = txBuilder.buildLvlTransferTransaction(
+      mockTxos,
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress
+    )
+    assert(true)
+  }
+
+  test("buildGroupTransferTransaction > a txo isnt tied to lockPredicateFrom") {
+    val testTx = txBuilder.buildGroupTransferTransaction(
+      GroupType(mockGroupPolicy.computeId),
+      mockTxos,
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress
+    )
+    assert(true)
+  }
+
+  test("buildSeriesTransferTransaction > a txo isnt tied to lockPredicateFrom") {
+    val testTx = txBuilder.buildSeriesTransferTransaction(
+      SeriesType(mockSeriesPolicy.computeId),
+      mockTxos,
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress
+    )
+    assert(true)
+  }
+
+  test("buildAssetTransferTransaction > a txo isnt tied to lockPredicateFrom") {
+    val testTx = txBuilder.buildAssetTransferTransaction(
+      GroupAndSeriesFungible(mockGroupPolicy.computeId, mockSeriesPolicy.computeId),
+      mockTxos,
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress
+    )
+    assert(true)
+  }
+
+  test("buildLvlTransferTransaction > a txo is an asset with unsupported fungibility") {
+    val testTx = txBuilder.buildLvlTransferTransaction(
+      mockTxos,
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress
+    )
+    assert(true)
+  }
+
+  test("buildGroupTransferTransaction > a txo is an asset with unsupported fungibility") {
+    val testTx = txBuilder.buildGroupTransferTransaction(
+      GroupType(mockGroupPolicy.computeId),
+      mockTxos,
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress
+    )
+    assert(true)
+  }
+
+  test("buildSeriesTransferTransaction > a txo is an asset with unsupported fungibility") {
+    val testTx = txBuilder.buildSeriesTransferTransaction(
+      SeriesType(mockSeriesPolicy.computeId),
+      mockTxos,
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress
+    )
+    assert(true)
+  }
+
+  test("buildAssetTransferTransaction > a txo is an asset with unsupported fungibility") {
+    val testTx = txBuilder.buildAssetTransferTransaction(
+      GroupAndSeriesFungible(mockGroupPolicy.computeId, mockSeriesPolicy.computeId),
+      mockTxos,
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress
+    )
+    assert(true)
+  }
+
+  test("buildLvlTransferTransaction > non sufficient funds") {
+    val testTx = txBuilder.buildLvlTransferTransaction(
+      mockTxos,
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress
+    )
+    assert(true)
+  }
+
+  test("buildGroupTransferTransaction > non sufficient funds") {
+    val testTx = txBuilder.buildGroupTransferTransaction(
+      GroupType(mockGroupPolicy.computeId),
+      mockTxos,
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress
+    )
+    assert(true)
+  }
+
+  test("buildSeriesTransferTransaction > non sufficient funds") {
+    val testTx = txBuilder.buildSeriesTransferTransaction(
+      SeriesType(mockSeriesPolicy.computeId),
+      mockTxos,
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress
+    )
+    assert(true)
+  }
+
+  test("buildAssetTransferTransaction > non sufficient funds") {
+    val testTx = txBuilder.buildAssetTransferTransaction(
+      GroupAndSeriesFungible(mockGroupPolicy.computeId, mockSeriesPolicy.computeId),
+      mockTxos,
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress
+    )
+    assert(true)
+  }
+
+  test("buildLvlTransferTransaction > [complex] duplicate inputs are merged and split correctly") {
+    val testTx = txBuilder.buildLvlTransferTransaction(
+      mockTxos,
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress
+    )
+    assert(true)
+  }
+
+  test("buildGroupTransferTransaction > [complex] duplicate inputs are merged and split correctly") {
+    val testTx = txBuilder.buildGroupTransferTransaction(
+      GroupType(mockGroupPolicy.computeId),
+      mockTxos,
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress
+    )
+    assert(true)
+  }
+
+  test("buildSeriesTransferTransaction > [complex] duplicate inputs are merged and split correctly") {
+    val testTx = txBuilder.buildSeriesTransferTransaction(
+      SeriesType(mockSeriesPolicy.computeId),
+      mockTxos,
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress
+    )
+    assert(true)
+  }
+
+  test("buildAssetTransferTransaction > [complex] duplicate inputs are merged and split correctly") {
+    val testTx = txBuilder.buildAssetTransferTransaction(
+      GroupAndSeriesFungible(mockGroupPolicy.computeId, mockSeriesPolicy.computeId),
+      mockTxos,
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress
+    )
+    assert(true)
+  }
+
+  test("buildLvlTransferTransaction > [simplest case] no change, only 1 output") {
+    val testTx = txBuilder.buildLvlTransferTransaction(
+      mockTxos,
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress
+    )
+    assert(true)
+  }
+
+  test("buildGroupTransferTransaction > [simplest case] no change, only 1 output") {
+    val testTx = txBuilder.buildGroupTransferTransaction(
+      GroupType(mockGroupPolicy.computeId),
+      mockTxos,
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress
+    )
+    assert(true)
+  }
+
+  test("buildSeriesTransferTransaction > [simplest case] no change, only 1 output") {
+    val testTx = txBuilder.buildSeriesTransferTransaction(
+      SeriesType(mockSeriesPolicy.computeId),
+      mockTxos,
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress
+    )
+    assert(true)
+  }
+
+  test("buildAssetTransferTransaction > [simplest case] no change, only 1 output") {
+    val testTx = txBuilder.buildAssetTransferTransaction(
+      GroupAndSeriesFungible(mockGroupPolicy.computeId, mockSeriesPolicy.computeId),
+      mockTxos,
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress
+    )
+    assert(true)
   }
 }

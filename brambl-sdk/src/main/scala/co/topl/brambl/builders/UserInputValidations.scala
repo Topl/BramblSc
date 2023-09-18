@@ -1,7 +1,7 @@
 package co.topl.brambl.builders
 
 import cats.data.{Chain, NonEmptyChain, Validated, ValidatedNec}
-import cats.implicits.{catsSyntaxOptionId, catsSyntaxValidatedIdBinCompat0, toFoldableOps}
+import cats.implicits.{catsSyntaxEitherId, catsSyntaxOptionId, catsSyntaxValidatedIdBinCompat0, toFoldableOps}
 import co.topl.brambl.models.box.{AssetMintingStatement, FungibilityType}
 import co.topl.brambl.models.{LockAddress, SeriesId, TransactionOutputAddress}
 import co.topl.brambl.models.box.Value._
@@ -14,6 +14,8 @@ import co.topl.brambl.syntax.{
   ValueTypeIdentifier
 }
 import co.topl.genus.services.Txo
+
+import scala.util.{Failure, Success, Try}
 
 object UserInputValidations {
 
@@ -130,7 +132,7 @@ object UserInputValidations {
       fromLockAddr:       LockAddress,
       amount:             Long,
       transferIdentifier: ValueTypeIdentifier
-    ): Either[NonEmptyChain[UserInputError], Unit] = {
+    ): Either[NonEmptyChain[UserInputError], Unit] = Try {
       val allValues = txos.map(_.transactionOutput.value.value)
       val transferValues = allValues.filter(_.typeIdentifier == transferIdentifier)
       Chain(
@@ -139,6 +141,9 @@ object UserInputValidations {
         validTransferSupply(amount, transferValues),
         allValidFungibilityTypes(allValues)
       ).fold.toEither
+    } match {
+      case Success(value) => value
+      case Failure(err)   => NonEmptyChain.one(UserInputError(err.getMessage)).asLeft
     }
 
     /**
