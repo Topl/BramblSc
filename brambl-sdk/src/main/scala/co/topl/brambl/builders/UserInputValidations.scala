@@ -11,6 +11,8 @@ import co.topl.brambl.syntax.{
   longAsInt128,
   valueToQuantitySyntaxOps,
   valueToTypeIdentifierSyntaxOps,
+  GroupFungible,
+  SeriesFungible,
   ValueTypeIdentifier
 }
 import co.topl.genus.services.Txo
@@ -117,6 +119,16 @@ object UserInputValidations {
       UserInputError(s"Unsupported fungibility type. We currently only support GROUP_AND_SERIES")
     )
 
+  def identifierFungibilityType(testType: ValueTypeIdentifier): ValidatedNec[UserInputError, Unit] =
+    Validated.condNec(
+      testType match {
+        case GroupFungible(_) | SeriesFungible(_) => false
+        case _                                    => true
+      },
+      (),
+      UserInputError(s"Unsupported fungibility type. We currently only support GROUP_AND_SERIES")
+    )
+
   def allValidFungibilityTypes(testValues: Seq[Value]): ValidatedNec[UserInputError, Unit] =
     Validated.condNec(
       // Any asset tokens must have valid fungibility
@@ -139,6 +151,7 @@ object UserInputValidations {
         positiveQuantity(Some(amount), "quantity to transfer"),
         allInputLocksMatch(txos.map(_.transactionOutput.address), fromLockAddr, "fromLockAddr"),
         validTransferSupply(amount, transferValues),
+        identifierFungibilityType(transferIdentifier),
         allValidFungibilityTypes(allValues)
       ).fold.toEither
     } match {
