@@ -218,7 +218,7 @@ class TransactionSyntaxInterpreterRuleBSpec extends munit.FunSuite with MockHelp
 
     assertEquals(assertError, true)
     assertEquals(assertError_2, true)
-    assertEquals(result.map(_.toList.size).getOrElse(0), 2)
+    assertEquals(result.map(_.toList.size).getOrElse(0), 3)
 
   }
 

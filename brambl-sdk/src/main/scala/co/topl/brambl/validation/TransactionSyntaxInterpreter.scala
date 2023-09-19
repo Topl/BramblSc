@@ -1,16 +1,15 @@
 package co.topl.brambl.validation
 
 import cats.Applicative
-import cats.implicits._
 import cats.data.{Chain, NonEmptyChain, Validated, ValidatedNec}
-import co.topl.brambl.models.box.{Lock, Value}
-import co.topl.brambl.models.transaction.{IoTransaction, SpentTransactionOutput, UnspentTransactionOutput}
-import co.topl.brambl.validation.algebras.TransactionSyntaxVerifier
+import cats.implicits._
 import co.topl.brambl.common.ContainsImmutable.ContainsImmutableTOps
 import co.topl.brambl.common.ContainsImmutable.instances._
 import co.topl.brambl.models.TransactionOutputAddress
-import co.topl.brambl.models.box.Attestation
+import co.topl.brambl.models.box._
+import co.topl.brambl.models.transaction.{IoTransaction, SpentTransactionOutput, UnspentTransactionOutput}
 import co.topl.brambl.syntax._
+import co.topl.brambl.validation.algebras.TransactionSyntaxVerifier
 import quivr.models.{Int128, Proof, Proposition}
 import scala.util.Try
 
@@ -243,58 +242,58 @@ object TransactionSyntaxInterpreter {
    * @return
    */
   private def assetEqualFundsValidation(transaction: IoTransaction): ValidatedNec[TransactionSyntaxError, Unit] = {
-    val inputAssets =
-      transaction.inputs.filter(_.value.value.isAsset).map(_.value.value)
+    val inputAssets = transaction.inputs.filter(_.value.value.isAsset).map(_.value.value)
+    val outputAssets = transaction.outputs.filter(_.value.value.isAsset).map(_.value.value)
 
-    val groupIdsOnMintedStatements =
+    def groupGivenMintedStatements(stm: AssetMintingStatement) =
       transaction.inputs
+        .filter(_.address == stm.groupTokenUtxo)
         .filter(_.value.value.isGroup)
-        .filter(sto => transaction.mintingStatements.map(_.groupTokenUtxo).contains(sto.address))
-        .map(_.value.getGroup.groupId)
+        .map(_.value.getGroup)
+        .headOption
 
-    val seriesIdsOnMintedStatements =
+    def seriesGivenMintedStatements(mintedAsset: AssetMintingStatement) =
       transaction.inputs
+        .filter(_.address == mintedAsset.seriesTokenUtxo)
         .filter(_.value.value.isSeries)
-        .filter(sto => transaction.mintingStatements.map(_.seriesTokenUtxo).contains(sto.address))
-        .map(_.value.getSeries.seriesId)
+        .map(_.value.getSeries)
+        .headOption
 
-    val mintedAsset = transaction.outputs
-      .filter(_.value.value.isAsset)
-      .filter(utxo =>
-        utxo.value.getAsset.groupId.isDefined &&
-        utxo.value.getAsset.seriesId.isDefined &&
-        groupIdsOnMintedStatements.contains(utxo.value.getAsset.groupId.get) &&
-        seriesIdsOnMintedStatements.contains(utxo.value.getAsset.seriesId.get)
+    val mintedAsset = transaction.mintingStatements.map { stm =>
+      val series = seriesGivenMintedStatements(stm)
+      Value.defaultInstance
+        .withAsset(
+          Value.Asset(
+            groupId = groupGivenMintedStatements(stm).map(_.groupId),
+            seriesId = series.map(_.seriesId),
+            quantity = stm.quantity,
+            fungibility = series.map(_.fungibility).getOrElse(FungibilityType.GROUP_AND_SERIES)
+          )
+        )
+        .value
+    }
+
+    def tupleAndGroup(s: Seq[Value.Value]): Try[Map[ValueTypeIdentifier, BigInt]] =
+      Try {
+        s.map(value => (value.typeIdentifier, value.quantity: BigInt))
+          .groupBy(_._1)
+          .view
+          .mapValues(_.map(_._2).sum)
+          .toMap
+      }
+
+    val res = for {
+      input  <- tupleAndGroup(inputAssets).toEither
+      minted <- tupleAndGroup(mintedAsset).toEither
+      output <- tupleAndGroup(outputAssets).toEither
+      keySetResult = input.keySet ++ minted.keySet == output.keySet
+      compareResult = output.keySet.forall(k =>
+        input.getOrElse(k, 0: BigInt) + minted.getOrElse(k, 0) == output.getOrElse(k, 0)
       )
-      .map(_.value.value)
-
-    val totalInputAssets =
-      Try {
-        (inputAssets ++ mintedAsset)
-          .map(value => (value.typeIdentifier, value.quantity: BigInt))
-          .groupBy(_._1)
-          .view
-          .mapValues(_.map(_._2).sum)
-          .toMap
-      }
-
-    val totalOutputAssets =
-      Try {
-        transaction.outputs
-          .filter(_.value.value.isAsset)
-          .map(_.value.value)
-          .map(value => (value.typeIdentifier, value.quantity: BigInt))
-          .groupBy(_._1)
-          .view
-          .mapValues(_.map(_._2).sum)
-          .toMap
-      }
+    } yield (keySetResult && compareResult)
 
     Validated.condNec(
-      totalInputAssets.isSuccess &&
-      totalOutputAssets.isSuccess &&
-      totalInputAssets.get.keySet == totalOutputAssets.get.keySet &&
-      totalInputAssets.get.keySet.forall(key => totalInputAssets.get(key) == totalOutputAssets.get(key)),
+      res.map(_ == true).getOrElse(false),
       (),
       TransactionSyntaxError.InsufficientInputFunds(
         transaction.inputs.map(_.value.value).toList,
