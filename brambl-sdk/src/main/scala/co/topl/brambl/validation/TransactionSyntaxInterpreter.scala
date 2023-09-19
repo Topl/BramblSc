@@ -40,7 +40,8 @@ object TransactionSyntaxInterpreter {
       attestationValidation,
       dataLengthValidation,
       assetEqualFundsValidation,
-      assetNoRepeatedUtxosValidation
+      assetNoRepeatedUtxosValidation,
+      mintingValidation
     )
 
   /**
@@ -354,8 +355,9 @@ object TransactionSyntaxInterpreter {
       (utxo.value.value.isSeries && transaction.seriesPolicies
         .map(_.event.computeId)
         .contains(utxo.value.getSeries.seriesId)) ||
-      (utxo.value.value.isAsset && utxo.value.getAsset.groupId.exists(groupIdsOnMintedStatements.contains)) ||
-      (utxo.value.value.isAsset && utxo.value.getAsset.seriesId.exists(seriesIdsOnMintedStatements.contains))
+      (utxo.value.value.isAsset &&
+      utxo.value.getAsset.groupId.exists(groupIdsOnMintedStatements.contains) &&
+      utxo.value.getAsset.seriesId.exists(seriesIdsOnMintedStatements.contains))
     }
   }
 
@@ -371,7 +373,7 @@ object TransactionSyntaxInterpreter {
     def registrationInPolicyContainsLvls(registrationUtxo: TransactionOutputAddress): Boolean =
       projectedTransaction.inputs.exists { stxo =>
         stxo.value.value.isLvl &&
-        BigInt(stxo.value.getLvl.quantity.value.toByteArray) > 0 &&
+        stxo.value.getLvl.quantity > 0 &&
         stxo.address == registrationUtxo
       }
 
@@ -380,14 +382,14 @@ object TransactionSyntaxInterpreter {
         policy.event.computeId == group.groupId &&
         registrationInPolicyContainsLvls(policy.event.registrationUtxo)
       } &&
-      BigInt(group.quantity.value.toByteArray) > 0
+      group.quantity > 0
     }
 
     val validSeries = series.forall { series =>
       transaction.seriesPolicies.exists { policy =>
         policy.event.computeId == series.seriesId &&
         registrationInPolicyContainsLvls(policy.event.registrationUtxo) &&
-        BigInt(series.quantity.value.toByteArray) > 0
+        series.quantity > 0
       }
     }
 
