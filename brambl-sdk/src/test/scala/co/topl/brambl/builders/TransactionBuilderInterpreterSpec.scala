@@ -1055,7 +1055,8 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       inPredicateLockFull,
       1,
       inLockFullAddress,
-      trivialLockAddress
+      trivialLockAddress,
+      0
     )
     assertEquals(testTx, Left(UnableToBuildTransaction(Seq(UserInputError(s"Invalid value type")))))
   }
@@ -1067,7 +1068,8 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       inPredicateLockFull,
       1,
       inLockFullAddress,
-      trivialLockAddress
+      trivialLockAddress,
+      0
     )
     assertEquals(testTx, Left(UnableToBuildTransaction(Seq(UserInputError(s"Invalid value type")))))
   }
@@ -1079,7 +1081,8 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       inPredicateLockFull,
       1,
       inLockFullAddress,
-      trivialLockAddress
+      trivialLockAddress,
+      0
     )
     assertEquals(testTx, Left(UnableToBuildTransaction(Seq(UserInputError(s"Invalid value type")))))
   }
@@ -1091,7 +1094,8 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       inPredicateLockFull,
       1,
       inLockFullAddress,
-      trivialLockAddress
+      trivialLockAddress,
+      0
     )
     assertEquals(testTx, Left(UnableToBuildTransaction(Seq(UserInputError(s"Invalid value type")))))
   }
@@ -1103,7 +1107,8 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       inPredicateLockFull,
       0,
       inLockFullAddress,
-      trivialLockAddress
+      trivialLockAddress,
+      0
     )
     assertEquals(testTx, Left(UnableToBuildTransaction(Seq(UserInputError(s"quantity to transfer must be positive")))))
   }
@@ -1115,7 +1120,8 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       inPredicateLockFull,
       0,
       inLockFullAddress,
-      trivialLockAddress
+      trivialLockAddress,
+      0
     )
     assertEquals(testTx, Left(UnableToBuildTransaction(Seq(UserInputError(s"quantity to transfer must be positive")))))
   }
@@ -1127,7 +1133,8 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       inPredicateLockFull,
       0,
       inLockFullAddress,
-      trivialLockAddress
+      trivialLockAddress,
+      0
     )
     assertEquals(testTx, Left(UnableToBuildTransaction(Seq(UserInputError(s"quantity to transfer must be positive")))))
   }
@@ -1139,7 +1146,8 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       inPredicateLockFull,
       0,
       inLockFullAddress,
-      trivialLockAddress
+      trivialLockAddress,
+      0
     )
     assertEquals(testTx, Left(UnableToBuildTransaction(Seq(UserInputError(s"quantity to transfer must be positive")))))
   }
@@ -1150,7 +1158,8 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       inPredicateLockFull,
       1,
       inLockFullAddress,
-      trivialLockAddress
+      trivialLockAddress,
+      0
     )
     assertEquals(
       testTx,
@@ -1165,7 +1174,8 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       inPredicateLockFull,
       1,
       inLockFullAddress,
-      trivialLockAddress
+      trivialLockAddress,
+      0
     )
     assertEquals(
       testTx,
@@ -1180,7 +1190,8 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       inPredicateLockFull,
       1,
       inLockFullAddress,
-      trivialLockAddress
+      trivialLockAddress,
+      0
     )
     assertEquals(
       testTx,
@@ -1195,7 +1206,8 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       inPredicateLockFull,
       1,
       inLockFullAddress,
-      trivialLockAddress
+      trivialLockAddress,
+      0
     )
     assertEquals(
       testTx,
@@ -1209,7 +1221,8 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       inPredicateLockFull,
       1,
       inLockFullAddress,
-      trivialLockAddress
+      trivialLockAddress,
+      0
     )
     assertEquals(
       testTx,
@@ -1232,7 +1245,8 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       inPredicateLockFull,
       1,
       inLockFullAddress,
-      trivialLockAddress
+      trivialLockAddress,
+      0
     )
     assertEquals(
       testTx,
@@ -1255,7 +1269,8 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       inPredicateLockFull,
       1,
       inLockFullAddress,
-      trivialLockAddress
+      trivialLockAddress,
+      0
     )
     assertEquals(
       testTx,
@@ -1278,7 +1293,8 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       inPredicateLockFull,
       1,
       inLockFullAddress,
-      trivialLockAddress
+      trivialLockAddress,
+      0
     )
     assertEquals(
       testTx,
@@ -1301,7 +1317,8 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       inPredicateLockFull,
       1,
       inLockFullAddress,
-      trivialLockAddress
+      trivialLockAddress,
+      0
     )
     assert(
       testTx.left.toOption.get
@@ -1317,13 +1334,17 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       inPredicateLockFull,
       4,
       inLockFullAddress,
-      trivialLockAddress
+      trivialLockAddress,
+      0
     )
     assertEquals(
       testTx,
       Left(
         UnableToBuildTransaction(
-          Seq(UserInputError(s"All tokens selected to transfer do not have enough funds to transfer"))
+          Seq(
+            UserInputError(s"All tokens selected to transfer do not have enough funds to transfer"),
+            UserInputError(s"Not enough LVLs in input to satisfy fee")
+          )
         )
       )
     )
@@ -1336,7 +1357,8 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       inPredicateLockFull,
       4,
       inLockFullAddress,
-      trivialLockAddress
+      trivialLockAddress,
+      0
     )
     assertEquals(
       testTx,
@@ -1355,7 +1377,8 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       inPredicateLockFull,
       4,
       inLockFullAddress,
-      trivialLockAddress
+      trivialLockAddress,
+      0
     )
     assertEquals(
       testTx,
@@ -1374,7 +1397,8 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       inPredicateLockFull,
       4,
       inLockFullAddress,
-      trivialLockAddress
+      trivialLockAddress,
+      0
     )
     assertEquals(
       testTx,
@@ -1386,13 +1410,93 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
     )
   }
 
+  test("buildLvlTransferTransaction > fee not satisfied") {
+    val testTx = txBuilder.buildLvlTransferTransaction(
+      mockTxos,
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress,
+      2
+    )
+    assertEquals(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          Seq(UserInputError(s"Not enough LVLs in input to satisfy fee"))
+        )
+      )
+    )
+  }
+
+  test("buildGroupTransferTransaction > fee not satisfied") {
+    val testTx = txBuilder.buildGroupTransferTransaction(
+      GroupType(mockGroupPolicy.computeId),
+      mockTxos,
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress,
+      3
+    )
+    assertEquals(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          Seq(UserInputError(s"Not enough LVLs in input to satisfy fee"))
+        )
+      )
+    )
+  }
+
+  test("buildSeriesTransferTransaction > fee not satisfied") {
+    val testTx = txBuilder.buildSeriesTransferTransaction(
+      SeriesType(mockSeriesPolicy.computeId),
+      mockTxos,
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress,
+      3
+    )
+    assertEquals(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          Seq(UserInputError(s"Not enough LVLs in input to satisfy fee"))
+        )
+      )
+    )
+  }
+
+  test("buildAssetTransferTransaction > fee not satisfied") {
+    val testTx = txBuilder.buildAssetTransferTransaction(
+      GroupAndSeriesFungible(mockGroupPolicy.computeId, mockSeriesPolicy.computeId),
+      mockTxos,
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress,
+      3
+    )
+    assertEquals(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          Seq(UserInputError(s"Not enough LVLs in input to satisfy fee"))
+        )
+      )
+    )
+  }
+
   test("buildLvlTransferTransaction > [complex] duplicate inputs are merged and split correctly") {
     val testTx = txBuilder.buildLvlTransferTransaction(
       mockTxos,
       inPredicateLockFull,
       1,
       inLockFullAddress,
-      trivialLockAddress
+      trivialLockAddress,
+      1
     )
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
@@ -1400,7 +1504,6 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       .withOutputs(
         List(
           UnspentTransactionOutput(inLockFullAddress, value), // recipient
-          UnspentTransactionOutput(trivialLockAddress, value),
           UnspentTransactionOutput(trivialLockAddress, groupValue.copy(groupValue.value.setQuantity(quantity * 2))),
           UnspentTransactionOutput(
             trivialLockAddress,
@@ -1436,7 +1539,8 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       inPredicateLockFull,
       1,
       inLockFullAddress,
-      trivialLockAddress
+      trivialLockAddress,
+      1
     )
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
@@ -1445,7 +1549,7 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
         List(
           UnspentTransactionOutput(inLockFullAddress, groupValue), // recipient
           UnspentTransactionOutput(trivialLockAddress, groupValue),
-          UnspentTransactionOutput(trivialLockAddress, value.copy(value.value.setQuantity(quantity * 2))),
+          UnspentTransactionOutput(trivialLockAddress, value),
           UnspentTransactionOutput(
             trivialLockAddress,
             groupValue.copy(groupValue.getGroup.withGroupId(mockGroupPolicyAlt.computeId))
@@ -1480,7 +1584,8 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       inPredicateLockFull,
       1,
       inLockFullAddress,
-      trivialLockAddress
+      trivialLockAddress,
+      1
     )
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
@@ -1489,7 +1594,7 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
         List(
           UnspentTransactionOutput(inLockFullAddress, seriesValue), // recipient
           UnspentTransactionOutput(trivialLockAddress, seriesValue),
-          UnspentTransactionOutput(trivialLockAddress, value.copy(value.value.setQuantity(quantity * 2))),
+          UnspentTransactionOutput(trivialLockAddress, value),
           UnspentTransactionOutput(trivialLockAddress, groupValue.copy(groupValue.value.setQuantity(quantity * 2))),
           UnspentTransactionOutput(
             trivialLockAddress,
@@ -1524,7 +1629,8 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       inPredicateLockFull,
       1,
       inLockFullAddress,
-      trivialLockAddress
+      trivialLockAddress,
+      1
     )
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
@@ -1533,7 +1639,7 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
         List(
           UnspentTransactionOutput(inLockFullAddress, assetGroupSeries), // recipient
           UnspentTransactionOutput(trivialLockAddress, assetGroupSeries),
-          UnspentTransactionOutput(trivialLockAddress, value.copy(value.value.setQuantity(quantity * 2))),
+          UnspentTransactionOutput(trivialLockAddress, value),
           UnspentTransactionOutput(trivialLockAddress, groupValue.copy(groupValue.value.setQuantity(quantity * 2))),
           UnspentTransactionOutput(
             trivialLockAddress,
@@ -1565,7 +1671,8 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       inPredicateLockFull,
       1,
       inLockFullAddress,
-      trivialLockAddress
+      trivialLockAddress,
+      0
     )
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
@@ -1582,7 +1689,8 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       inPredicateLockFull,
       1,
       inLockFullAddress,
-      trivialLockAddress
+      trivialLockAddress,
+      0
     )
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
@@ -1599,7 +1707,8 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       inPredicateLockFull,
       1,
       inLockFullAddress,
-      trivialLockAddress
+      trivialLockAddress,
+      0
     )
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
@@ -1616,7 +1725,8 @@ class TransactionBuilderInterpreterSpec extends munit.FunSuite with MockHelpers 
       inPredicateLockFull,
       1,
       inLockFullAddress,
-      trivialLockAddress
+      trivialLockAddress,
+      0
     )
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)

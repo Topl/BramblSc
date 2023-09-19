@@ -12,6 +12,7 @@ import co.topl.brambl.syntax.{
   valueToQuantitySyntaxOps,
   valueToTypeIdentifierSyntaxOps,
   GroupFungible,
+  LvlType,
   SeriesFungible,
   ValueTypeIdentifier
 }
@@ -111,6 +112,17 @@ object UserInputValidations {
       UserInputError(s"All tokens selected to transfer do not have enough funds to transfer")
     )
 
+  def validFee(
+    fee:                  Long,
+    testValues:           Seq[Value],
+    transferRequirements: Long
+  ): ValidatedNec[UserInputError, Unit] =
+    Validated.condNec(
+      testValues.filter(_.isLvl).map(_.quantity: BigInt).sum >= fee + transferRequirements,
+      (),
+      UserInputError(s"Not enough LVLs in input to satisfy fee")
+    )
+
   // The following two validations are temporary until we support all fungibility types
   def fungibilityType(testType: Option[FungibilityType]): ValidatedNec[UserInputError, Unit] =
     Validated.condNec(
@@ -143,7 +155,8 @@ object UserInputValidations {
       txos:               Seq[Txo],
       fromLockAddr:       LockAddress,
       amount:             Long,
-      transferIdentifier: ValueTypeIdentifier
+      transferIdentifier: ValueTypeIdentifier,
+      fee:                Long
     ): Either[NonEmptyChain[UserInputError], Unit] = Try {
       val allValues = txos.map(_.transactionOutput.value.value)
       val transferValues = allValues.filter(_.typeIdentifier == transferIdentifier)
@@ -152,7 +165,8 @@ object UserInputValidations {
         allInputLocksMatch(txos.map(_.transactionOutput.address), fromLockAddr, "fromLockAddr"),
         validTransferSupply(amount, transferValues),
         identifierFungibilityType(transferIdentifier),
-        allValidFungibilityTypes(allValues)
+        allValidFungibilityTypes(allValues),
+        validFee(fee, allValues, if (transferIdentifier == LvlType) amount else 0)
       ).fold.toEither
     } match {
       case Success(value) => value

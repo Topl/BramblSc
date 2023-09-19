@@ -178,13 +178,16 @@ trait TransactionBuilderApi[F[_]] {
    * @param amount The amount of LVLs to transfer to the recipient
    * @param recipientLockAddress The LockAddress of the recipient
    * @param changeLockAddress A LockAddress to send the txos that are not going to the recipient
+   * @param fee The transaction fee. The txos must contain enough LVLs to satisfy this fee
+   * @return A transaction
    */
   def buildLvlTransferTransaction(
     txos:                 Seq[Txo],
     lockPredicateFrom:    Lock.Predicate,
     amount:               Long,
     recipientLockAddress: LockAddress,
-    changeLockAddress:    LockAddress
+    changeLockAddress:    LockAddress,
+    fee:                  Long
   ): F[Either[BuilderError, IoTransaction]]
 
   /**
@@ -200,6 +203,8 @@ trait TransactionBuilderApi[F[_]] {
    * @param amount The amount of identified Group Constructor Tokens to transfer to the recipient
    * @param recipientLockAddress The LockAddress of the recipient
    * @param changeLockAddress A LockAddress to send the txos that are not going to the recipient
+   * @param fee               The transaction fee. The txos must contain enough LVLs to satisfy this fee
+   * @return A transaction
    */
   def buildGroupTransferTransaction(
     groupId:              GroupType,
@@ -207,7 +212,8 @@ trait TransactionBuilderApi[F[_]] {
     lockPredicateFrom:    Lock.Predicate,
     amount:               Long,
     recipientLockAddress: LockAddress,
-    changeLockAddress:    LockAddress
+    changeLockAddress:    LockAddress,
+    fee:                  Long
   ): F[Either[BuilderError, IoTransaction]]
 
   /**
@@ -223,6 +229,8 @@ trait TransactionBuilderApi[F[_]] {
    * @param amount The amount of identified Series Constructor Tokens to transfer to the recipient
    * @param recipientLockAddress The LockAddress of the recipient
    * @param changeLockAddress A LockAddress to send the txos that are not going to the recipient
+   * @param fee               The transaction fee. The txos must contain enough LVLs to satisfy this fee
+   * @return A transaction
    */
   def buildSeriesTransferTransaction(
     seriesId:             SeriesType,
@@ -230,7 +238,8 @@ trait TransactionBuilderApi[F[_]] {
     lockPredicateFrom:    Lock.Predicate,
     amount:               Long,
     recipientLockAddress: LockAddress,
-    changeLockAddress:    LockAddress
+    changeLockAddress:    LockAddress,
+    fee:                  Long
   ): F[Either[BuilderError, IoTransaction]]
 
   /**
@@ -247,6 +256,8 @@ trait TransactionBuilderApi[F[_]] {
    * @param amount The amount of identified Asset Tokens to transfer to the recipient
    * @param recipientLockAddress The LockAddress of the recipient
    * @param changeLockAddress A LockAddress to send the txos that are not going to the recipient
+   * @param fee               The transaction fee. The txos must contain enough LVLs to satisfy this fee
+   * @return A transaction
    */
   def buildAssetTransferTransaction(
     assetId:              AssetType,
@@ -254,7 +265,8 @@ trait TransactionBuilderApi[F[_]] {
     lockPredicateFrom:    Lock.Predicate,
     amount:               Long,
     recipientLockAddress: LockAddress,
-    changeLockAddress:    LockAddress
+    changeLockAddress:    LockAddress,
+    fee:                  Long
   ): F[Either[BuilderError, IoTransaction]]
 
   /**
@@ -412,9 +424,10 @@ object TransactionBuilderApi {
         lockPredicateFrom:    Lock.Predicate,
         amount:               Long,
         recipientLockAddress: LockAddress,
-        changeLockAddress:    LockAddress
+        changeLockAddress:    LockAddress,
+        fee:                  Long
       ): F[Either[BuilderError, IoTransaction]] =
-        buildTransferTransaction(txos, lockPredicateFrom, amount, recipientLockAddress, changeLockAddress, LvlType)
+        buildTransferTransaction(txos, lockPredicateFrom, amount, recipientLockAddress, changeLockAddress, LvlType, fee)
 
       override def buildGroupTransferTransaction(
         groupId:              GroupType,
@@ -422,9 +435,10 @@ object TransactionBuilderApi {
         lockPredicateFrom:    Lock.Predicate,
         amount:               Long,
         recipientLockAddress: LockAddress,
-        changeLockAddress:    LockAddress
+        changeLockAddress:    LockAddress,
+        fee:                  Long
       ): F[Either[BuilderError, IoTransaction]] =
-        buildTransferTransaction(txos, lockPredicateFrom, amount, recipientLockAddress, changeLockAddress, groupId)
+        buildTransferTransaction(txos, lockPredicateFrom, amount, recipientLockAddress, changeLockAddress, groupId, fee)
 
       override def buildSeriesTransferTransaction(
         seriesId:             SeriesType,
@@ -432,9 +446,18 @@ object TransactionBuilderApi {
         lockPredicateFrom:    Lock.Predicate,
         amount:               Long,
         recipientLockAddress: LockAddress,
-        changeLockAddress:    LockAddress
+        changeLockAddress:    LockAddress,
+        fee:                  Long
       ): F[Either[BuilderError, IoTransaction]] =
-        buildTransferTransaction(txos, lockPredicateFrom, amount, recipientLockAddress, changeLockAddress, seriesId)
+        buildTransferTransaction(
+          txos,
+          lockPredicateFrom,
+          amount,
+          recipientLockAddress,
+          changeLockAddress,
+          seriesId,
+          fee
+        )
 
       override def buildAssetTransferTransaction(
         assetId:              AssetType,
@@ -442,9 +465,10 @@ object TransactionBuilderApi {
         lockPredicateFrom:    Lock.Predicate,
         amount:               Long,
         recipientLockAddress: LockAddress,
-        changeLockAddress:    LockAddress
+        changeLockAddress:    LockAddress,
+        fee:                  Long
       ): F[Either[BuilderError, IoTransaction]] =
-        buildTransferTransaction(txos, lockPredicateFrom, amount, recipientLockAddress, changeLockAddress, assetId)
+        buildTransferTransaction(txos, lockPredicateFrom, amount, recipientLockAddress, changeLockAddress, assetId, fee)
 
       private def buildTransferTransaction(
         txos:              Seq[Txo],
@@ -452,15 +476,18 @@ object TransactionBuilderApi {
         amount:            Long,
         recipientLockAddr: LockAddress,
         changeLockAddr:    LockAddress,
-        transferType:      ValueTypeIdentifier
+        transferType:      ValueTypeIdentifier,
+        fee:               Long
       ): F[Either[BuilderError, IoTransaction]] = (
         for {
           fromLockAddr <- EitherT.right(lockAddress(Lock().withPredicate(lockPredicateFrom)))
-          _ <- EitherT.fromEither[F](validateTransferParams(txos, fromLockAddr, amount, transferType)).leftMap(wrapErr)
+          _ <- EitherT
+            .fromEither[F](validateTransferParams(txos, fromLockAddr, amount, transferType, fee))
+            .leftMap(wrapErr)
           stxoAttestation <- EitherT.right(unprovenAttestation(lockPredicateFrom))
           datum           <- EitherT.right(datum())
           stxos           <- buildStxos(txos, stxoAttestation).leftMap(wrapErr)
-          utxos           <- buildUtxos(txos, transferType, amount, recipientLockAddr, changeLockAddr).leftMap(wrapErr)
+          utxos <- buildUtxos(txos, transferType, amount, recipientLockAddr, changeLockAddr, fee).leftMap(wrapErr)
         } yield IoTransaction(inputs = stxos, outputs = utxos, datum = datum)
       ).value
 
@@ -475,13 +502,16 @@ object TransactionBuilderApi {
         transferType:     ValueTypeIdentifier,
         amount:           Int128,
         recipientAddress: LockAddress,
-        changeAddress:    LockAddress
+        changeAddress:    LockAddress,
+        fee:              Long
       ): EitherT[F, BuilderError, Seq[UnspentTransactionOutput]] = Try {
-        val groupedValues = txos.map(_.transactionOutput.value.value).groupBy(_.typeIdentifier)
-        val identifiedValue = mergeAllValues(groupedValues(transferType))
-        val otherValues = (groupedValues - transferType).values.map(mergeAllValues).toSeq
-        val (recipientVal, changeVal) = splitValue(identifiedValue, amount)
-        val changeUtxos = (changeVal.toSeq ++ otherValues)
+        val groupedValuesRaw =
+          txos.map(_.transactionOutput.value.value).groupMapReduce(_.typeIdentifier)(identity)(mergeValues)
+        val groupedValues = applyFee(groupedValuesRaw, fee)
+        val transferVal = groupedValues(transferType)
+        val otherVals = (groupedValues - transferType).values.toSeq
+        val (recipientVal, changeVal) = splitValue(transferVal, amount)
+        val changeUtxos = (changeVal.toSeq ++ otherVals)
           .map(v => UnspentTransactionOutput(changeAddress, Value.defaultInstance.withValue(v)))
         UnspentTransactionOutput(recipientAddress, Value.defaultInstance.withValue(recipientVal)) +: changeUtxos
       } match {
@@ -489,10 +519,20 @@ object TransactionBuilderApi {
         case Failure(err)   => EitherT.leftT(BuilderRuntimeError("Failed to build utxos", err))
       }
 
+      // Due to validation, if fee >0, then there must be a lvl in the txos
+      private def applyFee(
+        groupedValues: Map[ValueTypeIdentifier, BoxValue],
+        fee:           Long
+      ): Map[ValueTypeIdentifier, BoxValue] =
+        if (fee > 0) {
+          val lvlVal = groupedValues(LvlType)
+          groupedValues.updated(LvlType, lvlVal.setQuantity(lvlVal.quantity - fee))
+        } else groupedValues
+
       // TODO: This needs to be updated when we want to support multiple fungibility types (need 2 update alloys)
       // values assumed to be same type
-      private def mergeAllValues(values: Seq[BoxValue]): BoxValue =
-        values.reduce((acc, v) => acc.setQuantity(acc.quantity + v.quantity))
+      private def mergeValues(value1: BoxValue, value2: BoxValue): BoxValue =
+        value1.setQuantity(value1.quantity + value2.quantity)
 
       // TODO: This needs to be updated when we want to support multiple fungibility types (need 2 update alloys)
       private def splitValue(value: BoxValue, qOut: Int128): (BoxValue, Option[BoxValue]) = {
