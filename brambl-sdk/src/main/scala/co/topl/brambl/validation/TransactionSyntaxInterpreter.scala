@@ -1,14 +1,15 @@
 package co.topl.brambl.validation
 
 import cats.Applicative
-import cats.implicits._
 import cats.data.{Chain, NonEmptyChain, Validated, ValidatedNec}
-import co.topl.brambl.models.box.{AssetMintingStatement, Attestation, FungibilityType, Lock, Value}
-import co.topl.brambl.models.transaction.IoTransaction
-import co.topl.brambl.validation.algebras.TransactionSyntaxVerifier
+import cats.implicits._
 import co.topl.brambl.common.ContainsImmutable.ContainsImmutableTOps
 import co.topl.brambl.common.ContainsImmutable.instances._
+import co.topl.brambl.models.TransactionOutputAddress
+import co.topl.brambl.models.box._
+import co.topl.brambl.models.transaction.{IoTransaction, SpentTransactionOutput, UnspentTransactionOutput}
 import co.topl.brambl.syntax._
+import co.topl.brambl.validation.algebras.TransactionSyntaxVerifier
 import quivr.models.{Int128, Proof, Proposition}
 import scala.util.Try
 
@@ -37,7 +38,9 @@ object TransactionSyntaxInterpreter {
       sufficientFundsValidation,
       attestationValidation,
       dataLengthValidation,
-      assetEqualFundsValidation
+      assetEqualFundsValidation,
+      assetNoRepeatedUtxosValidation,
+      mintingValidation
     )
 
   /**
@@ -300,4 +303,106 @@ object TransactionSyntaxInterpreter {
 
   }
 
+  /**
+   * Asset No Repeated Utxos Validation
+   * - For all assets minting statement ams1, ams2, ...,  Should not contain repeated UTXOs
+   *
+   * @param transaction - transaction
+   * @return
+   */
+  private def assetNoRepeatedUtxosValidation(transaction: IoTransaction): ValidatedNec[TransactionSyntaxError, Unit] =
+    NonEmptyChain
+      .fromSeq(
+        transaction.mintingStatements
+          .flatMap(stm => Seq(stm.groupTokenUtxo, stm.seriesTokenUtxo))
+          .groupBy(identity)
+          .collect {
+            case (address, seqAddresses) if seqAddresses.size > 1 =>
+              TransactionSyntaxError.DuplicateInput(address)
+          }
+          .toSeq
+      )
+      .fold(().validNec[TransactionSyntaxError])(_.invalid[Unit])
+
+  private def mintingInputsProjection(transaction: IoTransaction): Seq[SpentTransactionOutput] =
+    transaction.inputs.filter { stxo =>
+      !stxo.value.value.isTopl &&
+      !stxo.value.value.isAsset &&
+      (!stxo.value.value.isLvl || (transaction.groupPolicies.exists(
+        _.event.registrationUtxo == stxo.address
+      ) || transaction.seriesPolicies.exists(_.event.registrationUtxo == stxo.address)))
+    }
+
+  private def mintingOutputsProjection(transaction: IoTransaction): Seq[UnspentTransactionOutput] = {
+    val groupIdsOnMintedStatements =
+      transaction.inputs
+        .filter(_.value.value.isGroup)
+        .filter(sto => transaction.mintingStatements.map(_.groupTokenUtxo).contains(sto.address))
+        .map(_.value.getGroup.groupId)
+
+    val seriesIdsOnMintedStatements =
+      transaction.inputs
+        .filter(_.value.value.isSeries)
+        .filter(sto => transaction.mintingStatements.map(_.seriesTokenUtxo).contains(sto.address))
+        .map(_.value.getSeries.seriesId)
+
+    transaction.outputs.filter { utxo =>
+      !utxo.value.value.isLvl &&
+      !utxo.value.value.isTopl &&
+      (!utxo.value.value.isGroup || transaction.groupPolicies
+        .map(_.event.computeId)
+        .contains(utxo.value.getGroup.groupId)) &&
+      (!utxo.value.value.isSeries || transaction.seriesPolicies
+        .map(_.event.computeId)
+        .contains(utxo.value.getSeries.seriesId)) &&
+      (!utxo.value.value.isAsset || (utxo.value.getAsset.groupId.exists(
+        groupIdsOnMintedStatements.contains
+      ) && utxo.value.getAsset.seriesId.exists(seriesIdsOnMintedStatements.contains)))
+    }
+  }
+
+  private def mintingValidation(transaction: IoTransaction) = {
+    val projectedTransaction = transaction
+      .withInputs(mintingInputsProjection(transaction))
+      .withOutputs(mintingOutputsProjection(transaction))
+
+    val groups = projectedTransaction.outputs.filter(_.value.value.isGroup).map(_.value.getGroup)
+    val series = projectedTransaction.outputs.filter(_.value.value.isSeries).map(_.value.getSeries)
+    val assets = projectedTransaction.outputs.filter(_.value.value.isAsset).map(_.value.getAsset)
+
+    def registrationInPolicyContainsLvls(registrationUtxo: TransactionOutputAddress): Boolean =
+      projectedTransaction.inputs.exists { stxo =>
+        stxo.value.value.isLvl &&
+        stxo.value.getLvl.quantity > 0 &&
+        stxo.address == registrationUtxo
+      }
+
+    val validGroups = groups.forall { group =>
+      transaction.groupPolicies.exists { policy =>
+        policy.event.computeId == group.groupId &&
+        registrationInPolicyContainsLvls(policy.event.registrationUtxo)
+      } &&
+      group.quantity > 0
+    }
+
+    val validSeries = series.forall { series =>
+      transaction.seriesPolicies.exists { policy =>
+        policy.event.computeId == series.seriesId &&
+        registrationInPolicyContainsLvls(policy.event.registrationUtxo) &&
+        series.quantity > 0
+      }
+    }
+
+    val validAssets: Boolean = true // TODO
+
+    Validated.condNec(
+      validGroups && validSeries && validAssets,
+      (),
+      TransactionSyntaxError.InsufficientInputFunds(
+        transaction.inputs.map(_.value.value).toList,
+        transaction.outputs.map(_.value.value).toList
+      )
+    )
+
+  }
 }
