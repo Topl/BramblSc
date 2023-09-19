@@ -1,7 +1,7 @@
 package co.topl.brambl.builders
 
 import cats.Monad
-import cats.data.{Chain, EitherT, NonEmptyChain, Validated, ValidatedNec}
+import cats.data.{EitherT, NonEmptyChain}
 import co.topl.brambl.codecs.AddressCodecs
 import co.topl.brambl.models.{Datum, Event, GroupId, LockAddress, LockId, SeriesId, TransactionOutputAddress}
 import co.topl.brambl.models.box.{
@@ -20,11 +20,31 @@ import co.topl.brambl.common.ContainsEvidence.Ops
 import co.topl.brambl.common.ContainsImmutable.instances.{groupIdentifierImmutable, seriesIdValueImmutable, _}
 import co.topl.brambl.common.ContainsEvidence.merkleRootFromBlake2bEvidence
 import cats.implicits._
-import co.topl.brambl.builders.TransactionBuilderApi.UserInputValidations._
+import co.topl.brambl.builders.UserInputValidations.TransactionBuilder._
 import co.topl.brambl.models.Event.{GroupPolicy, SeriesPolicy}
-import co.topl.brambl.models.box.Value.Series
-import co.topl.brambl.syntax.{groupPolicyAsGroupPolicySyntaxOps, seriesPolicyAsSeriesPolicySyntaxOps}
+import co.topl.brambl.models.box.Value.{Asset, Group, LVL, Series, Value => BoxValue}
+import co.topl.brambl.syntax.{
+  assetAsBoxVal,
+  bigIntAsInt128,
+  groupAsBoxVal,
+  groupPolicyAsGroupPolicySyntaxOps,
+  int128AsBigInt,
+  longAsInt128,
+  lvlAsBoxVal,
+  seriesAsBoxVal,
+  seriesPolicyAsSeriesPolicySyntaxOps,
+  valueToQuantitySyntaxOps,
+  valueToTypeIdentifierSyntaxOps,
+  AssetType,
+  GroupType,
+  LvlType,
+  SeriesType,
+  ValueTypeIdentifier
+}
 import com.google.protobuf.struct.Struct
+
+import scala.language.implicitConversions
+import scala.util.{Failure, Success, Try}
 
 /**
  * Defines a builder for [[IoTransaction]]s
@@ -66,6 +86,63 @@ trait TransactionBuilderApi[F[_]] {
   def lvlOutput(lockAddress: LockAddress, amount: Int128): F[UnspentTransactionOutput]
 
   /**
+   * Builds a group constructor unspent transaction output for the given parameters
+   * @param lockAddress The lock address to use to build the group constructor output
+   * @param quantity The quantity to use to build the group constructor output
+   * @param groupId The group id to use to build the group constructor output
+   * @param fixedSeries The fixed series to use to build the group constructor output
+   * @return An unspent transaction output containing group constructor tokens
+   */
+  def groupOutput(
+    lockAddress: LockAddress,
+    quantity:    Int128,
+    groupId:     GroupId,
+    fixedSeries: Option[SeriesId]
+  ): F[UnspentTransactionOutput]
+
+  /**
+   * Builds a series constructor unspent transaction output for the given parameters
+   * @param lockAddress The lock address to use to build the series constructor output
+   * @param quantity The quantity to use to build the series constructor output
+   * @param seriesId The series id to use to build the series constructor output
+   * @param tokenSupply The token supply to use to build the series constructor output
+   * @param fungibility The fungibility type to use to build the series constructor output
+   * @param quantityDescriptor The quantity descriptor type to use to build the series constructor output
+   * @return
+   */
+  def seriesOutput(
+    lockAddress:        LockAddress,
+    quantity:           Int128,
+    seriesId:           SeriesId,
+    tokenSupply:        Option[Int],
+    fungibility:        FungibilityType,
+    quantityDescriptor: QuantityDescriptorType
+  ): F[UnspentTransactionOutput]
+
+  /**
+   * Builds an asset unspent transaction output for the given parameters
+   * @param lockAddress The lock address to use to build the asset output
+   * @param quantity The quantity to use to build the asset output
+   * @param groupId The group id to use to build the asset output
+   * @param seriesId The series id to use to build the asset output
+   * @param fungibilityType The fungibility type to use to build the asset output
+   * @param quantityDescriptorType The quantity descriptor type to use to build the asset output
+   * @param metadata The metadata to use to build the asset output
+   * @param commitment The commitment to use to build the asset output
+   * @return An unspent transaction output containing asset tokens
+   */
+  def assetOutput(
+    lockAddress:            LockAddress,
+    quantity:               Int128,
+    groupId:                GroupId,
+    seriesId:               SeriesId,
+    fungibilityType:        FungibilityType,
+    quantityDescriptorType: QuantityDescriptorType,
+    metadata:               Option[Struct],
+    commitment:             Option[ByteString]
+  ): F[UnspentTransactionOutput]
+
+  /**
    * Builds a datum with default values for a transaction. The schedule is defaulted to use the current timestamp, with
    * min and max slot being 0 and Long.MaxValue respectively.
    *
@@ -90,6 +167,107 @@ trait TransactionBuilderApi[F[_]] {
     recipientLockAddress:   LockAddress,
     amount:                 Long
   ): F[IoTransaction]
+
+  /**
+   * Builds a transaction to transfer a certain amount of LVLs. The transaction will also transfer any other tokens that
+   * are encumbered by the same predicate as the LVLs to the change address.
+   *
+   * @param txos  All the TXOs encumbered by the Lock given by lockPredicateFrom. These TXOs must contain at least the
+   *              necessary quantity (given by amount) of LVLs, else an error will be returned.
+   * @param lockPredicateFrom The Lock Predicate encumbering the txos
+   * @param amount The amount of LVLs to transfer to the recipient
+   * @param recipientLockAddress The LockAddress of the recipient
+   * @param changeLockAddress A LockAddress to send the txos that are not going to the recipient
+   * @param fee The transaction fee. The txos must contain enough LVLs to satisfy this fee
+   * @return A transaction
+   */
+  def buildLvlTransferTransaction(
+    txos:                 Seq[Txo],
+    lockPredicateFrom:    Lock.Predicate,
+    amount:               Long,
+    recipientLockAddress: LockAddress,
+    changeLockAddress:    LockAddress,
+    fee:                  Long
+  ): F[Either[BuilderError, IoTransaction]]
+
+  /**
+   * Builds a transaction to transfer a certain amount of Group Constructor Tokens (given by groupId). The transaction
+   * will also transfer any other tokens that are encumbered by the same predicate as the Group Constructor Tokens to
+   * the change address.
+   *
+   * @param groupId The Group Identifier of the Group Constructor Tokens to transfer to the recipient
+   * @param txos  All the TXOs encumbered by the Lock given by lockPredicateFrom. These TXOs must contain at least the
+   *              necessary quantity (given by amount) of the identified Group Constructor Tokens, else an error will be
+   *              returned.
+   * @param lockPredicateFrom The Lock Predicate encumbering the txos
+   * @param amount The amount of identified Group Constructor Tokens to transfer to the recipient
+   * @param recipientLockAddress The LockAddress of the recipient
+   * @param changeLockAddress A LockAddress to send the txos that are not going to the recipient
+   * @param fee               The transaction fee. The txos must contain enough LVLs to satisfy this fee
+   * @return A transaction
+   */
+  def buildGroupTransferTransaction(
+    groupId:              GroupType,
+    txos:                 Seq[Txo],
+    lockPredicateFrom:    Lock.Predicate,
+    amount:               Long,
+    recipientLockAddress: LockAddress,
+    changeLockAddress:    LockAddress,
+    fee:                  Long
+  ): F[Either[BuilderError, IoTransaction]]
+
+  /**
+   * Builds a transaction to transfer a certain amount of Series Constructor Tokens (given by seriesId). The transaction
+   * will also transfer any other tokens that are encumbered by the same predicate as the Series Constructor Tokens to
+   * the change address.
+   *
+   * @param seriesId The Series Identifier of the Series Constructor Tokens to transfer to the recipient
+   * @param txos  All the TXOs encumbered by the Lock given by lockPredicateFrom. These TXOs must contain at least the
+   *              necessary quantity (given by amount) of the identified Series Constructor Tokens, else an error will be
+   *              returned.
+   * @param lockPredicateFrom The Lock Predicate encumbering the txos
+   * @param amount The amount of identified Series Constructor Tokens to transfer to the recipient
+   * @param recipientLockAddress The LockAddress of the recipient
+   * @param changeLockAddress A LockAddress to send the txos that are not going to the recipient
+   * @param fee               The transaction fee. The txos must contain enough LVLs to satisfy this fee
+   * @return A transaction
+   */
+  def buildSeriesTransferTransaction(
+    seriesId:             SeriesType,
+    txos:                 Seq[Txo],
+    lockPredicateFrom:    Lock.Predicate,
+    amount:               Long,
+    recipientLockAddress: LockAddress,
+    changeLockAddress:    LockAddress,
+    fee:                  Long
+  ): F[Either[BuilderError, IoTransaction]]
+
+  /**
+   * Builds a transaction to transfer a certain amount of Asset Tokens (given by groupId and/or seriesId). The
+   * transaction will also transfer any other tokens that are encumbered by the same predicate as the Asset Tokens to
+   * the change address.
+   *
+   * We currently only support assets with fungibility type GROUP_AND_SERIES.
+   *
+   * @param assetId The Asset Identifier of the Asset Tokens to transfer to the recipient.
+   * @param txos  All the TXOs encumbered by the Lock given by lockPredicateFrom. These TXOs must contain at least the
+   *              necessary quantity (given by amount) of the identified Asset Tokens, else an error will be returned.
+   * @param lockPredicateFrom The Lock Predicate encumbering the txos
+   * @param amount The amount of identified Asset Tokens to transfer to the recipient
+   * @param recipientLockAddress The LockAddress of the recipient
+   * @param changeLockAddress A LockAddress to send the txos that are not going to the recipient
+   * @param fee               The transaction fee. The txos must contain enough LVLs to satisfy this fee
+   * @return A transaction
+   */
+  def buildAssetTransferTransaction(
+    assetId:              AssetType,
+    txos:                 Seq[Txo],
+    lockPredicateFrom:    Lock.Predicate,
+    amount:               Long,
+    recipientLockAddress: LockAddress,
+    changeLockAddress:    LockAddress,
+    fee:                  Long
+  ): F[Either[BuilderError, IoTransaction]]
 
   /**
    * Builds a simple transaction to mint Group Constructor tokens.
@@ -145,6 +323,8 @@ trait TransactionBuilderApi[F[_]] {
    * The first output will be the minted asset tokens. The second output will be the group constructor tokens (since
    * they are never burned). The potential third output will be the series constructor tokens that were not burned.
    *
+   * We currently only support assets with fungibility type GROUP_AND_SERIES.
+   *
    * @param mintingStatement      The minting statement that specifies the asset to mint.
    * @param groupTxo              The TXO that corresponds to the groupTokenUtxo (in the asset minting statement) to use
    *                              as an input in this transaction. This TXO must contain group constructor tokens, else
@@ -192,89 +372,10 @@ object TransactionBuilderApi {
 
   }
 
-  case class UserInputError(message: String) extends BuilderError(message, null)
-  case class UnableToBuildTransaction(message: String, causes: List[Throwable] = List()) extends BuilderError(message)
+  case class UnableToBuildTransaction(causes: Seq[Throwable]) extends BuilderError("Failed to build transaction")
 
-  object UserInputValidations {
-
-    def txoAddressMatch(
-      testAddr:      TransactionOutputAddress,
-      expectedAddr:  TransactionOutputAddress,
-      testLabel:     String,
-      expectedLabel: String
-    ): ValidatedNec[UserInputError, Unit] =
-      Validated.condNec(testAddr == expectedAddr, (), UserInputError(s"$testLabel does not match $expectedLabel"))
-
-    def isLvls(testValue: Value.Value, testLabel: String): ValidatedNec[UserInputError, Unit] =
-      Validated.condNec(testValue.isLvl, (), UserInputError(s"$testLabel does not contain LVLs"))
-
-    def isGroup(testValue: Value.Value, testLabel: String): ValidatedNec[UserInputError, Unit] =
-      Validated.condNec(testValue.isGroup, (), UserInputError(s"$testLabel does not contain Group Constructor Tokens"))
-
-    def isSeries(testValue: Value.Value, testLabel: String): ValidatedNec[UserInputError, Unit] =
-      Validated.condNec(
-        testValue.isSeries,
-        (),
-        UserInputError(s"$testLabel does not contain Series Constructor Tokens")
-      )
-
-    def fixedSeriesMatch(
-      testValue:     Option[SeriesId],
-      expectedValue: Option[SeriesId]
-    ): ValidatedNec[UserInputError, Unit] =
-      (testValue, expectedValue) match {
-        case (Some(fixedSeries), Some(expectedSeries)) =>
-          Validated.condNec(
-            fixedSeries == expectedSeries,
-            (),
-            UserInputError(s"fixedSeries does not match provided Series ID")
-          )
-        case _ => ().validNec[UserInputError]
-      }
-
-    def inputLockMatch(
-      testAddr:      LockAddress,
-      expectedAddr:  LockAddress,
-      testLabel:     String,
-      expectedLabel: String
-    ): ValidatedNec[UserInputError, Unit] =
-      Validated.condNec(
-        testAddr == expectedAddr,
-        (),
-        UserInputError(s"$testLabel does not correspond to $expectedLabel")
-      )
-
-    def positiveQuantity(testQuantity: Option[Int128], testLabel: String): ValidatedNec[UserInputError, Unit] =
-      Validated.condNec(
-        testQuantity.isEmpty || BigInt(testQuantity.get.value.toByteArray) > BigInt(0),
-        (),
-        UserInputError(s"$testLabel must be positive")
-      )
-
-    def validMintingSupply(
-      testQuantity:   Int128,
-      seriesTokenOpt: Option[Series],
-      testLabel:      String
-    ): ValidatedNec[UserInputError, Unit] =
-      (testQuantity, seriesTokenOpt) match {
-        case (d, Some(Series(_, a, Some(tokenSupply), _, _, _))) =>
-          val desiredQ = BigInt(d.value.toByteArray)
-          val availableQ = BigInt(a.value.toByteArray)
-          if (desiredQ % tokenSupply != 0)
-            UserInputError(s"$testLabel must be a multiple of token supply").invalidNec[Unit]
-          else if (desiredQ > availableQ * tokenSupply)
-            UserInputError(s"$testLabel must be less than total token supply available.").invalidNec[Unit]
-          else ().validNec[UserInputError]
-        case _ => ().validNec[UserInputError]
-      }
-
-    def fungibilityType(testType: Option[FungibilityType]): ValidatedNec[UserInputError, Unit] =
-      Validated.condNec(
-        testType.isEmpty || testType.get == FungibilityType.GROUP_AND_SERIES,
-        (),
-        UserInputError(s"Unsupported fungibility type. We currently only support GROUP_AND_SERIES")
-      )
-  }
+  private def wrapErr(e: Throwable): BuilderError = UnableToBuildTransaction(Seq(e))
+  private def wrapErr(e: NonEmptyChain[Throwable]): BuilderError = UnableToBuildTransaction(e.toList)
 
   def make[F[_]: Monad](
     networkId: Int,
@@ -294,24 +395,10 @@ object TransactionBuilderApi {
           lvlTxos
             .foldLeft(
               BigInt(0)
-            )((acc, x) =>
-              acc + x.transactionOutput.value.value.lvl
-                .map(y => BigInt(y.quantity.value.toByteArray))
-                .getOrElse(BigInt(0))
-            )
-        datum <- datum()
-        lvlOutputForChange <- lvlOutput(
-          lockPredicateForChange,
-          Int128(
-            ByteString.copyFrom(
-              BigInt(totalValues.toLong - amount).toByteArray
-            )
-          )
-        )
-        lvlOutputForRecipient <- lvlOutput(
-          recipientLockAddress,
-          Int128(ByteString.copyFrom(BigInt(amount).toByteArray))
-        )
+            )((acc, x) => acc + x.transactionOutput.value.value.quantity)
+        datum                 <- datum()
+        lvlOutputForChange    <- lvlOutput(lockPredicateForChange, totalValues - amount)
+        lvlOutputForRecipient <- lvlOutput(recipientLockAddress, amount)
         ioTransaction = IoTransaction.defaultInstance
           .withInputs(
             lvlTxos.map(x =>
@@ -324,13 +411,136 @@ object TransactionBuilderApi {
           )
           .withOutputs(
             // If there is no change, we don't need to add it to the outputs
-            if (totalValues.toLong - amount > 0)
+            if (totalValues - amount > 0)
               Seq(lvlOutputForRecipient) :+ lvlOutputForChange
             else
               Seq(lvlOutputForRecipient)
           )
           .withDatum(datum)
       } yield ioTransaction
+
+      override def buildLvlTransferTransaction(
+        txos:                 Seq[Txo],
+        lockPredicateFrom:    Lock.Predicate,
+        amount:               Long,
+        recipientLockAddress: LockAddress,
+        changeLockAddress:    LockAddress,
+        fee:                  Long
+      ): F[Either[BuilderError, IoTransaction]] =
+        buildTransferTransaction(txos, lockPredicateFrom, amount, recipientLockAddress, changeLockAddress, LvlType, fee)
+
+      override def buildGroupTransferTransaction(
+        groupId:              GroupType,
+        txos:                 Seq[Txo],
+        lockPredicateFrom:    Lock.Predicate,
+        amount:               Long,
+        recipientLockAddress: LockAddress,
+        changeLockAddress:    LockAddress,
+        fee:                  Long
+      ): F[Either[BuilderError, IoTransaction]] =
+        buildTransferTransaction(txos, lockPredicateFrom, amount, recipientLockAddress, changeLockAddress, groupId, fee)
+
+      override def buildSeriesTransferTransaction(
+        seriesId:             SeriesType,
+        txos:                 Seq[Txo],
+        lockPredicateFrom:    Lock.Predicate,
+        amount:               Long,
+        recipientLockAddress: LockAddress,
+        changeLockAddress:    LockAddress,
+        fee:                  Long
+      ): F[Either[BuilderError, IoTransaction]] =
+        buildTransferTransaction(
+          txos,
+          lockPredicateFrom,
+          amount,
+          recipientLockAddress,
+          changeLockAddress,
+          seriesId,
+          fee
+        )
+
+      override def buildAssetTransferTransaction(
+        assetId:              AssetType,
+        txos:                 Seq[Txo],
+        lockPredicateFrom:    Lock.Predicate,
+        amount:               Long,
+        recipientLockAddress: LockAddress,
+        changeLockAddress:    LockAddress,
+        fee:                  Long
+      ): F[Either[BuilderError, IoTransaction]] =
+        buildTransferTransaction(txos, lockPredicateFrom, amount, recipientLockAddress, changeLockAddress, assetId, fee)
+
+      private def buildTransferTransaction(
+        txos:              Seq[Txo],
+        lockPredicateFrom: Lock.Predicate,
+        amount:            Long,
+        recipientLockAddr: LockAddress,
+        changeLockAddr:    LockAddress,
+        transferType:      ValueTypeIdentifier,
+        fee:               Long
+      ): F[Either[BuilderError, IoTransaction]] = (
+        for {
+          fromLockAddr <- EitherT.right(lockAddress(Lock().withPredicate(lockPredicateFrom)))
+          _ <- EitherT
+            .fromEither[F](validateTransferParams(txos, fromLockAddr, amount, transferType, fee))
+            .leftMap(wrapErr)
+          stxoAttestation <- EitherT.right(unprovenAttestation(lockPredicateFrom))
+          datum           <- EitherT.right(datum())
+          stxos           <- buildStxos(txos, stxoAttestation).leftMap(wrapErr)
+          utxos <- buildUtxos(txos, transferType, amount, recipientLockAddr, changeLockAddr, fee).leftMap(wrapErr)
+        } yield IoTransaction(inputs = stxos, outputs = utxos, datum = datum)
+      ).value
+
+      private def buildStxos(
+        txos: Seq[Txo],
+        att:  Attestation
+      ): EitherT[F, BuilderError, Seq[SpentTransactionOutput]] =
+        EitherT.rightT(txos.map(x => SpentTransactionOutput(x.outputAddress, att, x.transactionOutput.value)))
+
+      private def buildUtxos(
+        txos:             Seq[Txo],
+        transferType:     ValueTypeIdentifier,
+        amount:           Int128,
+        recipientAddress: LockAddress,
+        changeAddress:    LockAddress,
+        fee:              Long
+      ): EitherT[F, BuilderError, Seq[UnspentTransactionOutput]] = Try {
+        val groupedValuesRaw =
+          txos.map(_.transactionOutput.value.value).groupMapReduce(_.typeIdentifier)(identity)(mergeValues)
+        val groupedValues = applyFee(groupedValuesRaw, fee)
+        val transferVal = groupedValues(transferType)
+        val otherVals = (groupedValues - transferType).values.toSeq
+        val (recipientVal, changeVal) = splitValue(transferVal, amount)
+        val changeUtxos = (changeVal.toSeq ++ otherVals)
+          .map(v => UnspentTransactionOutput(changeAddress, Value.defaultInstance.withValue(v)))
+        UnspentTransactionOutput(recipientAddress, Value.defaultInstance.withValue(recipientVal)) +: changeUtxos
+      } match {
+        case Success(utxos) => EitherT.rightT(utxos)
+        case Failure(err)   => EitherT.leftT(BuilderRuntimeError("Failed to build utxos", err))
+      }
+
+      // Due to validation, if fee >0, then there must be a lvl in the txos
+      private def applyFee(
+        groupedValues: Map[ValueTypeIdentifier, BoxValue],
+        fee:           Long
+      ): Map[ValueTypeIdentifier, BoxValue] =
+        if (fee > 0) {
+          val lvlVal = groupedValues(LvlType)
+          groupedValues.updated(LvlType, lvlVal.setQuantity(lvlVal.quantity - fee))
+        } else groupedValues
+
+      // TODO: This needs to be updated when we want to support multiple fungibility types (need 2 update alloys)
+      // values assumed to be same type
+      private def mergeValues(value1: BoxValue, value2: BoxValue): BoxValue =
+        value1.setQuantity(value1.quantity + value2.quantity)
+
+      // TODO: This needs to be updated when we want to support multiple fungibility types (need 2 update alloys)
+      private def splitValue(value: BoxValue, qOut: Int128): (BoxValue, Option[BoxValue]) = {
+        def change(q:      Int128, cb: Int128 => BoxValue) = if (q > qOut) cb(q - qOut).some else None
+        def buildValues(q: Int128, cb: Int128 => BoxValue) = (cb(qOut), change(q, cb))
+
+        buildValues(value.quantity, value.setQuantity)
+      }
 
       override def buildSimpleGroupMintingTransaction(
         registrationTxo:              Txo,
@@ -341,30 +551,24 @@ object TransactionBuilderApi {
       ): F[Either[BuilderError, IoTransaction]] = (
         for {
           registrationLockAddr <- EitherT.right[BuilderError](lockAddress(Lock().withPredicate(registrationLock)))
-          _ <- EitherT.fromEither[F](
-            validateConstructorMintingParams(
-              registrationTxo,
-              registrationLockAddr,
-              groupPolicy.registrationUtxo,
-              quantityToMint
-            )
-              .leftMap[BuilderError](errs =>
-                UnableToBuildTransaction("Unable to build transaction to mint group constructor tokens", errs.toList)
+          _ <- EitherT
+            .fromEither[F](
+              validateConstructorMintingParams(
+                registrationTxo,
+                registrationLockAddr,
+                groupPolicy.registrationUtxo,
+                quantityToMint
               )
-          )
+            )
+            .leftMap(wrapErr)
           stxoAttestation <- EitherT.right[BuilderError](unprovenAttestation(registrationLock))
+          stxos           <- buildStxos(Seq(registrationTxo), stxoAttestation).leftMap(wrapErr)
           datum           <- EitherT.right[BuilderError](datum())
           utxoMinted <- EitherT.right[BuilderError](
             groupOutput(mintedConstructorLockAddress, quantityToMint, groupPolicy.computeId, groupPolicy.fixedSeries)
           )
         } yield IoTransaction(
-          inputs = Seq(
-            SpentTransactionOutput(
-              registrationTxo.outputAddress,
-              stxoAttestation,
-              registrationTxo.transactionOutput.value
-            )
-          ),
+          inputs = stxos,
           outputs = Seq(utxoMinted),
           datum = datum,
           groupPolicies = Seq(Datum.GroupPolicy(groupPolicy))
@@ -380,18 +584,18 @@ object TransactionBuilderApi {
       ): F[Either[BuilderError, IoTransaction]] = (
         for {
           registrationLockAddr <- EitherT.right[BuilderError](lockAddress(Lock().withPredicate(registrationLock)))
-          _ <- EitherT.fromEither[F](
-            validateConstructorMintingParams(
-              registrationTxo,
-              registrationLockAddr,
-              seriesPolicy.registrationUtxo,
-              quantityToMint
-            )
-              .leftMap[BuilderError](errs =>
-                UnableToBuildTransaction("Unable to build transaction to mint series constructor tokens", errs.toList)
+          _ <- EitherT
+            .fromEither[F](
+              validateConstructorMintingParams(
+                registrationTxo,
+                registrationLockAddr,
+                seriesPolicy.registrationUtxo,
+                quantityToMint
               )
-          )
+            )
+            .leftMap(wrapErr)
           stxoAttestation <- EitherT.right[BuilderError](unprovenAttestation(registrationLock))
+          stxos           <- buildStxos(Seq(registrationTxo), stxoAttestation).leftMap(wrapErr)
           datum           <- EitherT.right[BuilderError](datum())
           utxoMinted <- EitherT.right[BuilderError](
             seriesOutput(
@@ -404,13 +608,7 @@ object TransactionBuilderApi {
             )
           )
         } yield IoTransaction(
-          inputs = Seq(
-            SpentTransactionOutput(
-              registrationTxo.outputAddress,
-              stxoAttestation,
-              registrationTxo.transactionOutput.value
-            )
-          ),
+          inputs = stxos,
           outputs = Seq(utxoMinted),
           datum = datum,
           seriesPolicies = Seq(Datum.SeriesPolicy(seriesPolicy))
@@ -430,18 +628,17 @@ object TransactionBuilderApi {
         for {
           groupLockAddr  <- EitherT.right[BuilderError](lockAddress(Lock().withPredicate(groupLock)))
           seriesLockAddr <- EitherT.right[BuilderError](lockAddress(Lock().withPredicate(seriesLock)))
-          _ <- EitherT.fromEither[F](
-            validateAssetMintingParams(
-              mintingStatement,
-              groupTxo,
-              seriesTxo,
-              groupLockAddr,
-              seriesLockAddr
-            )
-              .leftMap[BuilderError](errs =>
-                UnableToBuildTransaction("Unable to build transaction to mint asset tokens", errs.toList)
+          _ <- EitherT
+            .fromEither[F](
+              validateAssetMintingParams(
+                mintingStatement,
+                groupTxo,
+                seriesTxo,
+                groupLockAddr,
+                seriesLockAddr
               )
-          )
+            )
+            .leftMap(wrapErr)
           groupAttestation  <- EitherT.right[BuilderError](unprovenAttestation(groupLock))
           seriesAttestation <- EitherT.right[BuilderError](unprovenAttestation(seriesLock))
           datum             <- EitherT.right[BuilderError](datum())
@@ -468,24 +665,15 @@ object TransactionBuilderApi {
             )
           )
           seriesOutputSeq <- {
-            val inputQuantity = BigInt(seriesToken.quantity.value.toByteArray)
+            val inputQuantity = seriesToken.quantity
             val outputQuantity: BigInt =
               if (seriesToken.tokenSupply.isEmpty) inputQuantity
-              else {
-                val toMint = BigInt(mintingStatement.quantity.value.toByteArray)
-                val supply = seriesToken.tokenSupply.get
-                val numUsed = toMint / supply
-                inputQuantity - numUsed
-              }
-            if (outputQuantity > BigInt(0))
+              else inputQuantity - (mintingStatement.quantity / seriesToken.tokenSupply.get)
+            if (outputQuantity > 0)
               EitherT.right[BuilderError](
                 seriesOutput(
                   seriesTxo.transactionOutput.address,
-                  Int128(
-                    ByteString.copyFrom(
-                      outputQuantity.toByteArray
-                    )
-                  ),
+                  outputQuantity,
                   seriesToken.seriesId,
                   seriesToken.tokenSupply,
                   seriesToken.fungibility,
@@ -514,74 +702,7 @@ object TransactionBuilderApi {
         )
       ).value
 
-      /**
-       * Validates the parameters for minting group and series constructor tokens
-       * If user parameters are invalid, return a UserInputError.
-       */
-      private def validateConstructorMintingParams(
-        registrationTxo:        Txo,
-        registrationLockAddr:   LockAddress,
-        policyRegistrationUtxo: TransactionOutputAddress,
-        quantityToMint:         Int128
-      ): Either[NonEmptyChain[UserInputError], Unit] =
-        Chain(
-          txoAddressMatch(registrationTxo.outputAddress, policyRegistrationUtxo, "registrationTxo", "registrationUtxo"),
-          isLvls(registrationTxo.transactionOutput.value.value, "registrationUtxo"),
-          inputLockMatch(
-            registrationLockAddr,
-            registrationTxo.transactionOutput.address,
-            "registrationLock",
-            "registrationTxo"
-          ),
-          positiveQuantity(quantityToMint.some, "quantityToMint")
-        ).fold.toEither
-
-      /**
-       * Validates the parameters for minting asset tokens
-       * If user parameters are invalid, return a UserInputError.
-       */
-      private def validateAssetMintingParams(
-        mintingStatement: AssetMintingStatement,
-        groupTxo:         Txo,
-        seriesTxo:        Txo,
-        groupLockAddr:    LockAddress,
-        seriesLockAddr:   LockAddress
-      ): Either[NonEmptyChain[UserInputError], Unit] =
-        Chain(
-          txoAddressMatch(groupTxo.outputAddress, mintingStatement.groupTokenUtxo, "groupTxo", "groupTokenUtxo"),
-          txoAddressMatch(seriesTxo.outputAddress, mintingStatement.seriesTokenUtxo, "seriesTxo", "seriesTokenUtxo"),
-          isGroup(groupTxo.transactionOutput.value.value, "groupTxo"),
-          isSeries(seriesTxo.transactionOutput.value.value, "seriesTxo"),
-          inputLockMatch(
-            groupLockAddr,
-            groupTxo.transactionOutput.address,
-            "groupLock",
-            "groupTxo"
-          ),
-          inputLockMatch(
-            seriesLockAddr,
-            seriesTxo.transactionOutput.address,
-            "seriesLock",
-            "seriesTxo"
-          ),
-          positiveQuantity(mintingStatement.quantity.some, "quantity to mint"),
-          positiveQuantity(
-            seriesTxo.transactionOutput.value.value.series.map(_.quantity),
-            "quantity of input series constructor tokens"
-          ),
-          validMintingSupply(
-            mintingStatement.quantity,
-            seriesTxo.transactionOutput.value.value.series,
-            "quantity to mint"
-          ),
-          fixedSeriesMatch(
-            groupTxo.transactionOutput.value.value.group.flatMap(_.fixedSeries),
-            seriesTxo.transactionOutput.value.value.series.map(_.seriesId)
-          ),
-          fungibilityType(seriesTxo.transactionOutput.value.value.series.map(_.fungibility))
-        ).fold.toEither
-
-      private def groupOutput(
+      override def groupOutput(
         lockAddress: LockAddress,
         quantity:    Int128,
         groupId:     GroupId,
@@ -594,7 +715,7 @@ object TransactionBuilderApi {
           )
         ).pure[F]
 
-      private def seriesOutput(
+      override def seriesOutput(
         lockAddress:        LockAddress,
         quantity:           Int128,
         seriesId:           SeriesId,
@@ -615,7 +736,7 @@ object TransactionBuilderApi {
           )
         ).pure[F]
 
-      private def assetOutput(
+      override def assetOutput(
         lockAddress:            LockAddress,
         quantity:               Int128,
         groupId:                GroupId,
