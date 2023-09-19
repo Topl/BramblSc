@@ -3,7 +3,7 @@ package co.topl.brambl.validation
 import cats.Applicative
 import cats.implicits._
 import cats.data.{Chain, NonEmptyChain, Validated, ValidatedNec}
-import co.topl.brambl.models.box.{AssetMintingStatement, Attestation, Lock, Value}
+import co.topl.brambl.models.box.{AssetMintingStatement, Attestation, FungibilityType, Lock, Value}
 import co.topl.brambl.models.transaction.IoTransaction
 import co.topl.brambl.validation.algebras.TransactionSyntaxVerifier
 import co.topl.brambl.common.ContainsImmutable.ContainsImmutableTOps
@@ -257,12 +257,14 @@ object TransactionSyntaxInterpreter {
         .headOption
 
     val mintedAsset = transaction.mintingStatements.map { stm =>
+      val series = seriesGivenMintedStatements(stm)
       Value.defaultInstance
         .withAsset(
           Value.Asset(
             groupId = groupGivenMintedStatements(stm).map(_.groupId),
-            seriesId = seriesGivenMintedStatements(stm).map(_.seriesId),
-            quantity = stm.quantity
+            seriesId = series.map(_.seriesId),
+            quantity = stm.quantity,
+            fungibility = series.map(_.fungibility).getOrElse(FungibilityType.GROUP_AND_SERIES)
           )
         )
         .value
