@@ -3,12 +3,11 @@ package co.topl.brambl.validation
 import cats.Applicative
 import cats.implicits._
 import cats.data.{Chain, NonEmptyChain, Validated, ValidatedNec}
-import co.topl.brambl.models.box.{Lock, Value}
+import co.topl.brambl.models.box.{AssetMintingStatement, Attestation, Lock, Value}
 import co.topl.brambl.models.transaction.IoTransaction
 import co.topl.brambl.validation.algebras.TransactionSyntaxVerifier
 import co.topl.brambl.common.ContainsImmutable.ContainsImmutableTOps
 import co.topl.brambl.common.ContainsImmutable.instances._
-import co.topl.brambl.models.box.Attestation
 import co.topl.brambl.syntax._
 import quivr.models.{Int128, Proof, Proposition}
 import scala.util.Try
@@ -243,27 +242,31 @@ object TransactionSyntaxInterpreter {
     val inputAssets =
       transaction.inputs.filter(_.value.value.isAsset).map(_.value.value)
 
-    val groupIdsOnMintedStatements =
+    def groupGivenMintedStatements(stm: AssetMintingStatement) =
       transaction.inputs
+        .filter(_.address == stm.groupTokenUtxo)
         .filter(_.value.value.isGroup)
-        .filter(sto => transaction.mintingStatements.map(_.groupTokenUtxo).contains(sto.address))
-        .map(_.value.getGroup.groupId)
+        .map(_.value.getGroup)
+        .headOption
 
-    val seriesIdsOnMintedStatements =
+    def seriesGivenMintedStatements(mintedAsset: AssetMintingStatement) =
       transaction.inputs
+        .filter(_.address == mintedAsset.seriesTokenUtxo)
         .filter(_.value.value.isSeries)
-        .filter(sto => transaction.mintingStatements.map(_.seriesTokenUtxo).contains(sto.address))
-        .map(_.value.getSeries.seriesId)
+        .map(_.value.getSeries)
+        .headOption
 
-    val mintedAsset = transaction.outputs
-      .filter(_.value.value.isAsset)
-      .filter(utxo =>
-        utxo.value.getAsset.groupId.isDefined &&
-        utxo.value.getAsset.seriesId.isDefined &&
-        groupIdsOnMintedStatements.contains(utxo.value.getAsset.groupId.get) &&
-        seriesIdsOnMintedStatements.contains(utxo.value.getAsset.seriesId.get)
-      )
-      .map(_.value.value)
+    val mintedAsset = transaction.mintingStatements.map { stm =>
+      Value.defaultInstance
+        .withAsset(
+          Value.Asset(
+            groupId = groupGivenMintedStatements(stm).map(_.groupId),
+            seriesId = seriesGivenMintedStatements(stm).map(_.seriesId),
+            quantity = stm.quantity
+          )
+        )
+        .value
+    }
 
     val totalInputAssets =
       Try {
