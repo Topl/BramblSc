@@ -327,10 +327,11 @@ object TransactionSyntaxInterpreter {
 
   private def mintingInputsProjection(transaction: IoTransaction): Seq[SpentTransactionOutput] =
     transaction.inputs.filter { stxo =>
-      (stxo.value.value.isLvl && transaction.groupPolicies.exists(_.event.registrationUtxo == stxo.address)) ||
-      (stxo.value.value.isLvl && transaction.seriesPolicies.exists(_.event.registrationUtxo == stxo.address)) ||
-      !stxo.value.value.isTopl ||
-      !stxo.value.value.isAsset
+      !stxo.value.value.isTopl &&
+      !stxo.value.value.isAsset &&
+      (!stxo.value.value.isLvl || (transaction.groupPolicies.exists(
+        _.event.registrationUtxo == stxo.address
+      ) || transaction.seriesPolicies.exists(_.event.registrationUtxo == stxo.address)))
     }
 
   private def mintingOutputsProjection(transaction: IoTransaction): Seq[UnspentTransactionOutput] = {
@@ -347,17 +348,17 @@ object TransactionSyntaxInterpreter {
         .map(_.value.getSeries.seriesId)
 
     transaction.outputs.filter { utxo =>
-      !utxo.value.value.isLvl ||
-      !utxo.value.value.isTopl ||
-      (utxo.value.value.isGroup && transaction.groupPolicies
+      !utxo.value.value.isLvl &&
+      !utxo.value.value.isTopl &&
+      (!utxo.value.value.isGroup || transaction.groupPolicies
         .map(_.event.computeId)
-        .contains(utxo.value.getGroup.groupId)) ||
-      (utxo.value.value.isSeries && transaction.seriesPolicies
+        .contains(utxo.value.getGroup.groupId)) &&
+      (!utxo.value.value.isSeries || transaction.seriesPolicies
         .map(_.event.computeId)
-        .contains(utxo.value.getSeries.seriesId)) ||
-      (utxo.value.value.isAsset &&
-      utxo.value.getAsset.groupId.exists(groupIdsOnMintedStatements.contains) &&
-      utxo.value.getAsset.seriesId.exists(seriesIdsOnMintedStatements.contains))
+        .contains(utxo.value.getSeries.seriesId)) &&
+      (!utxo.value.value.isAsset || (utxo.value.getAsset.groupId.exists(
+        groupIdsOnMintedStatements.contains
+      ) && utxo.value.getAsset.seriesId.exists(seriesIdsOnMintedStatements.contains)))
     }
   }
 
