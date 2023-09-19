@@ -239,8 +239,8 @@ object TransactionSyntaxInterpreter {
    * @return
    */
   private def assetEqualFundsValidation(transaction: IoTransaction): ValidatedNec[TransactionSyntaxError, Unit] = {
-    val inputAssets =
-      transaction.inputs.filter(_.value.value.isAsset).map(_.value.value)
+    val inputAssets = transaction.inputs.filter(_.value.value.isAsset).map(_.value.value)
+    val outputAssets = transaction.outputs.filter(_.value.value.isAsset).map(_.value.value)
 
     def groupGivenMintedStatements(stm: AssetMintingStatement) =
       transaction.inputs
@@ -270,33 +270,27 @@ object TransactionSyntaxInterpreter {
         .value
     }
 
-    val totalInputAssets =
+    def tupleAndGroup(s: Seq[Value.Value]): Try[Map[ValueTypeIdentifier, BigInt]] =
       Try {
-        (inputAssets ++ mintedAsset)
-          .map(value => (value.typeIdentifier, value.quantity: BigInt))
+        s.map(value => (value.typeIdentifier, value.quantity: BigInt))
           .groupBy(_._1)
           .view
           .mapValues(_.map(_._2).sum)
           .toMap
       }
 
-    val totalOutputAssets =
-      Try {
-        transaction.outputs
-          .filter(_.value.value.isAsset)
-          .map(_.value.value)
-          .map(value => (value.typeIdentifier, value.quantity: BigInt))
-          .groupBy(_._1)
-          .view
-          .mapValues(_.map(_._2).sum)
-          .toMap
-      }
+    val res = for {
+      input  <- tupleAndGroup(inputAssets).toEither
+      minted <- tupleAndGroup(mintedAsset).toEither
+      output <- tupleAndGroup(outputAssets).toEither
+      keySetResult = input.keySet ++ minted.keySet == output.keySet
+      compareResult = output.keySet.forall(k =>
+        input.getOrElse(k, 0: BigInt) + minted.getOrElse(k, 0) == output.getOrElse(k, 0)
+      )
+    } yield (keySetResult && compareResult)
 
     Validated.condNec(
-      totalInputAssets.isSuccess &&
-      totalOutputAssets.isSuccess &&
-      totalInputAssets.get.keySet == totalOutputAssets.get.keySet &&
-      totalInputAssets.get.keySet.forall(key => totalInputAssets.get(key) == totalOutputAssets.get(key)),
+      res.map(_ == true).getOrElse(false),
       (),
       TransactionSyntaxError.InsufficientInputFunds(
         transaction.inputs.map(_.value.value).toList,
