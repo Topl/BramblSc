@@ -11,6 +11,7 @@ import co.topl.brambl.common.ContainsImmutable.instances._
 import co.topl.brambl.models.box.Attestation
 import co.topl.brambl.syntax._
 import quivr.models.{Int128, Proof, Proposition}
+import scala.util.Try
 
 object TransactionSyntaxInterpreter {
 
@@ -240,11 +241,8 @@ object TransactionSyntaxInterpreter {
    * @return
    */
   private def assetEqualFundsValidation(transaction: IoTransaction): ValidatedNec[TransactionSyntaxError, Unit] = {
-
-    import co.topl.brambl.common.OrderInstances.instances._
-
     val inputAssets =
-      transaction.inputs.filter(_.value.value.isAsset).map(_.value.getAsset)
+      transaction.inputs.filter(_.value.value.isAsset).map(_.value.value)
 
     val groupIdsOnMintedStatements =
       transaction.inputs
@@ -260,35 +258,41 @@ object TransactionSyntaxInterpreter {
 
     val mintedAsset = transaction.outputs
       .filter(_.value.value.isAsset)
-      .map(_.value.getAsset)
-      .filter(asset =>
-        asset.groupId.isDefined &&
-        asset.seriesId.isDefined &&
-        groupIdsOnMintedStatements.contains(asset.groupId.get) &&
-        seriesIdsOnMintedStatements.contains(asset.seriesId.get)
+      .filter(utxo =>
+        utxo.value.getAsset.groupId.isDefined &&
+        utxo.value.getAsset.seriesId.isDefined &&
+        groupIdsOnMintedStatements.contains(utxo.value.getAsset.groupId.get) &&
+        seriesIdsOnMintedStatements.contains(utxo.value.getAsset.seriesId.get)
       )
+      .map(_.value.value)
 
     val totalInputAssets =
-      (inputAssets ++ mintedAsset)
-        .map(a => (a.id, BigInt(a.quantity.value.toByteArray)))
-        .groupBy(_._1)
-        .view
-        .mapValues(_.map(_._2).sum)
-        .toSeq
-        .sorted
+      Try {
+        (inputAssets ++ mintedAsset)
+          .map(value => (value.typeIdentifier, value.quantity: BigInt))
+          .groupBy(_._1)
+          .view
+          .mapValues(_.map(_._2).sum)
+          .toMap
+      }
 
-    val totalOutputAssets = transaction.outputs
-      .filter(_.value.value.isAsset)
-      .map(_.value.getAsset)
-      .map(a => (a.id, BigInt(a.quantity.value.toByteArray)))
-      .groupBy(_._1)
-      .view
-      .mapValues(_.map(_._2).sum)
-      .toSeq
-      .sorted
+    val totalOutputAssets =
+      Try {
+        transaction.outputs
+          .filter(_.value.value.isAsset)
+          .map(_.value.value)
+          .map(value => (value.typeIdentifier, value.quantity: BigInt))
+          .groupBy(_._1)
+          .view
+          .mapValues(_.map(_._2).sum)
+          .toMap
+      }
 
     Validated.condNec(
-      totalInputAssets == totalOutputAssets,
+      totalInputAssets.isSuccess &&
+      totalOutputAssets.isSuccess &&
+      totalInputAssets.get.keySet == totalOutputAssets.get.keySet &&
+      totalInputAssets.get.keySet.forall(key => totalInputAssets.get(key) == totalOutputAssets.get(key)),
       (),
       TransactionSyntaxError.InsufficientInputFunds(
         transaction.inputs.map(_.value.value).toList,
