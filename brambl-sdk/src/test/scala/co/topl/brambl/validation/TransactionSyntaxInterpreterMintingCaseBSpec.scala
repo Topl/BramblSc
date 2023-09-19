@@ -12,7 +12,7 @@ import scala.language.implicitConversions
 /**
  * Test to coverage this specific syntax validation:
  *  - Validations only for minting, After projection  (only if for all inputs and outputs isMint == true)
- *    Case 1: Group
+ *    Case 2: Series
  *  - policy is attached to transaction
  *  - at least 1 series token is minted
  *  - reference in policy contains LVLs (> 0)
