@@ -6,4 +6,5 @@ package object syntax
     with TransactionSyntax
     with GroupPolicySyntax
     with SeriesPolicySyntax
-    with AssetIdSyntax {}
+    with BoxValueSyntax
+    with Int128Syntax {}

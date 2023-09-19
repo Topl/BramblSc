@@ -6,9 +6,7 @@ import co.topl.brambl.MockHelpers
 import co.topl.brambl.models.box.{AssetMintingStatement, Value}
 import co.topl.brambl.models.transaction.{SpentTransactionOutput, UnspentTransactionOutput}
 import co.topl.brambl.models.{Event, TransactionOutputAddress}
-import co.topl.brambl.syntax.{groupPolicyAsGroupPolicySyntaxOps, seriesPolicyAsSeriesPolicySyntaxOps}
-import com.google.protobuf.ByteString
-import quivr.models.Int128
+import co.topl.brambl.syntax._
 import scala.language.implicitConversions
 
 /**
@@ -19,7 +17,6 @@ class TransactionSyntaxInterpreterRuleBSpec extends munit.FunSuite with MockHelp
 
   private val txoAddress_1 = TransactionOutputAddress(1, 0, 0, dummyTxIdentifier)
   private val txoAddress_2 = TransactionOutputAddress(2, 0, 0, dummyTxIdentifier)
-  private val txoAddress_3 = TransactionOutputAddress(3, 0, 0, dummyTxIdentifier)
 
   /**
    * In this case there 2 validations that are failing;
@@ -33,7 +30,7 @@ class TransactionSyntaxInterpreterRuleBSpec extends munit.FunSuite with MockHelp
       Value.defaultInstance.withGroup(
         Value.Group(
           groupId = groupPolicy.computeId,
-          quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+          quantity = BigInt(1)
         )
       )
 
@@ -41,7 +38,7 @@ class TransactionSyntaxInterpreterRuleBSpec extends munit.FunSuite with MockHelp
       Value.defaultInstance.withSeries(
         Value.Series(
           seriesId = seriesPolicy.computeId,
-          quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+          quantity = BigInt(1)
         )
       )
 
@@ -50,7 +47,7 @@ class TransactionSyntaxInterpreterRuleBSpec extends munit.FunSuite with MockHelp
         Value.Asset(
           groupId = Some(groupPolicy.computeId),
           seriesId = Some(seriesPolicy.computeId),
-          quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+          quantity = BigInt(1)
         )
       )
 
@@ -63,7 +60,7 @@ class TransactionSyntaxInterpreterRuleBSpec extends munit.FunSuite with MockHelp
     val mintingStatement_1 = AssetMintingStatement(
       groupTokenUtxo = txoAddress_1,
       seriesTokenUtxo = txoAddress_1,
-      quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+      quantity = BigInt(1)
     )
 
     val testTx = txFull.copy(
@@ -97,7 +94,7 @@ class TransactionSyntaxInterpreterRuleBSpec extends munit.FunSuite with MockHelp
       Value.defaultInstance.withGroup(
         Value.Group(
           groupId = groupPolicy.computeId,
-          quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+          quantity = BigInt(1)
         )
       )
 
@@ -105,7 +102,7 @@ class TransactionSyntaxInterpreterRuleBSpec extends munit.FunSuite with MockHelp
       Value.defaultInstance.withSeries(
         Value.Series(
           seriesId = seriesPolicy.computeId,
-          quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+          quantity = BigInt(1)
         )
       )
 
@@ -114,7 +111,7 @@ class TransactionSyntaxInterpreterRuleBSpec extends munit.FunSuite with MockHelp
         Value.Asset(
           groupId = Some(groupPolicy.computeId),
           seriesId = Some(seriesPolicy.computeId),
-          quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+          quantity = BigInt(1)
         )
       )
 
@@ -126,7 +123,7 @@ class TransactionSyntaxInterpreterRuleBSpec extends munit.FunSuite with MockHelp
     val mintingStatement_1 = AssetMintingStatement(
       groupTokenUtxo = txoAddress_1,
       seriesTokenUtxo = txoAddress_1,
-      quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+      quantity = BigInt(1)
     )
 
     val testTx = txFull.copy(
@@ -160,7 +157,7 @@ class TransactionSyntaxInterpreterRuleBSpec extends munit.FunSuite with MockHelp
       Value.defaultInstance.withGroup(
         Value.Group(
           groupId = groupPolicy.computeId,
-          quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+          quantity = BigInt(1)
         )
       )
 
@@ -168,7 +165,7 @@ class TransactionSyntaxInterpreterRuleBSpec extends munit.FunSuite with MockHelp
       Value.defaultInstance.withSeries(
         Value.Series(
           seriesId = seriesPolicy.computeId,
-          quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+          quantity = BigInt(1)
         )
       )
 
@@ -177,7 +174,7 @@ class TransactionSyntaxInterpreterRuleBSpec extends munit.FunSuite with MockHelp
         Value.Asset(
           groupId = Some(groupPolicy.computeId),
           seriesId = Some(seriesPolicy.computeId),
-          quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+          quantity = BigInt(1)
         )
       )
 
@@ -189,13 +186,13 @@ class TransactionSyntaxInterpreterRuleBSpec extends munit.FunSuite with MockHelp
     val mintingStatement_1 = AssetMintingStatement(
       groupTokenUtxo = txoAddress_1,
       seriesTokenUtxo = txoAddress_2,
-      quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+      quantity = BigInt(1)
     )
 
     val mintingStatement_2 = AssetMintingStatement(
       groupTokenUtxo = txoAddress_1,
       seriesTokenUtxo = txoAddress_2,
-      quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
+      quantity = BigInt(1)
     )
 
     val testTx = txFull.copy(
