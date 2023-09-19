@@ -240,9 +240,6 @@ object TransactionSyntaxInterpreter {
    * @return
    */
   private def assetEqualFundsValidation(transaction: IoTransaction): ValidatedNec[TransactionSyntaxError, Unit] = {
-
-    import co.topl.brambl.common.OrderInstances.instances._
-
     val inputAssets =
       transaction.inputs.filter(_.value.value.isAsset).map(_.value.value)
 
@@ -275,8 +272,7 @@ object TransactionSyntaxInterpreter {
           .groupBy(_._1)
           .view
           .mapValues(_.map(_._2).sum)
-          .toSeq
-          .sorted
+          .toMap
       }
 
     val totalOutputAssets =
@@ -288,14 +284,14 @@ object TransactionSyntaxInterpreter {
           .groupBy(_._1)
           .view
           .mapValues(_.map(_._2).sum)
-          .toSeq
-          .sorted
+          .toMap
       }
 
     Validated.condNec(
       totalInputAssets.isSuccess &&
       totalOutputAssets.isSuccess &&
-      totalInputAssets.get == totalOutputAssets.get,
+      totalInputAssets.get.keySet == totalOutputAssets.get.keySet &&
+      totalInputAssets.get.keySet.forall(key => totalInputAssets.get(key) == totalOutputAssets.get(key)),
       (),
       TransactionSyntaxError.InsufficientInputFunds(
         transaction.inputs.map(_.value.value).toList,
