@@ -134,8 +134,8 @@ object UserInputValidations {
   def identifierFungibilityType(testType: ValueTypeIdentifier): ValidatedNec[UserInputError, Unit] =
     Validated.condNec(
       testType match {
-        case GroupFungible(_, _) | SeriesFungible(_, _) => false
-        case _                                          => true
+        case GroupFungible(_, _, _) | SeriesFungible(_, _, _) => false
+        case _                                                => true
       },
       (),
       UserInputError(s"Unsupported fungibility type. We currently only support GROUP_AND_SERIES")
