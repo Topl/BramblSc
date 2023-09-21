@@ -11,6 +11,8 @@ import co.topl.brambl.syntax.{
   longAsInt128,
   valueToQuantitySyntaxOps,
   valueToTypeIdentifierSyntaxOps,
+  AggregateIdentifier,
+  AggregateType,
   GroupFungible,
   LvlType,
   SeriesFungible,
@@ -123,6 +125,23 @@ object UserInputValidations {
       UserInputError(s"Not enough LVLs in input to satisfy fee")
     )
 
+  // TODO: Finish implementing
+  // if agg type is immutable: then
+  // hmm undefined case: If 2 inputs with same type identity, immtable q=1, immutable q=2, we want to transfer only 1 of them
+  def validTransferQuantityDescriptors(
+    aggregateType: AggregateIdentifier,
+    testValues:    Seq[Value]
+  ): ValidatedNec[UserInputError, Unit] = ??? // {
+//    val groupedValues = testValues.groupBy(_.typeIdentifier.aggregateIdentifier)
+//    val toTransfer = groupedValues.get(aggregateType).map(_.map(_.quantity).sum).getOrElse(0)
+//    Validated.condNec(
+//      testValues.filter(_.isLvl).map(_.quantity: BigInt).sum >= fee + transferRequirements,
+//      (),
+//      UserInputError(s"Not enough LVLs in input to satisfy fee")
+//    )
+//  }
+
+  // TODO: Remove these
   // The following two validations are temporary until we support all fungibility types
   def fungibilityType(testType: Option[FungibilityType]): ValidatedNec[UserInputError, Unit] =
     Validated.condNec(
@@ -167,6 +186,7 @@ object UserInputValidations {
         identifierFungibilityType(transferIdentifier),
         allValidFungibilityTypes(allValues),
         validFee(fee, allValues, if (transferIdentifier == LvlType) amount else 0)
+//        validTransferQuantityDescriptors(transferIdentifier.aggregateIdentifier, transferValues)
       ).fold.toEither
     } match {
       case Success(value) => value

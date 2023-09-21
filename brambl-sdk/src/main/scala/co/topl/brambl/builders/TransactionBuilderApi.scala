@@ -35,6 +35,7 @@ import co.topl.brambl.syntax.{
   seriesPolicyAsSeriesPolicySyntaxOps,
   valueToQuantitySyntaxOps,
   valueToTypeIdentifierSyntaxOps,
+  AggregateIdentifier,
   AssetType,
   GroupType,
   LvlType,
@@ -487,7 +488,8 @@ object TransactionBuilderApi {
           stxoAttestation <- EitherT.right(unprovenAttestation(lockPredicateFrom))
           datum           <- EitherT.right(datum())
           stxos           <- buildStxos(txos, stxoAttestation).leftMap(wrapErr)
-          utxos <- buildUtxos(txos, transferType, amount, recipientLockAddr, changeLockAddr, fee).leftMap(wrapErr)
+          utxos <- buildUtxos(txos, transferType.aggregateIdentifier, amount, recipientLockAddr, changeLockAddr, fee)
+            .leftMap(wrapErr)
         } yield IoTransaction(inputs = stxos, outputs = utxos, datum = datum)
       ).value
 
@@ -499,21 +501,23 @@ object TransactionBuilderApi {
 
       private def buildUtxos(
         txos:             Seq[Txo],
-        transferType:     ValueTypeIdentifier,
+        transferType:     AggregateIdentifier,
         amount:           Int128,
         recipientAddress: LockAddress,
         changeAddress:    LockAddress,
         fee:              Long
       ): EitherT[F, BuilderError, Seq[UnspentTransactionOutput]] = Try {
-        val groupedValuesRaw =
-          txos.map(_.transactionOutput.value.value).groupMapReduce(_.typeIdentifier)(identity)(aggregateValues)
-        val groupedValues = applyFee(groupedValuesRaw, fee)
-        val transferVal = groupedValues(transferType)
-        val otherVals = (groupedValues - transferType).values.toSeq
-        val (recipientVal, changeVal) = deaggregateValue(transferVal, amount)
-        val changeUtxos = (changeVal.toSeq ++ otherVals)
-          .map(v => UnspentTransactionOutput(changeAddress, Value.defaultInstance.withValue(v)))
-        UnspentTransactionOutput(recipientAddress, Value.defaultInstance.withValue(recipientVal)) +: changeUtxos
+        val aggregatedValuesRaw =
+          txos.map(_.transactionOutput.value.value).groupMapReduce(_.typeIdentifier.aggregateIdentifier)(identity) {
+            // Per grouping, v1&v2 are guaranteed to have the same AggregateIdentifier thus are able to combine quantities
+            (v1, v2) => v1.setQuantity(v1.quantity + v2.quantity)
+          }
+        val aggregatedValues = applyFee(aggregatedValuesRaw, fee)
+        val otherVals = (aggregatedValues - transferType).values.toSeq
+        val transferVal = aggregatedValues(transferType)
+        val changeVal = buildChange(transferVal, transferVal.quantity - amount).toSeq
+        UnspentTransactionOutput(recipientAddress, Value.defaultInstance.withValue(transferVal.setQuantity(amount))) +:
+        (changeVal ++ otherVals).map(v => UnspentTransactionOutput(changeAddress, Value.defaultInstance.withValue(v)))
       } match {
         case Success(utxos) => EitherT.rightT(utxos)
         case Failure(err)   => EitherT.leftT(BuilderRuntimeError("Failed to build utxos", err))
@@ -521,26 +525,19 @@ object TransactionBuilderApi {
 
       // Due to validation, if fee >0, then there must be a lvl in the txos
       private def applyFee(
-        groupedValues: Map[ValueTypeIdentifier, BoxValue],
+        groupedValues: Map[AggregateIdentifier, BoxValue],
         fee:           Long
-      ): Map[ValueTypeIdentifier, BoxValue] =
+      ): Map[AggregateIdentifier, BoxValue] =
         if (fee > 0) {
-          val lvlVal = groupedValues(LvlType)
-          groupedValues.updated(LvlType, lvlVal.setQuantity(lvlVal.quantity - fee))
+          val lvlVal = groupedValues(LvlType.aggregateIdentifier)
+          groupedValues.updated(LvlType.aggregateIdentifier, lvlVal.setQuantity(lvlVal.quantity - fee))
         } else groupedValues
 
-      // TODO: This needs to be updated to check quantityDescriptor
-      // values assumed to be same type
-      private def aggregateValues(value1: BoxValue, value2: BoxValue): BoxValue =
-        value1.setQuantity(value1.quantity + value2.quantity)
-
-      // TODO: This needs to be updated to check quantityDescriptor
-      private def deaggregateValue(value: BoxValue, qOut: Int128): (BoxValue, Option[BoxValue]) = {
-        def change(q:      Int128, cb: Int128 => BoxValue) = if (q > qOut) cb(q - qOut).some else None
-        def buildValues(q: Int128, cb: Int128 => BoxValue) = (cb(qOut), change(q, cb))
-
-        buildValues(value.quantity, value.setQuantity)
-      }
+      // We cannot split an IMMUTABLE or ACCUMULATOR quantity type, but due to user validation, if inValue is one of
+      // those 2 types, then changeQuantity must be 0.
+      private def buildChange(inValue: BoxValue, changeQuantity: Int128): Option[BoxValue] =
+        // User validation guarantees that the following will return None for IMMUTABLE or ACCUMULATOR quantity type
+        if (changeQuantity > 0) inValue.setQuantity(changeQuantity).some else None
 
       override def buildSimpleGroupMintingTransaction(
         registrationTxo:              Txo,
@@ -745,32 +742,15 @@ object TransactionBuilderApi {
         quantityDescriptorType: QuantityDescriptorType,
         metadata:               Option[Struct],
         commitment:             Option[ByteString]
-      ): F[UnspentTransactionOutput] = {
-        val groupSeriesValues = fungibilityType match {
-          case FungibilityType.GROUP_AND_SERIES => (groupId.some, seriesId.some, None, None)
-          case FungibilityType.SERIES =>
-            (
-              None,
-              seriesId.some,
-              merkleRootFromBlake2bEvidence(groupIdentifierImmutable).sizedEvidence(List(groupId)).digest.value.some,
-              None
-            )
-          case FungibilityType.GROUP =>
-            (
-              groupId.some,
-              None,
-              None,
-              merkleRootFromBlake2bEvidence(seriesIdValueImmutable).sizedEvidence(List(seriesId)).digest.value.some
-            )
-        }
+      ): F[UnspentTransactionOutput] =
         UnspentTransactionOutput(
           lockAddress,
           Value.defaultInstance.withAsset(
             Value.Asset(
-              groupId = groupSeriesValues._1,
-              seriesId = groupSeriesValues._2,
-              groupAlloy = groupSeriesValues._3,
-              seriesAlloy = groupSeriesValues._4,
+              groupId = groupId.some,
+              seriesId = seriesId.some,
+              groupAlloy = None,
+              seriesAlloy = None,
               quantity = quantity,
               fungibility = fungibilityType,
               quantityDescriptor = quantityDescriptorType,
@@ -779,7 +759,6 @@ object TransactionBuilderApi {
             )
           )
         ).pure[F]
-      }
 
       override def lvlOutput(
         lockAddress: LockAddress,

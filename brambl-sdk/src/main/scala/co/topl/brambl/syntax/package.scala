@@ -7,5 +7,7 @@ package object syntax
     with GroupPolicySyntax
     with SeriesPolicySyntax
     with BoxValueSyntax
+    with TokenTypeIdentifierSyntax
+    with TokenAggregateIdentifierSyntax
     with QuantityDescriptorSyntax
     with Int128Syntax {}

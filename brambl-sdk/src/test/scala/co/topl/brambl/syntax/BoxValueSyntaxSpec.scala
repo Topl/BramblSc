@@ -94,15 +94,15 @@ class BoxValueSyntaxSpec extends munit.FunSuite with MockHelpers {
   )
 
   test("typeIdentifier grouping") {
-    val testMap = mockValues.groupBy(_.value.typeIdentifier)
+    val testMap = mockValues.groupBy(_.value.typeIdentifier.aggregateIdentifier)
     val expectedMap = Map(
-      value.value.typeIdentifier               -> Seq(value, value.copy()),
-      groupValue.value.typeIdentifier          -> Seq(groupValue, groupValue.copy()),
-      groupValueAlt.value.typeIdentifier       -> Seq(groupValueAlt),
-      seriesValue.value.typeIdentifier         -> Seq(seriesValue, seriesValue.copy()),
-      seriesValueAlt.value.typeIdentifier      -> Seq(seriesValueAlt),
-      assetGroupSeries.value.typeIdentifier    -> Seq(assetGroupSeries, assetGroupSeries.copy()),
-      assetGroupSeriesAlt.value.typeIdentifier -> Seq(assetGroupSeriesAlt)
+      value.value.typeIdentifier.aggregateIdentifier               -> Seq(value, value.copy()),
+      groupValue.value.typeIdentifier.aggregateIdentifier          -> Seq(groupValue, groupValue.copy()),
+      groupValueAlt.value.typeIdentifier.aggregateIdentifier       -> Seq(groupValueAlt),
+      seriesValue.value.typeIdentifier.aggregateIdentifier         -> Seq(seriesValue, seriesValue.copy()),
+      seriesValueAlt.value.typeIdentifier.aggregateIdentifier      -> Seq(seriesValueAlt),
+      assetGroupSeries.value.typeIdentifier.aggregateIdentifier    -> Seq(assetGroupSeries, assetGroupSeries.copy()),
+      assetGroupSeriesAlt.value.typeIdentifier.aggregateIdentifier -> Seq(assetGroupSeriesAlt)
     )
     assertEquals(testMap, expectedMap)
   }
