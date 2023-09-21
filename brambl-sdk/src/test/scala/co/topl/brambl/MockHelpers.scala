@@ -206,11 +206,11 @@ trait MockHelpers {
   )
 
   val assetGroup: Value = Value.defaultInstance.withAsset(
-    Value.Asset(mockGroupPolicy.computeId.some, None, quantity, None, None, GROUP)
+    Value.Asset(mockGroupPolicy.computeId.some, mockSeriesPolicy.computeId.some, quantity, None, None, GROUP)
   )
 
   val assetSeries: Value = Value.defaultInstance.withAsset(
-    Value.Asset(None, mockSeriesPolicy.computeId.some, quantity, None, None, SERIES)
+    Value.Asset(mockGroupPolicy.computeId.some, mockSeriesPolicy.computeId.some, quantity, None, None, SERIES)
   )
 
   object ExpectedLockedProposition {

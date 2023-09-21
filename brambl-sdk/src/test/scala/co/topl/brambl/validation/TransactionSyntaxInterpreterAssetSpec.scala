@@ -65,6 +65,7 @@ class TransactionSyntaxInterpreterAssetSpec extends munit.FunSuite with MockHelp
         Value.Asset(
           quantity = BigInt(1),
           groupId = Some(groupPolicy.computeId),
+          seriesId = Some(mockSeriesPolicy.computeId),
           fungibility = FungibilityType.GROUP
         )
       )
@@ -74,6 +75,7 @@ class TransactionSyntaxInterpreterAssetSpec extends munit.FunSuite with MockHelp
         Value.Asset(
           quantity = BigInt(1),
           groupId = Some(groupPolicy.computeId),
+          seriesId = Some(mockSeriesPolicy.computeId),
           fungibility = FungibilityType.GROUP
         )
       )
@@ -282,6 +284,7 @@ class TransactionSyntaxInterpreterAssetSpec extends munit.FunSuite with MockHelp
       Value.defaultInstance.withAsset(
         Value.Asset(
           groupId = Some(groupPolicy.computeId),
+          seriesId = Some(mockSeriesPolicy.computeId),
           quantity = BigInt(1),
           fungibility = FungibilityType.GROUP
         )
@@ -291,6 +294,7 @@ class TransactionSyntaxInterpreterAssetSpec extends munit.FunSuite with MockHelp
       Value.defaultInstance.withAsset(
         Value.Asset(
           groupId = Some(groupPolicy.computeId),
+          seriesId = Some(mockSeriesPolicy.computeId),
           quantity = BigInt(1),
           fungibility = FungibilityType.GROUP
         )

@@ -506,11 +506,11 @@ object TransactionBuilderApi {
         fee:              Long
       ): EitherT[F, BuilderError, Seq[UnspentTransactionOutput]] = Try {
         val groupedValuesRaw =
-          txos.map(_.transactionOutput.value.value).groupMapReduce(_.typeIdentifier)(identity)(mergeValues)
+          txos.map(_.transactionOutput.value.value).groupMapReduce(_.typeIdentifier)(identity)(aggregateValues)
         val groupedValues = applyFee(groupedValuesRaw, fee)
         val transferVal = groupedValues(transferType)
         val otherVals = (groupedValues - transferType).values.toSeq
-        val (recipientVal, changeVal) = splitValue(transferVal, amount)
+        val (recipientVal, changeVal) = deaggregateValue(transferVal, amount)
         val changeUtxos = (changeVal.toSeq ++ otherVals)
           .map(v => UnspentTransactionOutput(changeAddress, Value.defaultInstance.withValue(v)))
         UnspentTransactionOutput(recipientAddress, Value.defaultInstance.withValue(recipientVal)) +: changeUtxos
@@ -529,13 +529,13 @@ object TransactionBuilderApi {
           groupedValues.updated(LvlType, lvlVal.setQuantity(lvlVal.quantity - fee))
         } else groupedValues
 
-      // TODO: This needs to be updated when we want to support multiple fungibility types (need 2 update alloys)
+      // TODO: This needs to be updated to check quantityDescriptor
       // values assumed to be same type
-      private def mergeValues(value1: BoxValue, value2: BoxValue): BoxValue =
+      private def aggregateValues(value1: BoxValue, value2: BoxValue): BoxValue =
         value1.setQuantity(value1.quantity + value2.quantity)
 
-      // TODO: This needs to be updated when we want to support multiple fungibility types (need 2 update alloys)
-      private def splitValue(value: BoxValue, qOut: Int128): (BoxValue, Option[BoxValue]) = {
+      // TODO: This needs to be updated to check quantityDescriptor
+      private def deaggregateValue(value: BoxValue, qOut: Int128): (BoxValue, Option[BoxValue]) = {
         def change(q:      Int128, cb: Int128 => BoxValue) = if (q > qOut) cb(q - qOut).some else None
         def buildValues(q: Int128, cb: Int128 => BoxValue) = (cb(qOut), change(q, cb))
 
