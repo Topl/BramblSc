@@ -361,6 +361,52 @@ object TransactionSyntaxInterpreter {
     }
   }
 
+  /**
+   * asset minting statement (ams) attached for each asset a attached to transaction
+   * @param transaction  a projected minting transaction,
+   * @return
+   */
+  private def mintingAssetValidatorStep1(transaction: IoTransaction): Boolean = {
+    val assets: Seq[Value.Asset] = transaction.outputs.filter(_.value.value.isAsset).map(_.value.getAsset)
+    assets.forall { a =>
+      val groupResult =
+        if (a.groupId.isDefined) {
+          transaction.mintingStatements.exists { ams =>
+            transaction.inputs.exists { sto =>
+              ams.groupTokenUtxo == sto.address &&
+              sto.value.value.isGroup &&
+              sto.value.getGroup.groupId == a.groupId.get
+            }
+          }
+        } else if (a.groupAlloy.isDefined) {
+          true // TODO
+        } else {
+          true
+        }
+
+      val seriesResult =
+        if (a.seriesId.isDefined) {
+          transaction.mintingStatements.exists { ams =>
+            transaction.inputs.exists { sto =>
+              ams.seriesTokenUtxo == sto.address &&
+              sto.value.value.isSeries &&
+              sto.value.getSeries.seriesId == a.seriesId.get
+            }
+          }
+        } else if (a.seriesAlloy.isDefined) {
+          true // TODO
+        } else {
+          true
+        }
+
+      println("groupResult")
+      println(groupResult)
+      println("seriesResult")
+      println(seriesResult)
+      groupResult && seriesResult
+    }
+  }
+
   private def mintingValidation(transaction: IoTransaction) = {
     val projectedTransaction = transaction
       .withInputs(mintingInputsProjection(transaction))
@@ -368,7 +414,7 @@ object TransactionSyntaxInterpreter {
 
     val groups = projectedTransaction.outputs.filter(_.value.value.isGroup).map(_.value.getGroup)
     val series = projectedTransaction.outputs.filter(_.value.value.isSeries).map(_.value.getSeries)
-    val assets = projectedTransaction.outputs.filter(_.value.value.isAsset).map(_.value.getAsset)
+    val assets: Seq[Value.Asset] = projectedTransaction.outputs.filter(_.value.value.isAsset).map(_.value.getAsset)
 
     def registrationInPolicyContainsLvls(registrationUtxo: TransactionOutputAddress): Boolean =
       projectedTransaction.inputs.exists { stxo =>
@@ -393,7 +439,8 @@ object TransactionSyntaxInterpreter {
       }
     }
 
-    val validAssets: Boolean = true // TODO
+    val validAssets: Boolean =
+      mintingAssetValidatorStep1(projectedTransaction)
 
     Validated.condNec(
       validGroups && validSeries && validAssets,
