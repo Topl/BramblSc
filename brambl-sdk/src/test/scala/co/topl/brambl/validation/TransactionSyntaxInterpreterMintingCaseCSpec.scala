@@ -76,7 +76,7 @@ class TransactionSyntaxInterpreterMintingCaseCSpec extends munit.FunSuite with M
 
   }
 
-  test("Valid data-input case 1, minting a Asset Token Limited".only) {
+  test("Valid data-input case 1, minting a Asset Token Limited") {
     val groupPolicy = Event.GroupPolicy(label = "policyG", registrationUtxo = txoAddress_1)
     val seriesPolicy =
       Event.SeriesPolicy(label = "seriesLabelB", registrationUtxo = txoAddress_2, tokenSupply = Some(10))
@@ -143,7 +143,7 @@ class TransactionSyntaxInterpreterMintingCaseCSpec extends munit.FunSuite with M
 
   }
 
-  test("Valid data-input case 2, minting a Asset Token Limited".only) {
+  test("Valid data-input case 2, minting a Asset Token Limited") {
     val groupPolicy = Event.GroupPolicy(label = "policyG", registrationUtxo = txoAddress_1)
     val seriesPolicy =
       Event.SeriesPolicy(label = "seriesLabelB", registrationUtxo = txoAddress_2, tokenSupply = Some(10))
@@ -210,7 +210,7 @@ class TransactionSyntaxInterpreterMintingCaseCSpec extends munit.FunSuite with M
 
   }
 
-  test("Valid data-input case 3, minting a Asset Token Limited".only) {
+  test("Valid data-input case 3, minting a Asset Token Limited") {
     val groupPolicy = Event.GroupPolicy(label = "policyG", registrationUtxo = txoAddress_1)
     val seriesPolicy =
       Event.SeriesPolicy(label = "seriesLabelB", registrationUtxo = txoAddress_2, tokenSupply = Some(10))
@@ -278,7 +278,7 @@ class TransactionSyntaxInterpreterMintingCaseCSpec extends munit.FunSuite with M
 
   }
 
-  test("Valid data-input case 4, minting a Asset Token Limited".only) {
+  test("Valid data-input case 4, minting a Asset Token Limited") {
     val groupPolicy = Event.GroupPolicy(label = "policyG", registrationUtxo = txoAddress_1)
     val seriesPolicy =
       Event.SeriesPolicy(label = "seriesLabelB", registrationUtxo = txoAddress_2, tokenSupply = Some(10))
@@ -349,7 +349,7 @@ class TransactionSyntaxInterpreterMintingCaseCSpec extends munit.FunSuite with M
    * TODO I will keep test 5, but is wrong, because It should be handle in Transfer Series validation
    * - here we burn the series, in the output there should be no instances of Series
    */
-  test("Valid data-input case 5, minting a Asset Token Limited".only) {
+  test("Valid data-input case 5, minting a Asset Token Limited") {
     val groupPolicy = Event.GroupPolicy(label = "policyG", registrationUtxo = txoAddress_1)
     val seriesPolicy =
       Event.SeriesPolicy(label = "seriesLabelB", registrationUtxo = txoAddress_2, tokenSupply = Some(10))
@@ -428,7 +428,7 @@ class TransactionSyntaxInterpreterMintingCaseCSpec extends munit.FunSuite with M
 
   }
 
-  test("Invalid data-input case 1, minting a Asset Token Limited".only) {
+  test("Invalid data-input case 1, minting a Asset Token Limited") {
     val groupPolicy = Event.GroupPolicy(label = "policyG", registrationUtxo = txoAddress_1)
     val seriesPolicy =
       Event.SeriesPolicy(label = "seriesLabelB", registrationUtxo = txoAddress_2, tokenSupply = Some(10))
@@ -494,7 +494,7 @@ class TransactionSyntaxInterpreterMintingCaseCSpec extends munit.FunSuite with M
 
   }
 
-  test("Invalid data-input case 2, minting a Asset Token Limited".only) {
+  test("Invalid data-input case 2, minting a Asset Token Limited") {
     val groupPolicy = Event.GroupPolicy(label = "policyG", registrationUtxo = txoAddress_1)
     val seriesPolicy =
       Event.SeriesPolicy(label = "seriesLabelB", registrationUtxo = txoAddress_2, tokenSupply = Some(10))
