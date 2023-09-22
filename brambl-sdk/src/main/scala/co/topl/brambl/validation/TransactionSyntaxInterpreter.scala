@@ -5,7 +5,7 @@ import cats.data.{Chain, NonEmptyChain, Validated, ValidatedNec}
 import cats.implicits._
 import co.topl.brambl.common.ContainsImmutable.ContainsImmutableTOps
 import co.topl.brambl.common.ContainsImmutable.instances._
-import co.topl.brambl.models.TransactionOutputAddress
+import co.topl.brambl.models.{SeriesId, TransactionOutputAddress}
 import co.topl.brambl.models.box._
 import co.topl.brambl.models.transaction.{IoTransaction, SpentTransactionOutput, UnspentTransactionOutput}
 import co.topl.brambl.syntax._
@@ -393,7 +393,26 @@ object TransactionSyntaxInterpreter {
       }
     }
 
-    val validAssets: Boolean = true // TODO
+    def seriesIdOnMintedStatements(a: Value.Asset): Option[Value.Series] =
+      transaction.inputs
+        .filter(_.value.value.isSeries)
+        .filter(sto =>
+          transaction.mintingStatements.map(_.seriesTokenUtxo).contains(sto.address) &&
+          a.seriesId.contains(sto.value.getSeries.seriesId)
+        )
+        .map(_.value.getSeries)
+        .headOption
+
+    val validAssets = assets.forall { a =>
+      a.seriesId.isDefined &&
+      seriesIdOnMintedStatements(a).exists(s =>
+        s.tokenSupply match {
+          case Some(tokenSupplied) =>
+            (s.quantity: BigInt) * (tokenSupplied: BigInt) % (a.quantity: BigInt) == 0
+          case None => true
+        }
+      )
+    }
 
     Validated.condNec(
       validGroups && validSeries && validAssets,
