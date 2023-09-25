@@ -5,8 +5,10 @@ import co.topl.brambl.models.box.{Attestation, Box, Challenge, FungibilityType, 
 import co.topl.brambl.models.common.ImmutableBytes
 import co.topl.brambl.models.transaction._
 import co.topl.consensus.models._
+import co.topl.node.models.Ratio
 import co.topl.quivr.Tokens
 import com.google.protobuf.ByteString
+import com.google.protobuf.duration.Duration
 import com.google.protobuf.struct.Struct
 import quivr.models._
 import quivr.models.VerificationKey._
@@ -126,12 +128,13 @@ object ContainsImmutable {
       box.value.immutable
 
     implicit val valueImmutable: ContainsImmutable[Value] = _.value match {
-      case Value.Value.Lvl(v)    => v.immutable
-      case Value.Value.Topl(v)   => v.immutable
-      case Value.Value.Asset(v)  => v.immutable
-      case Value.Value.Group(v)  => v.immutable
-      case Value.Value.Series(v) => v.immutable
-      case Value.Value.Empty     => Array[Byte](0).immutable
+      case Value.Value.Lvl(v)            => v.immutable
+      case Value.Value.Topl(v)           => v.immutable
+      case Value.Value.Asset(v)          => v.immutable
+      case Value.Value.Group(v)          => v.immutable
+      case Value.Value.Series(v)         => v.immutable
+      case Value.Value.UpdateProposal(v) => v.immutable
+      case Value.Value.Empty             => Array[Byte](0).immutable
     }
 
     implicit val evidenceImmutable: ContainsImmutable[Evidence] =
@@ -217,6 +220,28 @@ object ContainsImmutable {
       group.groupId.immutable ++
       group.quantity.immutable ++
       group.fixedSeries.immutable
+
+    implicit val ratioImmutable: ContainsImmutable[Ratio] = (ratio: Ratio) =>
+      ratio.numerator.value.immutable ++
+      ratio.denominator.value.immutable
+
+    implicit val durationImmutable: ContainsImmutable[Duration] = (duration: Duration) =>
+      duration.seconds.immutable ++
+      duration.nanos.immutable
+
+    implicit val updateProposalImmutable: ContainsImmutable[Value.UpdateProposal] = (up: Value.UpdateProposal) =>
+      up.label.immutable ++
+      up.fEffective.immutable ++
+      up.vrfLddCutoff.immutable ++
+      up.vrfPrecision.immutable ++
+      up.vrfBaselineDifficulty.immutable ++
+      up.vrfAmplitude.immutable ++
+      up.chainSelectionKLookback.immutable ++
+      up.slotDuration.immutable ++
+      up.forwardBiasedSlotWindow.immutable ++
+      up.operationalPeriodsPerEpoch.immutable ++
+      up.kesKeyHours.immutable ++
+      up.kesKeyMinutes.immutable
 
     implicit val signatureKesSumImmutable: ContainsImmutable[co.topl.consensus.models.SignatureKesSum] =
       v =>
