@@ -408,7 +408,10 @@ object TransactionSyntaxInterpreter {
       seriesIdOnMintedStatements(a).exists(s =>
         s.tokenSupply match {
           case Some(tokenSupplied) =>
-            (s.quantity: BigInt) * (tokenSupplied: BigInt) % (a.quantity: BigInt) == 0
+            // Is minted quantity a multiple of token supply?
+            (a.quantity: BigInt) % (tokenSupplied: BigInt) == 0 &&
+            // Is there enough series supply to mint asset quantity?
+            (s.quantity: BigInt) * (tokenSupplied: BigInt) >= (a.quantity: BigInt)
           case None => true
         }
       )
