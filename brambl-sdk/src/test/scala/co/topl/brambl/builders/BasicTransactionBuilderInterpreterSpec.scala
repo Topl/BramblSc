@@ -1,25 +1,15 @@
 package co.topl.brambl.builders
 
-import cats.Id
-import co.topl.brambl.MockHelpers
+import co.topl.brambl.models.box.FungibilityType.GROUP_AND_SERIES
+import co.topl.brambl.models.box.QuantityDescriptorType.LIQUID
 import co.topl.brambl.models.box.Value
 import co.topl.brambl.models.transaction.UnspentTransactionOutput
-import com.google.protobuf.ByteString
-import quivr.models.Int128
 import co.topl.brambl.syntax.{
-  assetAsBoxVal,
   bigIntAsInt128,
-  groupAsBoxVal,
   groupPolicyAsGroupPolicySyntaxOps,
   int128AsBigInt,
   ioTransactionAsTransactionSyntaxOps,
-  seriesAsBoxVal,
-  seriesPolicyAsSeriesPolicySyntaxOps,
-  valueToQuantitySyntaxOps,
-  GroupAndSeriesFungible,
-  GroupFungible,
-  GroupType,
-  SeriesType
+  seriesPolicyAsSeriesPolicySyntaxOps
 }
 
 class BasicTransactionBuilderInterpreterSpec extends TransactionBuilderInterpreterSpecBase {
@@ -85,5 +75,33 @@ class BasicTransactionBuilderInterpreterSpec extends TransactionBuilderInterpret
     assert(txBuilder.unprovenAttestation(inPredicateLockFull) == attFull)
   }
 
-  // TODO: Add TAMv2 Output tests
+  test("groupOutput") {
+    assertEquals(
+      txBuilder.groupOutput(trivialLockAddress, quantity, mockGroupPolicy.computeId, None),
+      UnspentTransactionOutput(trivialLockAddress, groupValue)
+    )
+  }
+
+  test("seriesOutput") {
+    assertEquals(
+      txBuilder.seriesOutput(trivialLockAddress, quantity, mockSeriesPolicy.computeId, None, GROUP_AND_SERIES, LIQUID),
+      UnspentTransactionOutput(trivialLockAddress, seriesValue)
+    )
+  }
+
+  test("assetOutput") {
+    assertEquals(
+      txBuilder.assetOutput(
+        trivialLockAddress,
+        quantity,
+        mockGroupPolicy.computeId,
+        mockSeriesPolicy.computeId,
+        GROUP_AND_SERIES,
+        LIQUID,
+        None,
+        None
+      ),
+      UnspentTransactionOutput(trivialLockAddress, assetGroupSeries)
+    )
+  }
 }
