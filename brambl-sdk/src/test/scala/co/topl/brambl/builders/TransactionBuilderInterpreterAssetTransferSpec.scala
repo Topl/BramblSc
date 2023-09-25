@@ -15,7 +15,8 @@ import co.topl.brambl.syntax.{
   seriesPolicyAsSeriesPolicySyntaxOps,
   valueToQuantitySyntaxOps,
   GroupAndSeriesFungible,
-  GroupFungible
+  GroupFungible,
+  SeriesFungible
 }
 
 class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderInterpreterSpecBase {
@@ -74,54 +75,6 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
     )
   }
 
-  // TODO: Update since we are supporting Group and Series fungibility
-  test("buildAssetTransferTransaction > a txo is an asset with unsupported fungibility".fail) {
-    val testTx = txBuilder.buildAssetTransferTransaction(
-      GroupAndSeriesFungible(
-        mockGroupPolicy.computeId,
-        mockSeriesPolicy.computeId,
-        mockSeriesPolicy.quantityDescriptor
-      ),
-      mockTxos :+ valToTxo(assetGroup),
-      inPredicateLockFull,
-      1,
-      inLockFullAddress,
-      trivialLockAddress,
-      0
-    )
-    assertEquals(
-      testTx,
-      Left(
-        UnableToBuildTransaction(
-          Seq(
-            UserInputError(
-              s"All asset tokens must have valid fungibility type. We currently only support GROUP_AND_SERIES"
-            )
-          )
-        )
-      )
-    )
-  }
-
-  // TODO: Update since we are supporting Group and Series fungibility
-  test("buildAssetTransferTransaction > Asset type identifier is of unsupported fungibility".fail) {
-    val testTx = txBuilder.buildAssetTransferTransaction(
-      GroupFungible(mockGroupPolicy.computeId, mockSeriesPolicy.computeId.value, mockSeriesPolicy.quantityDescriptor),
-      mockTxos,
-      inPredicateLockFull,
-      1,
-      inLockFullAddress,
-      trivialLockAddress,
-      0
-    )
-    assert(
-      testTx.left.toOption.get
-        .asInstanceOf[UnableToBuildTransaction]
-        .causes
-        .contains(UserInputError("Unsupported fungibility type. We currently only support GROUP_AND_SERIES"))
-    )
-  }
-
   test("buildAssetTransferTransaction > non sufficient funds") {
     val testTx = txBuilder.buildAssetTransferTransaction(
       GroupAndSeriesFungible(
@@ -170,7 +123,7 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
     )
   }
 
-  test("buildAssetTransferTransaction > [complex] duplicate inputs are merged and split correctly") {
+  test("buildAssetTransferTransaction > [complex, GROUP_AND_SERIES] duplicate inputs are merged and split correctly") {
     val testTx = txBuilder.buildAssetTransferTransaction(
       GroupAndSeriesFungible(
         mockGroupPolicy.computeId,
@@ -206,6 +159,146 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
             trivialLockAddress,
             assetGroupSeries.copy(
               assetGroupSeries.getAsset.copy(mockGroupPolicyAlt.computeId.some, mockSeriesPolicyAlt.computeId.some)
+            )
+          ),
+          UnspentTransactionOutput(trivialLockAddress, assetGroup.copy(assetGroup.value.setQuantity(quantity * 2))),
+          UnspentTransactionOutput(
+            trivialLockAddress,
+            assetGroup.copy(
+              assetGroup.getAsset.copy(mockGroupPolicyAlt.computeId.some, mockSeriesPolicyAlt.computeId.some)
+            )
+          ),
+          UnspentTransactionOutput(trivialLockAddress, assetSeries.copy(assetSeries.value.setQuantity(quantity * 2))),
+          UnspentTransactionOutput(
+            trivialLockAddress,
+            assetSeries.copy(
+              assetSeries.getAsset.copy(mockGroupPolicyAlt.computeId.some, mockSeriesPolicyAlt.computeId.some)
+            )
+          )
+        )
+      )
+    assertEquals(
+      sortedTx(testTx.toOption.get).computeId,
+      sortedTx(expectedTx).computeId
+    )
+  }
+
+  test("buildAssetTransferTransaction > [complex, GROUP] duplicate inputs are merged and split correctly") {
+    val testTx = txBuilder.buildAssetTransferTransaction(
+      GroupFungible(
+        mockGroupPolicy.computeId,
+        mockSeriesPolicy.computeId.value,
+        mockSeriesPolicy.quantityDescriptor
+      ),
+      mockTxos,
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress,
+      1
+    )
+    val expectedTx = IoTransaction.defaultInstance
+      .withDatum(txDatum)
+      .withInputs(mockTxos.map(txo => SpentTransactionOutput(txo.outputAddress, attFull, txo.transactionOutput.value)))
+      .withOutputs(
+        List(
+          UnspentTransactionOutput(inLockFullAddress, assetGroup), // recipient
+          UnspentTransactionOutput(
+            trivialLockAddress,
+            assetGroupSeries.copy(assetGroupSeries.value.setQuantity(quantity * 2))
+          ),
+          UnspentTransactionOutput(trivialLockAddress, value),
+          UnspentTransactionOutput(trivialLockAddress, groupValue.copy(groupValue.value.setQuantity(quantity * 2))),
+          UnspentTransactionOutput(
+            trivialLockAddress,
+            groupValue.copy(groupValue.getGroup.withGroupId(mockGroupPolicyAlt.computeId))
+          ),
+          UnspentTransactionOutput(trivialLockAddress, seriesValue.copy(seriesValue.value.setQuantity(quantity * 2))),
+          UnspentTransactionOutput(
+            trivialLockAddress,
+            seriesValue.copy(seriesValue.getSeries.withSeriesId(mockSeriesPolicyAlt.computeId))
+          ),
+          UnspentTransactionOutput(
+            trivialLockAddress,
+            assetGroupSeries.copy(
+              assetGroupSeries.getAsset.copy(mockGroupPolicyAlt.computeId.some, mockSeriesPolicyAlt.computeId.some)
+            )
+          ),
+          UnspentTransactionOutput(trivialLockAddress, assetGroup),
+          UnspentTransactionOutput(
+            trivialLockAddress,
+            assetGroup.copy(
+              assetGroup.getAsset.copy(mockGroupPolicyAlt.computeId.some, mockSeriesPolicyAlt.computeId.some)
+            )
+          ),
+          UnspentTransactionOutput(trivialLockAddress, assetSeries.copy(assetSeries.value.setQuantity(quantity * 2))),
+          UnspentTransactionOutput(
+            trivialLockAddress,
+            assetSeries.copy(
+              assetSeries.getAsset.copy(mockGroupPolicyAlt.computeId.some, mockSeriesPolicyAlt.computeId.some)
+            )
+          )
+        )
+      )
+    assertEquals(
+      sortedTx(testTx.toOption.get).computeId,
+      sortedTx(expectedTx).computeId
+    )
+  }
+
+  test("buildAssetTransferTransaction > [complex, SERIES] duplicate inputs are merged and split correctly") {
+    val testTx = txBuilder.buildAssetTransferTransaction(
+      SeriesFungible(
+        mockSeriesPolicy.computeId,
+        mockGroupPolicy.computeId.value,
+        mockSeriesPolicy.quantityDescriptor
+      ),
+      mockTxos,
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress,
+      1
+    )
+    val expectedTx = IoTransaction.defaultInstance
+      .withDatum(txDatum)
+      .withInputs(mockTxos.map(txo => SpentTransactionOutput(txo.outputAddress, attFull, txo.transactionOutput.value)))
+      .withOutputs(
+        List(
+          UnspentTransactionOutput(inLockFullAddress, assetSeries), // recipient
+          UnspentTransactionOutput(
+            trivialLockAddress,
+            assetGroupSeries.copy(assetGroupSeries.value.setQuantity(quantity * 2))
+          ),
+          UnspentTransactionOutput(trivialLockAddress, value),
+          UnspentTransactionOutput(trivialLockAddress, groupValue.copy(groupValue.value.setQuantity(quantity * 2))),
+          UnspentTransactionOutput(
+            trivialLockAddress,
+            groupValue.copy(groupValue.getGroup.withGroupId(mockGroupPolicyAlt.computeId))
+          ),
+          UnspentTransactionOutput(trivialLockAddress, seriesValue.copy(seriesValue.value.setQuantity(quantity * 2))),
+          UnspentTransactionOutput(
+            trivialLockAddress,
+            seriesValue.copy(seriesValue.getSeries.withSeriesId(mockSeriesPolicyAlt.computeId))
+          ),
+          UnspentTransactionOutput(
+            trivialLockAddress,
+            assetGroupSeries.copy(
+              assetGroupSeries.getAsset.copy(mockGroupPolicyAlt.computeId.some, mockSeriesPolicyAlt.computeId.some)
+            )
+          ),
+          UnspentTransactionOutput(trivialLockAddress, assetGroup.copy(assetGroup.value.setQuantity(quantity * 2))),
+          UnspentTransactionOutput(
+            trivialLockAddress,
+            assetGroup.copy(
+              assetGroup.getAsset.copy(mockGroupPolicyAlt.computeId.some, mockSeriesPolicyAlt.computeId.some)
+            )
+          ),
+          UnspentTransactionOutput(trivialLockAddress, assetSeries),
+          UnspentTransactionOutput(
+            trivialLockAddress,
+            assetSeries.copy(
+              assetSeries.getAsset.copy(mockGroupPolicyAlt.computeId.some, mockSeriesPolicyAlt.computeId.some)
             )
           )
         )

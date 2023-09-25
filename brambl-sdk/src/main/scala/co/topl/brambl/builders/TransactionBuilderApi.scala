@@ -248,7 +248,7 @@ trait TransactionBuilderApi[F[_]] {
    * transaction will also transfer any other tokens that are encumbered by the same predicate as the Asset Tokens to
    * the change address.
    *
-   * We currently only support assets with fungibility type GROUP_AND_SERIES.
+   * We currently only support assets with quantity descriptor type LIQUID.
    *
    * @param assetId The Asset Identifier of the Asset Tokens to transfer to the recipient.
    * @param txos  All the TXOs encumbered by the Lock given by lockPredicateFrom. These TXOs must contain at least the
@@ -324,7 +324,7 @@ trait TransactionBuilderApi[F[_]] {
    * The first output will be the minted asset tokens. The second output will be the group constructor tokens (since
    * they are never burned). The potential third output will be the series constructor tokens that were not burned.
    *
-   * We currently only support assets with fungibility type GROUP_AND_SERIES.
+   * We currently only support assets with quantity descriptor type LIQUID.
    *
    * @param mintingStatement      The minting statement that specifies the asset to mint.
    * @param groupTxo              The TXO that corresponds to the groupTokenUtxo (in the asset minting statement) to use

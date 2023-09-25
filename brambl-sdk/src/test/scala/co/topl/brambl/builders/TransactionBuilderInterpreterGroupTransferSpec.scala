@@ -61,31 +61,6 @@ class TransactionBuilderInterpreterGroupTransferSpec extends TransactionBuilderI
     )
   }
 
-  // TODO: Update since we are supporting Group and Series fungibility
-  test("buildGroupTransferTransaction > a txo is an asset with unsupported fungibility".fail) {
-    val testTx = txBuilder.buildGroupTransferTransaction(
-      GroupType(mockGroupPolicy.computeId),
-      mockTxos :+ valToTxo(assetGroup),
-      inPredicateLockFull,
-      1,
-      inLockFullAddress,
-      trivialLockAddress,
-      0
-    )
-    assertEquals(
-      testTx,
-      Left(
-        UnableToBuildTransaction(
-          Seq(
-            UserInputError(
-              s"All asset tokens must have valid fungibility type. We currently only support GROUP_AND_SERIES"
-            )
-          )
-        )
-      )
-    )
-  }
-
   test("buildGroupTransferTransaction > non sufficient funds") {
     val testTx = txBuilder.buildGroupTransferTransaction(
       GroupType(mockGroupPolicy.computeId),
@@ -161,6 +136,20 @@ class TransactionBuilderInterpreterGroupTransferSpec extends TransactionBuilderI
             trivialLockAddress,
             assetGroupSeries.copy(
               assetGroupSeries.getAsset.copy(mockGroupPolicyAlt.computeId.some, mockSeriesPolicyAlt.computeId.some)
+            )
+          ),
+          UnspentTransactionOutput(trivialLockAddress, assetGroup.copy(assetGroup.value.setQuantity(quantity * 2))),
+          UnspentTransactionOutput(
+            trivialLockAddress,
+            assetGroup.copy(
+              assetGroup.getAsset.copy(mockGroupPolicyAlt.computeId.some, mockSeriesPolicyAlt.computeId.some)
+            )
+          ),
+          UnspentTransactionOutput(trivialLockAddress, assetSeries.copy(assetSeries.value.setQuantity(quantity * 2))),
+          UnspentTransactionOutput(
+            trivialLockAddress,
+            assetSeries.copy(
+              assetSeries.getAsset.copy(mockGroupPolicyAlt.computeId.some, mockSeriesPolicyAlt.computeId.some)
             )
           )
         )

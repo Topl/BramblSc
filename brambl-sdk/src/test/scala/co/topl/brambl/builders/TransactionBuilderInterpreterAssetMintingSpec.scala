@@ -192,7 +192,7 @@ class TransactionBuilderInterpreterAssetMintingSpec extends TransactionBuilderIn
     assert(txRes.isRight && txRes.toOption.get.computeId == expectedTx.computeId)
   }
 
-  test("buildSimpleAssetMintingTransaction > success, group and series fungible (IDs set, alloys unset)") {
+  test("buildSimpleAssetMintingTransaction > success, group and series fungible") {
     val quantity = Int128(ByteString.copyFrom(BigInt(10).toByteArray))
 
     val seriesAddr = dummyTxoAddress.copy(index = 1)
@@ -237,8 +237,7 @@ class TransactionBuilderInterpreterAssetMintingSpec extends TransactionBuilderIn
     assert(txRes.isRight && txRes.toOption.get.computeId == expectedTx.computeId)
   }
 
-  // TODO: Update since we are supporting Group and Series fungibility
-  test("buildSimpleAssetMintingTransaction > fail, group fungible (currently not supported)".fail) {
+  test("buildSimpleAssetMintingTransaction > success, group fungible") {
     val quantity = Int128(ByteString.copyFrom(BigInt(10).toByteArray))
 
     val seriesAddr = dummyTxoAddress.copy(index = 1)
@@ -259,18 +258,29 @@ class TransactionBuilderInterpreterAssetMintingSpec extends TransactionBuilderIn
 
     val testTx = txBuilder
       .buildSimpleAssetMintingTransaction(statement, groupTxo, seriesTxo, groupLock, seriesLock, outAddr, None, None)
-    assertEquals(
-      testTx,
-      Left(
-        UnableToBuildTransaction(
-          Seq(UserInputError(s"Unsupported fungibility type. We currently only support GROUP_AND_SERIES"))
+    val mintedValue = Value.defaultInstance.withAsset(
+      Value.Asset(mockGroupPolicy.computeId.some, mockSeriesPolicy.computeId.some, quantity, None, None, GROUP)
+    )
+    val expectedTx = IoTransaction.defaultInstance
+      .withDatum(txDatum)
+      .withMintingStatements(Seq(statement))
+      .withInputs(
+        List(
+          SpentTransactionOutput(groupAddr, attFull, groupValue),
+          SpentTransactionOutput(seriesAddr, attFull, seriesValue)
         )
       )
-    )
+      .withOutputs(
+        List(
+          UnspentTransactionOutput(inLockFullAddress, seriesValue),
+          UnspentTransactionOutput(trivialLockAddress, mintedValue),
+          UnspentTransactionOutput(inLockFullAddress, groupValue)
+        )
+      )
+    assert(testTx.isRight && testTx.toOption.get.computeId == expectedTx.computeId)
   }
 
-  // TODO: Update since we are supporting Group and Series fungibility
-  test("buildSimpleAssetMintingTransaction > success, series fungible (currently not supported)".fail) {
+  test("buildSimpleAssetMintingTransaction > success, series fungible") {
     val quantity = Int128(ByteString.copyFrom(BigInt(10).toByteArray))
 
     val seriesAddr = dummyTxoAddress.copy(index = 1)
@@ -291,14 +301,26 @@ class TransactionBuilderInterpreterAssetMintingSpec extends TransactionBuilderIn
 
     val testTx = txBuilder
       .buildSimpleAssetMintingTransaction(statement, groupTxo, seriesTxo, groupLock, seriesLock, outAddr, None, None)
-    assertEquals(
-      testTx,
-      Left(
-        UnableToBuildTransaction(
-          Seq(UserInputError(s"Unsupported fungibility type. We currently only support GROUP_AND_SERIES"))
+    val mintedValue = Value.defaultInstance.withAsset(
+      Value.Asset(mockGroupPolicy.computeId.some, mockSeriesPolicy.computeId.some, quantity, None, None, SERIES)
+    )
+    val expectedTx = IoTransaction.defaultInstance
+      .withDatum(txDatum)
+      .withMintingStatements(Seq(statement))
+      .withInputs(
+        List(
+          SpentTransactionOutput(groupAddr, attFull, groupValue),
+          SpentTransactionOutput(seriesAddr, attFull, seriesValue)
         )
       )
-    )
+      .withOutputs(
+        List(
+          UnspentTransactionOutput(inLockFullAddress, seriesValue),
+          UnspentTransactionOutput(trivialLockAddress, mintedValue),
+          UnspentTransactionOutput(inLockFullAddress, groupValue)
+        )
+      )
+    assert(testTx.isRight && testTx.toOption.get.computeId == expectedTx.computeId)
   }
 
   test("buildSimpleAssetMintingTransaction > success, fixedSeries provided") {

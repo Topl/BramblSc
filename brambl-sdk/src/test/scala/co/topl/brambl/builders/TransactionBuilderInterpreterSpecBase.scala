@@ -25,8 +25,9 @@ trait TransactionBuilderInterpreterSpecBase extends munit.FunSuite with MockHelp
   def valToTxo(value: Value, lockAddr: LockAddress = inLockFullAddress): Txo =
     Txo(UnspentTransactionOutput(lockAddr, value), UNSPENT, dummyTxoAddress)
 
-  def sortedTx(tx: IoTransaction): IoTransaction =
-    tx.withOutputs(tx.outputs.sortBy(_.value.immutable.value.toByteArray.mkString))
+  def sortedTx(tx: IoTransaction): IoTransaction = tx
+    .withOutputs(tx.outputs.sortBy(_.value.immutable.value.toByteArray.mkString))
+    .withInputs(tx.inputs.sortBy(_.value.immutable.value.toByteArray.mkString))
 
   val mockSeriesPolicyAlt: SeriesPolicy = SeriesPolicy("Mock Series Policy", None, dummyTxoAddress.copy(index = 44))
   val mockGroupPolicyAlt: GroupPolicy = GroupPolicy("Mock Group Policy", dummyTxoAddress.copy(index = 55))
@@ -47,6 +48,22 @@ trait TransactionBuilderInterpreterSpecBase extends munit.FunSuite with MockHelp
         groupId = mockGroupPolicyAlt.computeId.some,
         seriesId = mockSeriesPolicyAlt.computeId.some
       )
-    ) // diff group and series
+    ), // diff group and series
+    assetGroup,
+    assetGroup.copy(),
+    assetGroup.copy(
+      assetGroup.getAsset.copy(
+        groupId = mockGroupPolicyAlt.computeId.some,
+        seriesId = mockSeriesPolicyAlt.computeId.some
+      )
+    ), // diff group
+    assetSeries,
+    assetSeries.copy(),
+    assetSeries.copy(
+      assetSeries.getAsset.copy(
+        groupId = mockGroupPolicyAlt.computeId.some,
+        seriesId = mockSeriesPolicyAlt.computeId.some
+      )
+    ) // diff series
   ).map(valToTxo(_))
 }
