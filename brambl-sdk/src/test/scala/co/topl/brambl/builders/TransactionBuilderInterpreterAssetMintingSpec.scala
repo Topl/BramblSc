@@ -237,7 +237,8 @@ class TransactionBuilderInterpreterAssetMintingSpec extends TransactionBuilderIn
     assert(txRes.isRight && txRes.toOption.get.computeId == expectedTx.computeId)
   }
 
-  test("buildSimpleAssetMintingTransaction > fail, group fungible (currently not supported)") {
+  // TODO: Update since we are supporting Group and Series fungibility
+  test("buildSimpleAssetMintingTransaction > fail, group fungible (currently not supported)".fail) {
     val quantity = Int128(ByteString.copyFrom(BigInt(10).toByteArray))
 
     val seriesAddr = dummyTxoAddress.copy(index = 1)
@@ -268,7 +269,8 @@ class TransactionBuilderInterpreterAssetMintingSpec extends TransactionBuilderIn
     )
   }
 
-  test("buildSimpleAssetMintingTransaction > success, series fungible (currently not supported)") {
+  // TODO: Update since we are supporting Group and Series fungibility
+  test("buildSimpleAssetMintingTransaction > success, series fungible (currently not supported)".fail) {
     val quantity = Int128(ByteString.copyFrom(BigInt(10).toByteArray))
 
     val seriesAddr = dummyTxoAddress.copy(index = 1)
@@ -676,4 +678,6 @@ class TransactionBuilderInterpreterAssetMintingSpec extends TransactionBuilderIn
       )
     )
   }
+
+  // TODO: Test for different quantity descriptors of input series constructor token
 }

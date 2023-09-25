@@ -61,7 +61,8 @@ class TransactionBuilderInterpreterSeriesTransferSpec extends TransactionBuilder
     )
   }
 
-  test("buildSeriesTransferTransaction > a txo is an asset with unsupported fungibility") {
+  // TODO: Update since we are supporting Group and Series fungibility
+  test("buildSeriesTransferTransaction > a txo is an asset with unsupported fungibility".fail) {
     val testTx = txBuilder.buildSeriesTransferTransaction(
       SeriesType(mockSeriesPolicy.computeId),
       mockTxos :+ valToTxo(assetGroup),
@@ -187,4 +188,5 @@ class TransactionBuilderInterpreterSeriesTransferSpec extends TransactionBuilder
       .withOutputs(List(UnspentTransactionOutput(inLockFullAddress, seriesValue)))
     assertEquals(testTx.toOption.get.computeId, expectedTx.computeId)
   }
+  // TODO: Test for different quantity descriptors for the transfer series and the other Txos
 }

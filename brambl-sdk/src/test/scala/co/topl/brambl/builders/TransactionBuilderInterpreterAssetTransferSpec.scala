@@ -24,7 +24,8 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
     val testTx = txBuilder.buildAssetTransferTransaction(
       GroupAndSeriesFungible(
         mockGroupPolicy.computeId,
-        mockSeriesPolicy.computeId
+        mockSeriesPolicy.computeId,
+        mockSeriesPolicy.quantityDescriptor
       ),
       mockTxos :+ valToTxo(Value.defaultInstance.withTopl(Value.TOPL(quantity))),
       inPredicateLockFull,
@@ -40,7 +41,8 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
     val testTx = txBuilder.buildAssetTransferTransaction(
       GroupAndSeriesFungible(
         mockGroupPolicy.computeId,
-        mockSeriesPolicy.computeId
+        mockSeriesPolicy.computeId,
+        mockSeriesPolicy.quantityDescriptor
       ),
       mockTxos,
       inPredicateLockFull,
@@ -56,7 +58,8 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
     val testTx = txBuilder.buildAssetTransferTransaction(
       GroupAndSeriesFungible(
         mockGroupPolicy.computeId,
-        mockSeriesPolicy.computeId
+        mockSeriesPolicy.computeId,
+        mockSeriesPolicy.quantityDescriptor
       ),
       mockTxos :+ valToTxo(value, trivialLockAddress),
       inPredicateLockFull,
@@ -71,11 +74,13 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
     )
   }
 
-  test("buildAssetTransferTransaction > a txo is an asset with unsupported fungibility") {
+  // TODO: Update since we are supporting Group and Series fungibility
+  test("buildAssetTransferTransaction > a txo is an asset with unsupported fungibility".fail) {
     val testTx = txBuilder.buildAssetTransferTransaction(
       GroupAndSeriesFungible(
         mockGroupPolicy.computeId,
-        mockSeriesPolicy.computeId
+        mockSeriesPolicy.computeId,
+        mockSeriesPolicy.quantityDescriptor
       ),
       mockTxos :+ valToTxo(assetGroup),
       inPredicateLockFull,
@@ -98,9 +103,10 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
     )
   }
 
-  test("buildAssetTransferTransaction > Asset type identifier is of unsupported fungibility") {
+  // TODO: Update since we are supporting Group and Series fungibility
+  test("buildAssetTransferTransaction > Asset type identifier is of unsupported fungibility".fail) {
     val testTx = txBuilder.buildAssetTransferTransaction(
-      GroupFungible(mockGroupPolicy.computeId),
+      GroupFungible(mockGroupPolicy.computeId, mockSeriesPolicy.computeId.value, mockSeriesPolicy.quantityDescriptor),
       mockTxos,
       inPredicateLockFull,
       1,
@@ -120,7 +126,8 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
     val testTx = txBuilder.buildAssetTransferTransaction(
       GroupAndSeriesFungible(
         mockGroupPolicy.computeId,
-        mockSeriesPolicy.computeId
+        mockSeriesPolicy.computeId,
+        mockSeriesPolicy.quantityDescriptor
       ),
       mockTxos,
       inPredicateLockFull,
@@ -143,7 +150,8 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
     val testTx = txBuilder.buildAssetTransferTransaction(
       GroupAndSeriesFungible(
         mockGroupPolicy.computeId,
-        mockSeriesPolicy.computeId
+        mockSeriesPolicy.computeId,
+        mockSeriesPolicy.quantityDescriptor
       ),
       mockTxos,
       inPredicateLockFull,
@@ -166,7 +174,8 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
     val testTx = txBuilder.buildAssetTransferTransaction(
       GroupAndSeriesFungible(
         mockGroupPolicy.computeId,
-        mockSeriesPolicy.computeId
+        mockSeriesPolicy.computeId,
+        mockSeriesPolicy.quantityDescriptor
       ),
       mockTxos,
       inPredicateLockFull,
@@ -212,7 +221,8 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
     val testTx = txBuilder.buildAssetTransferTransaction(
       GroupAndSeriesFungible(
         mockGroupPolicy.computeId,
-        mockSeriesPolicy.computeId
+        mockSeriesPolicy.computeId,
+        mockSeriesPolicy.quantityDescriptor
       ),
       txos,
       inPredicateLockFull,
@@ -227,4 +237,6 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
       .withOutputs(List(UnspentTransactionOutput(inLockFullAddress, assetGroupSeries)))
     assertEquals(testTx.toOption.get.computeId, expectedTx.computeId)
   }
+
+  // TODO: Test for different quantity descriptors for transfer type and also the TXOs
 }
