@@ -9,5 +9,4 @@ package object syntax
     with BoxValueSyntax
     with TokenTypeIdentifierSyntax
     with TokenAggregateIdentifierSyntax
-    with QuantityDescriptorSyntax
     with Int128Syntax {}
