@@ -14,7 +14,6 @@ import scala.language.implicitConversions
  *  - Validations only for minting, After projection  (only if for all inputs and outputs isMint == true)
  *    Case 3: Series
  *  - asset minted correspond to token supply in series policy
- *  -  the number of series constructor tokens burned matches the number of assets minted (only applies for limited token supply)
  */
 class TransactionSyntaxInterpreterMintingCaseCSpec extends munit.FunSuite with MockHelpers {
 
