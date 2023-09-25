@@ -4,6 +4,7 @@ import cats.implicits.catsSyntaxOptionId
 import co.topl.brambl.builders.TransactionBuilderApi.UnableToBuildTransaction
 import co.topl.brambl.models.Event.{GroupPolicy, SeriesPolicy}
 import co.topl.brambl.models.box.FungibilityType.{GROUP, GROUP_AND_SERIES, SERIES}
+import co.topl.brambl.models.box.QuantityDescriptorType.{ACCUMULATOR, FRACTIONABLE, IMMUTABLE}
 import co.topl.brambl.models.box.{AssetMintingStatement, Value}
 import co.topl.brambl.models.transaction.{IoTransaction, SpentTransactionOutput, UnspentTransactionOutput}
 import co.topl.brambl.syntax.{
@@ -701,5 +702,96 @@ class TransactionBuilderInterpreterAssetMintingSpec extends TransactionBuilderIn
     )
   }
 
-  // TODO: Test for different quantity descriptors of input series constructor token
+  test("buildSimpleAssetMintingTransaction > IMMUTABLE quantity descriptor type") {
+    val quantity = Int128(ByteString.copyFrom(BigInt(10).toByteArray))
+
+    val seriesAddr = dummyTxoAddress.copy(index = 1)
+    val mockSeriesPolicy: SeriesPolicy = SeriesPolicy("Mock Series Policy", None, seriesAddr, IMMUTABLE)
+    val seriesValue =
+      Value.defaultInstance.withSeries(Value.Series(mockSeriesPolicy.computeId, quantity, None, IMMUTABLE))
+    val seriesTxo = Txo(UnspentTransactionOutput(inLockFullAddress, seriesValue), UNSPENT, seriesAddr)
+    val seriesLock = inPredicateLockFull
+
+    val groupAddr = dummyTxoAddress.copy(index = 2)
+    val mockGroupPolicy: GroupPolicy = GroupPolicy("Mock Group Policy", groupAddr)
+    val groupValue = Value.defaultInstance.withGroup(Value.Group(mockGroupPolicy.computeId, quantity))
+    val groupTxo = Txo(UnspentTransactionOutput(inLockFullAddress, groupValue), UNSPENT, groupAddr)
+    val groupLock = inPredicateLockFull
+
+    val outAddr = trivialLockAddress
+    val statement: AssetMintingStatement = AssetMintingStatement(groupAddr, seriesAddr, quantity)
+
+    val testTx = txBuilder
+      .buildSimpleAssetMintingTransaction(statement, groupTxo, seriesTxo, groupLock, seriesLock, outAddr, None, None)
+    assertEquals(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          Seq(UserInputError(s"Unsupported quantity descriptor type. We currently only support LIQUID"))
+        )
+      )
+    )
+  }
+
+  test("buildSimpleAssetMintingTransaction > FRACTIONABLE quantity descriptor type") {
+    val quantity = Int128(ByteString.copyFrom(BigInt(10).toByteArray))
+
+    val seriesAddr = dummyTxoAddress.copy(index = 1)
+    val mockSeriesPolicy: SeriesPolicy = SeriesPolicy("Mock Series Policy", None, seriesAddr, FRACTIONABLE)
+    val seriesValue =
+      Value.defaultInstance.withSeries(Value.Series(mockSeriesPolicy.computeId, quantity, None, FRACTIONABLE))
+    val seriesTxo = Txo(UnspentTransactionOutput(inLockFullAddress, seriesValue), UNSPENT, seriesAddr)
+    val seriesLock = inPredicateLockFull
+
+    val groupAddr = dummyTxoAddress.copy(index = 2)
+    val mockGroupPolicy: GroupPolicy = GroupPolicy("Mock Group Policy", groupAddr)
+    val groupValue = Value.defaultInstance.withGroup(Value.Group(mockGroupPolicy.computeId, quantity))
+    val groupTxo = Txo(UnspentTransactionOutput(inLockFullAddress, groupValue), UNSPENT, groupAddr)
+    val groupLock = inPredicateLockFull
+
+    val outAddr = trivialLockAddress
+    val statement: AssetMintingStatement = AssetMintingStatement(groupAddr, seriesAddr, quantity)
+
+    val testTx = txBuilder
+      .buildSimpleAssetMintingTransaction(statement, groupTxo, seriesTxo, groupLock, seriesLock, outAddr, None, None)
+    assertEquals(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          Seq(UserInputError(s"Unsupported quantity descriptor type. We currently only support LIQUID"))
+        )
+      )
+    )
+  }
+
+  test("buildSimpleAssetMintingTransaction > ACCUMULATOR quantity descriptor type") {
+    val quantity = Int128(ByteString.copyFrom(BigInt(10).toByteArray))
+
+    val seriesAddr = dummyTxoAddress.copy(index = 1)
+    val mockSeriesPolicy: SeriesPolicy = SeriesPolicy("Mock Series Policy", None, seriesAddr, ACCUMULATOR)
+    val seriesValue =
+      Value.defaultInstance.withSeries(Value.Series(mockSeriesPolicy.computeId, quantity, None, ACCUMULATOR))
+    val seriesTxo = Txo(UnspentTransactionOutput(inLockFullAddress, seriesValue), UNSPENT, seriesAddr)
+    val seriesLock = inPredicateLockFull
+
+    val groupAddr = dummyTxoAddress.copy(index = 2)
+    val mockGroupPolicy: GroupPolicy = GroupPolicy("Mock Group Policy", groupAddr)
+    val groupValue = Value.defaultInstance.withGroup(Value.Group(mockGroupPolicy.computeId, quantity))
+    val groupTxo = Txo(UnspentTransactionOutput(inLockFullAddress, groupValue), UNSPENT, groupAddr)
+    val groupLock = inPredicateLockFull
+
+    val outAddr = trivialLockAddress
+    val statement: AssetMintingStatement = AssetMintingStatement(groupAddr, seriesAddr, quantity)
+
+    val testTx = txBuilder
+      .buildSimpleAssetMintingTransaction(statement, groupTxo, seriesTxo, groupLock, seriesLock, outAddr, None, None)
+    assertEquals(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          Seq(UserInputError(s"Unsupported quantity descriptor type. We currently only support LIQUID"))
+        )
+      )
+    )
+  }
 }

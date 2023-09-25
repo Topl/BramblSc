@@ -172,5 +172,66 @@ class TransactionBuilderInterpreterLvlsTransferSpec extends TransactionBuilderIn
     assertEquals(testTx.toOption.get.computeId, expectedTx.computeId)
   }
 
-  // TODO: Test for different quantity descriptors for the different TXOs
+  test("buildLvlTransferTransaction > IMMUTABLE asset quantity descriptor in TXOs") {
+    val testTx = txBuilder.buildLvlTransferTransaction(
+      mockTxos :+ valToTxo(assetGroupSeriesImmutable),
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress,
+      1
+    )
+    assertEquals(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          Seq(
+            UserInputError(s"All asset tokens must have valid QuantityDescriptorType. We currently only support Liquid")
+          )
+        )
+      )
+    )
+  }
+
+  test("buildLvlTransferTransaction > FRACTIONABLE asset quantity descriptor in TXOs") {
+    val testTx = txBuilder.buildLvlTransferTransaction(
+      mockTxos :+ valToTxo(assetGroupSeriesFractionable),
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress,
+      1
+    )
+    assertEquals(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          Seq(
+            UserInputError(s"All asset tokens must have valid QuantityDescriptorType. We currently only support Liquid")
+          )
+        )
+      )
+    )
+  }
+
+  test("buildLvlTransferTransaction > ACCUMULATOR asset quantity descriptor in TXOs") {
+    val testTx = txBuilder.buildLvlTransferTransaction(
+      mockTxos :+ valToTxo(assetGroupSeriesAccumulator),
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress,
+      1
+    )
+    assertEquals(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          Seq(
+            UserInputError(s"All asset tokens must have valid QuantityDescriptorType. We currently only support Liquid")
+          )
+        )
+      )
+    )
+  }
 }

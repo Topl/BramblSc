@@ -146,6 +146,4 @@ class TransactionBuilderInterpreterSeriesMintingSpec extends TransactionBuilderI
       )
     )
   }
-
-  // TODO: Test for different quantity descriptors for the series policy
 }

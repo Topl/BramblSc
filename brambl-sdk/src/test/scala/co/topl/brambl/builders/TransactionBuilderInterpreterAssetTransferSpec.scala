@@ -2,6 +2,7 @@ package co.topl.brambl.builders
 
 import cats.implicits.catsSyntaxOptionId
 import co.topl.brambl.builders.TransactionBuilderApi.UnableToBuildTransaction
+import co.topl.brambl.models.box.QuantityDescriptorType.{ACCUMULATOR, FRACTIONABLE, IMMUTABLE}
 import co.topl.brambl.models.box.Value
 import co.topl.brambl.models.transaction.{IoTransaction, SpentTransactionOutput, UnspentTransactionOutput}
 import co.topl.brambl.syntax.{
@@ -331,5 +332,162 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
     assertEquals(testTx.toOption.get.computeId, expectedTx.computeId)
   }
 
-  // TODO: Test for different quantity descriptors for transfer type and also the TXOs
+  test("buildAssetTransferTransaction > IMMUTABLE asset quantity descriptor in TXOs") {
+    val testTx = txBuilder.buildAssetTransferTransaction(
+      GroupAndSeriesFungible(
+        mockGroupPolicy.computeId,
+        mockSeriesPolicy.computeId,
+        mockSeriesPolicy.quantityDescriptor
+      ),
+      mockTxos :+ valToTxo(assetGroupSeriesImmutable),
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress,
+      1
+    )
+    assertEquals(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          Seq(
+            UserInputError(s"All asset tokens must have valid QuantityDescriptorType. We currently only support Liquid")
+          )
+        )
+      )
+    )
+  }
+
+  test("buildAssetTransferTransaction > FRACTIONABLE asset quantity descriptor in TXOs") {
+    val testTx = txBuilder.buildAssetTransferTransaction(
+      GroupAndSeriesFungible(
+        mockGroupPolicy.computeId,
+        mockSeriesPolicy.computeId,
+        mockSeriesPolicy.quantityDescriptor
+      ),
+      mockTxos :+ valToTxo(assetGroupSeriesFractionable),
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress,
+      1
+    )
+    assertEquals(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          Seq(
+            UserInputError(s"All asset tokens must have valid QuantityDescriptorType. We currently only support Liquid")
+          )
+        )
+      )
+    )
+  }
+
+  test("buildAssetTransferTransaction > ACCUMULATOR asset quantity descriptor in TXOs") {
+    val testTx = txBuilder.buildAssetTransferTransaction(
+      GroupAndSeriesFungible(
+        mockGroupPolicy.computeId,
+        mockSeriesPolicy.computeId,
+        mockSeriesPolicy.quantityDescriptor
+      ),
+      mockTxos :+ valToTxo(assetGroupSeriesAccumulator),
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress,
+      1
+    )
+    assertEquals(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          Seq(
+            UserInputError(s"All asset tokens must have valid QuantityDescriptorType. We currently only support Liquid")
+          )
+        )
+      )
+    )
+  }
+
+  test("buildAssetTransferTransaction > IMMUTABLE asset quantity descriptor in transfer type") {
+    val testTx = txBuilder.buildAssetTransferTransaction(
+      GroupAndSeriesFungible(
+        mockGroupPolicy.computeId,
+        mockSeriesPolicy.computeId,
+        IMMUTABLE
+      ),
+      mockTxos,
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress,
+      1
+    )
+    assertEquals(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          Seq(
+            UserInputError(s"All tokens selected to transfer do not have enough funds to transfer"),
+            UserInputError(s"Unsupported quantity descriptor type. We currently only support LIQUID")
+          )
+        )
+      )
+    )
+  }
+
+  test("buildAssetTransferTransaction > FRACTIONABLE asset quantity descriptor in transfer type") {
+    val testTx = txBuilder.buildAssetTransferTransaction(
+      GroupAndSeriesFungible(
+        mockGroupPolicy.computeId,
+        mockSeriesPolicy.computeId,
+        FRACTIONABLE
+      ),
+      mockTxos,
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress,
+      1
+    )
+    assertEquals(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          Seq(
+            UserInputError(s"All tokens selected to transfer do not have enough funds to transfer"),
+            UserInputError(s"Unsupported quantity descriptor type. We currently only support LIQUID")
+          )
+        )
+      )
+    )
+  }
+
+  test("buildAssetTransferTransaction > ACCUMULATOR asset quantity descriptor in transfer type") {
+    val testTx = txBuilder.buildAssetTransferTransaction(
+      GroupAndSeriesFungible(
+        mockGroupPolicy.computeId,
+        mockSeriesPolicy.computeId,
+        ACCUMULATOR
+      ),
+      mockTxos,
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress,
+      1
+    )
+    assertEquals(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          Seq(
+            UserInputError(s"All tokens selected to transfer do not have enough funds to transfer"),
+            UserInputError(s"Unsupported quantity descriptor type. We currently only support LIQUID")
+          )
+        )
+      )
+    )
+  }
 }

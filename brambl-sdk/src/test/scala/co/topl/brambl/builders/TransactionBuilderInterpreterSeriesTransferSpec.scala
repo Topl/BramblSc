@@ -177,5 +177,70 @@ class TransactionBuilderInterpreterSeriesTransferSpec extends TransactionBuilder
       .withOutputs(List(UnspentTransactionOutput(inLockFullAddress, seriesValue)))
     assertEquals(testTx.toOption.get.computeId, expectedTx.computeId)
   }
-  // TODO: Test for different quantity descriptors for the transfer series and the other Txos
+
+  test("buildSeriesTransferTransaction > IMMUTABLE asset quantity descriptor in TXOs") {
+    val testTx = txBuilder.buildSeriesTransferTransaction(
+      SeriesType(mockSeriesPolicy.computeId),
+      mockTxos :+ valToTxo(assetGroupSeriesImmutable),
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress,
+      1
+    )
+    assertEquals(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          Seq(
+            UserInputError(s"All asset tokens must have valid QuantityDescriptorType. We currently only support Liquid")
+          )
+        )
+      )
+    )
+  }
+
+  test("buildSeriesTransferTransaction > FRACTIONABLE asset quantity descriptor in TXOs") {
+    val testTx = txBuilder.buildSeriesTransferTransaction(
+      SeriesType(mockSeriesPolicy.computeId),
+      mockTxos :+ valToTxo(assetGroupSeriesFractionable),
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress,
+      1
+    )
+    assertEquals(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          Seq(
+            UserInputError(s"All asset tokens must have valid QuantityDescriptorType. We currently only support Liquid")
+          )
+        )
+      )
+    )
+  }
+
+  test("buildSeriesTransferTransaction > ACCUMULATOR asset quantity descriptor in TXOs") {
+    val testTx = txBuilder.buildSeriesTransferTransaction(
+      SeriesType(mockSeriesPolicy.computeId),
+      mockTxos :+ valToTxo(assetGroupSeriesAccumulator),
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress,
+      1
+    )
+    assertEquals(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          Seq(
+            UserInputError(s"All asset tokens must have valid QuantityDescriptorType. We currently only support Liquid")
+          )
+        )
+      )
+    )
+  }
 }

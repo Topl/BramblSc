@@ -26,6 +26,7 @@ import co.topl.brambl.models.box.Attestation
 import co.topl.brambl.models.box.Challenge
 import co.topl.brambl.models.box.FungibilityType.{GROUP, SERIES}
 import co.topl.brambl.models.box.Lock
+import co.topl.brambl.models.box.QuantityDescriptorType.{ACCUMULATOR, FRACTIONABLE, IMMUTABLE}
 import co.topl.brambl.models.box.Value
 import co.topl.brambl.models.transaction._
 import co.topl.brambl.syntax.{
@@ -203,6 +204,33 @@ trait MockHelpers {
 
   val assetGroupSeries: Value = Value.defaultInstance.withAsset(
     Value.Asset(mockGroupPolicy.computeId.some, mockSeriesPolicy.computeId.some, quantity)
+  )
+
+  val assetGroupSeriesImmutable: Value = Value.defaultInstance.withAsset(
+    Value.Asset(
+      mockGroupPolicy.computeId.some,
+      mockSeriesPolicy.computeId.some,
+      quantity,
+      quantityDescriptor = IMMUTABLE
+    )
+  )
+
+  val assetGroupSeriesFractionable: Value = Value.defaultInstance.withAsset(
+    Value.Asset(
+      mockGroupPolicy.computeId.some,
+      mockSeriesPolicy.computeId.some,
+      quantity,
+      quantityDescriptor = FRACTIONABLE
+    )
+  )
+
+  val assetGroupSeriesAccumulator: Value = Value.defaultInstance.withAsset(
+    Value.Asset(
+      mockGroupPolicy.computeId.some,
+      mockSeriesPolicy.computeId.some,
+      quantity,
+      quantityDescriptor = ACCUMULATOR
+    )
   )
 
   val assetGroup: Value = Value.defaultInstance.withAsset(

@@ -178,5 +178,69 @@ class TransactionBuilderInterpreterGroupTransferSpec extends TransactionBuilderI
     assertEquals(testTx.toOption.get.computeId, expectedTx.computeId)
   }
 
-  // TODO: Test for different quantity descriptors for the other Txos
+  test("buildGroupTransferTransaction > IMMUTABLE asset quantity descriptor in TXOs") {
+    val testTx = txBuilder.buildGroupTransferTransaction(
+      GroupType(mockGroupPolicy.computeId),
+      mockTxos :+ valToTxo(assetGroupSeriesImmutable),
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress,
+      1
+    )
+    assertEquals(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          Seq(
+            UserInputError(s"All asset tokens must have valid QuantityDescriptorType. We currently only support Liquid")
+          )
+        )
+      )
+    )
+  }
+
+  test("buildGroupTransferTransaction > FRACTIONABLE asset quantity descriptor in TXOs") {
+    val testTx = txBuilder.buildGroupTransferTransaction(
+      GroupType(mockGroupPolicy.computeId),
+      mockTxos :+ valToTxo(assetGroupSeriesFractionable),
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress,
+      1
+    )
+    assertEquals(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          Seq(
+            UserInputError(s"All asset tokens must have valid QuantityDescriptorType. We currently only support Liquid")
+          )
+        )
+      )
+    )
+  }
+
+  test("buildGroupTransferTransaction > ACCUMULATOR asset quantity descriptor in TXOs") {
+    val testTx = txBuilder.buildGroupTransferTransaction(
+      GroupType(mockGroupPolicy.computeId),
+      mockTxos :+ valToTxo(assetGroupSeriesAccumulator),
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress,
+      1
+    )
+    assertEquals(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          Seq(
+            UserInputError(s"All asset tokens must have valid QuantityDescriptorType. We currently only support Liquid")
+          )
+        )
+      )
+    )
+  }
 }

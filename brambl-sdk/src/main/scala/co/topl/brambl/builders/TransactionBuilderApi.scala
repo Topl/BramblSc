@@ -533,9 +533,8 @@ object TransactionBuilderApi {
           groupedValues.updated(LvlType.aggregateIdentifier, lvlVal.setQuantity(lvlVal.quantity - fee))
         } else groupedValues
 
-      // We cannot split an IMMUTABLE or ACCUMULATOR quantity type, but due to user validation, if inValue is one of
-      // those 2 types, then changeQuantity must be 0.
       // TODO: Currently we are only supporting LIQUID quantity descriptor type
+      // We cannot split an IMMUTABLE or ACCUMULATOR quantity type
       private def buildChange(inValue: BoxValue, changeQuantity: Int128): Option[BoxValue] =
         // User validation guarantees that the following will return None for IMMUTABLE or ACCUMULATOR quantity type
         if (changeQuantity > 0) inValue.setQuantity(changeQuantity).some else None
