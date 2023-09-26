@@ -82,10 +82,11 @@ sealed trait AssetType extends ValueTypeIdentifier
  * A Group and Series fungible asset type, identified by a GroupId, a SeriesId, and a QuantityDescriptorType.
  *
  * @param groupId The GroupId of the asset
- * @param series The SeriesId of the asset
+ * @param seriesId The SeriesId of the asset
  * @param qdType The QuantityDescriptorType of the asset
  */
-case class GroupAndSeriesFungible(groupId: GroupId, series: SeriesId, qdType: QuantityDescriptorType) extends AssetType
+case class GroupAndSeriesFungible(groupId: GroupId, seriesId: SeriesId, qdType: QuantityDescriptorType)
+    extends AssetType
 
 /**
  * A Group fungible asset type, identified by a GroupId, a Series alloy, and a QuantityDescriptorType. If the asset is
@@ -102,9 +103,9 @@ case class GroupFungible(groupId: GroupId, seriesAlloyOrId: ByteString, qdType: 
  * A Series fungible asset type, identified by a SeriesId, a Group alloy, and a QuantityDescriptorType. If the asset is
  * not an alloy, the group "alloy" is given by the groupId.
  *
- * @param series The SeriesId of the asset
+ * @param seriesId The SeriesId of the asset
  * @param groupAlloyOrId If the asset is an alloy, the Group alloy. Else the GroupId of the asset
  * @param qdType The QuantityDescriptorType of the asset
  */
-case class SeriesFungible(series: SeriesId, groupAlloyOrId: ByteString, qdType: QuantityDescriptorType)
+case class SeriesFungible(seriesId: SeriesId, groupAlloyOrId: ByteString, qdType: QuantityDescriptorType)
     extends AssetType

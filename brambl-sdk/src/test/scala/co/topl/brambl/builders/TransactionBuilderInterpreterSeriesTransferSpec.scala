@@ -193,7 +193,7 @@ class TransactionBuilderInterpreterSeriesTransferSpec extends TransactionBuilder
       Left(
         UnableToBuildTransaction(
           Seq(
-            UserInputError(s"All asset tokens must have valid QuantityDescriptorType. We currently only support Liquid")
+            UserInputError(s"All asset tokens must have valid QuantityDescriptorType. We currently only support LIQUID")
           )
         )
       )
@@ -215,7 +215,7 @@ class TransactionBuilderInterpreterSeriesTransferSpec extends TransactionBuilder
       Left(
         UnableToBuildTransaction(
           Seq(
-            UserInputError(s"All asset tokens must have valid QuantityDescriptorType. We currently only support Liquid")
+            UserInputError(s"All asset tokens must have valid QuantityDescriptorType. We currently only support LIQUID")
           )
         )
       )
@@ -237,7 +237,7 @@ class TransactionBuilderInterpreterSeriesTransferSpec extends TransactionBuilder
       Left(
         UnableToBuildTransaction(
           Seq(
-            UserInputError(s"All asset tokens must have valid QuantityDescriptorType. We currently only support Liquid")
+            UserInputError(s"All asset tokens must have valid QuantityDescriptorType. We currently only support LIQUID")
           )
         )
       )

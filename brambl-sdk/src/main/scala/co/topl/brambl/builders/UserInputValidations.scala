@@ -138,7 +138,7 @@ object UserInputValidations {
       // Any asset tokens must have valid QuantityDescriptorType
       testValues.map(_.typeIdentifier).map(identifierQuantityDescriptorType).forall(_.isValid),
       (),
-      UserInputError(s"All asset tokens must have valid QuantityDescriptorType. We currently only support Liquid")
+      UserInputError(s"All asset tokens must have valid QuantityDescriptorType. We currently only support LIQUID")
     )
 
   object TransactionBuilder {
