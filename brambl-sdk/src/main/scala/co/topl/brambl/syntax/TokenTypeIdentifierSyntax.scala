@@ -13,6 +13,11 @@ trait TokenTypeIdentifierSyntax {
   implicit def valueToTypeIdentifierSyntaxOps(v: Value): ValueToTypeIdentifierSyntaxOps =
     new ValueToTypeIdentifierSyntaxOps(v)
 
+  implicit def typeIdentifierToQuantityDescriptorSyntaxOps(
+    t: ValueTypeIdentifier
+  ): TypeIdentifierToQuantityDescriptorSyntaxOps =
+    new TypeIdentifierToQuantityDescriptorSyntaxOps(t)
+
 }
 
 class ValueToTypeIdentifierSyntaxOps(val value: Value) extends AnyVal {
@@ -35,6 +40,16 @@ class ValueToTypeIdentifierSyntaxOps(val value: Value) extends AnyVal {
         case _                                           => throw new Exception("Invalid asset")
       }
     case _ => throw new Exception("Invalid value type")
+  }
+}
+
+class TypeIdentifierToQuantityDescriptorSyntaxOps(val typeIdentifier: ValueTypeIdentifier) extends AnyVal {
+
+  def getQuantityDescriptor: Option[QuantityDescriptorType] = typeIdentifier match {
+    case GroupAndSeriesFungible(_, _, qd) => Some(qd)
+    case GroupFungible(_, _, qd)          => Some(qd)
+    case SeriesFungible(_, _, qd)         => Some(qd)
+    case _                                => None
   }
 }
 

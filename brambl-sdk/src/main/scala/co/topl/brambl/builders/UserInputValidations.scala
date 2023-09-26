@@ -11,11 +11,7 @@ import co.topl.brambl.syntax.{
   longAsInt128,
   valueToQuantitySyntaxOps,
   valueToTypeIdentifierSyntaxOps,
-  AggregateIdentifier,
-  AggregateType,
-  GroupFungible,
   LvlType,
-  SeriesFungible,
   ValueTypeIdentifier
 }
 import co.topl.genus.services.Txo
@@ -135,7 +131,7 @@ object UserInputValidations {
     )
 
   def identifierQuantityDescriptorType(testType: ValueTypeIdentifier): ValidatedNec[UserInputError, Unit] =
-    quantityDescriptorType(testType.aggregateIdentifier.aggregateType.map(_.qdType))
+    quantityDescriptorType(testType.getQuantityDescriptor)
 
   def allValidQuantityDescriptorTypes(testValues: Seq[Value]): ValidatedNec[UserInputError, Unit] =
     Validated.condNec(

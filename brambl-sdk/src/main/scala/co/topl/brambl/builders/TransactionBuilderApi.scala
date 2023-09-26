@@ -17,8 +17,7 @@ import co.topl.genus.services.Txo
 import com.google.protobuf.ByteString
 import quivr.models.{Int128, Proof, SmallData}
 import co.topl.brambl.common.ContainsEvidence.Ops
-import co.topl.brambl.common.ContainsImmutable.instances.{groupIdentifierImmutable, seriesIdValueImmutable, _}
-import co.topl.brambl.common.ContainsEvidence.merkleRootFromBlake2bEvidence
+import co.topl.brambl.common.ContainsImmutable.instances._
 import cats.implicits._
 import co.topl.brambl.builders.UserInputValidations.TransactionBuilder._
 import co.topl.brambl.models.Event.{GroupPolicy, SeriesPolicy}
@@ -35,7 +34,6 @@ import co.topl.brambl.syntax.{
   seriesPolicyAsSeriesPolicySyntaxOps,
   valueToQuantitySyntaxOps,
   valueToTypeIdentifierSyntaxOps,
-  AggregateIdentifier,
   AssetType,
   GroupType,
   LvlType,
@@ -488,7 +486,7 @@ object TransactionBuilderApi {
           stxoAttestation <- EitherT.right(unprovenAttestation(lockPredicateFrom))
           datum           <- EitherT.right(datum())
           stxos           <- buildStxos(txos, stxoAttestation).leftMap(wrapErr)
-          utxos <- buildUtxos(txos, transferType.aggregateIdentifier, amount, recipientLockAddr, changeLockAddr, fee)
+          utxos <- buildUtxos(txos, transferType, amount, recipientLockAddr, changeLockAddr, fee)
             .leftMap(wrapErr)
         } yield IoTransaction(inputs = stxos, outputs = utxos, datum = datum)
       ).value
@@ -501,15 +499,16 @@ object TransactionBuilderApi {
 
       private def buildUtxos(
         txos:             Seq[Txo],
-        transferType:     AggregateIdentifier,
+        transferType:     ValueTypeIdentifier,
         amount:           Int128,
         recipientAddress: LockAddress,
         changeAddress:    LockAddress,
         fee:              Long
       ): EitherT[F, BuilderError, Seq[UnspentTransactionOutput]] = Try {
         val aggregatedValuesRaw =
-          txos.map(_.transactionOutput.value.value).groupMapReduce(_.typeIdentifier.aggregateIdentifier)(identity) {
-            // Per grouping, v1&v2 are guaranteed to have the same AggregateIdentifier thus are able to combine quantities
+          txos.map(_.transactionOutput.value.value).groupMapReduce(_.typeIdentifier)(identity) {
+            // TODO: Currently we are only supporting LIQUID quantity descriptor type
+            // We cannot aggregate IMMUTABLE or FRACTIONABLE quantity type
             (v1, v2) => v1.setQuantity(v1.quantity + v2.quantity)
           }
         val aggregatedValues = applyFee(aggregatedValuesRaw, fee)
@@ -525,18 +524,17 @@ object TransactionBuilderApi {
 
       // Due to validation, if fee >0, then there must be a lvl in the txos
       private def applyFee(
-        groupedValues: Map[AggregateIdentifier, BoxValue],
+        groupedValues: Map[ValueTypeIdentifier, BoxValue],
         fee:           Long
-      ): Map[AggregateIdentifier, BoxValue] =
+      ): Map[ValueTypeIdentifier, BoxValue] =
         if (fee > 0) {
-          val lvlVal = groupedValues(LvlType.aggregateIdentifier)
-          groupedValues.updated(LvlType.aggregateIdentifier, lvlVal.setQuantity(lvlVal.quantity - fee))
+          val lvlVal = groupedValues(LvlType)
+          groupedValues.updated(LvlType, lvlVal.setQuantity(lvlVal.quantity - fee))
         } else groupedValues
 
       // TODO: Currently we are only supporting LIQUID quantity descriptor type
       // We cannot split an IMMUTABLE or ACCUMULATOR quantity type
       private def buildChange(inValue: BoxValue, changeQuantity: Int128): Option[BoxValue] =
-        // User validation guarantees that the following will return None for IMMUTABLE or ACCUMULATOR quantity type
         if (changeQuantity > 0) inValue.setQuantity(changeQuantity).some else None
 
       override def buildSimpleGroupMintingTransaction(
