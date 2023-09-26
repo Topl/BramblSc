@@ -61,30 +61,6 @@ class TransactionBuilderInterpreterGroupTransferSpec extends TransactionBuilderI
     )
   }
 
-  test("buildGroupTransferTransaction > a txo is an asset with unsupported fungibility") {
-    val testTx = txBuilder.buildGroupTransferTransaction(
-      GroupType(mockGroupPolicy.computeId),
-      mockTxos :+ valToTxo(assetGroup),
-      inPredicateLockFull,
-      1,
-      inLockFullAddress,
-      trivialLockAddress,
-      0
-    )
-    assertEquals(
-      testTx,
-      Left(
-        UnableToBuildTransaction(
-          Seq(
-            UserInputError(
-              s"All asset tokens must have valid fungibility type. We currently only support GROUP_AND_SERIES"
-            )
-          )
-        )
-      )
-    )
-  }
-
   test("buildGroupTransferTransaction > non sufficient funds") {
     val testTx = txBuilder.buildGroupTransferTransaction(
       GroupType(mockGroupPolicy.computeId),
@@ -161,6 +137,20 @@ class TransactionBuilderInterpreterGroupTransferSpec extends TransactionBuilderI
             assetGroupSeries.copy(
               assetGroupSeries.getAsset.copy(mockGroupPolicyAlt.computeId.some, mockSeriesPolicyAlt.computeId.some)
             )
+          ),
+          UnspentTransactionOutput(trivialLockAddress, assetGroup.copy(assetGroup.value.setQuantity(quantity * 2))),
+          UnspentTransactionOutput(
+            trivialLockAddress,
+            assetGroup.copy(
+              assetGroup.getAsset.copy(mockGroupPolicyAlt.computeId.some, mockSeriesPolicyAlt.computeId.some)
+            )
+          ),
+          UnspentTransactionOutput(trivialLockAddress, assetSeries.copy(assetSeries.value.setQuantity(quantity * 2))),
+          UnspentTransactionOutput(
+            trivialLockAddress,
+            assetSeries.copy(
+              assetSeries.getAsset.copy(mockGroupPolicyAlt.computeId.some, mockSeriesPolicyAlt.computeId.some)
+            )
           )
         )
       )
@@ -186,5 +176,71 @@ class TransactionBuilderInterpreterGroupTransferSpec extends TransactionBuilderI
       .withInputs(txos.map(txo => SpentTransactionOutput(txo.outputAddress, attFull, txo.transactionOutput.value)))
       .withOutputs(List(UnspentTransactionOutput(inLockFullAddress, groupValue)))
     assertEquals(testTx.toOption.get.computeId, expectedTx.computeId)
+  }
+
+  test("buildGroupTransferTransaction > IMMUTABLE asset quantity descriptor in TXOs") {
+    val testTx = txBuilder.buildGroupTransferTransaction(
+      GroupType(mockGroupPolicy.computeId),
+      mockTxos :+ valToTxo(assetGroupSeriesImmutable),
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress,
+      1
+    )
+    assertEquals(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          Seq(
+            UserInputError(s"All asset tokens must have valid QuantityDescriptorType. We currently only support LIQUID")
+          )
+        )
+      )
+    )
+  }
+
+  test("buildGroupTransferTransaction > FRACTIONABLE asset quantity descriptor in TXOs") {
+    val testTx = txBuilder.buildGroupTransferTransaction(
+      GroupType(mockGroupPolicy.computeId),
+      mockTxos :+ valToTxo(assetGroupSeriesFractionable),
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress,
+      1
+    )
+    assertEquals(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          Seq(
+            UserInputError(s"All asset tokens must have valid QuantityDescriptorType. We currently only support LIQUID")
+          )
+        )
+      )
+    )
+  }
+
+  test("buildGroupTransferTransaction > ACCUMULATOR asset quantity descriptor in TXOs") {
+    val testTx = txBuilder.buildGroupTransferTransaction(
+      GroupType(mockGroupPolicy.computeId),
+      mockTxos :+ valToTxo(assetGroupSeriesAccumulator),
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress,
+      1
+    )
+    assertEquals(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          Seq(
+            UserInputError(s"All asset tokens must have valid QuantityDescriptorType. We currently only support LIQUID")
+          )
+        )
+      )
+    )
   }
 }

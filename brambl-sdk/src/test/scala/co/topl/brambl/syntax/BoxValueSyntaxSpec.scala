@@ -41,17 +41,4 @@ class BoxValueSyntaxSpec extends munit.FunSuite with MockHelpers {
     assertEquals(assetGroupSeries.value.setQuantity(mockNewQuantity).quantity, mockNewQuantity)
     intercept[Exception](BoxValue.Topl(Value.TOPL(mockNewQuantity)).setQuantity(mockNewQuantity))
   }
-
-  test("typeIdentifier") {
-    assertEquals(value.value.typeIdentifier, LvlType)
-    assertEquals(groupValue.value.typeIdentifier, GroupType(mockGroupPolicy.computeId))
-    assertEquals(seriesValue.value.typeIdentifier, SeriesType(mockSeriesPolicy.computeId))
-    assertEquals(
-      assetGroupSeries.value.typeIdentifier,
-      GroupAndSeriesFungible(mockGroupPolicy.computeId, mockSeriesPolicy.computeId)
-    )
-    assertEquals(assetGroup.value.typeIdentifier, GroupFungible(mockGroupPolicy.computeId))
-    assertEquals(assetSeries.value.typeIdentifier, SeriesFungible(mockSeriesPolicy.computeId))
-    intercept[Exception](BoxValue.Topl(Value.TOPL(mockNewQuantity)).typeIdentifier)
-  }
 }

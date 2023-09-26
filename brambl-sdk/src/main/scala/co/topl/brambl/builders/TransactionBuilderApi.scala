@@ -17,8 +17,7 @@ import co.topl.genus.services.Txo
 import com.google.protobuf.ByteString
 import quivr.models.{Int128, Proof, SmallData}
 import co.topl.brambl.common.ContainsEvidence.Ops
-import co.topl.brambl.common.ContainsImmutable.instances.{groupIdentifierImmutable, seriesIdValueImmutable, _}
-import co.topl.brambl.common.ContainsEvidence.merkleRootFromBlake2bEvidence
+import co.topl.brambl.common.ContainsImmutable.instances._
 import cats.implicits._
 import co.topl.brambl.builders.UserInputValidations.TransactionBuilder._
 import co.topl.brambl.models.Event.{GroupPolicy, SeriesPolicy}
@@ -247,7 +246,7 @@ trait TransactionBuilderApi[F[_]] {
    * transaction will also transfer any other tokens that are encumbered by the same predicate as the Asset Tokens to
    * the change address.
    *
-   * We currently only support assets with fungibility type GROUP_AND_SERIES.
+   * We currently only support assets with quantity descriptor type LIQUID.
    *
    * @param assetId The Asset Identifier of the Asset Tokens to transfer to the recipient.
    * @param txos  All the TXOs encumbered by the Lock given by lockPredicateFrom. These TXOs must contain at least the
@@ -323,7 +322,7 @@ trait TransactionBuilderApi[F[_]] {
    * The first output will be the minted asset tokens. The second output will be the group constructor tokens (since
    * they are never burned). The potential third output will be the series constructor tokens that were not burned.
    *
-   * We currently only support assets with fungibility type GROUP_AND_SERIES.
+   * We currently only support assets with quantity descriptor type LIQUID.
    *
    * @param mintingStatement      The minting statement that specifies the asset to mint.
    * @param groupTxo              The TXO that corresponds to the groupTokenUtxo (in the asset minting statement) to use
@@ -505,15 +504,18 @@ object TransactionBuilderApi {
         changeAddress:    LockAddress,
         fee:              Long
       ): EitherT[F, BuilderError, Seq[UnspentTransactionOutput]] = Try {
-        val groupedValuesRaw =
-          txos.map(_.transactionOutput.value.value).groupMapReduce(_.typeIdentifier)(identity)(mergeValues)
-        val groupedValues = applyFee(groupedValuesRaw, fee)
-        val transferVal = groupedValues(transferType)
-        val otherVals = (groupedValues - transferType).values.toSeq
-        val (recipientVal, changeVal) = splitValue(transferVal, amount)
-        val changeUtxos = (changeVal.toSeq ++ otherVals)
-          .map(v => UnspentTransactionOutput(changeAddress, Value.defaultInstance.withValue(v)))
-        UnspentTransactionOutput(recipientAddress, Value.defaultInstance.withValue(recipientVal)) +: changeUtxos
+        val aggregatedValuesRaw =
+          txos.map(_.transactionOutput.value.value).groupMapReduce(_.typeIdentifier)(identity) {
+            // TODO: Currently we are only supporting LIQUID quantity descriptor type
+            // We cannot aggregate IMMUTABLE or FRACTIONABLE quantity type
+            (v1, v2) => v1.setQuantity(v1.quantity + v2.quantity)
+          }
+        val aggregatedValues = applyFee(aggregatedValuesRaw, fee)
+        val otherVals = (aggregatedValues - transferType).values.toSeq
+        val transferVal = aggregatedValues(transferType)
+        val changeVal = buildChange(transferVal, transferVal.quantity - amount).toSeq
+        UnspentTransactionOutput(recipientAddress, Value.defaultInstance.withValue(transferVal.setQuantity(amount))) +:
+        (changeVal ++ otherVals).map(v => UnspentTransactionOutput(changeAddress, Value.defaultInstance.withValue(v)))
       } match {
         case Success(utxos) => EitherT.rightT(utxos)
         case Failure(err)   => EitherT.leftT(BuilderRuntimeError("Failed to build utxos", err))
@@ -529,18 +531,10 @@ object TransactionBuilderApi {
           groupedValues.updated(LvlType, lvlVal.setQuantity(lvlVal.quantity - fee))
         } else groupedValues
 
-      // TODO: This needs to be updated when we want to support multiple fungibility types (need 2 update alloys)
-      // values assumed to be same type
-      private def mergeValues(value1: BoxValue, value2: BoxValue): BoxValue =
-        value1.setQuantity(value1.quantity + value2.quantity)
-
-      // TODO: This needs to be updated when we want to support multiple fungibility types (need 2 update alloys)
-      private def splitValue(value: BoxValue, qOut: Int128): (BoxValue, Option[BoxValue]) = {
-        def change(q:      Int128, cb: Int128 => BoxValue) = if (q > qOut) cb(q - qOut).some else None
-        def buildValues(q: Int128, cb: Int128 => BoxValue) = (cb(qOut), change(q, cb))
-
-        buildValues(value.quantity, value.setQuantity)
-      }
+      // TODO: Currently we are only supporting LIQUID quantity descriptor type
+      // We cannot split an IMMUTABLE or ACCUMULATOR quantity type
+      private def buildChange(inValue: BoxValue, changeQuantity: Int128): Option[BoxValue] =
+        if (changeQuantity > 0) inValue.setQuantity(changeQuantity).some else None
 
       override def buildSimpleGroupMintingTransaction(
         registrationTxo:              Txo,
@@ -745,32 +739,15 @@ object TransactionBuilderApi {
         quantityDescriptorType: QuantityDescriptorType,
         metadata:               Option[Struct],
         commitment:             Option[ByteString]
-      ): F[UnspentTransactionOutput] = {
-        val groupSeriesValues = fungibilityType match {
-          case FungibilityType.GROUP_AND_SERIES => (groupId.some, seriesId.some, None, None)
-          case FungibilityType.SERIES =>
-            (
-              None,
-              seriesId.some,
-              merkleRootFromBlake2bEvidence(groupIdentifierImmutable).sizedEvidence(List(groupId)).digest.value.some,
-              None
-            )
-          case FungibilityType.GROUP =>
-            (
-              groupId.some,
-              None,
-              None,
-              merkleRootFromBlake2bEvidence(seriesIdValueImmutable).sizedEvidence(List(seriesId)).digest.value.some
-            )
-        }
+      ): F[UnspentTransactionOutput] =
         UnspentTransactionOutput(
           lockAddress,
           Value.defaultInstance.withAsset(
             Value.Asset(
-              groupId = groupSeriesValues._1,
-              seriesId = groupSeriesValues._2,
-              groupAlloy = groupSeriesValues._3,
-              seriesAlloy = groupSeriesValues._4,
+              groupId = groupId.some,
+              seriesId = seriesId.some,
+              groupAlloy = None,
+              seriesAlloy = None,
               quantity = quantity,
               fungibility = fungibilityType,
               quantityDescriptor = quantityDescriptorType,
@@ -779,7 +756,6 @@ object TransactionBuilderApi {
             )
           )
         ).pure[F]
-      }
 
       override def lvlOutput(
         lockAddress: LockAddress,

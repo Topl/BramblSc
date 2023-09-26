@@ -57,29 +57,6 @@ class TransactionBuilderInterpreterLvlsTransferSpec extends TransactionBuilderIn
     )
   }
 
-  test("buildLvlTransferTransaction > a txo is an asset with unsupported fungibility") {
-    val testTx = txBuilder.buildLvlTransferTransaction(
-      mockTxos :+ valToTxo(assetGroup),
-      inPredicateLockFull,
-      1,
-      inLockFullAddress,
-      trivialLockAddress,
-      0
-    )
-    assertEquals(
-      testTx,
-      Left(
-        UnableToBuildTransaction(
-          Seq(
-            UserInputError(
-              s"All asset tokens must have valid fungibility type. We currently only support GROUP_AND_SERIES"
-            )
-          )
-        )
-      )
-    )
-  }
-
   test("buildLvlTransferTransaction > non sufficient funds") {
     val testTx = txBuilder.buildLvlTransferTransaction(
       mockTxos,
@@ -155,6 +132,20 @@ class TransactionBuilderInterpreterLvlsTransferSpec extends TransactionBuilderIn
             assetGroupSeries.copy(
               assetGroupSeries.getAsset.copy(mockGroupPolicyAlt.computeId.some, mockSeriesPolicyAlt.computeId.some)
             )
+          ),
+          UnspentTransactionOutput(trivialLockAddress, assetGroup.copy(assetGroup.value.setQuantity(quantity * 2))),
+          UnspentTransactionOutput(
+            trivialLockAddress,
+            assetGroup.copy(
+              assetGroup.getAsset.copy(mockGroupPolicyAlt.computeId.some, mockSeriesPolicyAlt.computeId.some)
+            )
+          ),
+          UnspentTransactionOutput(trivialLockAddress, assetSeries.copy(assetSeries.value.setQuantity(quantity * 2))),
+          UnspentTransactionOutput(
+            trivialLockAddress,
+            assetSeries.copy(
+              assetSeries.getAsset.copy(mockGroupPolicyAlt.computeId.some, mockSeriesPolicyAlt.computeId.some)
+            )
           )
         )
       )
@@ -179,5 +170,68 @@ class TransactionBuilderInterpreterLvlsTransferSpec extends TransactionBuilderIn
       .withInputs(txos.map(txo => SpentTransactionOutput(txo.outputAddress, attFull, txo.transactionOutput.value)))
       .withOutputs(List(UnspentTransactionOutput(inLockFullAddress, value)))
     assertEquals(testTx.toOption.get.computeId, expectedTx.computeId)
+  }
+
+  test("buildLvlTransferTransaction > IMMUTABLE asset quantity descriptor in TXOs") {
+    val testTx = txBuilder.buildLvlTransferTransaction(
+      mockTxos :+ valToTxo(assetGroupSeriesImmutable),
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress,
+      1
+    )
+    assertEquals(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          Seq(
+            UserInputError(s"All asset tokens must have valid QuantityDescriptorType. We currently only support LIQUID")
+          )
+        )
+      )
+    )
+  }
+
+  test("buildLvlTransferTransaction > FRACTIONABLE asset quantity descriptor in TXOs") {
+    val testTx = txBuilder.buildLvlTransferTransaction(
+      mockTxos :+ valToTxo(assetGroupSeriesFractionable),
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress,
+      1
+    )
+    assertEquals(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          Seq(
+            UserInputError(s"All asset tokens must have valid QuantityDescriptorType. We currently only support LIQUID")
+          )
+        )
+      )
+    )
+  }
+
+  test("buildLvlTransferTransaction > ACCUMULATOR asset quantity descriptor in TXOs") {
+    val testTx = txBuilder.buildLvlTransferTransaction(
+      mockTxos :+ valToTxo(assetGroupSeriesAccumulator),
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress,
+      1
+    )
+    assertEquals(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          Seq(
+            UserInputError(s"All asset tokens must have valid QuantityDescriptorType. We currently only support LIQUID")
+          )
+        )
+      )
+    )
   }
 }

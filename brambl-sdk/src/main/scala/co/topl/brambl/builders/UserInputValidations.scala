@@ -2,7 +2,7 @@ package co.topl.brambl.builders
 
 import cats.data.{Chain, NonEmptyChain, Validated, ValidatedNec}
 import cats.implicits.{catsSyntaxEitherId, catsSyntaxOptionId, catsSyntaxValidatedIdBinCompat0, toFoldableOps}
-import co.topl.brambl.models.box.{AssetMintingStatement, FungibilityType}
+import co.topl.brambl.models.box.{AssetMintingStatement, FungibilityType, QuantityDescriptorType}
 import co.topl.brambl.models.{LockAddress, SeriesId, TransactionOutputAddress}
 import co.topl.brambl.models.box.Value._
 import quivr.models.Int128
@@ -11,9 +11,7 @@ import co.topl.brambl.syntax.{
   longAsInt128,
   valueToQuantitySyntaxOps,
   valueToTypeIdentifierSyntaxOps,
-  GroupFungible,
   LvlType,
-  SeriesFungible,
   ValueTypeIdentifier
 }
 import co.topl.genus.services.Txo
@@ -123,30 +121,24 @@ object UserInputValidations {
       UserInputError(s"Not enough LVLs in input to satisfy fee")
     )
 
-  // The following two validations are temporary until we support all fungibility types
-  def fungibilityType(testType: Option[FungibilityType]): ValidatedNec[UserInputError, Unit] =
+  // TODO: The following validations are temporary until we support all quanitity descriptor types
+  // We currently only support LIQUID
+  def quantityDescriptorType(testType: Option[QuantityDescriptorType]): ValidatedNec[UserInputError, Unit] =
     Validated.condNec(
-      testType.isEmpty || testType.get == FungibilityType.GROUP_AND_SERIES,
+      testType.isEmpty || testType.get == QuantityDescriptorType.LIQUID,
       (),
-      UserInputError(s"Unsupported fungibility type. We currently only support GROUP_AND_SERIES")
+      UserInputError(s"Unsupported quantity descriptor type. We currently only support LIQUID")
     )
 
-  def identifierFungibilityType(testType: ValueTypeIdentifier): ValidatedNec[UserInputError, Unit] =
-    Validated.condNec(
-      testType match {
-        case GroupFungible(_) | SeriesFungible(_) => false
-        case _                                    => true
-      },
-      (),
-      UserInputError(s"Unsupported fungibility type. We currently only support GROUP_AND_SERIES")
-    )
+  def identifierQuantityDescriptorType(testType: ValueTypeIdentifier): ValidatedNec[UserInputError, Unit] =
+    quantityDescriptorType(testType.getQuantityDescriptor)
 
-  def allValidFungibilityTypes(testValues: Seq[Value]): ValidatedNec[UserInputError, Unit] =
+  def allValidQuantityDescriptorTypes(testValues: Seq[Value]): ValidatedNec[UserInputError, Unit] =
     Validated.condNec(
-      // Any asset tokens must have valid fungibility
-      testValues.forall(v => !v.isAsset || v.asset.get.fungibility == FungibilityType.GROUP_AND_SERIES),
+      // Any asset tokens must have valid QuantityDescriptorType
+      testValues.map(_.typeIdentifier).map(identifierQuantityDescriptorType).forall(_.isValid),
       (),
-      UserInputError(s"All asset tokens must have valid fungibility type. We currently only support GROUP_AND_SERIES")
+      UserInputError(s"All asset tokens must have valid QuantityDescriptorType. We currently only support LIQUID")
     )
 
   object TransactionBuilder {
@@ -164,8 +156,8 @@ object UserInputValidations {
         positiveQuantity(Some(amount), "quantity to transfer"),
         allInputLocksMatch(txos.map(_.transactionOutput.address), fromLockAddr, "fromLockAddr"),
         validTransferSupply(amount, transferValues),
-        identifierFungibilityType(transferIdentifier),
-        allValidFungibilityTypes(allValues),
+        identifierQuantityDescriptorType(transferIdentifier),
+        allValidQuantityDescriptorTypes(allValues),
         validFee(fee, allValues, if (transferIdentifier == LvlType) amount else 0)
       ).fold.toEither
     } match {
@@ -237,7 +229,7 @@ object UserInputValidations {
           groupTxo.transactionOutput.value.value.group.flatMap(_.fixedSeries),
           seriesTxo.transactionOutput.value.value.series.map(_.seriesId)
         ),
-        fungibilityType(seriesTxo.transactionOutput.value.value.series.map(_.fungibility))
+        quantityDescriptorType(seriesTxo.transactionOutput.value.value.series.map(_.quantityDescriptor))
       ).fold.toEither
 
   }
