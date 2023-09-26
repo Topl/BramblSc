@@ -486,8 +486,7 @@ object TransactionBuilderApi {
           stxoAttestation <- EitherT.right(unprovenAttestation(lockPredicateFrom))
           datum           <- EitherT.right(datum())
           stxos           <- buildStxos(txos, stxoAttestation).leftMap(wrapErr)
-          utxos <- buildUtxos(txos, transferType, amount, recipientLockAddr, changeLockAddr, fee)
-            .leftMap(wrapErr)
+          utxos <- buildUtxos(txos, transferType, amount, recipientLockAddr, changeLockAddr, fee).leftMap(wrapErr)
         } yield IoTransaction(inputs = stxos, outputs = utxos, datum = datum)
       ).value
 
