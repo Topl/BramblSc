@@ -62,6 +62,13 @@ class TokenTypeIdentifierSyntaxSpec extends munit.FunSuite with MockHelpers {
     )
   )
 
+  private val assetGroupSeriesAccumulatorAlt = assetGroupSeriesAccumulator.copy(
+    assetGroupSeriesAccumulator.getAsset.copy(
+      groupId = mockGroupPolicyAlt.computeId.some,
+      seriesId = mockSeriesPolicyAlt.computeId.some
+    )
+  )
+
   private val mockValues = Seq(
     value,
     value.copy(), // exact duplicate
@@ -79,7 +86,10 @@ class TokenTypeIdentifierSyntaxSpec extends munit.FunSuite with MockHelpers {
     assetGroupAlt, // diff group and series
     assetSeries,
     assetSeries.copy(), // exact duplicate
-    assetSeriesAlt // diff group and series
+    assetSeriesAlt, // diff group and series
+    assetGroupSeriesAccumulator,
+    assetGroupSeriesAccumulator.copy(), // exact duplicate
+    assetGroupSeriesAccumulatorAlt // diff group and series
   )
 
   test("typeIdentifier grouping") {
@@ -95,7 +105,12 @@ class TokenTypeIdentifierSyntaxSpec extends munit.FunSuite with MockHelpers {
       assetGroup.value.typeIdentifier          -> Seq(assetGroup, assetGroup.copy()),
       assetGroupAlt.value.typeIdentifier       -> Seq(assetGroupAlt),
       assetSeries.value.typeIdentifier         -> Seq(assetSeries, assetSeries.copy()),
-      assetSeriesAlt.value.typeIdentifier      -> Seq(assetSeriesAlt)
+      assetSeriesAlt.value.typeIdentifier      -> Seq(assetSeriesAlt),
+      assetGroupSeriesAccumulator.value.typeIdentifier -> Seq(
+        assetGroupSeriesAccumulator,
+        assetGroupSeriesAccumulator.copy()
+      ),
+      assetGroupSeriesAccumulatorAlt.value.typeIdentifier -> Seq(assetGroupSeriesAccumulatorAlt)
     )
     assertEquals(testMap, expectedMap)
   }

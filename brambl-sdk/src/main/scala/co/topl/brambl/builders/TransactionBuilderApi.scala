@@ -528,8 +528,8 @@ object TransactionBuilderApi {
       // TODO: Currently we are only supporting LIQUID quantity descriptor type
       // We cannot aggregate IMMUTABLE or FRACTIONABLE quantity type
       private def aggregateValues(txos: Seq[Txo]): Map[ValueTypeIdentifier, BoxValue] =
-        txos.map(_.transactionOutput.value.value).groupMapReduce(_.typeIdentifier)(identity) {
-          (v1, v2) => v1.setQuantity(v1.quantity + v2.quantity)
+        txos.map(_.transactionOutput.value.value).groupMapReduce(_.typeIdentifier)(identity) { (v1, v2) =>
+          v1.setQuantity(v1.quantity + v2.quantity)
         }
 
       // TODO: Currently we are only supporting LIQUID quantity descriptor type

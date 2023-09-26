@@ -175,6 +175,17 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
             assetSeries.copy(
               assetSeries.getAsset.copy(mockGroupPolicyAlt.computeId.some, mockSeriesPolicyAlt.computeId.some)
             )
+          ),
+          UnspentTransactionOutput(
+            trivialLockAddress,
+            assetGroupSeriesAccumulator.copy(assetGroupSeriesAccumulator.value.setQuantity(quantity * 2))
+          ),
+          UnspentTransactionOutput(
+            trivialLockAddress,
+            assetGroupSeriesAccumulator.copy(
+              assetGroupSeriesAccumulator.getAsset
+                .copy(mockGroupPolicyAlt.computeId.some, mockSeriesPolicyAlt.computeId.some)
+            )
           )
         )
       )
@@ -237,6 +248,17 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
             trivialLockAddress,
             assetSeries.copy(
               assetSeries.getAsset.copy(mockGroupPolicyAlt.computeId.some, mockSeriesPolicyAlt.computeId.some)
+            )
+          ),
+          UnspentTransactionOutput(
+            trivialLockAddress,
+            assetGroupSeriesAccumulator.copy(assetGroupSeriesAccumulator.value.setQuantity(quantity * 2))
+          ),
+          UnspentTransactionOutput(
+            trivialLockAddress,
+            assetGroupSeriesAccumulator.copy(
+              assetGroupSeriesAccumulator.getAsset
+                .copy(mockGroupPolicyAlt.computeId.some, mockSeriesPolicyAlt.computeId.some)
             )
           )
         )
@@ -301,6 +323,17 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
             assetSeries.copy(
               assetSeries.getAsset.copy(mockGroupPolicyAlt.computeId.some, mockSeriesPolicyAlt.computeId.some)
             )
+          ),
+          UnspentTransactionOutput(
+            trivialLockAddress,
+            assetGroupSeriesAccumulator.copy(assetGroupSeriesAccumulator.value.setQuantity(quantity * 2))
+          ),
+          UnspentTransactionOutput(
+            trivialLockAddress,
+            assetGroupSeriesAccumulator.copy(
+              assetGroupSeriesAccumulator.getAsset
+                .copy(mockGroupPolicyAlt.computeId.some, mockSeriesPolicyAlt.computeId.some)
+            )
           )
         )
       )
@@ -351,7 +384,9 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
       Left(
         UnableToBuildTransaction(
           Seq(
-            UserInputError(s"All asset tokens must have valid QuantityDescriptorType. We currently only support LIQUID")
+            UserInputError(
+              s"All asset tokens must have valid QuantityDescriptorType. We currently only support LIQUID and ACCUMULATOR"
+            )
           )
         )
       )
@@ -377,33 +412,9 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
       Left(
         UnableToBuildTransaction(
           Seq(
-            UserInputError(s"All asset tokens must have valid QuantityDescriptorType. We currently only support LIQUID")
-          )
-        )
-      )
-    )
-  }
-
-  test("buildAssetTransferTransaction > ACCUMULATOR asset quantity descriptor in TXOs") {
-    val testTx = txBuilder.buildAssetTransferTransaction(
-      GroupAndSeriesFungible(
-        mockGroupPolicy.computeId,
-        mockSeriesPolicy.computeId,
-        mockSeriesPolicy.quantityDescriptor
-      ),
-      mockTxos :+ valToTxo(assetGroupSeriesAccumulator),
-      inPredicateLockFull,
-      1,
-      inLockFullAddress,
-      trivialLockAddress,
-      1
-    )
-    assertEquals(
-      testTx,
-      Left(
-        UnableToBuildTransaction(
-          Seq(
-            UserInputError(s"All asset tokens must have valid QuantityDescriptorType. We currently only support LIQUID")
+            UserInputError(
+              s"All asset tokens must have valid QuantityDescriptorType. We currently only support LIQUID and ACCUMULATOR"
+            )
           )
         )
       )
@@ -430,7 +441,7 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
         UnableToBuildTransaction(
           Seq(
             UserInputError(s"All tokens selected to transfer do not have enough funds to transfer"),
-            UserInputError(s"Unsupported quantity descriptor type. We currently only support LIQUID")
+            UserInputError(s"Unsupported quantity descriptor type. We currently only support LIQUID and ACCUMULATOR")
           )
         )
       )
@@ -457,34 +468,7 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
         UnableToBuildTransaction(
           Seq(
             UserInputError(s"All tokens selected to transfer do not have enough funds to transfer"),
-            UserInputError(s"Unsupported quantity descriptor type. We currently only support LIQUID")
-          )
-        )
-      )
-    )
-  }
-
-  test("buildAssetTransferTransaction > ACCUMULATOR asset quantity descriptor in transfer type") {
-    val testTx = txBuilder.buildAssetTransferTransaction(
-      GroupAndSeriesFungible(
-        mockGroupPolicy.computeId,
-        mockSeriesPolicy.computeId,
-        ACCUMULATOR
-      ),
-      mockTxos,
-      inPredicateLockFull,
-      1,
-      inLockFullAddress,
-      trivialLockAddress,
-      1
-    )
-    assertEquals(
-      testTx,
-      Left(
-        UnableToBuildTransaction(
-          Seq(
-            UserInputError(s"All tokens selected to transfer do not have enough funds to transfer"),
-            UserInputError(s"Unsupported quantity descriptor type. We currently only support LIQUID")
+            UserInputError(s"Unsupported quantity descriptor type. We currently only support LIQUID and ACCUMULATOR")
           )
         )
       )

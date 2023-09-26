@@ -122,12 +122,12 @@ object UserInputValidations {
     )
 
   // TODO: The following validations are temporary until we support all quanitity descriptor types
-  // We currently only support LIQUID
+  // We currently only support LIQUID and ACCUMULATOR
   def quantityDescriptorType(testType: Option[QuantityDescriptorType]): ValidatedNec[UserInputError, Unit] =
     Validated.condNec(
-      testType.isEmpty || testType.get == QuantityDescriptorType.LIQUID,
+      testType.isEmpty || testType.get == QuantityDescriptorType.LIQUID || testType.get == QuantityDescriptorType.ACCUMULATOR,
       (),
-      UserInputError(s"Unsupported quantity descriptor type. We currently only support LIQUID")
+      UserInputError(s"Unsupported quantity descriptor type. We currently only support LIQUID and ACCUMULATOR")
     )
 
   def identifierQuantityDescriptorType(testType: ValueTypeIdentifier): ValidatedNec[UserInputError, Unit] =
@@ -138,7 +138,9 @@ object UserInputValidations {
       // Any asset tokens must have valid QuantityDescriptorType
       testValues.map(_.typeIdentifier).map(identifierQuantityDescriptorType).forall(_.isValid),
       (),
-      UserInputError(s"All asset tokens must have valid QuantityDescriptorType. We currently only support LIQUID")
+      UserInputError(
+        s"All asset tokens must have valid QuantityDescriptorType. We currently only support LIQUID and ACCUMULATOR"
+      )
     )
 
   object TransactionBuilder {

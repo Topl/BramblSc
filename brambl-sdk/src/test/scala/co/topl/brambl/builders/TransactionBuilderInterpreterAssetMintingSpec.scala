@@ -727,7 +727,7 @@ class TransactionBuilderInterpreterAssetMintingSpec extends TransactionBuilderIn
       testTx,
       Left(
         UnableToBuildTransaction(
-          Seq(UserInputError(s"Unsupported quantity descriptor type. We currently only support LIQUID"))
+          Seq(UserInputError(s"Unsupported quantity descriptor type. We currently only support LIQUID and ACCUMULATOR"))
         )
       )
     )
@@ -758,7 +758,7 @@ class TransactionBuilderInterpreterAssetMintingSpec extends TransactionBuilderIn
       testTx,
       Left(
         UnableToBuildTransaction(
-          Seq(UserInputError(s"Unsupported quantity descriptor type. We currently only support LIQUID"))
+          Seq(UserInputError(s"Unsupported quantity descriptor type. We currently only support LIQUID and ACCUMULATOR"))
         )
       )
     )
@@ -782,16 +782,33 @@ class TransactionBuilderInterpreterAssetMintingSpec extends TransactionBuilderIn
 
     val outAddr = trivialLockAddress
     val statement: AssetMintingStatement = AssetMintingStatement(groupAddr, seriesAddr, quantity)
-
-    val testTx = txBuilder
-      .buildSimpleAssetMintingTransaction(statement, groupTxo, seriesTxo, groupLock, seriesLock, outAddr, None, None)
-    assertEquals(
-      testTx,
-      Left(
-        UnableToBuildTransaction(
-          Seq(UserInputError(s"Unsupported quantity descriptor type. We currently only support LIQUID"))
-        )
+    val mintedValue = Value.defaultInstance.withAsset(
+      Value.Asset(
+        mockGroupPolicy.computeId.some,
+        mockSeriesPolicy.computeId.some,
+        quantity,
+        quantityDescriptor = ACCUMULATOR
       )
     )
+
+    val expectedTx = IoTransaction.defaultInstance
+      .withDatum(txDatum)
+      .withMintingStatements(Seq(statement))
+      .withInputs(
+        List(
+          SpentTransactionOutput(groupAddr, attFull, groupValue),
+          SpentTransactionOutput(seriesAddr, attFull, seriesValue)
+        )
+      )
+      .withOutputs(
+        List(
+          UnspentTransactionOutput(inLockFullAddress, seriesValue),
+          UnspentTransactionOutput(trivialLockAddress, mintedValue),
+          UnspentTransactionOutput(inLockFullAddress, groupValue)
+        )
+      )
+    val txRes = txBuilder
+      .buildSimpleAssetMintingTransaction(statement, groupTxo, seriesTxo, groupLock, seriesLock, outAddr, None, None)
+    assert(txRes.isRight && txRes.toOption.get.computeId == expectedTx.computeId)
   }
 }

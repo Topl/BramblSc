@@ -64,6 +64,14 @@ trait TransactionBuilderInterpreterSpecBase extends munit.FunSuite with MockHelp
         groupId = mockGroupPolicyAlt.computeId.some,
         seriesId = mockSeriesPolicyAlt.computeId.some
       )
-    ) // diff series
+    ), // diff series
+    assetGroupSeriesAccumulator,
+    assetGroupSeriesAccumulator.copy(),
+    assetGroupSeriesAccumulator.copy(
+      assetGroupSeriesAccumulator.getAsset.copy(
+        groupId = mockGroupPolicyAlt.computeId.some,
+        seriesId = mockSeriesPolicyAlt.computeId.some
+      )
+    ) // diff group and series
   ).map(valToTxo(_))
 }

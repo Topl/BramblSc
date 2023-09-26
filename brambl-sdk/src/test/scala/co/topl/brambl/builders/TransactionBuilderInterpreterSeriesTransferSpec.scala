@@ -151,6 +151,17 @@ class TransactionBuilderInterpreterSeriesTransferSpec extends TransactionBuilder
             assetSeries.copy(
               assetSeries.getAsset.copy(mockGroupPolicyAlt.computeId.some, mockSeriesPolicyAlt.computeId.some)
             )
+          ),
+          UnspentTransactionOutput(
+            trivialLockAddress,
+            assetGroupSeriesAccumulator.copy(assetGroupSeriesAccumulator.value.setQuantity(quantity * 2))
+          ),
+          UnspentTransactionOutput(
+            trivialLockAddress,
+            assetGroupSeriesAccumulator.copy(
+              assetGroupSeriesAccumulator.getAsset
+                .copy(mockGroupPolicyAlt.computeId.some, mockSeriesPolicyAlt.computeId.some)
+            )
           )
         )
       )
@@ -193,7 +204,9 @@ class TransactionBuilderInterpreterSeriesTransferSpec extends TransactionBuilder
       Left(
         UnableToBuildTransaction(
           Seq(
-            UserInputError(s"All asset tokens must have valid QuantityDescriptorType. We currently only support LIQUID")
+            UserInputError(
+              s"All asset tokens must have valid QuantityDescriptorType. We currently only support LIQUID and ACCUMULATOR"
+            )
           )
         )
       )
@@ -215,29 +228,9 @@ class TransactionBuilderInterpreterSeriesTransferSpec extends TransactionBuilder
       Left(
         UnableToBuildTransaction(
           Seq(
-            UserInputError(s"All asset tokens must have valid QuantityDescriptorType. We currently only support LIQUID")
-          )
-        )
-      )
-    )
-  }
-
-  test("buildSeriesTransferTransaction > ACCUMULATOR asset quantity descriptor in TXOs") {
-    val testTx = txBuilder.buildSeriesTransferTransaction(
-      SeriesType(mockSeriesPolicy.computeId),
-      mockTxos :+ valToTxo(assetGroupSeriesAccumulator),
-      inPredicateLockFull,
-      1,
-      inLockFullAddress,
-      trivialLockAddress,
-      1
-    )
-    assertEquals(
-      testTx,
-      Left(
-        UnableToBuildTransaction(
-          Seq(
-            UserInputError(s"All asset tokens must have valid QuantityDescriptorType. We currently only support LIQUID")
+            UserInputError(
+              s"All asset tokens must have valid QuantityDescriptorType. We currently only support LIQUID and ACCUMULATOR"
+            )
           )
         )
       )
