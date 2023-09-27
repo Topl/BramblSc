@@ -19,6 +19,8 @@ class TransactionSyntaxInterpreterMintingCaseCSpec extends munit.FunSuite with M
 
   private val txoAddress_1 = TransactionOutputAddress(1, 0, 0, dummyTxIdentifier)
   private val txoAddress_2 = TransactionOutputAddress(2, 0, 0, dummyTxIdentifier)
+  private val txoAddress_3 = TransactionOutputAddress(3, 0, 0, dummyTxIdentifier)
+  private val txoAddress_4 = TransactionOutputAddress(4, 0, 0, dummyTxIdentifier)
 
   test("Valid data-input case 1, minting a Asset Token Unlimited") {
     val groupPolicy = Event.GroupPolicy(label = "policyG", registrationUtxo = txoAddress_1)
@@ -419,6 +421,107 @@ class TransactionSyntaxInterpreterMintingCaseCSpec extends munit.FunSuite with M
       outputs = List(output_1, output_2, output_3, output_4),
       mintingStatements = List(mintingStatement_1)
     )
+
+    val validator = TransactionSyntaxInterpreter.make[Id]()
+    val result = validator.validate(testTx).swap
+
+    assertEquals(result.map(_.toList.size).getOrElse(0), 0)
+
+  }
+
+  test("Valid data-input case 6, minting a Asset Token Limited and transfer Other Asset") {
+    val groupPolicy =
+      Event.GroupPolicy(label = "policy", registrationUtxo = txoAddress_1)
+
+    val groupPolicy_A =
+      Event.GroupPolicy(label = "policy_A", registrationUtxo = txoAddress_3)
+
+    val seriesPolicy =
+      Event.SeriesPolicy(label = "series", registrationUtxo = txoAddress_2, tokenSupply = Some(10))
+
+    val seriesPolicy_A =
+      Event.SeriesPolicy(label = "series_A", registrationUtxo = txoAddress_4, tokenSupply = Some(10))
+
+    val value_1_in: Value =
+      Value.defaultInstance.withGroup(Value.Group(groupId = groupPolicy.computeId, quantity = BigInt(1)))
+
+    val value_2_in: Value =
+      Value.defaultInstance.withSeries(
+        Value.Series(seriesId = seriesPolicy.computeId, quantity = BigInt(2), tokenSupply = Some(10))
+      )
+
+    // transfer asset with output value_4_out
+    val value_3_in: Value =
+      Value.defaultInstance.withAsset(
+        Value.Asset(
+          groupId = Some(groupPolicy_A.computeId),
+          seriesId = Some(seriesPolicy_A.computeId),
+          quantity = BigInt(1)
+        )
+      )
+
+    // minting asset case 1 token supply Limited
+    // only possible value is 10, 1*10.  if quantity is 2 = could be 10 or 20. 1*10, 2*10,
+    val value_1_out: Value =
+      Value.defaultInstance.withAsset(
+        Value.Asset(
+          groupId = Some(groupPolicy.computeId),
+          seriesId = Some(seriesPolicy.computeId),
+          quantity = BigInt(10)
+        )
+      )
+
+    // transfer asset with input value_3_in
+    val value_4_out: Value =
+      Value.defaultInstance.withAsset(
+        Value.Asset(
+          groupId = Some(groupPolicy_A.computeId),
+          seriesId = Some(seriesPolicy_A.computeId),
+          quantity = BigInt(1)
+        )
+      )
+
+    // quantity should be equal value_1_in
+    val value_2_out: Value =
+      Value.defaultInstance.withGroup(
+        Value.Group(
+          groupId = groupPolicy.computeId,
+          quantity = BigInt(1)
+        )
+      )
+
+    // Here we are not burning the series, we spend 1 quantity.
+    val value_3_out: Value =
+      Value.defaultInstance.withSeries(
+        Value.Series(
+          seriesId = seriesPolicy.computeId,
+          quantity = BigInt(1),
+          tokenSupply = Some(10)
+        )
+      )
+
+    val inputs = List(
+      SpentTransactionOutput(txoAddress_1, attFull, value_1_in),
+      SpentTransactionOutput(txoAddress_2, attFull, value_2_in),
+      SpentTransactionOutput(txoAddress_3, attFull, value_3_in)
+    )
+
+    val outputs = List(
+      UnspentTransactionOutput(trivialLockAddress, value_1_out),
+      UnspentTransactionOutput(trivialLockAddress, value_2_out),
+      UnspentTransactionOutput(trivialLockAddress, value_3_out),
+      UnspentTransactionOutput(trivialLockAddress, value_4_out)
+    )
+
+    val mintingStatements = List(
+      AssetMintingStatement(
+        groupTokenUtxo = txoAddress_1,
+        seriesTokenUtxo = txoAddress_2,
+        quantity = BigInt(10)
+      )
+    )
+
+    val testTx = txFull.copy(inputs = inputs, outputs = outputs, mintingStatements = mintingStatements)
 
     val validator = TransactionSyntaxInterpreter.make[Id]()
     val result = validator.validate(testTx).swap
