@@ -110,7 +110,7 @@ class TransactionSyntaxInterpreterMintingCaseCSpec extends munit.FunSuite with M
         )
       )
 
-    // Here we burning the series, keep comment to understand the test
+    // Here we burning the series, burned == 1 keep comment to understand the test
     // when we burn a series, means quantity =0, but this output is not produced
     //    val value_3_out: Value =
     //      Value.defaultInstance.withSeries(
@@ -187,22 +187,24 @@ class TransactionSyntaxInterpreterMintingCaseCSpec extends munit.FunSuite with M
     //        )
     //      )
 
-    val input_1 = SpentTransactionOutput(txoAddress_1, attFull, value_1_in)
-    val input_2 = SpentTransactionOutput(txoAddress_2, attFull, value_2_in)
-    val output_1 = UnspentTransactionOutput(trivialLockAddress, value_1_out)
-    val output_2 = UnspentTransactionOutput(trivialLockAddress, value_2_out)
-
-    val mintingStatement_1 = AssetMintingStatement(
-      groupTokenUtxo = txoAddress_1,
-      seriesTokenUtxo = txoAddress_2,
-      quantity = BigInt(20)
+    val inputs = List(
+      SpentTransactionOutput(txoAddress_1, attFull, value_1_in),
+      SpentTransactionOutput(txoAddress_2, attFull, value_2_in)
+    )
+    val outputs = List(
+      UnspentTransactionOutput(trivialLockAddress, value_1_out),
+      UnspentTransactionOutput(trivialLockAddress, value_2_out)
     )
 
-    val testTx = txFull.copy(
-      inputs = List(input_1, input_2),
-      outputs = List(output_1, output_2),
-      mintingStatements = List(mintingStatement_1)
+    val mintingStatements = List(
+      AssetMintingStatement(
+        groupTokenUtxo = txoAddress_1,
+        seriesTokenUtxo = txoAddress_2,
+        quantity = BigInt(20)
+      )
     )
+
+    val testTx = txFull.copy(inputs = inputs, outputs = outputs, mintingStatements = mintingStatements)
 
     val validator = TransactionSyntaxInterpreter.make[Id]()
     val result = validator.validate(testTx).swap
@@ -346,10 +348,6 @@ class TransactionSyntaxInterpreterMintingCaseCSpec extends munit.FunSuite with M
 
   }
 
-  /**
-   * TODO I will keep test 5, but is wrong, because It should be handle in Transfer Series validation
-   * - here we burn the series, in the output there should be no instances of Series
-   */
   test("Valid data-input case 5, minting a Asset Token Limited") {
     val groupPolicy = Event.GroupPolicy(label = "policyG", registrationUtxo = txoAddress_1)
     val seriesPolicy =
@@ -383,44 +381,25 @@ class TransactionSyntaxInterpreterMintingCaseCSpec extends munit.FunSuite with M
         )
       )
 
-    // TODO, Here we are not burning the series, we spend 1. Burned Series, this output is wrong
-    val value_3_out: Value =
-      Value.defaultInstance.withSeries(
-        Value.Series(
-          seriesId = seriesPolicy.computeId,
-          quantity = BigInt(1),
-          tokenSupply = Some(10)
-        )
-      )
-
-    // TODO, Here we are not burning the series, we spend 1. Burned Series, this output is wrong
-    val value_4_out: Value =
-      Value.defaultInstance.withSeries(
-        Value.Series(
-          seriesId = seriesPolicy.computeId,
-          quantity = BigInt(1),
-          tokenSupply = Some(10)
-        )
-      )
-
-    val input_1 = SpentTransactionOutput(txoAddress_1, attFull, value_1_in)
-    val input_2 = SpentTransactionOutput(txoAddress_2, attFull, value_2_in)
-    val output_1 = UnspentTransactionOutput(trivialLockAddress, value_1_out)
-    val output_2 = UnspentTransactionOutput(trivialLockAddress, value_2_out)
-    val output_3 = UnspentTransactionOutput(trivialLockAddress, value_3_out)
-    val output_4 = UnspentTransactionOutput(trivialLockAddress, value_4_out)
-
-    val mintingStatement_1 = AssetMintingStatement(
-      groupTokenUtxo = txoAddress_1,
-      seriesTokenUtxo = txoAddress_2,
-      quantity = BigInt(20)
+    val inputs = List(
+      SpentTransactionOutput(txoAddress_1, attFull, value_1_in),
+      SpentTransactionOutput(txoAddress_2, attFull, value_2_in)
     )
 
-    val testTx = txFull.copy(
-      inputs = List(input_1, input_2),
-      outputs = List(output_1, output_2, output_3, output_4),
-      mintingStatements = List(mintingStatement_1)
+    val outputs = List(
+      UnspentTransactionOutput(trivialLockAddress, value_1_out),
+      UnspentTransactionOutput(trivialLockAddress, value_2_out)
     )
+
+    val mintingStatements = List(
+      AssetMintingStatement(
+        groupTokenUtxo = txoAddress_1,
+        seriesTokenUtxo = txoAddress_2,
+        quantity = BigInt(20)
+      )
+    )
+
+    val testTx = txFull.copy(inputs = inputs, outputs = outputs, mintingStatements = mintingStatements)
 
     val validator = TransactionSyntaxInterpreter.make[Id]()
     val result = validator.validate(testTx).swap
@@ -471,16 +450,6 @@ class TransactionSyntaxInterpreterMintingCaseCSpec extends munit.FunSuite with M
         )
       )
 
-    // transfer asset with input value_3_in
-    val value_4_out: Value =
-      Value.defaultInstance.withAsset(
-        Value.Asset(
-          groupId = Some(groupPolicy_A.computeId),
-          seriesId = Some(seriesPolicy_A.computeId),
-          quantity = BigInt(1)
-        )
-      )
-
     // quantity should be equal value_1_in
     val value_2_out: Value =
       Value.defaultInstance.withGroup(
@@ -497,6 +466,16 @@ class TransactionSyntaxInterpreterMintingCaseCSpec extends munit.FunSuite with M
           seriesId = seriesPolicy.computeId,
           quantity = BigInt(1),
           tokenSupply = Some(10)
+        )
+      )
+
+    // transfer asset with input value_3_in
+    val value_4_out: Value =
+      Value.defaultInstance.withAsset(
+        Value.Asset(
+          groupId = Some(groupPolicy_A.computeId),
+          seriesId = Some(seriesPolicy_A.computeId),
+          quantity = BigInt(1)
         )
       )
 
@@ -591,7 +570,8 @@ class TransactionSyntaxInterpreterMintingCaseCSpec extends munit.FunSuite with M
       )
     )
     assertEquals(assertError, true)
-    assertEquals(result.map(_.toList.size).getOrElse(0), 1)
+    // 2 InsufficientInputFunds validation rules are catch
+    assertEquals(result.map(_.toList.size).getOrElse(0), 2)
 
   }
 
@@ -657,8 +637,7 @@ class TransactionSyntaxInterpreterMintingCaseCSpec extends munit.FunSuite with M
     )
 
     assertEquals(assertError, true)
-    // 2 InsufficientInputFunds validation rules are catch
-    assertEquals(result.map(_.toList.size).getOrElse(0), 2)
+    assertEquals(result.map(_.toList.size).getOrElse(0), 1)
 
   }
 

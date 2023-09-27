@@ -393,28 +393,44 @@ object TransactionSyntaxInterpreter {
       }
     }
 
-    def seriesIdOnMintedStatements(a: Value.Asset): Option[Value.Series] =
-      transaction.inputs
-        .filter(_.value.value.isSeries)
-        .filter(sto =>
-          transaction.mintingStatements.map(_.seriesTokenUtxo).contains(sto.address) &&
-          a.seriesId.contains(sto.value.getSeries.seriesId)
-        )
-        .map(_.value.getSeries)
-        .headOption
+    /**
+     * Let sIn be the total number of series constructor tokens with identifier in the input,
+     * sOut the total number of series constructor tokens with identifier in the output,
+     * and burned the number of where the referenced series specifies a token supply, then we have:
+     * sIn - burned = sOut
+     */
+    val validAssets = transaction.mintingStatements.forall { ams =>
+      val maybeSeries: Option[Value.Series] =
+        transaction.inputs
+          .filter(_.value.value.isSeries)
+          .filter(_.address == ams.seriesTokenUtxo)
+          .map(_.value.getSeries)
+          .headOption
 
-    val validAssets = assets.forall { a =>
-      a.seriesId.isDefined &&
-      seriesIdOnMintedStatements(a).exists(s =>
-        s.tokenSupply match {
-          case Some(tokenSupplied) =>
-            // Is minted quantity a multiple of token supply?
-            (a.quantity: BigInt) % (tokenSupplied: BigInt) == 0 &&
-            // Is there enough series supply to mint asset quantity?
-            (s.quantity: BigInt) * (tokenSupplied: BigInt) >= (a.quantity: BigInt)
-          case None => true
-        }
-      )
+      maybeSeries match {
+        case Some(s) =>
+          s.tokenSupply match {
+            case Some(tokenSupplied) =>
+              val sIn = transaction.inputs
+                .filter(_.value.value.isSeries)
+                .filter(_.value.getSeries.seriesId == s.seriesId)
+                .map(_.value.getSeries.quantity: BigInt)
+                .sum
+
+              val sOut =
+                transaction.outputs
+                  .filter(_.value.value.isSeries)
+                  .filter(_.value.getSeries.seriesId == s.seriesId)
+                  .map(_.value.getSeries.quantity: BigInt)
+                  .sum
+
+              val burned = sIn - sOut
+              burned * tokenSupplied == (ams.quantity: BigInt)
+
+            case None => true
+          }
+        case None => false
+      }
     }
 
     Validated.condNec(
