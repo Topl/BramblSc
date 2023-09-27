@@ -4,14 +4,7 @@ import cats.Monad
 import cats.data.{EitherT, NonEmptyChain}
 import co.topl.brambl.codecs.AddressCodecs
 import co.topl.brambl.models.{Datum, Event, GroupId, LockAddress, LockId, SeriesId, TransactionOutputAddress}
-import co.topl.brambl.models.box.{
-  AssetMintingStatement,
-  Attestation,
-  FungibilityType,
-  Lock,
-  QuantityDescriptorType,
-  Value
-}
+import co.topl.brambl.models.box.{AssetMintingStatement, Attestation, FungibilityType, Lock, QuantityDescriptorType, Value}
 import co.topl.brambl.models.transaction.{IoTransaction, Schedule, SpentTransactionOutput, UnspentTransactionOutput}
 import co.topl.genus.services.Txo
 import com.google.protobuf.ByteString
@@ -22,24 +15,7 @@ import cats.implicits._
 import co.topl.brambl.builders.UserInputValidations.TransactionBuilder._
 import co.topl.brambl.models.Event.{GroupPolicy, SeriesPolicy}
 import co.topl.brambl.models.box.Value.{Asset, Group, LVL, Series, Value => BoxValue}
-import co.topl.brambl.syntax.{
-  assetAsBoxVal,
-  bigIntAsInt128,
-  groupAsBoxVal,
-  groupPolicyAsGroupPolicySyntaxOps,
-  int128AsBigInt,
-  longAsInt128,
-  lvlAsBoxVal,
-  seriesAsBoxVal,
-  seriesPolicyAsSeriesPolicySyntaxOps,
-  valueToQuantitySyntaxOps,
-  valueToTypeIdentifierSyntaxOps,
-  AssetType,
-  GroupType,
-  LvlType,
-  SeriesType,
-  ValueTypeIdentifier
-}
+import co.topl.brambl.syntax.{AssetType, GroupType, LvlType, SeriesType, ValueTypeIdentifier, assetAsBoxVal, bigIntAsInt128, groupAsBoxVal, groupPolicyAsGroupPolicySyntaxOps, int128AsBigInt, longAsInt128, lvlAsBoxVal, seriesAsBoxVal, seriesPolicyAsSeriesPolicySyntaxOps, valueToAggregationSyntaxOps, valueToQuantitySyntaxOps, valueToTypeIdentifierSyntaxOps}
 import com.google.protobuf.struct.Struct
 
 import scala.language.implicitConversions
@@ -504,38 +480,71 @@ object TransactionBuilderApi {
         changeAddress:    LockAddress,
         fee:              Long
       ): EitherT[F, BuilderError, Seq[UnspentTransactionOutput]] = Try {
-        val aggregatedValues = applyFee(aggregateValues(txos), fee)
-        val otherVals = (aggregatedValues - transferType).values.toSeq
-        val transferVal = aggregatedValues(transferType)
-        val changeVal = buildChange(transferVal, transferVal.quantity - amount).toSeq
-        UnspentTransactionOutput(recipientAddress, Value.defaultInstance.withValue(transferVal.setQuantity(amount))) +:
-        (changeVal ++ otherVals).map(v => UnspentTransactionOutput(changeAddress, Value.defaultInstance.withValue(v)))
+        val groupedValues = applyFee(fee, txos.map(_.transactionOutput.value.value).groupBy(_.typeIdentifier))
+        val otherVals = (groupedValues - transferType).values.toSeq.flatMap(aggregateValues)
+        // To support ACCUMULATOR.. we cannot aggregate them first since once we do we cannot split.
+        // We need to partition the values into those that can add up to AMOUNT and those that wont be (change).
+        // We can then aggregate those values separately.
+        val (transferVals, changeVals) = partitionForTransfer(groupedValues(transferType), amount)
+        val toRecipient = transferVals.map(Value.defaultInstance.withValue)
+          .map(UnspentTransactionOutput(recipientAddress, _))
+        val toChange = (changeVals ++ otherVals).map(Value.defaultInstance.withValue)
+          .map(UnspentTransactionOutput(changeAddress, _))
+        toRecipient ++ toChange
       } match {
         case Success(utxos) => EitherT.rightT(utxos)
         case Failure(err)   => EitherT.leftT(BuilderRuntimeError("Failed to build utxos", err))
       }
 
-      // Due to validation, if fee >0, then there must be a lvl in the txos
+      /**
+       * Apply the fee to the LVL values.
+       * Due to validation, we know that there are enough LVLs in the values to satisfy the fee.
+       * If there are no LVLs, then we don't need to apply the fee.
+       *
+       * @param fee The fee to apply to the LVLs
+       * @param values The values of the transaction's inputs.
+       * @return The values with the LVLs aggregated together and reduced by the fee amount. If there are no LVLs, then
+       *         the values are returned unchanged. In this case, we know that the fee is 0.
+       */
       private def applyFee(
-        groupedValues: Map[ValueTypeIdentifier, BoxValue],
-        fee:           Long
-      ): Map[ValueTypeIdentifier, BoxValue] =
-        if (fee > 0) {
-          val lvlVal = groupedValues(LvlType)
-          groupedValues.updated(LvlType, lvlVal.setQuantity(lvlVal.quantity - fee))
-        } else groupedValues
+        fee:    Long,
+        values: Map[ValueTypeIdentifier, Seq[BoxValue]],
+      ): Map[ValueTypeIdentifier, Seq[BoxValue]] = values.get(LvlType) match {
+        case Some(lvlVals) => values.updated(LvlType, Seq(lvlVals.reduce(_ + _)))
+        case _ => values
+      }
 
-      // TODO: Currently we are only supporting LIQUID quantity descriptor type
-      // We cannot aggregate IMMUTABLE or FRACTIONABLE quantity type
-      private def aggregateValues(txos: Seq[Txo]): Map[ValueTypeIdentifier, BoxValue] =
-        txos.map(_.transactionOutput.value.value).groupMapReduce(_.typeIdentifier)(identity) { (v1, v2) =>
-          v1.setQuantity(v1.quantity + v2.quantity)
-        }
+      /**
+       * Adds all values together if possible. If not possible, the original values are returned
+       *
+       * @return A single element iterable containing the sum of all values if possible, otherwise the original values
+       */
+      private def aggregateValues(values: Seq[BoxValue]): Seq[BoxValue] = Try {
+        values.reduce(_ + _)
+      } match {
+        case Success(v) => Seq(v)
+        case Failure(_) => values
+      }
 
-      // TODO: Currently we are only supporting LIQUID quantity descriptor type
-      // We cannot split an IMMUTABLE or ACCUMULATOR quantity type
-      private def buildChange(inValue: BoxValue, changeQuantity: Int128): Option[BoxValue] =
-        if (changeQuantity > 0) inValue.setQuantity(changeQuantity).some else None
+      /**
+       * Partition the values into those that need to be transferred to recipient, and the rest.
+       * The rest will be used as change.
+       * Aggregate each partition if possible
+       *
+       * @param values values that could be transfered to recipient
+       * @return A tuple containing the values that will be transferred to recipient, and the rest
+       */
+      private def partitionForTransfer(values: Seq[BoxValue], amount: BigInt): (Seq[BoxValue], Seq[BoxValue]) = {
+        // origQuantities = values.map(_.quantity) :+ 0
+        // dynamic programming & knapsack problem... but might be overkill.. is this something users want?
+        // https://en.wikipedia.org/wiki/Knapsack_problem
+        // it would be O([# of input values] * [amount to transfer])..
+        // so if there are a lot of values to transfer or a big quantity to send, it could be slow
+        // alternatively, they could just supply the values of the outputs themselves
+        // and we just validate that it is correct.
+        val (toRecipient, toChange): (Seq[BoxValue], Seq[BoxValue]) = ???
+        (aggregateValues(toRecipient), aggregateValues(toChange))
+      }
 
       override def buildSimpleGroupMintingTransaction(
         registrationTxo:              Txo,
