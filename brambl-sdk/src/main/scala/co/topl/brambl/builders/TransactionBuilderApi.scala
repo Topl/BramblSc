@@ -475,8 +475,9 @@ object TransactionBuilderApi {
         fee:    Long,
         values: Map[ValueTypeIdentifier, Seq[BoxValue]]
       ): Map[ValueTypeIdentifier, Seq[BoxValue]] = values.get(LvlType) match {
-        case Some(lvlVals) => values.updated(LvlType, DefaultAggregationOps.aggregate(lvlVals))
-        case _             => values
+        case Some(lvlVals) =>
+          values.updated(LvlType, DefaultAggregationOps.aggregateWithChange(lvlVals, BigInt(fee).some)._2)
+        case _ => values
       }
 
       override def buildSimpleGroupMintingTransaction(

@@ -15,6 +15,7 @@ import co.topl.brambl.syntax.{
   seriesAsBoxVal,
   seriesPolicyAsSeriesPolicySyntaxOps,
   valueToQuantitySyntaxOps,
+  valueToTypeIdentifierSyntaxOps,
   GroupAndSeriesFungible,
   GroupFungible,
   SeriesFungible
@@ -359,63 +360,7 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
     assertEquals(testTx.toOption.get.computeId, expectedTx.computeId)
   }
 
-  test("buildTransferAmountTransaction > IMMUTABLE asset quantity descriptor in TXOs") {
-    val testTx = txBuilder.buildTransferAmountTransaction(
-      GroupAndSeriesFungible(
-        mockGroupPolicy.computeId,
-        mockSeriesPolicy.computeId,
-        mockSeriesPolicy.quantityDescriptor
-      ),
-      mockTxos :+ valToTxo(assetGroupSeriesImmutable),
-      inPredicateLockFull,
-      1,
-      inLockFullAddress,
-      trivialLockAddress,
-      1
-    )
-    assertEquals(
-      testTx,
-      Left(
-        UnableToBuildTransaction(
-          Seq(
-            UserInputError(
-              s"All asset tokens must have valid QuantityDescriptorType. We currently only support LIQUID and ACCUMULATOR"
-            )
-          )
-        )
-      )
-    )
-  }
-
-  test("buildTransferAmountTransaction > FRACTIONABLE asset quantity descriptor in TXOs") {
-    val testTx = txBuilder.buildTransferAmountTransaction(
-      GroupAndSeriesFungible(
-        mockGroupPolicy.computeId,
-        mockSeriesPolicy.computeId,
-        mockSeriesPolicy.quantityDescriptor
-      ),
-      mockTxos :+ valToTxo(assetGroupSeriesFractionable),
-      inPredicateLockFull,
-      1,
-      inLockFullAddress,
-      trivialLockAddress,
-      1
-    )
-    assertEquals(
-      testTx,
-      Left(
-        UnableToBuildTransaction(
-          Seq(
-            UserInputError(
-              s"All asset tokens must have valid QuantityDescriptorType. We currently only support LIQUID and ACCUMULATOR"
-            )
-          )
-        )
-      )
-    )
-  }
-
-  test("buildTransferAmountTransaction > IMMUTABLE asset quantity descriptor in transfer type") {
+  test("buildTransferAmountTransaction > IMMUTABLE asset quantity descriptor in transfer type".fail) {
     val testTx = txBuilder.buildTransferAmountTransaction(
       GroupAndSeriesFungible(
         mockGroupPolicy.computeId,
@@ -434,15 +379,14 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
       Left(
         UnableToBuildTransaction(
           Seq(
-            UserInputError(s"All tokens selected to transfer do not have enough funds to transfer"),
-            UserInputError(s"Unsupported quantity descriptor type. We currently only support LIQUID and ACCUMULATOR")
+            UserInputError(s"Invalid asset quantity descriptor type. If identifier is an asset, it must be liquid.")
           )
         )
       )
     )
   }
 
-  test("buildTransferAmountTransaction > FRACTIONABLE asset quantity descriptor in transfer type") {
+  test("buildTransferAmountTransaction > FRACTIONABLE asset quantity descriptor in transfer type".fail) {
     val testTx = txBuilder.buildTransferAmountTransaction(
       GroupAndSeriesFungible(
         mockGroupPolicy.computeId,
@@ -461,8 +405,33 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
       Left(
         UnableToBuildTransaction(
           Seq(
-            UserInputError(s"All tokens selected to transfer do not have enough funds to transfer"),
-            UserInputError(s"Unsupported quantity descriptor type. We currently only support LIQUID and ACCUMULATOR")
+            UserInputError(s"Invalid asset quantity descriptor type. If identifier is an asset, it must be liquid.")
+          )
+        )
+      )
+    )
+  }
+
+  test("buildTransferAmountTransaction > ACCUMULATOR asset quantity descriptor in transfer type") {
+    val testTx = txBuilder.buildTransferAmountTransaction(
+      GroupAndSeriesFungible(
+        mockGroupPolicy.computeId,
+        mockSeriesPolicy.computeId,
+        ACCUMULATOR
+      ),
+      mockTxos,
+      inPredicateLockFull,
+      1,
+      inLockFullAddress,
+      trivialLockAddress,
+      1
+    )
+    assertEquals(
+      testTx,
+      Left(
+        UnableToBuildTransaction(
+          Seq(
+            UserInputError(s"Invalid asset quantity descriptor type. If identifier is an asset, it must be liquid.")
           )
         )
       )

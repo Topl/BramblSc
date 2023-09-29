@@ -121,27 +121,14 @@ object UserInputValidations {
       UserInputError(s"Not enough LVLs in input to satisfy fee")
     )
 
-  // TODO: The following validations are temporary until we support all quanitity descriptor types
-  // We currently only support LIQUID and ACCUMULATOR
-  def quantityDescriptorType(testType: Option[QuantityDescriptorType]): ValidatedNec[UserInputError, Unit] =
+  def identifierQuantityDescriptorLiquidOrNone(testType: ValueTypeIdentifier): ValidatedNec[UserInputError, Unit] = {
+    val qd = testType.getQuantityDescriptor
     Validated.condNec(
-      testType.isEmpty || testType.get == QuantityDescriptorType.LIQUID || testType.get == QuantityDescriptorType.ACCUMULATOR,
+      qd.isEmpty || qd.get == QuantityDescriptorType.LIQUID,
       (),
-      UserInputError(s"Unsupported quantity descriptor type. We currently only support LIQUID and ACCUMULATOR")
+      UserInputError(s"Invalid asset quantity descriptor type. If identifier is an asset, it must be liquid.")
     )
-
-  def identifierQuantityDescriptorType(testType: ValueTypeIdentifier): ValidatedNec[UserInputError, Unit] =
-    quantityDescriptorType(testType.getQuantityDescriptor)
-
-  def allValidQuantityDescriptorTypes(testValues: Seq[Value]): ValidatedNec[UserInputError, Unit] =
-    Validated.condNec(
-      // Any asset tokens must have valid QuantityDescriptorType
-      testValues.map(_.typeIdentifier).map(identifierQuantityDescriptorType).forall(_.isValid),
-      (),
-      UserInputError(
-        s"All asset tokens must have valid QuantityDescriptorType. We currently only support LIQUID and ACCUMULATOR"
-      )
-    )
+  }
 
   object TransactionBuilder {
 
@@ -165,8 +152,7 @@ object UserInputValidations {
         positiveQuantity(Some(amount), "quantity to transfer"),
         allInputLocksMatch(txos.map(_.transactionOutput.address), fromLockAddr, "fromLockAddr"),
         validTransferSupply(amount, transferValues),
-        identifierQuantityDescriptorType(transferIdentifier),
-        allValidQuantityDescriptorTypes(allValues),
+        identifierQuantityDescriptorLiquidOrNone(transferIdentifier),
         validFee(fee, allValues, if (transferIdentifier == LvlType) amount else 0)
       ).fold.toEither
     } match {
@@ -237,8 +223,7 @@ object UserInputValidations {
         fixedSeriesMatch(
           groupTxo.transactionOutput.value.value.group.flatMap(_.fixedSeries),
           seriesTxo.transactionOutput.value.value.series.map(_.seriesId)
-        ),
-        quantityDescriptorType(seriesTxo.transactionOutput.value.value.series.map(_.quantityDescriptor))
+        )
       ).fold.toEither
 
   }
