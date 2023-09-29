@@ -1,0 +1,65 @@
+package co.topl.brambl.builders
+
+import co.topl.brambl.models.box.QuantityDescriptorType.{FRACTIONABLE, IMMUTABLE, LIQUID}
+import co.topl.brambl.models.box.Value._
+import co.topl.brambl.syntax.{bigIntAsInt128, int128AsBigInt, valueToQuantitySyntaxOps, valueToTypeIdentifierSyntaxOps}
+
+import scala.language.implicitConversions
+import scala.util.{Failure, Success, Try}
+
+trait AggregationOps {
+
+  /**
+   * Aggregates the quantities of a sequence of values if allowable.
+   * If aggregation is not allowable, the values are returned unchanged.
+   * Whether aggregation is allowable depends on the implementation.
+   *
+   * @param values The values to aggregate
+   * @return The aggregated values
+   */
+  def aggregate(values: Seq[Value]): Seq[Value]
+
+  def aggregateWithChange(values: Seq[Value], amount: Option[BigInt]): (Seq[Value], Seq[Value])
+}
+
+/**
+ * The default aggregation ops implementation.
+ *
+ * Values are allowed to be aggregated together under the following conditions:
+ * - All are the same type
+ * - The type is either GROUP, SERIES, liquid ASSET, or LVL
+ *
+ * Liquid ASSET denotes an ASSET with a quantity descriptor of LIQUID. Other quantity types (IMMUTABLE, FRACTIONABLE,
+ * and ACCUMULATOR) are not allowed to be aggregated with this default implementation.
+ */
+case object DefaultAggregationOps extends AggregationOps {
+
+  private def handleAggregation(value: Value, other: Value): Value =
+    if (value.typeIdentifier == other.typeIdentifier)
+      if (value.typeIdentifier.getQuantityDescriptor.forall(_ == LIQUID))
+        value.setQuantity(value.quantity + other.quantity)
+      else throw new Exception("Aggregation of IMMUTABLE, FRACTIONABLE, or ACCUMULATOR assets is not allowed")
+    else throw new Exception("Aggregation of different types is not allowed")
+
+  override def aggregate(values: Seq[Value]): Seq[Value] = Try {
+    values.reduce(handleAggregation)
+  } match {
+    case Success(v) => Seq(v)
+    case Failure(_) => values
+  }
+
+  override def aggregateWithChange(values: Seq[Value], amount: Option[BigInt]): (Seq[Value], Seq[Value]) =
+    amount match {
+      case Some(transferQuantity) =>
+        Try {
+          values.reduce(handleAggregation)
+        } match {
+          case Success(v) =>
+            if (v.quantity > transferQuantity)
+              (Seq(v.setQuantity(transferQuantity)), Seq(v.setQuantity(v.quantity - transferQuantity)))
+            else (Seq(v), Seq.empty[Value])
+          case Failure(_) => (values, Seq.empty[Value])
+        }
+      case None => (aggregate(values), Seq.empty[Value])
+    }
+}

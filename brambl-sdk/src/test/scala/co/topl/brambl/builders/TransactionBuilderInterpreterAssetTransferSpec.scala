@@ -22,8 +22,8 @@ import co.topl.brambl.syntax.{
 
 class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderInterpreterSpecBase {
 
-  test("buildAssetTransferTransaction > underlying error fails (unsupported token type)") {
-    val testTx = txBuilder.buildAssetTransferTransaction(
+  test("buildTransferAmountTransaction > underlying error fails (unsupported token type)") {
+    val testTx = txBuilder.buildTransferAmountTransaction(
       GroupAndSeriesFungible(
         mockGroupPolicy.computeId,
         mockSeriesPolicy.computeId,
@@ -39,8 +39,8 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
     assertEquals(testTx, Left(UnableToBuildTransaction(Seq(UserInputError(s"Invalid value type")))))
   }
 
-  test("buildAssetTransferTransaction > quantity to transfer is non positive") {
-    val testTx = txBuilder.buildAssetTransferTransaction(
+  test("buildTransferAmountTransaction > quantity to transfer is non positive") {
+    val testTx = txBuilder.buildTransferAmountTransaction(
       GroupAndSeriesFungible(
         mockGroupPolicy.computeId,
         mockSeriesPolicy.computeId,
@@ -56,8 +56,8 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
     assertEquals(testTx, Left(UnableToBuildTransaction(Seq(UserInputError(s"quantity to transfer must be positive")))))
   }
 
-  test("buildAssetTransferTransaction > a txo isnt tied to lockPredicateFrom") {
-    val testTx = txBuilder.buildAssetTransferTransaction(
+  test("buildTransferAmountTransaction > a txo isnt tied to lockPredicateFrom") {
+    val testTx = txBuilder.buildTransferAmountTransaction(
       GroupAndSeriesFungible(
         mockGroupPolicy.computeId,
         mockSeriesPolicy.computeId,
@@ -76,8 +76,8 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
     )
   }
 
-  test("buildAssetTransferTransaction > non sufficient funds") {
-    val testTx = txBuilder.buildAssetTransferTransaction(
+  test("buildTransferAmountTransaction > non sufficient funds") {
+    val testTx = txBuilder.buildTransferAmountTransaction(
       GroupAndSeriesFungible(
         mockGroupPolicy.computeId,
         mockSeriesPolicy.computeId,
@@ -100,8 +100,8 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
     )
   }
 
-  test("buildAssetTransferTransaction > fee not satisfied") {
-    val testTx = txBuilder.buildAssetTransferTransaction(
+  test("buildTransferAmountTransaction > fee not satisfied") {
+    val testTx = txBuilder.buildTransferAmountTransaction(
       GroupAndSeriesFungible(
         mockGroupPolicy.computeId,
         mockSeriesPolicy.computeId,
@@ -124,8 +124,8 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
     )
   }
 
-  test("buildAssetTransferTransaction > [complex, GROUP_AND_SERIES] duplicate inputs are merged and split correctly") {
-    val testTx = txBuilder.buildAssetTransferTransaction(
+  test("buildTransferAmountTransaction > [complex, GROUP_AND_SERIES] duplicate inputs are merged and split correctly") {
+    val testTx = txBuilder.buildTransferAmountTransaction(
       GroupAndSeriesFungible(
         mockGroupPolicy.computeId,
         mockSeriesPolicy.computeId,
@@ -176,10 +176,8 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
               assetSeries.getAsset.copy(mockGroupPolicyAlt.computeId.some, mockSeriesPolicyAlt.computeId.some)
             )
           ),
-          UnspentTransactionOutput(
-            trivialLockAddress,
-            assetGroupSeriesAccumulator.copy(assetGroupSeriesAccumulator.value.setQuantity(quantity * 2))
-          ),
+          UnspentTransactionOutput(trivialLockAddress, assetGroupSeriesAccumulator),
+          UnspentTransactionOutput(trivialLockAddress, assetGroupSeriesAccumulator.copy()),
           UnspentTransactionOutput(
             trivialLockAddress,
             assetGroupSeriesAccumulator.copy(
@@ -195,8 +193,8 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
     )
   }
 
-  test("buildAssetTransferTransaction > [complex, GROUP] duplicate inputs are merged and split correctly") {
-    val testTx = txBuilder.buildAssetTransferTransaction(
+  test("buildTransferAmountTransaction > [complex, GROUP] duplicate inputs are merged and split correctly") {
+    val testTx = txBuilder.buildTransferAmountTransaction(
       GroupFungible(
         mockGroupPolicy.computeId,
         mockSeriesPolicy.computeId.value,
@@ -250,10 +248,8 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
               assetSeries.getAsset.copy(mockGroupPolicyAlt.computeId.some, mockSeriesPolicyAlt.computeId.some)
             )
           ),
-          UnspentTransactionOutput(
-            trivialLockAddress,
-            assetGroupSeriesAccumulator.copy(assetGroupSeriesAccumulator.value.setQuantity(quantity * 2))
-          ),
+          UnspentTransactionOutput(trivialLockAddress, assetGroupSeriesAccumulator),
+          UnspentTransactionOutput(trivialLockAddress, assetGroupSeriesAccumulator.copy()),
           UnspentTransactionOutput(
             trivialLockAddress,
             assetGroupSeriesAccumulator.copy(
@@ -269,8 +265,8 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
     )
   }
 
-  test("buildAssetTransferTransaction > [complex, SERIES] duplicate inputs are merged and split correctly") {
-    val testTx = txBuilder.buildAssetTransferTransaction(
+  test("buildTransferAmountTransaction > [complex, SERIES] duplicate inputs are merged and split correctly") {
+    val testTx = txBuilder.buildTransferAmountTransaction(
       SeriesFungible(
         mockSeriesPolicy.computeId,
         mockGroupPolicy.computeId.value,
@@ -324,10 +320,8 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
               assetSeries.getAsset.copy(mockGroupPolicyAlt.computeId.some, mockSeriesPolicyAlt.computeId.some)
             )
           ),
-          UnspentTransactionOutput(
-            trivialLockAddress,
-            assetGroupSeriesAccumulator.copy(assetGroupSeriesAccumulator.value.setQuantity(quantity * 2))
-          ),
+          UnspentTransactionOutput(trivialLockAddress, assetGroupSeriesAccumulator),
+          UnspentTransactionOutput(trivialLockAddress, assetGroupSeriesAccumulator.copy()),
           UnspentTransactionOutput(
             trivialLockAddress,
             assetGroupSeriesAccumulator.copy(
@@ -343,9 +337,9 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
     )
   }
 
-  test("buildAssetTransferTransaction > [simplest case] no change, only 1 output") {
+  test("buildTransferAmountTransaction > [simplest case] no change, only 1 output") {
     val txos = Seq(valToTxo(assetGroupSeries))
-    val testTx = txBuilder.buildAssetTransferTransaction(
+    val testTx = txBuilder.buildTransferAmountTransaction(
       GroupAndSeriesFungible(
         mockGroupPolicy.computeId,
         mockSeriesPolicy.computeId,
@@ -365,8 +359,8 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
     assertEquals(testTx.toOption.get.computeId, expectedTx.computeId)
   }
 
-  test("buildAssetTransferTransaction > IMMUTABLE asset quantity descriptor in TXOs") {
-    val testTx = txBuilder.buildAssetTransferTransaction(
+  test("buildTransferAmountTransaction > IMMUTABLE asset quantity descriptor in TXOs") {
+    val testTx = txBuilder.buildTransferAmountTransaction(
       GroupAndSeriesFungible(
         mockGroupPolicy.computeId,
         mockSeriesPolicy.computeId,
@@ -393,8 +387,8 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
     )
   }
 
-  test("buildAssetTransferTransaction > FRACTIONABLE asset quantity descriptor in TXOs") {
-    val testTx = txBuilder.buildAssetTransferTransaction(
+  test("buildTransferAmountTransaction > FRACTIONABLE asset quantity descriptor in TXOs") {
+    val testTx = txBuilder.buildTransferAmountTransaction(
       GroupAndSeriesFungible(
         mockGroupPolicy.computeId,
         mockSeriesPolicy.computeId,
@@ -421,8 +415,8 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
     )
   }
 
-  test("buildAssetTransferTransaction > IMMUTABLE asset quantity descriptor in transfer type") {
-    val testTx = txBuilder.buildAssetTransferTransaction(
+  test("buildTransferAmountTransaction > IMMUTABLE asset quantity descriptor in transfer type") {
+    val testTx = txBuilder.buildTransferAmountTransaction(
       GroupAndSeriesFungible(
         mockGroupPolicy.computeId,
         mockSeriesPolicy.computeId,
@@ -448,8 +442,8 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
     )
   }
 
-  test("buildAssetTransferTransaction > FRACTIONABLE asset quantity descriptor in transfer type") {
-    val testTx = txBuilder.buildAssetTransferTransaction(
+  test("buildTransferAmountTransaction > FRACTIONABLE asset quantity descriptor in transfer type") {
+    val testTx = txBuilder.buildTransferAmountTransaction(
       GroupAndSeriesFungible(
         mockGroupPolicy.computeId,
         mockSeriesPolicy.computeId,

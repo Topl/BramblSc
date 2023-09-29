@@ -145,7 +145,14 @@ object UserInputValidations {
 
   object TransactionBuilder {
 
-    def validateTransferParams(
+    def validateTransferAllParams(
+      txos:              Seq[Txo],
+      lockPredicateFrom: LockAddress,
+      fee:               Long,
+      tokenIdentifier:   Option[ValueTypeIdentifier]
+    ): Either[NonEmptyChain[UserInputError], Unit] = ??? // TODO
+
+    def validateTransferAmountParams(
       txos:               Seq[Txo],
       fromLockAddr:       LockAddress,
       amount:             Long,

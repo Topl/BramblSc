@@ -13,13 +13,15 @@ import co.topl.brambl.syntax.{
   ioTransactionAsTransactionSyntaxOps,
   seriesAsBoxVal,
   seriesPolicyAsSeriesPolicySyntaxOps,
-  valueToQuantitySyntaxOps
+  valueToQuantitySyntaxOps,
+  LvlType
 }
 
 class TransactionBuilderInterpreterLvlsTransferSpec extends TransactionBuilderInterpreterSpecBase {
 
-  test("buildLvlTransferTransaction > underlying error fails (unsupported token type)") {
-    val testTx = txBuilder.buildLvlTransferTransaction(
+  test("buildTransferAmountTransaction > underlying error fails (unsupported token type)") {
+    val testTx = txBuilder.buildTransferAmountTransaction(
+      LvlType,
       mockTxos :+ valToTxo(Value.defaultInstance.withTopl(Value.TOPL(quantity))),
       inPredicateLockFull,
       1,
@@ -30,8 +32,9 @@ class TransactionBuilderInterpreterLvlsTransferSpec extends TransactionBuilderIn
     assertEquals(testTx, Left(UnableToBuildTransaction(Seq(UserInputError(s"Invalid value type")))))
   }
 
-  test("buildLvlTransferTransaction > quantity to transfer is non positive") {
-    val testTx = txBuilder.buildLvlTransferTransaction(
+  test("buildTransferAmountTransaction > quantity to transfer is non positive") {
+    val testTx = txBuilder.buildTransferAmountTransaction(
+      LvlType,
       mockTxos,
       inPredicateLockFull,
       0,
@@ -42,8 +45,9 @@ class TransactionBuilderInterpreterLvlsTransferSpec extends TransactionBuilderIn
     assertEquals(testTx, Left(UnableToBuildTransaction(Seq(UserInputError(s"quantity to transfer must be positive")))))
   }
 
-  test("buildLvlTransferTransaction > a txo isnt tied to lockPredicateFrom") {
-    val testTx = txBuilder.buildLvlTransferTransaction(
+  test("buildTransferAmountTransaction > a txo isnt tied to lockPredicateFrom") {
+    val testTx = txBuilder.buildTransferAmountTransaction(
+      LvlType,
       mockTxos :+ valToTxo(value, trivialLockAddress),
       inPredicateLockFull,
       1,
@@ -57,8 +61,9 @@ class TransactionBuilderInterpreterLvlsTransferSpec extends TransactionBuilderIn
     )
   }
 
-  test("buildLvlTransferTransaction > non sufficient funds") {
-    val testTx = txBuilder.buildLvlTransferTransaction(
+  test("buildTransferAmountTransaction > non sufficient funds") {
+    val testTx = txBuilder.buildTransferAmountTransaction(
+      LvlType,
       mockTxos,
       inPredicateLockFull,
       4,
@@ -79,8 +84,9 @@ class TransactionBuilderInterpreterLvlsTransferSpec extends TransactionBuilderIn
     )
   }
 
-  test("buildLvlTransferTransaction > fee not satisfied") {
-    val testTx = txBuilder.buildLvlTransferTransaction(
+  test("buildTransferAmountTransaction > fee not satisfied") {
+    val testTx = txBuilder.buildTransferAmountTransaction(
+      LvlType,
       mockTxos,
       inPredicateLockFull,
       1,
@@ -98,8 +104,9 @@ class TransactionBuilderInterpreterLvlsTransferSpec extends TransactionBuilderIn
     )
   }
 
-  test("buildLvlTransferTransaction > [complex] duplicate inputs are merged and split correctly") {
-    val testTx = txBuilder.buildLvlTransferTransaction(
+  test("buildTransferAmountTransaction > [complex] duplicate inputs are merged and split correctly") {
+    val testTx = txBuilder.buildTransferAmountTransaction(
+      LvlType,
       mockTxos,
       inPredicateLockFull,
       1,
@@ -147,10 +154,8 @@ class TransactionBuilderInterpreterLvlsTransferSpec extends TransactionBuilderIn
               assetSeries.getAsset.copy(mockGroupPolicyAlt.computeId.some, mockSeriesPolicyAlt.computeId.some)
             )
           ),
-          UnspentTransactionOutput(
-            trivialLockAddress,
-            assetGroupSeriesAccumulator.copy(assetGroupSeriesAccumulator.value.setQuantity(quantity * 2))
-          ),
+          UnspentTransactionOutput(trivialLockAddress, assetGroupSeriesAccumulator),
+          UnspentTransactionOutput(trivialLockAddress, assetGroupSeriesAccumulator.copy()),
           UnspentTransactionOutput(
             trivialLockAddress,
             assetGroupSeriesAccumulator.copy(
@@ -166,9 +171,10 @@ class TransactionBuilderInterpreterLvlsTransferSpec extends TransactionBuilderIn
     )
   }
 
-  test("buildLvlTransferTransaction > [simplest case] no change, only 1 output") {
+  test("buildTransferAmountTransaction > [simplest case] no change, only 1 output") {
     val txos = Seq(valToTxo(value))
-    val testTx = txBuilder.buildLvlTransferTransaction(
+    val testTx = txBuilder.buildTransferAmountTransaction(
+      LvlType,
       txos,
       inPredicateLockFull,
       1,
@@ -183,8 +189,9 @@ class TransactionBuilderInterpreterLvlsTransferSpec extends TransactionBuilderIn
     assertEquals(testTx.toOption.get.computeId, expectedTx.computeId)
   }
 
-  test("buildLvlTransferTransaction > IMMUTABLE asset quantity descriptor in TXOs") {
-    val testTx = txBuilder.buildLvlTransferTransaction(
+  test("buildTransferAmountTransaction > IMMUTABLE asset quantity descriptor in TXOs") {
+    val testTx = txBuilder.buildTransferAmountTransaction(
+      LvlType,
       mockTxos :+ valToTxo(assetGroupSeriesImmutable),
       inPredicateLockFull,
       1,
@@ -206,8 +213,9 @@ class TransactionBuilderInterpreterLvlsTransferSpec extends TransactionBuilderIn
     )
   }
 
-  test("buildLvlTransferTransaction > FRACTIONABLE asset quantity descriptor in TXOs") {
-    val testTx = txBuilder.buildLvlTransferTransaction(
+  test("buildTransferAmountTransaction > FRACTIONABLE asset quantity descriptor in TXOs") {
+    val testTx = txBuilder.buildTransferAmountTransaction(
+      LvlType,
       mockTxos :+ valToTxo(assetGroupSeriesFractionable),
       inPredicateLockFull,
       1,
