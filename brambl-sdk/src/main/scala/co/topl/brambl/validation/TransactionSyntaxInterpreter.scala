@@ -5,6 +5,7 @@ import cats.data.{Chain, NonEmptyChain, Validated, ValidatedNec}
 import cats.implicits._
 import co.topl.brambl.common.ContainsImmutable.ContainsImmutableTOps
 import co.topl.brambl.common.ContainsImmutable.instances._
+import co.topl.brambl.models.Datum.GroupPolicy
 import co.topl.brambl.models.TransactionOutputAddress
 import co.topl.brambl.models.box._
 import co.topl.brambl.models.transaction.{IoTransaction, SpentTransactionOutput, UnspentTransactionOutput}
@@ -39,6 +40,7 @@ object TransactionSyntaxInterpreter {
       attestationValidation,
       dataLengthValidation,
       assetEqualFundsValidation,
+      groupEqualFundsValidation,
       assetNoRepeatedUtxosValidation,
       mintingValidation
     )
@@ -237,7 +239,7 @@ object TransactionSyntaxInterpreter {
     )
 
   /**
-   * AssetEqualFundsValidation For each asset: input assets + minted assets == total asset output
+   * AssetEqualFundsValidation For each asset: input assets + minted assets == output asset
    * @param transaction - transaction
    * @return
    */
@@ -286,6 +288,66 @@ object TransactionSyntaxInterpreter {
       input  <- tupleAndGroup(inputAssets).toEither
       minted <- tupleAndGroup(mintedAsset).toEither
       output <- tupleAndGroup(outputAssets).toEither
+      keySetResult = input.keySet ++ minted.keySet == output.keySet
+      compareResult = output.keySet.forall(k =>
+        input.getOrElse(k, 0: BigInt) + minted.getOrElse(k, 0) == output.getOrElse(k, 0)
+      )
+    } yield (keySetResult && compareResult)
+
+    Validated.condNec(
+      res.map(_ == true).getOrElse(false),
+      (),
+      TransactionSyntaxError.InsufficientInputFunds(
+        transaction.inputs.map(_.value.value).toList,
+        transaction.outputs.map(_.value.value).toList
+      )
+    )
+
+  }
+
+  /**
+   * GroupEqualFundsValidation For each group: input group + minted group == output group
+   *
+   * @param transaction - transaction
+   * @return
+   */
+  private def groupEqualFundsValidation(transaction: IoTransaction): ValidatedNec[TransactionSyntaxError, Unit] = {
+    val inputGroup = transaction.inputs.filter(_.value.value.isGroup).map(_.value.value)
+    val outputGroup = transaction.outputs.filter(_.value.value.isGroup).map(_.value.value)
+
+    def groupGivenGroupPolicy(gp: GroupPolicy) =
+      transaction.inputs
+        .filter(_.address == gp.event.registrationUtxo)
+        .filter(_.value.value.isLvl)
+        .map(_.value.getLvl)
+        .headOption
+
+    val mintedGroup = transaction.groupPolicies.map { gp =>
+      Value.defaultInstance
+        .withGroup(
+          Value.Group(
+            groupId = gp.event.computeId,
+            // TODO discuss: is this correct or not? when we mint a Group the quantity should be igual to LVL input spent
+            // see the same comment on mintingCaseASpec Invalid data-input case 4
+            quantity = groupGivenGroupPolicy(gp).map(_.quantity).getOrElse(0: BigInt)
+          )
+        )
+        .value
+    }
+
+    def tupleAndGroup(s: Seq[Value.Value]): Try[Map[ValueTypeIdentifier, BigInt]] =
+      Try {
+        s.map(value => (value.typeIdentifier, value.quantity: BigInt))
+          .groupBy(_._1)
+          .view
+          .mapValues(_.map(_._2).sum)
+          .toMap
+      }
+
+    val res = for {
+      input  <- tupleAndGroup(inputGroup).toEither
+      minted <- tupleAndGroup(mintedGroup).toEither
+      output <- tupleAndGroup(outputGroup).toEither
       keySetResult = input.keySet ++ minted.keySet == output.keySet
       compareResult = output.keySet.forall(k =>
         input.getOrElse(k, 0: BigInt) + minted.getOrElse(k, 0) == output.getOrElse(k, 0)
