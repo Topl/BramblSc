@@ -32,7 +32,7 @@ trait AggregationOps {
  * Liquid ASSET denotes an ASSET with a quantity descriptor of LIQUID. Other quantity types (IMMUTABLE, FRACTIONABLE,
  * and ACCUMULATOR) are not allowed to be aggregated with this default implementation.
  */
-case object DefaultAggregationOps extends AggregationOps {
+object DefaultAggregationOps extends AggregationOps {
 
   private def handleAggregation(value: Value, other: Value): Value =
     if (value.typeIdentifier == other.typeIdentifier)
