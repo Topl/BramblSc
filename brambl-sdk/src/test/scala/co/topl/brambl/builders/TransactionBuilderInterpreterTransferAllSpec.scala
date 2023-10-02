@@ -191,7 +191,6 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
           assetGroupSeriesAccumulatorAlt
         ).map(valToUtxo(_, trivialLockAddress)) // change
       )
-    println(testTx.swap.toOption.get)
     assertEquals(
       sortedTx(testTx.toOption.get).computeId,
       sortedTx(expectedTx).computeId
@@ -545,7 +544,7 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
           assetGroupSeriesAccumulator,
           assetGroupSeriesAccumulator.copy(),
           assetGroupSeriesAccumulatorAlt
-        ).map(valToUtxo(_, trivialLockAddress)) // all to recipient
+        ).map(valToUtxo(_, inLockFullAddress)) // all to recipient
       )
     assertEquals(
       sortedTx(testTx.toOption.get).computeId,

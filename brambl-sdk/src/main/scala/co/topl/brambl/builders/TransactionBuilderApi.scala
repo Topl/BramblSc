@@ -438,7 +438,7 @@ object TransactionBuilderApi {
           // If transferTypeOpt is provided, then we need to calculate what goes to the recipient vs to change
           case Some(transferType) =>
             DefaultAggregationOps
-              .aggregateWithChange(groupedValues(transferType), amount)
+              .aggregateWithChange(groupedValues.getOrElse(transferType, Seq.empty), amount)
               .map(_ ++ otherVals) // otherVals, in addition to the change, goes to the change address
           // If transferTypeOpt is not provided, then all of otherVals goes to the recipient
           case _ => (otherVals, Seq.empty)
@@ -451,7 +451,7 @@ object TransactionBuilderApi {
         toRecipient ++ toChange
       } match {
         case Success(utxos) => EitherT.rightT(utxos)
-        case Failure(err)   => EitherT.leftT(BuilderRuntimeError(s"Failed to build utxos: ${err.getMessage}", err))
+        case Failure(err) => EitherT.leftT(BuilderRuntimeError(s"Failed to build utxos. cause: ${err.getMessage}", err))
       }
 
       /**
