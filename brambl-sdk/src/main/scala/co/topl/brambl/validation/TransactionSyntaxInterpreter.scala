@@ -425,7 +425,18 @@ object TransactionSyntaxInterpreter {
                   .sum
 
               val burned = sIn - sOut
-              burned * tokenSupplied == (ams.quantity: BigInt)
+
+              // all asset minting statements quantity with the same series id
+              def quantity(s: Value.Series) = transaction.mintingStatements.map { ams =>
+                val filterSeries = transaction.inputs
+                  .filter(_.address == ams.seriesTokenUtxo)
+                  .filter(_.value.value.isSeries)
+                  .map(_.value.getSeries)
+                  .filter(_.seriesId == s.seriesId)
+                if (filterSeries.isEmpty) BigInt(0) else ams.quantity: BigInt
+              }
+
+              burned * tokenSupplied == quantity(s).sum
 
             case None => true
           }

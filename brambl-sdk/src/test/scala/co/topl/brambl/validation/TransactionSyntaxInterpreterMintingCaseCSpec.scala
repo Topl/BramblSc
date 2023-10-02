@@ -707,4 +707,210 @@ class TransactionSyntaxInterpreterMintingCaseCSpec extends munit.FunSuite with M
 
   }
 
+  /**
+   *  A transaction with 2 minting statements that point to distinct UTXOs, but their series UTXOs have the same seriesId.
+   */
+  test("Valid data-input case 4, minting a Asset Token Limited") {
+
+    val utxo_xyz = TransactionOutputAddress(1, 0, 0, dummyTxIdentifier)
+    val utxo_abc = TransactionOutputAddress(2, 0, 0, dummyTxIdentifier)
+    val utxo_def = TransactionOutputAddress(3, 0, 0, dummyTxIdentifier)
+    val utxo_uvw = TransactionOutputAddress(4, 0, 0, dummyTxIdentifier)
+
+    val dummyTxoAddress = TransactionOutputAddress(0, 0, 0, dummyTxIdentifier)
+
+    val g1 = Event.GroupPolicy(label = "policyG1", registrationUtxo = utxo_xyz)
+    val g2 = Event.GroupPolicy(label = "policyG2", registrationUtxo = utxo_uvw)
+
+    val s1 = Event.SeriesPolicy(label = "policyS1", registrationUtxo = dummyTxoAddress, tokenSupply = Some(1))
+
+    val value_abc_in: Value =
+      Value.defaultInstance.withSeries(
+        Value.Series(seriesId = s1.computeId, quantity = BigInt(2), tokenSupply = Some(1))
+      )
+
+    val value_def_in: Value =
+      Value.defaultInstance.withSeries(
+        Value.Series(seriesId = s1.computeId, quantity = BigInt(1), tokenSupply = Some(1))
+      )
+
+    val value_xyz_in: Value =
+      Value.defaultInstance.withGroup(Value.Group(groupId = g1.computeId, quantity = BigInt(1)))
+
+    val value_uvw_in: Value =
+      Value.defaultInstance.withGroup(Value.Group(groupId = g2.computeId, quantity = BigInt(1)))
+
+    // minted asset
+    val value_1_out: Value =
+      Value.defaultInstance.withAsset(
+        Value.Asset(groupId = Some(g1.computeId), seriesId = Some(s1.computeId), quantity = BigInt(1))
+      )
+
+    // series change
+    val value_2_out: Value =
+      Value.defaultInstance.withSeries(Value.Series(seriesId = s1.computeId, quantity = BigInt(1)))
+
+    // minted asset
+    val value_3_out: Value =
+      Value.defaultInstance.withAsset(
+        Value.Asset(groupId = Some(g2.computeId), seriesId = Some(s1.computeId), quantity = BigInt(1))
+      )
+
+    // group change
+    val value_4_out: Value =
+      Value.defaultInstance.withGroup(Value.Group(groupId = g1.computeId, quantity = BigInt(1)))
+
+    // group change
+    val value_5_out: Value =
+      Value.defaultInstance.withGroup(Value.Group(groupId = g2.computeId, quantity = BigInt(1)))
+
+    val input_abc = SpentTransactionOutput(utxo_abc, attFull, value_abc_in)
+    val input_def = SpentTransactionOutput(utxo_def, attFull, value_def_in)
+    val input_xyz = SpentTransactionOutput(utxo_xyz, attFull, value_xyz_in)
+    val input_uvw = SpentTransactionOutput(utxo_uvw, attFull, value_uvw_in)
+
+    val output_1 = UnspentTransactionOutput(trivialLockAddress, value_1_out)
+    val output_2 = UnspentTransactionOutput(trivialLockAddress, value_2_out)
+    val output_3 = UnspentTransactionOutput(trivialLockAddress, value_3_out)
+    val output_4 = UnspentTransactionOutput(trivialLockAddress, value_4_out)
+    val output_5 = UnspentTransactionOutput(trivialLockAddress, value_5_out)
+
+    // A transaction with 2 minting statements that point to distinct UTXOs, but their series UTXOs have the same seriesId.
+    val mintingStatement_1 = AssetMintingStatement(
+      seriesTokenUtxo = utxo_abc,
+      groupTokenUtxo = utxo_xyz,
+      quantity = BigInt(1)
+    )
+
+    val mintingStatement_2 = AssetMintingStatement(
+      seriesTokenUtxo = utxo_def,
+      groupTokenUtxo = utxo_uvw,
+      quantity = BigInt(1)
+    )
+
+    val testTx = txFull.copy(
+      inputs = List(input_abc, input_def, input_xyz, input_uvw),
+      outputs = List(output_1, output_2, output_3, output_4, output_5),
+      mintingStatements = List(mintingStatement_1, mintingStatement_2)
+    )
+
+    val validator = TransactionSyntaxInterpreter.make[Id]()
+    val result = validator.validate(testTx).swap
+
+    val assertError = result.exists(
+      _.toList.contains(
+        TransactionSyntaxError.InsufficientInputFunds(
+          testTx.inputs.map(_.value.value).toList,
+          testTx.outputs.map(_.value.value).toList
+        )
+      )
+    )
+
+    assertEquals(assertError, false)
+
+  }
+
+  /**
+   * A transaction with 2 minting statements that point to distinct UTXOs, but their series UTXOs have the same seriesId.
+   */
+  test("Invalid data-input case 4, minting a Asset Token Limited") {
+
+    val utxo_xyz = TransactionOutputAddress(1, 0, 0, dummyTxIdentifier)
+    val utxo_abc = TransactionOutputAddress(2, 0, 0, dummyTxIdentifier)
+    val utxo_def = TransactionOutputAddress(3, 0, 0, dummyTxIdentifier)
+    val utxo_uvw = TransactionOutputAddress(4, 0, 0, dummyTxIdentifier)
+
+    val dummyTxoAddress = TransactionOutputAddress(0, 0, 0, dummyTxIdentifier)
+
+    val g1 = Event.GroupPolicy(label = "policyG1", registrationUtxo = utxo_xyz)
+    val g2 = Event.GroupPolicy(label = "policyG2", registrationUtxo = utxo_uvw)
+
+    val s1 = Event.SeriesPolicy(label = "policyS1", registrationUtxo = dummyTxoAddress, tokenSupply = Some(1))
+
+    val value_abc_in: Value =
+      Value.defaultInstance.withSeries(
+        Value.Series(seriesId = s1.computeId, quantity = BigInt(2), tokenSupply = Some(1))
+      )
+
+    val value_def_in: Value =
+      Value.defaultInstance.withSeries(
+        Value.Series(seriesId = s1.computeId, quantity = BigInt(1), tokenSupply = Some(1))
+      )
+
+    val value_xyz_in: Value =
+      Value.defaultInstance.withGroup(Value.Group(groupId = g1.computeId, quantity = BigInt(1)))
+
+    val value_uvw_in: Value =
+      Value.defaultInstance.withGroup(Value.Group(groupId = g2.computeId, quantity = BigInt(1)))
+
+    // minted asset
+    val value_1_out: Value =
+      Value.defaultInstance.withAsset(
+        Value.Asset(groupId = Some(g1.computeId), seriesId = Some(s1.computeId), quantity = BigInt(1))
+      )
+
+    // series change, invalid case, because quantity
+    val value_2_out: Value =
+      Value.defaultInstance.withSeries(Value.Series(seriesId = s1.computeId, quantity = BigInt(10)))
+
+    // minted asset
+    val value_3_out: Value =
+      Value.defaultInstance.withAsset(
+        Value.Asset(groupId = Some(g2.computeId), seriesId = Some(s1.computeId), quantity = BigInt(1))
+      )
+
+    // group change
+    val value_4_out: Value =
+      Value.defaultInstance.withGroup(Value.Group(groupId = g1.computeId, quantity = BigInt(1)))
+
+    // group change
+    val value_5_out: Value =
+      Value.defaultInstance.withGroup(Value.Group(groupId = g2.computeId, quantity = BigInt(1)))
+
+    val input_abc = SpentTransactionOutput(utxo_abc, attFull, value_abc_in)
+    val input_def = SpentTransactionOutput(utxo_def, attFull, value_def_in)
+    val input_xyz = SpentTransactionOutput(utxo_xyz, attFull, value_xyz_in)
+    val input_uvw = SpentTransactionOutput(utxo_uvw, attFull, value_uvw_in)
+
+    val output_1 = UnspentTransactionOutput(trivialLockAddress, value_1_out)
+    val output_2 = UnspentTransactionOutput(trivialLockAddress, value_2_out)
+    val output_3 = UnspentTransactionOutput(trivialLockAddress, value_3_out)
+    val output_4 = UnspentTransactionOutput(trivialLockAddress, value_4_out)
+    val output_5 = UnspentTransactionOutput(trivialLockAddress, value_5_out)
+
+    // A transaction with 2 minting statements that point to distinct UTXOs, but their series UTXOs have the same seriesId.
+    val mintingStatement_1 = AssetMintingStatement(
+      seriesTokenUtxo = utxo_abc,
+      groupTokenUtxo = utxo_xyz,
+      quantity = BigInt(1)
+    )
+
+    val mintingStatement_2 = AssetMintingStatement(
+      seriesTokenUtxo = utxo_def,
+      groupTokenUtxo = utxo_uvw,
+      quantity = BigInt(1)
+    )
+
+    val testTx = txFull.copy(
+      inputs = List(input_abc, input_def, input_xyz, input_uvw),
+      outputs = List(output_1, output_2, output_3, output_4, output_5),
+      mintingStatements = List(mintingStatement_1, mintingStatement_2)
+    )
+
+    val validator = TransactionSyntaxInterpreter.make[Id]()
+    val result = validator.validate(testTx).swap
+
+    val assertError = result.exists(
+      _.toList.contains(
+        TransactionSyntaxError.InsufficientInputFunds(
+          testTx.inputs.map(_.value.value).toList,
+          testTx.outputs.map(_.value.value).toList
+        )
+      )
+    )
+
+    assertEquals(assertError, true)
+    assertEquals(result.map(_.toList.size).getOrElse(0), 1)
+  }
+
 }
