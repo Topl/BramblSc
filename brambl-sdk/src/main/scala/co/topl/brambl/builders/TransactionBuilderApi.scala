@@ -335,11 +335,6 @@ object TransactionBuilderApi {
 
   }
 
-  case class UnableToBuildTransaction(causes: Seq[Throwable]) extends BuilderError("Failed to build transaction")
-
-  private def wrapErr(e: Throwable): BuilderError = UnableToBuildTransaction(Seq(e))
-  private def wrapErr(e: NonEmptyChain[Throwable]): BuilderError = UnableToBuildTransaction(e.toList)
-
   def make[F[_]: Monad](
     networkId: Int,
     ledgerId:  Int
@@ -394,12 +389,11 @@ object TransactionBuilderApi {
           fromLockAddr <- EitherT.right(lockAddress(Lock().withPredicate(lockPredicateFrom)))
           _ <- EitherT
             .fromEither[F](validateTransferAllParams(txos, fromLockAddr, fee, tokenIdentifier))
-            .leftMap(wrapErr)
+            .leftMap(errs => UserInputErrors(errs.toList))
           stxoAttestation <- EitherT.right(unprovenAttestation(lockPredicateFrom))
           datum           <- EitherT.right(datum())
-          stxos           <- buildStxos(txos, stxoAttestation).leftMap(wrapErr)
-          utxos <- buildUtxos(txos, tokenIdentifier, None, recipientLockAddr, changeLockAddr, fee)
-            .leftMap(wrapErr)
+          stxos           <- buildStxos(txos, stxoAttestation)
+          utxos           <- buildUtxos(txos, tokenIdentifier, None, recipientLockAddr, changeLockAddr, fee)
         } yield IoTransaction(inputs = stxos, outputs = utxos, datum = datum)
       ).value
 
@@ -416,12 +410,11 @@ object TransactionBuilderApi {
           fromLockAddr <- EitherT.right(lockAddress(Lock().withPredicate(lockPredicateFrom)))
           _ <- EitherT
             .fromEither[F](validateTransferAmountParams(txos, fromLockAddr, amount, transferType, fee))
-            .leftMap(wrapErr)
+            .leftMap(errs => UserInputErrors(errs.toList))
           stxoAttestation <- EitherT.right(unprovenAttestation(lockPredicateFrom))
           datum           <- EitherT.right(datum())
-          stxos           <- buildStxos(txos, stxoAttestation).leftMap(wrapErr)
+          stxos           <- buildStxos(txos, stxoAttestation)
           utxos <- buildUtxos(txos, transferType.some, BigInt(amount).some, recipientLockAddr, changeLockAddr, fee)
-            .leftMap(wrapErr)
         } yield IoTransaction(inputs = stxos, outputs = utxos, datum = datum)
       ).value
 
@@ -458,7 +451,7 @@ object TransactionBuilderApi {
         toRecipient ++ toChange
       } match {
         case Success(utxos) => EitherT.rightT(utxos)
-        case Failure(err)   => EitherT.leftT(BuilderRuntimeError("Failed to build utxos", err))
+        case Failure(err)   => EitherT.leftT(BuilderRuntimeError(s"Failed to build utxos: ${err.getMessage}", err))
       }
 
       /**
@@ -476,7 +469,9 @@ object TransactionBuilderApi {
         values: Map[ValueTypeIdentifier, Seq[BoxValue]]
       ): Map[ValueTypeIdentifier, Seq[BoxValue]] = values.get(LvlType) match {
         case Some(lvlVals) =>
-          values.updated(LvlType, DefaultAggregationOps.aggregateWithChange(lvlVals, BigInt(fee).some)._2)
+          val newLvlVal = DefaultAggregationOps.aggregateWithChange(lvlVals, BigInt(fee).some)._2
+          if (newLvlVal.isEmpty) values - LvlType
+          else values + (LvlType -> newLvlVal)
         case _ => values
       }
 
@@ -498,9 +493,9 @@ object TransactionBuilderApi {
                 quantityToMint
               )
             )
-            .leftMap(wrapErr)
+            .leftMap(errs => UserInputErrors(errs.toList))
           stxoAttestation <- EitherT.right[BuilderError](unprovenAttestation(registrationLock))
-          stxos           <- buildStxos(Seq(registrationTxo), stxoAttestation).leftMap(wrapErr)
+          stxos           <- buildStxos(Seq(registrationTxo), stxoAttestation)
           datum           <- EitherT.right[BuilderError](datum())
           utxoMinted <- EitherT.right[BuilderError](
             groupOutput(mintedConstructorLockAddress, quantityToMint, groupPolicy.computeId, groupPolicy.fixedSeries)
@@ -531,9 +526,9 @@ object TransactionBuilderApi {
                 quantityToMint
               )
             )
-            .leftMap(wrapErr)
+            .leftMap(errs => UserInputErrors(errs.toList))
           stxoAttestation <- EitherT.right[BuilderError](unprovenAttestation(registrationLock))
-          stxos           <- buildStxos(Seq(registrationTxo), stxoAttestation).leftMap(wrapErr)
+          stxos           <- buildStxos(Seq(registrationTxo), stxoAttestation)
           datum           <- EitherT.right[BuilderError](datum())
           utxoMinted <- EitherT.right[BuilderError](
             seriesOutput(
@@ -576,7 +571,7 @@ object TransactionBuilderApi {
                 seriesLockAddr
               )
             )
-            .leftMap(wrapErr)
+            .leftMap(errs => UserInputErrors(errs.toList))
           groupAttestation  <- EitherT.right[BuilderError](unprovenAttestation(groupLock))
           seriesAttestation <- EitherT.right[BuilderError](unprovenAttestation(seriesLock))
           datum             <- EitherT.right[BuilderError](datum())

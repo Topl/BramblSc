@@ -1,7 +1,6 @@
 package co.topl.brambl.builders
 
 import cats.implicits.catsSyntaxOptionId
-import co.topl.brambl.builders.TransactionBuilderApi.UnableToBuildTransaction
 import co.topl.brambl.models.box.QuantityDescriptorType.{ACCUMULATOR, FRACTIONABLE, IMMUTABLE}
 import co.topl.brambl.models.box.Value
 import co.topl.brambl.models.transaction.{IoTransaction, SpentTransactionOutput, UnspentTransactionOutput}
@@ -37,7 +36,7 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
       trivialLockAddress,
       0
     )
-    assertEquals(testTx, Left(UnableToBuildTransaction(Seq(UserInputError(s"Invalid value type")))))
+    assertEquals(testTx, Left(UserInputErrors(Seq(UserInputError(s"Invalid value type")))))
   }
 
   test("buildTransferAmountTransaction > quantity to transfer is non positive") {
@@ -54,7 +53,7 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
       trivialLockAddress,
       0
     )
-    assertEquals(testTx, Left(UnableToBuildTransaction(Seq(UserInputError(s"quantity to transfer must be positive")))))
+    assertEquals(testTx, Left(UserInputErrors(Seq(UserInputError(s"quantity to transfer must be positive")))))
   }
 
   test("buildTransferAmountTransaction > a txo isnt tied to lockPredicateFrom") {
@@ -73,7 +72,7 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
     )
     assertEquals(
       testTx,
-      Left(UnableToBuildTransaction(Seq(UserInputError(s"every lock does not correspond to fromLockAddr"))))
+      Left(UserInputErrors(Seq(UserInputError(s"every lock does not correspond to fromLockAddr"))))
     )
   }
 
@@ -94,7 +93,7 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
     assertEquals(
       testTx,
       Left(
-        UnableToBuildTransaction(
+        UserInputErrors(
           Seq(UserInputError(s"All tokens selected to transfer do not have enough funds to transfer"))
         )
       )
@@ -118,7 +117,7 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
     assertEquals(
       testTx,
       Left(
-        UnableToBuildTransaction(
+        UserInputErrors(
           Seq(UserInputError(s"Not enough LVLs in input to satisfy fee"))
         )
       )
@@ -377,7 +376,7 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
     assertEquals(
       testTx,
       Left(
-        UnableToBuildTransaction(
+        UserInputErrors(
           Seq(
             UserInputError(s"Invalid asset quantity descriptor type. If identifier is an asset, it must be liquid.")
           )
@@ -403,7 +402,7 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
     assertEquals(
       testTx,
       Left(
-        UnableToBuildTransaction(
+        UserInputErrors(
           Seq(
             UserInputError(s"Invalid asset quantity descriptor type. If identifier is an asset, it must be liquid.")
           )
@@ -429,7 +428,7 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
     assertEquals(
       testTx,
       Left(
-        UnableToBuildTransaction(
+        UserInputErrors(
           Seq(
             UserInputError(s"Invalid asset quantity descriptor type. If identifier is an asset, it must be liquid.")
           )

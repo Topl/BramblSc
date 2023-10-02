@@ -1,6 +1,5 @@
 package co.topl.brambl.builders
 
-import co.topl.brambl.builders.TransactionBuilderApi.UnableToBuildTransaction
 import co.topl.brambl.models.Event.GroupPolicy
 import co.topl.brambl.models.box.{Attestation, Value}
 import co.topl.brambl.models.transaction.{IoTransaction, SpentTransactionOutput, UnspentTransactionOutput}
@@ -61,7 +60,7 @@ class TransactionBuilderInterpreterGroupMintingSpec extends TransactionBuilderIn
     assertEquals(
       testTx,
       Left(
-        UnableToBuildTransaction(
+        UserInputErrors(
           Seq(UserInputError("registrationTxo does not match registrationUtxo"))
         )
       )
@@ -86,7 +85,7 @@ class TransactionBuilderInterpreterGroupMintingSpec extends TransactionBuilderIn
     assertEquals(
       testTx,
       Left(
-        UnableToBuildTransaction(
+        UserInputErrors(
           Seq(UserInputError("registrationUtxo does not contain LVLs"))
         )
       )
@@ -109,7 +108,7 @@ class TransactionBuilderInterpreterGroupMintingSpec extends TransactionBuilderIn
     assertEquals(
       testTx,
       Left(
-        UnableToBuildTransaction(
+        UserInputErrors(
           Seq(UserInputError("registrationLock does not correspond to registrationTxo"))
         )
       )
@@ -132,7 +131,7 @@ class TransactionBuilderInterpreterGroupMintingSpec extends TransactionBuilderIn
     assertEquals(
       testTx,
       Left(
-        UnableToBuildTransaction(
+        UserInputErrors(
           Seq(UserInputError("quantityToMint must be positive"))
         )
       )

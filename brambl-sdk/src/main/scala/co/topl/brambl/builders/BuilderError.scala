@@ -10,4 +10,7 @@ abstract class BuilderError(message: String, cause: Throwable = null) extends Ru
 
 case class UserInputError(message: String) extends BuilderError(message, null)
 
+case class UserInputErrors(causes: Seq[UserInputError])
+    extends BuilderError(causes.mkString("User input errors: [", ", ", "]"))
+
 case class BuilderRuntimeError(message: String, cause: Throwable = null) extends BuilderError(message, cause)
