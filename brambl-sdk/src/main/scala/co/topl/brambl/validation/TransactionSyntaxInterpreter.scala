@@ -306,56 +306,39 @@ object TransactionSyntaxInterpreter {
   }
 
   /**
-   * GroupEqualFundsValidation For each group: input group + minted group == output group
+   * GroupEqualFundsValidation
+   *
+   *  - Check Moving Constructor Tokens: Let 'g' be a group identifier, then the number of Group Constructor Tokens with group identifier 'g'
+   *    in the input is equal to the quantity of Group Constructor Tokens with identifier 'g' in the output.
+   *  - Check Minting Constructor Tokens: Let 'g' be a group identifier and 'p' the group policy whose digest is equal to 'g', a transaction is valid only if the all of the following statements are true:
+   *   - The policy 'p' is attached to the transaction.
+   *   - The number of group constructor tokens with identifier 'g' in the output of the transaction is strictly bigger than 0.
+   *   - The registration UTXO referenced in 'p' is present in the inputs and contains LVLs.
    *
    * @param transaction - transaction
    * @return
    */
   private def groupEqualFundsValidation(transaction: IoTransaction): ValidatedNec[TransactionSyntaxError, Unit] = {
-    val inputGroup = transaction.inputs.filter(_.value.value.isGroup).map(_.value.value)
-    val outputGroup = transaction.outputs.filter(_.value.value.isGroup).map(_.value.value)
 
-    def groupGivenGroupPolicy(gp: GroupPolicy) =
-      transaction.inputs
-        .filter(_.address == gp.event.registrationUtxo)
-        .filter(_.value.value.isLvl)
-        .map(_.value.getLvl)
-        .headOption
+    val groupsIn = transaction.inputs.filter(_.value.value.isGroup).map(_.value.getGroup)
+    val groupsOut = transaction.outputs.filter(_.value.value.isGroup).map(_.value.getGroup)
 
-    val mintedGroup = transaction.groupPolicies.map { gp =>
-      Value.defaultInstance
-        .withGroup(
-          Value.Group(
-            groupId = gp.event.computeId,
-            // TODO discuss: is this correct or not? when we mint a Group the quantity should be igual to LVL input spent
-            // see the same comment on mintingCaseASpec Invalid data-input case 4
-            quantity = groupGivenGroupPolicy(gp).map(_.quantity).getOrElse(0: BigInt)
-          )
-        )
-        .value
+    val gIds =
+      groupsIn.groupBy(_.groupId).keySet ++
+      groupsOut.groupBy(_.groupId).keySet ++
+      transaction.groupPolicies.map(_.event.computeId).toSet
+
+    val res = gIds.forall { gId =>
+      if (!transaction.groupPolicies.map(_.event.computeId).contains(gId)) {
+        groupsIn.filter(_.groupId == gId).map(_.quantity: BigInt).sum ==
+          groupsOut.filter(_.groupId == gId).map(_.quantity: BigInt).sum
+      } else {
+        groupsOut.filter(_.groupId == gId).map(_.quantity: BigInt).sum > 0
+      }
     }
 
-    def tupleAndGroup(s: Seq[Value.Value]): Try[Map[ValueTypeIdentifier, BigInt]] =
-      Try {
-        s.map(value => (value.typeIdentifier, value.quantity: BigInt))
-          .groupBy(_._1)
-          .view
-          .mapValues(_.map(_._2).sum)
-          .toMap
-      }
-
-    val res = for {
-      input  <- tupleAndGroup(inputGroup).toEither
-      minted <- tupleAndGroup(mintedGroup).toEither
-      output <- tupleAndGroup(outputGroup).toEither
-      keySetResult = input.keySet ++ minted.keySet == output.keySet
-      compareResult = output.keySet.forall(k =>
-        input.getOrElse(k, 0: BigInt) + minted.getOrElse(k, 0) == output.getOrElse(k, 0)
-      )
-    } yield (keySetResult && compareResult)
-
     Validated.condNec(
-      res.map(_ == true).getOrElse(false),
+      res,
       (),
       TransactionSyntaxError.InsufficientInputFunds(
         transaction.inputs.map(_.value.value).toList,

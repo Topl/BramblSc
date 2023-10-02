@@ -103,7 +103,7 @@ class TransactionSyntaxInterpreterMintingCaseASpec extends munit.FunSuite with M
       )
     )
     assertEquals(assertError, true)
-    assertEquals(result.map(_.toList.size).getOrElse(0), 2)
+    assertEquals(result.map(_.toList.size).getOrElse(0), 1)
 
   }
 
@@ -149,15 +149,16 @@ class TransactionSyntaxInterpreterMintingCaseASpec extends munit.FunSuite with M
       )
     )
     assertEquals(assertError, true)
-    assertEquals(result.map(_.toList.size).getOrElse(0), 2)
+    assertEquals(result.map(_.toList.size).getOrElse(0), 1)
 
   }
 
   /**
    * Case 2 validations that are failing;
-   * reference in policy contains (2) LVLs, but the constructor token quantity  == 1
+   * reference in policy contains (2) LVLs, the constructor token quantity == 10000000
+   * there is no constraint about the amount of constructor token quantity == 10000000 and LVL quantity
    */
-  test("Invalid data-input case 4, minting a Group constructor Token") {
+  test("Valid data-input case 4, minting a Group constructor Token") {
     val groupPolicy = Event.GroupPolicy(label = "groupLabelA", registrationUtxo = txoAddress_1)
 
     // TODO discuss: is this correct or not, when we mint a Group the quantity should be igual to LVL input spent
@@ -172,7 +173,7 @@ class TransactionSyntaxInterpreterMintingCaseASpec extends munit.FunSuite with M
       Value.defaultInstance.withGroup(
         Value.Group(
           groupId = groupPolicy.computeId,
-          quantity = BigInt(1)
+          quantity = BigInt(10000000)
         )
       )
 
@@ -196,9 +197,7 @@ class TransactionSyntaxInterpreterMintingCaseASpec extends munit.FunSuite with M
         )
       )
     )
-    assertEquals(assertError, true)
-    assertEquals(result.map(_.toList.size).getOrElse(0), 1)
-
+    assertEquals(assertError, false)
   }
 
 }
