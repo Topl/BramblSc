@@ -1,9 +1,9 @@
 package co.topl.brambl.builders
 
 import cats.Monad
-import cats.data.{EitherT, NonEmptyChain}
+import cats.data.EitherT
 import co.topl.brambl.codecs.AddressCodecs
-import co.topl.brambl.models.{Datum, Event, GroupId, LockAddress, LockId, SeriesId, TransactionOutputAddress}
+import co.topl.brambl.models.{Datum, Event, GroupId, LockAddress, LockId, SeriesId}
 import co.topl.brambl.models.box.{
   AssetMintingStatement,
   Attestation,
@@ -21,24 +21,16 @@ import co.topl.brambl.common.ContainsImmutable.instances._
 import cats.implicits._
 import co.topl.brambl.builders.UserInputValidations.TransactionBuilder._
 import co.topl.brambl.models.Event.{GroupPolicy, SeriesPolicy}
-import co.topl.brambl.models.box.QuantityDescriptorType.{ACCUMULATOR, FRACTIONABLE, IMMUTABLE}
-import co.topl.brambl.models.box.Value.{Asset, Group, LVL, Series, Value => BoxValue}
+import co.topl.brambl.models.box.Value.{Value => BoxValue}
 import co.topl.brambl.syntax.{
-  assetAsBoxVal,
   bigIntAsInt128,
-  groupAsBoxVal,
   groupPolicyAsGroupPolicySyntaxOps,
   int128AsBigInt,
   longAsInt128,
-  lvlAsBoxVal,
-  seriesAsBoxVal,
   seriesPolicyAsSeriesPolicySyntaxOps,
   valueToQuantitySyntaxOps,
   valueToTypeIdentifierSyntaxOps,
-  AssetType,
-  GroupType,
   LvlType,
-  SeriesType,
   ValueTypeIdentifier
 }
 import com.google.protobuf.struct.Struct
@@ -168,36 +160,23 @@ trait TransactionBuilderApi[F[_]] {
     amount:                 Long
   ): F[IoTransaction]
 
-//
-//  /**
-//   * Builds a transaction to transfer a certain amount of Asset Tokens (given by groupId and/or seriesId). The
-//   * transaction will also transfer any other tokens that are encumbered by the same predicate as the Asset Tokens to
-//   * the change address.
-//   *
-//   * We currently only support assets with quantity descriptor type LIQUID.
-//   *
-//   * @param assetId The Asset Identifier of the Asset Tokens to transfer to the recipient.
-//   * @param txos  All the TXOs encumbered by the Lock given by lockPredicateFrom. These TXOs must contain at least the
-//   *              necessary quantity (given by amount) of the identified Asset Tokens, else an error will be returned.
-//   * @param lockPredicateFrom The Lock Predicate encumbering the txos
-//   * @param amount The amount of identified Asset Tokens to transfer to the recipient
-//   * @param recipientLockAddress The LockAddress of the recipient
-//   * @param changeLockAddress A LockAddress to send the txos that are not going to the recipient
-//   * @param fee               The transaction fee. The txos must contain enough LVLs to satisfy this fee
-//   * @return A transaction
-//   */
-
   /**
-   * TBD
-   * Move all tokens to given address.
-   * changeLockAddress will be ignored if tokenIdentifier is None
-   * @param txos
-   * @param lockPredicateFrom
-   * @param recipientLockAddress
-   * @param changeLockAddress
-   * @param fee
-   * @param tokenIdentifier
-   * @return
+   * Builds a transaction to transfer the ownership of tokens (optionally identified by tokenIdentifier). If
+   * tokenIdentifier is provided, only the TXOs matching the identifier will go to the recipient. If it is None, then
+   * all tokens provided in txos will go to the recipient. Any remaining tokens in txos that are not transferred to the
+   * recipient will be transferred to the change address.
+   *
+   * @param txos All the TXOs encumbered by the Lock given by lockPredicateFrom. These TXOs must contain some token
+   *             matching tokenIdentifier (if it is provided) and at least the quantity of LVLs to satisfy the fee, else
+   *             an error will be returned.
+   * @param lockPredicateFrom The Lock Predicate encumbering the txos
+   * @param recipientLockAddress The LockAddress of the recipient
+   * @param changeLockAddress A LockAddress to send the tokens that are not going to the recipient
+   * @param fee The fee to pay for the transaction. The txos must contain enough LVLs to satisfy this fee
+   * @param tokenIdentifier An optional token identifier to denote the type of token to transfer to the recipient. If
+   *                        None, all tokens in txos will be transferred to the recipient and changeLockAddress will be
+   *                        ignored.
+   * @return An unproven transaction
    */
   def buildTransferAllTransaction(
     txos:                 Seq[Txo],
@@ -209,18 +188,22 @@ trait TransactionBuilderApi[F[_]] {
   ): F[Either[BuilderError, IoTransaction]]
 
   /**
-   * TBD
-   * Move an amount of tokens to given address.
+   * Builds a transaction to transfer a certain amount of a specified Token (given by tokenIdentifier). The transaction
+   * will also transfer any other tokens (in the txos) that are encumbered by the same predicate to the change address.
    *
-   * Does not support assets of type IMMUTABLE, ACCUMULATOR OR FRACTIONABLE.
+   * We currently only support transferring assets with quantity descriptor type LIQUID.
    *
-   * @param txos
-   * @param lockPredicateFrom
-   * @param recipientLockAddress
-   * @param changeLockAddress
-   * @param fee
-   * @param tokenIdentifier
-   * @return
+   * @param tokenIdentifier The Token Identifier denoting the type of token to transfer to the recipient. If this denotes
+   *                        an Asset Token, the quantity descriptor type must be LIQUID, else an error will be returned.
+   * @param txos All the TXOs encumbered by the Lock given by lockPredicateFrom. These TXOs must contain at least the
+   *             necessary quantity (given by amount) of the identified Token and at least the quantity of LVLs to
+   *             satisfy the fee, else an error will be returned.
+   * @param lockPredicateFrom The Lock Predicate encumbering the txos
+   * @param amount The amount of identified Token to transfer to the recipient
+   * @param recipientLockAddress The LockAddress of the recipient
+   * @param changeLockAddress A LockAddress to send the tokens that are not going to the recipient
+   * @param fee              The transaction fee. The txos must contain enough LVLs to satisfy this fee
+   * @return An unproven transaction
    */
   def buildTransferAmountTransaction(
     tokenIdentifier:      ValueTypeIdentifier,

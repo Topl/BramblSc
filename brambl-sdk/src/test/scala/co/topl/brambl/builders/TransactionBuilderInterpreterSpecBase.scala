@@ -67,7 +67,7 @@ trait TransactionBuilderInterpreterSpecBase extends munit.FunSuite with MockHelp
     )
   )
 
-  val mockTxos: Seq[Txo] = Seq(
+  val mockValues: Seq[Value] = Seq(
     value,
     value.copy(), // exact duplicate
     groupValue,
@@ -88,5 +88,7 @@ trait TransactionBuilderInterpreterSpecBase extends munit.FunSuite with MockHelp
     assetGroupSeriesAccumulator,
     assetGroupSeriesAccumulator.copy(),
     assetGroupSeriesAccumulatorAlt // diff group and series
-  ).map(valToTxo(_))
+  )
+
+  val mockTxos: Seq[Txo] = mockValues.map(valToTxo(_))
 }

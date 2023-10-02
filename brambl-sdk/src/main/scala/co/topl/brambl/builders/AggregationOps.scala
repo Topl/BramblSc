@@ -1,12 +1,15 @@
 package co.topl.brambl.builders
 
-import co.topl.brambl.models.box.QuantityDescriptorType.{FRACTIONABLE, IMMUTABLE, LIQUID}
+import co.topl.brambl.models.box.QuantityDescriptorType.LIQUID
 import co.topl.brambl.models.box.Value._
 import co.topl.brambl.syntax.{bigIntAsInt128, int128AsBigInt, valueToQuantitySyntaxOps, valueToTypeIdentifierSyntaxOps}
 
 import scala.language.implicitConversions
 import scala.util.{Failure, Success, Try}
 
+/**
+ * A trait containing operations for aggregating box values.
+ */
 trait AggregationOps {
 
   /**
@@ -19,6 +22,17 @@ trait AggregationOps {
    */
   def aggregate(values: Seq[Value]): Seq[Value]
 
+  /**
+   * Aggregates the quantities of a sequence of values if allowable, and given an amount, partitions the result of
+   * aggregation into 2 groups: the values that satisfy the amount and the change values that do not.
+   *
+   * If aggregation is not allowable, the values are returned unchanged and there will be no change.
+   * If amount is not specified OR the quantities are not enough to satisfy the amount, there will be no change
+   *
+   * @param values The values to aggregate
+   * @param amount The amount used to calculate change
+   * @return The aggregated values and the change values
+   */
   def aggregateWithChange(values: Seq[Value], amount: Option[BigInt]): (Seq[Value], Seq[Value])
 }
 
@@ -34,6 +48,9 @@ trait AggregationOps {
  */
 object DefaultAggregationOps extends AggregationOps {
 
+  /**
+   * Aggregate 2 values into 1 if allowable. Throw an exception otherwise.
+   */
   private def handleAggregation(value: Value, other: Value): Value =
     if (value.typeIdentifier == other.typeIdentifier)
       if (value.typeIdentifier.getQuantityDescriptor.forall(_ == LIQUID))
