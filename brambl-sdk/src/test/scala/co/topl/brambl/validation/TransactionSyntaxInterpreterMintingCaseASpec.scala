@@ -153,4 +153,51 @@ class TransactionSyntaxInterpreterMintingCaseASpec extends munit.FunSuite with M
 
   }
 
+  /**
+   * Case 2 validations that are failing;
+   * reference in policy contains (2) LVLs, the constructor token quantity == 10000000
+   * there is no constraint about the amount of constructor token quantity == 10000000 and LVL quantity
+   */
+  test("Valid data-input case 4, minting a Group constructor Token") {
+    val groupPolicy = Event.GroupPolicy(label = "groupLabelA", registrationUtxo = txoAddress_1)
+
+    // TODO discuss: is this correct or not, when we mint a Group the quantity should be igual to LVL input spent
+    val value_1_in: Value =
+      Value.defaultInstance.withLvl(
+        Value.LVL(
+          quantity = BigInt(2)
+        )
+      )
+
+    val value_1_out: Value =
+      Value.defaultInstance.withGroup(
+        Value.Group(
+          groupId = groupPolicy.computeId,
+          quantity = BigInt(10000000)
+        )
+      )
+
+    val input_1 = SpentTransactionOutput(txoAddress_1, attFull, value_1_in)
+    val output_1: UnspentTransactionOutput = UnspentTransactionOutput(trivialLockAddress, value_1_out)
+
+    val testTx = txFull.copy(
+      inputs = List(input_1),
+      outputs = List(output_1),
+      groupPolicies = List(Datum.GroupPolicy(groupPolicy))
+    )
+
+    val validator = TransactionSyntaxInterpreter.make[Id]()
+    val result = validator.validate(testTx).swap
+
+    val assertError = result.exists(
+      _.toList.contains(
+        TransactionSyntaxError.InsufficientInputFunds(
+          testTx.inputs.map(_.value.value).toList,
+          testTx.outputs.map(_.value.value).toList
+        )
+      )
+    )
+    assertEquals(assertError, false)
+  }
+
 }

@@ -13,7 +13,7 @@ import co.topl.brambl.common.ContainsSignable.ContainsSignableTOps
 import co.topl.brambl.common.ContainsSignable.instances._
 import co.topl.brambl.dataApi.{WalletKeyApiAlgebra, WalletStateAlgebra}
 import co.topl.brambl.models.{Datum, Event, Indices, LockAddress, TransactionOutputAddress}
-import co.topl.brambl.models.box.{Attestation, Challenge, Lock, Value}
+import co.topl.brambl.models.box.{AssetMintingStatement, Attestation, Challenge, Lock, Value}
 import co.topl.brambl.validation.TransactionAuthorizationError.AuthorizationFailed
 import co.topl.brambl.validation.TransactionSyntaxError
 import co.topl.crypto.generation.Bip32Indexes
@@ -34,6 +34,24 @@ import scala.util.Random
 
 class CredentiallerInterpreterSpec extends CatsEffectSuite with MockHelpers {
   val walletApi: WalletApi[F] = WalletApi.make[F](MockWalletKeyApi)
+
+  test("prove: other fields on transaction are preserved") {
+    val testTx = txFull
+      .withGroupPolicies(Seq(Datum.GroupPolicy(mockGroupPolicy)))
+      .withSeriesPolicies(Seq(Datum.SeriesPolicy(mockSeriesPolicy)))
+      .withMintingStatements(Seq(AssetMintingStatement(dummyTxoAddress, dummyTxoAddress, quantity)))
+    assertIO(
+      for {
+        provenTx <- CredentiallerInterpreter.make[F](walletApi, MockWalletStateApi, MockMainKeyPair).prove(testTx)
+      } yield {
+        val provenPredicate = provenTx.inputs.head.attestation.getPredicate
+        val sameLen = provenPredicate.lock.challenges.length == provenPredicate.responses.length
+        val nonEmpty = provenPredicate.responses.forall(proof => !proof.value.isEmpty)
+        sameLen && nonEmpty && (provenTx.signable.value == testTx.signable.value)
+      },
+      true
+    )
+  }
 
   test("prove: Single Input Transaction with Attestation.Predicate > Provable propositions have non-empty proofs") {
     assertIO(
