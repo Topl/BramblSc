@@ -1,7 +1,6 @@
 package co.topl.brambl.builders
 
 import cats.implicits.catsSyntaxOptionId
-import co.topl.brambl.builders.TransactionBuilderApi.UnableToBuildTransaction
 import co.topl.brambl.models.Event.{GroupPolicy, SeriesPolicy}
 import co.topl.brambl.models.box.FungibilityType.{GROUP, GROUP_AND_SERIES, SERIES}
 import co.topl.brambl.models.box.QuantityDescriptorType.{ACCUMULATOR, FRACTIONABLE, IMMUTABLE}
@@ -390,7 +389,7 @@ class TransactionBuilderInterpreterAssetMintingSpec extends TransactionBuilderIn
     assertEquals(
       testTx,
       Left(
-        UnableToBuildTransaction(
+        UserInputErrors(
           Seq(UserInputError(s"groupTxo does not match groupTokenUtxo"))
         )
       )
@@ -420,7 +419,7 @@ class TransactionBuilderInterpreterAssetMintingSpec extends TransactionBuilderIn
     assertEquals(
       testTx,
       Left(
-        UnableToBuildTransaction(
+        UserInputErrors(
           Seq(UserInputError(s"seriesTxo does not match seriesTokenUtxo"))
         )
       )
@@ -448,7 +447,7 @@ class TransactionBuilderInterpreterAssetMintingSpec extends TransactionBuilderIn
     assertEquals(
       testTx,
       Left(
-        UnableToBuildTransaction(
+        UserInputErrors(
           Seq(UserInputError(s"groupTxo does not contain Group Constructor Tokens"))
         )
       )
@@ -476,7 +475,7 @@ class TransactionBuilderInterpreterAssetMintingSpec extends TransactionBuilderIn
     assertEquals(
       testTx,
       Left(
-        UnableToBuildTransaction(
+        UserInputErrors(
           Seq(UserInputError(s"seriesTxo does not contain Series Constructor Tokens"))
         )
       )
@@ -506,7 +505,7 @@ class TransactionBuilderInterpreterAssetMintingSpec extends TransactionBuilderIn
     assertEquals(
       testTx,
       Left(
-        UnableToBuildTransaction(
+        UserInputErrors(
           Seq(UserInputError(s"groupLock does not correspond to groupTxo"))
         )
       )
@@ -536,7 +535,7 @@ class TransactionBuilderInterpreterAssetMintingSpec extends TransactionBuilderIn
     assertEquals(
       testTx,
       Left(
-        UnableToBuildTransaction(
+        UserInputErrors(
           Seq(UserInputError(s"seriesLock does not correspond to seriesTxo"))
         )
       )
@@ -567,7 +566,7 @@ class TransactionBuilderInterpreterAssetMintingSpec extends TransactionBuilderIn
     assertEquals(
       testTx,
       Left(
-        UnableToBuildTransaction(
+        UserInputErrors(
           Seq(UserInputError(s"quantity to mint must be positive"))
         )
       )
@@ -599,7 +598,7 @@ class TransactionBuilderInterpreterAssetMintingSpec extends TransactionBuilderIn
     assertEquals(
       testTx,
       Left(
-        UnableToBuildTransaction(
+        UserInputErrors(
           Seq(
             UserInputError(s"quantity of input series constructor tokens must be positive"),
             UserInputError(s"quantity to mint must be less than total token supply available.")
@@ -633,7 +632,7 @@ class TransactionBuilderInterpreterAssetMintingSpec extends TransactionBuilderIn
     assertEquals(
       testTx,
       Left(
-        UnableToBuildTransaction(
+        UserInputErrors(
           Seq(UserInputError(s"quantity to mint must be a multiple of token supply"))
         )
       )
@@ -664,7 +663,7 @@ class TransactionBuilderInterpreterAssetMintingSpec extends TransactionBuilderIn
     assertEquals(
       testTx,
       Left(
-        UnableToBuildTransaction(
+        UserInputErrors(
           Seq(UserInputError(s"quantity to mint must be less than total token supply available."))
         )
       )
@@ -695,7 +694,7 @@ class TransactionBuilderInterpreterAssetMintingSpec extends TransactionBuilderIn
     assertEquals(
       testTx,
       Left(
-        UnableToBuildTransaction(
+        UserInputErrors(
           Seq(UserInputError(s"fixedSeries does not match provided Series ID"))
         )
       )
@@ -720,17 +719,34 @@ class TransactionBuilderInterpreterAssetMintingSpec extends TransactionBuilderIn
 
     val outAddr = trivialLockAddress
     val statement: AssetMintingStatement = AssetMintingStatement(groupAddr, seriesAddr, quantity)
-
-    val testTx = txBuilder
-      .buildSimpleAssetMintingTransaction(statement, groupTxo, seriesTxo, groupLock, seriesLock, outAddr, None, None)
-    assertEquals(
-      testTx,
-      Left(
-        UnableToBuildTransaction(
-          Seq(UserInputError(s"Unsupported quantity descriptor type. We currently only support LIQUID"))
-        )
+    val mintedValue = Value.defaultInstance.withAsset(
+      Value.Asset(
+        mockGroupPolicy.computeId.some,
+        mockSeriesPolicy.computeId.some,
+        quantity,
+        quantityDescriptor = IMMUTABLE
       )
     )
+
+    val expectedTx = IoTransaction.defaultInstance
+      .withDatum(txDatum)
+      .withMintingStatements(Seq(statement))
+      .withInputs(
+        List(
+          SpentTransactionOutput(groupAddr, attFull, groupValue),
+          SpentTransactionOutput(seriesAddr, attFull, seriesValue)
+        )
+      )
+      .withOutputs(
+        List(
+          UnspentTransactionOutput(inLockFullAddress, seriesValue),
+          UnspentTransactionOutput(trivialLockAddress, mintedValue),
+          UnspentTransactionOutput(inLockFullAddress, groupValue)
+        )
+      )
+    val txRes = txBuilder
+      .buildSimpleAssetMintingTransaction(statement, groupTxo, seriesTxo, groupLock, seriesLock, outAddr, None, None)
+    assert(txRes.isRight && txRes.toOption.get.computeId == expectedTx.computeId)
   }
 
   test("buildSimpleAssetMintingTransaction > FRACTIONABLE quantity descriptor type") {
@@ -751,17 +767,34 @@ class TransactionBuilderInterpreterAssetMintingSpec extends TransactionBuilderIn
 
     val outAddr = trivialLockAddress
     val statement: AssetMintingStatement = AssetMintingStatement(groupAddr, seriesAddr, quantity)
-
-    val testTx = txBuilder
-      .buildSimpleAssetMintingTransaction(statement, groupTxo, seriesTxo, groupLock, seriesLock, outAddr, None, None)
-    assertEquals(
-      testTx,
-      Left(
-        UnableToBuildTransaction(
-          Seq(UserInputError(s"Unsupported quantity descriptor type. We currently only support LIQUID"))
-        )
+    val mintedValue = Value.defaultInstance.withAsset(
+      Value.Asset(
+        mockGroupPolicy.computeId.some,
+        mockSeriesPolicy.computeId.some,
+        quantity,
+        quantityDescriptor = FRACTIONABLE
       )
     )
+
+    val expectedTx = IoTransaction.defaultInstance
+      .withDatum(txDatum)
+      .withMintingStatements(Seq(statement))
+      .withInputs(
+        List(
+          SpentTransactionOutput(groupAddr, attFull, groupValue),
+          SpentTransactionOutput(seriesAddr, attFull, seriesValue)
+        )
+      )
+      .withOutputs(
+        List(
+          UnspentTransactionOutput(inLockFullAddress, seriesValue),
+          UnspentTransactionOutput(trivialLockAddress, mintedValue),
+          UnspentTransactionOutput(inLockFullAddress, groupValue)
+        )
+      )
+    val txRes = txBuilder
+      .buildSimpleAssetMintingTransaction(statement, groupTxo, seriesTxo, groupLock, seriesLock, outAddr, None, None)
+    assert(txRes.isRight && txRes.toOption.get.computeId == expectedTx.computeId)
   }
 
   test("buildSimpleAssetMintingTransaction > ACCUMULATOR quantity descriptor type") {
@@ -782,16 +815,33 @@ class TransactionBuilderInterpreterAssetMintingSpec extends TransactionBuilderIn
 
     val outAddr = trivialLockAddress
     val statement: AssetMintingStatement = AssetMintingStatement(groupAddr, seriesAddr, quantity)
-
-    val testTx = txBuilder
-      .buildSimpleAssetMintingTransaction(statement, groupTxo, seriesTxo, groupLock, seriesLock, outAddr, None, None)
-    assertEquals(
-      testTx,
-      Left(
-        UnableToBuildTransaction(
-          Seq(UserInputError(s"Unsupported quantity descriptor type. We currently only support LIQUID"))
-        )
+    val mintedValue = Value.defaultInstance.withAsset(
+      Value.Asset(
+        mockGroupPolicy.computeId.some,
+        mockSeriesPolicy.computeId.some,
+        quantity,
+        quantityDescriptor = ACCUMULATOR
       )
     )
+
+    val expectedTx = IoTransaction.defaultInstance
+      .withDatum(txDatum)
+      .withMintingStatements(Seq(statement))
+      .withInputs(
+        List(
+          SpentTransactionOutput(groupAddr, attFull, groupValue),
+          SpentTransactionOutput(seriesAddr, attFull, seriesValue)
+        )
+      )
+      .withOutputs(
+        List(
+          UnspentTransactionOutput(inLockFullAddress, seriesValue),
+          UnspentTransactionOutput(trivialLockAddress, mintedValue),
+          UnspentTransactionOutput(inLockFullAddress, groupValue)
+        )
+      )
+    val txRes = txBuilder
+      .buildSimpleAssetMintingTransaction(statement, groupTxo, seriesTxo, groupLock, seriesLock, outAddr, None, None)
+    assert(txRes.isRight && txRes.toOption.get.computeId == expectedTx.computeId)
   }
 }

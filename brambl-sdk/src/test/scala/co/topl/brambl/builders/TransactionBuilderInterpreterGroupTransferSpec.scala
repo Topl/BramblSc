@@ -1,7 +1,6 @@
 package co.topl.brambl.builders
 
 import cats.implicits.catsSyntaxOptionId
-import co.topl.brambl.builders.TransactionBuilderApi.UnableToBuildTransaction
 import co.topl.brambl.models.box.Value
 import co.topl.brambl.models.transaction.{IoTransaction, SpentTransactionOutput, UnspentTransactionOutput}
 import co.topl.brambl.syntax.{
@@ -19,8 +18,8 @@ import co.topl.brambl.syntax.{
 
 class TransactionBuilderInterpreterGroupTransferSpec extends TransactionBuilderInterpreterSpecBase {
 
-  test("buildGroupTransferTransaction > underlying error fails (unsupported token type)") {
-    val testTx = txBuilder.buildGroupTransferTransaction(
+  test("buildTransferAmountTransaction > underlying error fails (unsupported token type)") {
+    val testTx = txBuilder.buildTransferAmountTransaction(
       GroupType(mockGroupPolicy.computeId),
       mockTxos :+ valToTxo(Value.defaultInstance.withTopl(Value.TOPL(quantity))),
       inPredicateLockFull,
@@ -29,11 +28,11 @@ class TransactionBuilderInterpreterGroupTransferSpec extends TransactionBuilderI
       trivialLockAddress,
       0
     )
-    assertEquals(testTx, Left(UnableToBuildTransaction(Seq(UserInputError(s"Invalid value type")))))
+    assertEquals(testTx, Left(UserInputErrors(Seq(UserInputError(s"Invalid value type")))))
   }
 
-  test("buildGroupTransferTransaction > quantity to transfer is non positive") {
-    val testTx = txBuilder.buildGroupTransferTransaction(
+  test("buildTransferAmountTransaction > quantity to transfer is non positive") {
+    val testTx = txBuilder.buildTransferAmountTransaction(
       GroupType(mockGroupPolicy.computeId),
       mockTxos,
       inPredicateLockFull,
@@ -42,11 +41,11 @@ class TransactionBuilderInterpreterGroupTransferSpec extends TransactionBuilderI
       trivialLockAddress,
       0
     )
-    assertEquals(testTx, Left(UnableToBuildTransaction(Seq(UserInputError(s"quantity to transfer must be positive")))))
+    assertEquals(testTx, Left(UserInputErrors(Seq(UserInputError(s"quantity to transfer must be positive")))))
   }
 
-  test("buildGroupTransferTransaction > a txo isnt tied to lockPredicateFrom") {
-    val testTx = txBuilder.buildGroupTransferTransaction(
+  test("buildTransferAmountTransaction > a txo isnt tied to lockPredicateFrom") {
+    val testTx = txBuilder.buildTransferAmountTransaction(
       GroupType(mockGroupPolicy.computeId),
       mockTxos :+ valToTxo(value, trivialLockAddress),
       inPredicateLockFull,
@@ -57,12 +56,12 @@ class TransactionBuilderInterpreterGroupTransferSpec extends TransactionBuilderI
     )
     assertEquals(
       testTx,
-      Left(UnableToBuildTransaction(Seq(UserInputError(s"every lock does not correspond to fromLockAddr"))))
+      Left(UserInputErrors(Seq(UserInputError(s"every lock does not correspond to fromLockAddr"))))
     )
   }
 
-  test("buildGroupTransferTransaction > non sufficient funds") {
-    val testTx = txBuilder.buildGroupTransferTransaction(
+  test("buildTransferAmountTransaction > non sufficient funds") {
+    val testTx = txBuilder.buildTransferAmountTransaction(
       GroupType(mockGroupPolicy.computeId),
       mockTxos,
       inPredicateLockFull,
@@ -74,15 +73,15 @@ class TransactionBuilderInterpreterGroupTransferSpec extends TransactionBuilderI
     assertEquals(
       testTx,
       Left(
-        UnableToBuildTransaction(
+        UserInputErrors(
           Seq(UserInputError(s"All tokens selected to transfer do not have enough funds to transfer"))
         )
       )
     )
   }
 
-  test("buildGroupTransferTransaction > fee not satisfied") {
-    val testTx = txBuilder.buildGroupTransferTransaction(
+  test("buildTransferAmountTransaction > fee not satisfied") {
+    val testTx = txBuilder.buildTransferAmountTransaction(
       GroupType(mockGroupPolicy.computeId),
       mockTxos,
       inPredicateLockFull,
@@ -94,15 +93,15 @@ class TransactionBuilderInterpreterGroupTransferSpec extends TransactionBuilderI
     assertEquals(
       testTx,
       Left(
-        UnableToBuildTransaction(
+        UserInputErrors(
           Seq(UserInputError(s"Not enough LVLs in input to satisfy fee"))
         )
       )
     )
   }
 
-  test("buildGroupTransferTransaction > [complex] duplicate inputs are merged and split correctly") {
-    val testTx = txBuilder.buildGroupTransferTransaction(
+  test("buildTransferAmountTransaction > [complex] duplicate inputs are merged and split correctly") {
+    val testTx = txBuilder.buildTransferAmountTransaction(
       GroupType(mockGroupPolicy.computeId),
       mockTxos,
       inPredicateLockFull,
@@ -151,7 +150,16 @@ class TransactionBuilderInterpreterGroupTransferSpec extends TransactionBuilderI
             assetSeries.copy(
               assetSeries.getAsset.copy(mockGroupPolicyAlt.computeId.some, mockSeriesPolicyAlt.computeId.some)
             )
-          )
+          ),
+          UnspentTransactionOutput(trivialLockAddress, assetGroupSeriesAccumulator),
+          UnspentTransactionOutput(trivialLockAddress, assetGroupSeriesAccumulator.copy()),
+          UnspentTransactionOutput(trivialLockAddress, assetGroupSeriesAccumulatorAlt),
+          UnspentTransactionOutput(trivialLockAddress, assetGroupAccumulator),
+          UnspentTransactionOutput(trivialLockAddress, assetGroupAccumulator.copy()),
+          UnspentTransactionOutput(trivialLockAddress, assetGroupAccumulatorAlt),
+          UnspentTransactionOutput(trivialLockAddress, assetSeriesAccumulator),
+          UnspentTransactionOutput(trivialLockAddress, assetSeriesAccumulator.copy()),
+          UnspentTransactionOutput(trivialLockAddress, assetSeriesAccumulatorAlt)
         )
       )
     assertEquals(
@@ -160,9 +168,9 @@ class TransactionBuilderInterpreterGroupTransferSpec extends TransactionBuilderI
     )
   }
 
-  test("buildGroupTransferTransaction > [simplest case] no change, only 1 output") {
+  test("buildTransferAmountTransaction > [simplest case] no change, only 1 output") {
     val txos = Seq(valToTxo(groupValue))
-    val testTx = txBuilder.buildGroupTransferTransaction(
+    val testTx = txBuilder.buildTransferAmountTransaction(
       GroupType(mockGroupPolicy.computeId),
       txos,
       inPredicateLockFull,
@@ -176,71 +184,5 @@ class TransactionBuilderInterpreterGroupTransferSpec extends TransactionBuilderI
       .withInputs(txos.map(txo => SpentTransactionOutput(txo.outputAddress, attFull, txo.transactionOutput.value)))
       .withOutputs(List(UnspentTransactionOutput(inLockFullAddress, groupValue)))
     assertEquals(testTx.toOption.get.computeId, expectedTx.computeId)
-  }
-
-  test("buildGroupTransferTransaction > IMMUTABLE asset quantity descriptor in TXOs") {
-    val testTx = txBuilder.buildGroupTransferTransaction(
-      GroupType(mockGroupPolicy.computeId),
-      mockTxos :+ valToTxo(assetGroupSeriesImmutable),
-      inPredicateLockFull,
-      1,
-      inLockFullAddress,
-      trivialLockAddress,
-      1
-    )
-    assertEquals(
-      testTx,
-      Left(
-        UnableToBuildTransaction(
-          Seq(
-            UserInputError(s"All asset tokens must have valid QuantityDescriptorType. We currently only support LIQUID")
-          )
-        )
-      )
-    )
-  }
-
-  test("buildGroupTransferTransaction > FRACTIONABLE asset quantity descriptor in TXOs") {
-    val testTx = txBuilder.buildGroupTransferTransaction(
-      GroupType(mockGroupPolicy.computeId),
-      mockTxos :+ valToTxo(assetGroupSeriesFractionable),
-      inPredicateLockFull,
-      1,
-      inLockFullAddress,
-      trivialLockAddress,
-      1
-    )
-    assertEquals(
-      testTx,
-      Left(
-        UnableToBuildTransaction(
-          Seq(
-            UserInputError(s"All asset tokens must have valid QuantityDescriptorType. We currently only support LIQUID")
-          )
-        )
-      )
-    )
-  }
-
-  test("buildGroupTransferTransaction > ACCUMULATOR asset quantity descriptor in TXOs") {
-    val testTx = txBuilder.buildGroupTransferTransaction(
-      GroupType(mockGroupPolicy.computeId),
-      mockTxos :+ valToTxo(assetGroupSeriesAccumulator),
-      inPredicateLockFull,
-      1,
-      inLockFullAddress,
-      trivialLockAddress,
-      1
-    )
-    assertEquals(
-      testTx,
-      Left(
-        UnableToBuildTransaction(
-          Seq(
-            UserInputError(s"All asset tokens must have valid QuantityDescriptorType. We currently only support LIQUID")
-          )
-        )
-      )
-    )
   }
 }

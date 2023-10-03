@@ -1,9 +1,9 @@
 package co.topl.brambl.builders
 
 import cats.Monad
-import cats.data.{EitherT, NonEmptyChain}
+import cats.data.EitherT
 import co.topl.brambl.codecs.AddressCodecs
-import co.topl.brambl.models.{Datum, Event, GroupId, LockAddress, LockId, SeriesId, TransactionOutputAddress}
+import co.topl.brambl.models.{Datum, Event, GroupId, LockAddress, LockId, SeriesId}
 import co.topl.brambl.models.box.{
   AssetMintingStatement,
   Attestation,
@@ -21,23 +21,16 @@ import co.topl.brambl.common.ContainsImmutable.instances._
 import cats.implicits._
 import co.topl.brambl.builders.UserInputValidations.TransactionBuilder._
 import co.topl.brambl.models.Event.{GroupPolicy, SeriesPolicy}
-import co.topl.brambl.models.box.Value.{Asset, Group, LVL, Series, Value => BoxValue}
+import co.topl.brambl.models.box.Value.{Value => BoxValue}
 import co.topl.brambl.syntax.{
-  assetAsBoxVal,
   bigIntAsInt128,
-  groupAsBoxVal,
   groupPolicyAsGroupPolicySyntaxOps,
   int128AsBigInt,
   longAsInt128,
-  lvlAsBoxVal,
-  seriesAsBoxVal,
   seriesPolicyAsSeriesPolicySyntaxOps,
   valueToQuantitySyntaxOps,
   valueToTypeIdentifierSyntaxOps,
-  AssetType,
-  GroupType,
   LvlType,
-  SeriesType,
   ValueTypeIdentifier
 }
 import com.google.protobuf.struct.Struct
@@ -168,98 +161,52 @@ trait TransactionBuilderApi[F[_]] {
   ): F[IoTransaction]
 
   /**
-   * Builds a transaction to transfer a certain amount of LVLs. The transaction will also transfer any other tokens that
-   * are encumbered by the same predicate as the LVLs to the change address.
+   * Builds a transaction to transfer the ownership of tokens (optionally identified by tokenIdentifier). If
+   * tokenIdentifier is provided, only the TXOs matching the identifier will go to the recipient. If it is None, then
+   * all tokens provided in txos will go to the recipient. Any remaining tokens in txos that are not transferred to the
+   * recipient will be transferred to the change address.
    *
-   * @param txos  All the TXOs encumbered by the Lock given by lockPredicateFrom. These TXOs must contain at least the
-   *              necessary quantity (given by amount) of LVLs, else an error will be returned.
+   * @param txos All the TXOs encumbered by the Lock given by lockPredicateFrom. These TXOs must contain some token
+   *             matching tokenIdentifier (if it is provided) and at least the quantity of LVLs to satisfy the fee, else
+   *             an error will be returned.
    * @param lockPredicateFrom The Lock Predicate encumbering the txos
-   * @param amount The amount of LVLs to transfer to the recipient
    * @param recipientLockAddress The LockAddress of the recipient
-   * @param changeLockAddress A LockAddress to send the txos that are not going to the recipient
-   * @param fee The transaction fee. The txos must contain enough LVLs to satisfy this fee
-   * @return A transaction
+   * @param changeLockAddress A LockAddress to send the tokens that are not going to the recipient
+   * @param fee The fee to pay for the transaction. The txos must contain enough LVLs to satisfy this fee
+   * @param tokenIdentifier An optional token identifier to denote the type of token to transfer to the recipient. If
+   *                        None, all tokens in txos will be transferred to the recipient and changeLockAddress will be
+   *                        ignored.
+   * @return An unproven transaction
    */
-  def buildLvlTransferTransaction(
+  def buildTransferAllTransaction(
     txos:                 Seq[Txo],
     lockPredicateFrom:    Lock.Predicate,
-    amount:               Long,
     recipientLockAddress: LockAddress,
     changeLockAddress:    LockAddress,
-    fee:                  Long
+    fee:                  Long,
+    tokenIdentifier:      Option[ValueTypeIdentifier] = None
   ): F[Either[BuilderError, IoTransaction]]
 
   /**
-   * Builds a transaction to transfer a certain amount of Group Constructor Tokens (given by groupId). The transaction
-   * will also transfer any other tokens that are encumbered by the same predicate as the Group Constructor Tokens to
-   * the change address.
+   * Builds a transaction to transfer a certain amount of a specified Token (given by tokenIdentifier). The transaction
+   * will also transfer any other tokens (in the txos) that are encumbered by the same predicate to the change address.
    *
-   * @param groupId The Group Identifier of the Group Constructor Tokens to transfer to the recipient
-   * @param txos  All the TXOs encumbered by the Lock given by lockPredicateFrom. These TXOs must contain at least the
-   *              necessary quantity (given by amount) of the identified Group Constructor Tokens, else an error will be
-   *              returned.
+   * We currently only support transferring assets with quantity descriptor type LIQUID.
+   *
+   * @param tokenIdentifier The Token Identifier denoting the type of token to transfer to the recipient. If this denotes
+   *                        an Asset Token, the quantity descriptor type must be LIQUID, else an error will be returned.
+   * @param txos All the TXOs encumbered by the Lock given by lockPredicateFrom. These TXOs must contain at least the
+   *             necessary quantity (given by amount) of the identified Token and at least the quantity of LVLs to
+   *             satisfy the fee, else an error will be returned.
    * @param lockPredicateFrom The Lock Predicate encumbering the txos
-   * @param amount The amount of identified Group Constructor Tokens to transfer to the recipient
+   * @param amount The amount of identified Token to transfer to the recipient
    * @param recipientLockAddress The LockAddress of the recipient
-   * @param changeLockAddress A LockAddress to send the txos that are not going to the recipient
-   * @param fee               The transaction fee. The txos must contain enough LVLs to satisfy this fee
-   * @return A transaction
+   * @param changeLockAddress A LockAddress to send the tokens that are not going to the recipient
+   * @param fee              The transaction fee. The txos must contain enough LVLs to satisfy this fee
+   * @return An unproven transaction
    */
-  def buildGroupTransferTransaction(
-    groupId:              GroupType,
-    txos:                 Seq[Txo],
-    lockPredicateFrom:    Lock.Predicate,
-    amount:               Long,
-    recipientLockAddress: LockAddress,
-    changeLockAddress:    LockAddress,
-    fee:                  Long
-  ): F[Either[BuilderError, IoTransaction]]
-
-  /**
-   * Builds a transaction to transfer a certain amount of Series Constructor Tokens (given by seriesId). The transaction
-   * will also transfer any other tokens that are encumbered by the same predicate as the Series Constructor Tokens to
-   * the change address.
-   *
-   * @param seriesId The Series Identifier of the Series Constructor Tokens to transfer to the recipient
-   * @param txos  All the TXOs encumbered by the Lock given by lockPredicateFrom. These TXOs must contain at least the
-   *              necessary quantity (given by amount) of the identified Series Constructor Tokens, else an error will be
-   *              returned.
-   * @param lockPredicateFrom The Lock Predicate encumbering the txos
-   * @param amount The amount of identified Series Constructor Tokens to transfer to the recipient
-   * @param recipientLockAddress The LockAddress of the recipient
-   * @param changeLockAddress A LockAddress to send the txos that are not going to the recipient
-   * @param fee               The transaction fee. The txos must contain enough LVLs to satisfy this fee
-   * @return A transaction
-   */
-  def buildSeriesTransferTransaction(
-    seriesId:             SeriesType,
-    txos:                 Seq[Txo],
-    lockPredicateFrom:    Lock.Predicate,
-    amount:               Long,
-    recipientLockAddress: LockAddress,
-    changeLockAddress:    LockAddress,
-    fee:                  Long
-  ): F[Either[BuilderError, IoTransaction]]
-
-  /**
-   * Builds a transaction to transfer a certain amount of Asset Tokens (given by groupId and/or seriesId). The
-   * transaction will also transfer any other tokens that are encumbered by the same predicate as the Asset Tokens to
-   * the change address.
-   *
-   * We currently only support assets with quantity descriptor type LIQUID.
-   *
-   * @param assetId The Asset Identifier of the Asset Tokens to transfer to the recipient.
-   * @param txos  All the TXOs encumbered by the Lock given by lockPredicateFrom. These TXOs must contain at least the
-   *              necessary quantity (given by amount) of the identified Asset Tokens, else an error will be returned.
-   * @param lockPredicateFrom The Lock Predicate encumbering the txos
-   * @param amount The amount of identified Asset Tokens to transfer to the recipient
-   * @param recipientLockAddress The LockAddress of the recipient
-   * @param changeLockAddress A LockAddress to send the txos that are not going to the recipient
-   * @param fee               The transaction fee. The txos must contain enough LVLs to satisfy this fee
-   * @return A transaction
-   */
-  def buildAssetTransferTransaction(
-    assetId:              AssetType,
+  def buildTransferAmountTransaction(
+    tokenIdentifier:      ValueTypeIdentifier,
     txos:                 Seq[Txo],
     lockPredicateFrom:    Lock.Predicate,
     amount:               Long,
@@ -371,11 +318,6 @@ object TransactionBuilderApi {
 
   }
 
-  case class UnableToBuildTransaction(causes: Seq[Throwable]) extends BuilderError("Failed to build transaction")
-
-  private def wrapErr(e: Throwable): BuilderError = UnableToBuildTransaction(Seq(e))
-  private def wrapErr(e: NonEmptyChain[Throwable]): BuilderError = UnableToBuildTransaction(e.toList)
-
   def make[F[_]: Monad](
     networkId: Int,
     ledgerId:  Int
@@ -418,75 +360,44 @@ object TransactionBuilderApi {
           .withDatum(datum)
       } yield ioTransaction
 
-      override def buildLvlTransferTransaction(
-        txos:                 Seq[Txo],
-        lockPredicateFrom:    Lock.Predicate,
-        amount:               Long,
-        recipientLockAddress: LockAddress,
-        changeLockAddress:    LockAddress,
-        fee:                  Long
-      ): F[Either[BuilderError, IoTransaction]] =
-        buildTransferTransaction(txos, lockPredicateFrom, amount, recipientLockAddress, changeLockAddress, LvlType, fee)
+      override def buildTransferAllTransaction(
+        txos:              Seq[Txo],
+        lockPredicateFrom: Lock.Predicate,
+        recipientLockAddr: LockAddress,
+        changeLockAddr:    LockAddress,
+        fee:               Long,
+        tokenIdentifier:   Option[ValueTypeIdentifier]
+      ): F[Either[BuilderError, IoTransaction]] = (
+        for {
+          fromLockAddr <- EitherT.right(lockAddress(Lock().withPredicate(lockPredicateFrom)))
+          _ <- EitherT
+            .fromEither[F](validateTransferAllParams(txos, fromLockAddr, fee, tokenIdentifier))
+            .leftMap(errs => UserInputErrors(errs.toList))
+          stxoAttestation <- EitherT.right(unprovenAttestation(lockPredicateFrom))
+          datum           <- EitherT.right(datum())
+          stxos           <- buildStxos(txos, stxoAttestation)
+          utxos           <- buildUtxos(txos, tokenIdentifier, None, recipientLockAddr, changeLockAddr, fee)
+        } yield IoTransaction(inputs = stxos, outputs = utxos, datum = datum)
+      ).value
 
-      override def buildGroupTransferTransaction(
-        groupId:              GroupType,
-        txos:                 Seq[Txo],
-        lockPredicateFrom:    Lock.Predicate,
-        amount:               Long,
-        recipientLockAddress: LockAddress,
-        changeLockAddress:    LockAddress,
-        fee:                  Long
-      ): F[Either[BuilderError, IoTransaction]] =
-        buildTransferTransaction(txos, lockPredicateFrom, amount, recipientLockAddress, changeLockAddress, groupId, fee)
-
-      override def buildSeriesTransferTransaction(
-        seriesId:             SeriesType,
-        txos:                 Seq[Txo],
-        lockPredicateFrom:    Lock.Predicate,
-        amount:               Long,
-        recipientLockAddress: LockAddress,
-        changeLockAddress:    LockAddress,
-        fee:                  Long
-      ): F[Either[BuilderError, IoTransaction]] =
-        buildTransferTransaction(
-          txos,
-          lockPredicateFrom,
-          amount,
-          recipientLockAddress,
-          changeLockAddress,
-          seriesId,
-          fee
-        )
-
-      override def buildAssetTransferTransaction(
-        assetId:              AssetType,
-        txos:                 Seq[Txo],
-        lockPredicateFrom:    Lock.Predicate,
-        amount:               Long,
-        recipientLockAddress: LockAddress,
-        changeLockAddress:    LockAddress,
-        fee:                  Long
-      ): F[Either[BuilderError, IoTransaction]] =
-        buildTransferTransaction(txos, lockPredicateFrom, amount, recipientLockAddress, changeLockAddress, assetId, fee)
-
-      private def buildTransferTransaction(
+      override def buildTransferAmountTransaction(
+        transferType:      ValueTypeIdentifier,
         txos:              Seq[Txo],
         lockPredicateFrom: Lock.Predicate,
         amount:            Long,
         recipientLockAddr: LockAddress,
         changeLockAddr:    LockAddress,
-        transferType:      ValueTypeIdentifier,
         fee:               Long
       ): F[Either[BuilderError, IoTransaction]] = (
         for {
           fromLockAddr <- EitherT.right(lockAddress(Lock().withPredicate(lockPredicateFrom)))
           _ <- EitherT
-            .fromEither[F](validateTransferParams(txos, fromLockAddr, amount, transferType, fee))
-            .leftMap(wrapErr)
+            .fromEither[F](validateTransferAmountParams(txos, fromLockAddr, amount, transferType, fee))
+            .leftMap(errs => UserInputErrors(errs.toList))
           stxoAttestation <- EitherT.right(unprovenAttestation(lockPredicateFrom))
           datum           <- EitherT.right(datum())
-          stxos           <- buildStxos(txos, stxoAttestation).leftMap(wrapErr)
-          utxos <- buildUtxos(txos, transferType, amount, recipientLockAddr, changeLockAddr, fee).leftMap(wrapErr)
+          stxos           <- buildStxos(txos, stxoAttestation)
+          utxos <- buildUtxos(txos, transferType.some, BigInt(amount).some, recipientLockAddr, changeLockAddr, fee)
         } yield IoTransaction(inputs = stxos, outputs = utxos, datum = datum)
       ).value
 
@@ -498,43 +409,54 @@ object TransactionBuilderApi {
 
       private def buildUtxos(
         txos:             Seq[Txo],
-        transferType:     ValueTypeIdentifier,
-        amount:           Int128,
+        transferTypeOpt:  Option[ValueTypeIdentifier], // If not provided, then we are transferring all
+        amount:           Option[BigInt], // If not provided, then we are transferring all
         recipientAddress: LockAddress,
         changeAddress:    LockAddress,
         fee:              Long
       ): EitherT[F, BuilderError, Seq[UnspentTransactionOutput]] = Try {
-        val aggregatedValuesRaw =
-          txos.map(_.transactionOutput.value.value).groupMapReduce(_.typeIdentifier)(identity) {
-            // TODO: Currently we are only supporting LIQUID quantity descriptor type
-            // We cannot aggregate IMMUTABLE or FRACTIONABLE quantity type
-            (v1, v2) => v1.setQuantity(v1.quantity + v2.quantity)
-          }
-        val aggregatedValues = applyFee(aggregatedValuesRaw, fee)
-        val otherVals = (aggregatedValues - transferType).values.toSeq
-        val transferVal = aggregatedValues(transferType)
-        val changeVal = buildChange(transferVal, transferVal.quantity - amount).toSeq
-        UnspentTransactionOutput(recipientAddress, Value.defaultInstance.withValue(transferVal.setQuantity(amount))) +:
-        (changeVal ++ otherVals).map(v => UnspentTransactionOutput(changeAddress, Value.defaultInstance.withValue(v)))
+        val groupedValues = applyFee(fee, txos.map(_.transactionOutput.value.value).groupBy(_.typeIdentifier))
+        val otherVals = (groupedValues -- transferTypeOpt).values.toSeq.flatMap(DefaultAggregationOps.aggregate)
+        val (transferVals, changeVals) = transferTypeOpt match {
+          // If transferTypeOpt is provided, then we need to calculate what goes to the recipient vs to change
+          case Some(transferType) =>
+            DefaultAggregationOps
+              .aggregateWithChange(groupedValues.getOrElse(transferType, Seq.empty), amount)
+              .map(_ ++ otherVals) // otherVals, in addition to the change, goes to the change address
+          // If transferTypeOpt is not provided, then all of otherVals goes to the recipient
+          case _ => (otherVals, Seq.empty)
+        }
+
+        val toRecipient = transferVals
+          .map(Value.defaultInstance.withValue)
+          .map(UnspentTransactionOutput(recipientAddress, _))
+        val toChange = changeVals.map(Value.defaultInstance.withValue).map(UnspentTransactionOutput(changeAddress, _))
+        toRecipient ++ toChange
       } match {
         case Success(utxos) => EitherT.rightT(utxos)
-        case Failure(err)   => EitherT.leftT(BuilderRuntimeError("Failed to build utxos", err))
+        case Failure(err) => EitherT.leftT(BuilderRuntimeError(s"Failed to build utxos. cause: ${err.getMessage}", err))
       }
 
-      // Due to validation, if fee >0, then there must be a lvl in the txos
+      /**
+       * Apply the fee to the LVL values.
+       * Due to validation, we know that there are enough LVLs in the values to satisfy the fee.
+       * If there are no LVLs, then we don't need to apply the fee.
+       *
+       * @param fee The fee to apply to the LVLs
+       * @param values The values of the transaction's inputs.
+       * @return The values with the LVLs aggregated together and reduced by the fee amount. If there are no LVLs, then
+       *         the values are returned unchanged. In this case, we know that the fee is 0.
+       */
       private def applyFee(
-        groupedValues: Map[ValueTypeIdentifier, BoxValue],
-        fee:           Long
-      ): Map[ValueTypeIdentifier, BoxValue] =
-        if (fee > 0) {
-          val lvlVal = groupedValues(LvlType)
-          groupedValues.updated(LvlType, lvlVal.setQuantity(lvlVal.quantity - fee))
-        } else groupedValues
-
-      // TODO: Currently we are only supporting LIQUID quantity descriptor type
-      // We cannot split an IMMUTABLE or ACCUMULATOR quantity type
-      private def buildChange(inValue: BoxValue, changeQuantity: Int128): Option[BoxValue] =
-        if (changeQuantity > 0) inValue.setQuantity(changeQuantity).some else None
+        fee:    Long,
+        values: Map[ValueTypeIdentifier, Seq[BoxValue]]
+      ): Map[ValueTypeIdentifier, Seq[BoxValue]] = values.get(LvlType) match {
+        case Some(lvlVals) =>
+          val newLvlVal = DefaultAggregationOps.aggregateWithChange(lvlVals, BigInt(fee).some)._2
+          if (newLvlVal.isEmpty) values - LvlType
+          else values + (LvlType -> newLvlVal)
+        case _ => values
+      }
 
       override def buildSimpleGroupMintingTransaction(
         registrationTxo:              Txo,
@@ -554,9 +476,9 @@ object TransactionBuilderApi {
                 quantityToMint
               )
             )
-            .leftMap(wrapErr)
+            .leftMap(errs => UserInputErrors(errs.toList))
           stxoAttestation <- EitherT.right[BuilderError](unprovenAttestation(registrationLock))
-          stxos           <- buildStxos(Seq(registrationTxo), stxoAttestation).leftMap(wrapErr)
+          stxos           <- buildStxos(Seq(registrationTxo), stxoAttestation)
           datum           <- EitherT.right[BuilderError](datum())
           utxoMinted <- EitherT.right[BuilderError](
             groupOutput(mintedConstructorLockAddress, quantityToMint, groupPolicy.computeId, groupPolicy.fixedSeries)
@@ -587,9 +509,9 @@ object TransactionBuilderApi {
                 quantityToMint
               )
             )
-            .leftMap(wrapErr)
+            .leftMap(errs => UserInputErrors(errs.toList))
           stxoAttestation <- EitherT.right[BuilderError](unprovenAttestation(registrationLock))
-          stxos           <- buildStxos(Seq(registrationTxo), stxoAttestation).leftMap(wrapErr)
+          stxos           <- buildStxos(Seq(registrationTxo), stxoAttestation)
           datum           <- EitherT.right[BuilderError](datum())
           utxoMinted <- EitherT.right[BuilderError](
             seriesOutput(
@@ -632,7 +554,7 @@ object TransactionBuilderApi {
                 seriesLockAddr
               )
             )
-            .leftMap(wrapErr)
+            .leftMap(errs => UserInputErrors(errs.toList))
           groupAttestation  <- EitherT.right[BuilderError](unprovenAttestation(groupLock))
           seriesAttestation <- EitherT.right[BuilderError](unprovenAttestation(seriesLock))
           datum             <- EitherT.right[BuilderError](datum())
@@ -806,5 +728,6 @@ object TransactionBuilderApi {
             )
           )
         ).pure[F]
+
     }
 }
