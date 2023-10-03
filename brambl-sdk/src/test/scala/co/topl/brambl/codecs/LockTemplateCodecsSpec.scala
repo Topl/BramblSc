@@ -1,13 +1,12 @@
 package co.topl.brambl.codecs
 
 import cats.Id
-import co.topl.brambl.MockHelpers
 import co.topl.brambl.builders.locks.LockTemplate
 import co.topl.brambl.builders.locks.LockTemplate.PredicateTemplate
 import co.topl.brambl.codecs.LockTemplateCodecs.{decodeLockTemplate, encodeLockTemplate}
 import io.circe.Json
 
-class LockTemplateCodecsSpec extends munit.FunSuite with MockHelpers {
+class LockTemplateCodecsSpec extends munit.FunSuite with PropositionTemplateCodecsSpecBase {
 
   def assertEncodeDecode[TemplateType <: LockTemplate[Id]](expectedValue: TemplateType, expectedJson: Json): Unit = {
     // Decode test
