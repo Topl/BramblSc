@@ -163,14 +163,6 @@ trait MockHelpers {
   val txFull: IoTransaction =
     IoTransaction.defaultInstance.withInputs(List(inputFull)).withOutputs(List(output)).withDatum(txDatum)
 
-  val txFullAlternative: IoTransaction = txFull.copy(outputs = Seq(fullOutput))
-
-  val inputTxo: Txo = Txo(
-    fullOutput,
-    UNSPENT,
-    dummyTxoAddress
-  )
-
   val mockVks: List[VerificationKey] = List(
     MockChildKeyPair.vk,
     (new ExtendedEd25519).deriveKeyPairFromSeed(Array.fill(96)(1: Byte)).vk

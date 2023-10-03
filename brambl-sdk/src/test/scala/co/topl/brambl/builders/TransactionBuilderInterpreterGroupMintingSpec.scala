@@ -4,38 +4,20 @@ import co.topl.brambl.models.Event.GroupPolicy
 import co.topl.brambl.models.box.{Attestation, Value}
 import co.topl.brambl.models.transaction.{IoTransaction, SpentTransactionOutput, UnspentTransactionOutput}
 import co.topl.brambl.models.Datum
-import co.topl.brambl.syntax.{groupPolicyAsGroupPolicySyntaxOps, ioTransactionAsTransactionSyntaxOps}
+import co.topl.brambl.syntax.{bigIntAsInt128, groupPolicyAsGroupPolicySyntaxOps, ioTransactionAsTransactionSyntaxOps}
 import com.google.protobuf.ByteString
 import quivr.models.{Int128, Proof}
 
 class TransactionBuilderInterpreterGroupMintingSpec extends TransactionBuilderInterpreterSpecBase {
 
   test("buildSimpleGroupMintingTransaction > Success") {
-    val mockGroupPolicy: GroupPolicy =
-      GroupPolicy("Mock Group Policy", dummyTxoAddress)
-    val quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
       .withGroupPolicies(Seq(Datum.GroupPolicy(mockGroupPolicy)))
-      .withInputs(
-        List(
-          SpentTransactionOutput(
-            mockGroupPolicy.registrationUtxo,
-            Attestation().withPredicate(Attestation.Predicate(inPredicateLockFull, List(Proof()))),
-            Value.defaultInstance.withLvl(Value.LVL(quantity))
-          )
-        )
-      )
-      .withOutputs(
-        List(
-          UnspentTransactionOutput(
-            inLockFullAddress,
-            Value.defaultInstance.withGroup(Value.Group(groupId = mockGroupPolicy.computeId, quantity = quantity))
-          )
-        )
-      )
+      .withInputs(buildStxos(List(valToTxo(lvlValue))))
+      .withOutputs(List(valToUtxo(groupValue)))
     val txRes = txBuilder.buildSimpleGroupMintingTransaction(
-      inputTxo,
+      valToTxo(lvlValue),
       inPredicateLockFull,
       mockGroupPolicy,
       quantity,
@@ -45,15 +27,11 @@ class TransactionBuilderInterpreterGroupMintingSpec extends TransactionBuilderIn
   }
 
   test("buildSimpleGroupMintingTransaction > invalid registrationTxo") {
-    val mockGroupPolicy: GroupPolicy =
-      GroupPolicy("Mock Group Policy", dummyTxoAddress.copy(network = 10))
-    val quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
-
     val testTx = txBuilder
       .buildSimpleGroupMintingTransaction(
-        inputTxo,
+        valToTxo(lvlValue),
         inPredicateLockFull,
-        mockGroupPolicy,
+        mockGroupPolicy.copy(registrationUtxo = dummyTxoAddress.copy(network = 10)),
         quantity,
         inLockFullAddress
       )
@@ -68,15 +46,9 @@ class TransactionBuilderInterpreterGroupMintingSpec extends TransactionBuilderIn
   }
 
   test("buildSimpleGroupMintingTransaction > invalid registrationUtxo") {
-    val mockGroupPolicy: GroupPolicy =
-      GroupPolicy("Mock Group Policy", dummyTxoAddress)
-    val quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
-
     val testTx = txBuilder
       .buildSimpleGroupMintingTransaction(
-        inputTxo.copy(transactionOutput =
-          fullOutput.copy(value = Value.defaultInstance.withTopl(Value.TOPL(quantity)))
-        ),
+        valToTxo(Value.defaultInstance.withTopl(Value.TOPL(quantity))),
         inPredicateLockFull,
         mockGroupPolicy,
         quantity,
@@ -93,13 +65,9 @@ class TransactionBuilderInterpreterGroupMintingSpec extends TransactionBuilderIn
   }
 
   test("buildSimpleGroupMintingTransaction > invalid registrationLock") {
-    val mockGroupPolicy: GroupPolicy =
-      GroupPolicy("Mock Group Policy", dummyTxoAddress)
-    val quantity = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
-
     val testTx = txBuilder
       .buildSimpleGroupMintingTransaction(
-        inputTxo,
+        valToTxo(lvlValue),
         trivialOutLock.getPredicate,
         mockGroupPolicy,
         quantity,
@@ -116,16 +84,12 @@ class TransactionBuilderInterpreterGroupMintingSpec extends TransactionBuilderIn
   }
 
   test("buildSimpleGroupMintingTransaction > invalid quantityToMint") {
-    val mockGroupPolicy: GroupPolicy =
-      GroupPolicy("Mock Group Policy", dummyTxoAddress)
-    val quantity = Int128(ByteString.copyFrom(BigInt(0).toByteArray))
-
     val testTx = txBuilder
       .buildSimpleGroupMintingTransaction(
-        inputTxo,
+        valToTxo(lvlValue),
         inPredicateLockFull,
         mockGroupPolicy,
-        quantity,
+        BigInt(0),
         inLockFullAddress
       )
     assertEquals(

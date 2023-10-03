@@ -9,14 +9,15 @@ import co.topl.brambl.syntax.{
   groupPolicyAsGroupPolicySyntaxOps,
   int128AsBigInt,
   ioTransactionAsTransactionSyntaxOps,
-  seriesPolicyAsSeriesPolicySyntaxOps
+  seriesPolicyAsSeriesPolicySyntaxOps,
+  valueToQuantitySyntaxOps
 }
 
 class BasicTransactionBuilderInterpreterSpec extends TransactionBuilderInterpreterSpecBase {
 
   test("buildSimpleLvlTransaction > No change") {
     val testTx = txBuilder.buildSimpleLvlTransaction(
-      List(inputTxo),
+      List(valToTxo(lvlValue)),
       inPredicateLockFull,
       inPredicateLockFull,
       trivialLockAddress,
@@ -28,12 +29,7 @@ class BasicTransactionBuilderInterpreterSpec extends TransactionBuilderInterpret
   test("buildSimpleLvlTransaction > With change") {
     val testTx = txBuilder.buildSimpleLvlTransaction(
       List(
-        inputTxo.copy(
-          transactionOutput = UnspentTransactionOutput(
-            inLockFullAddress,
-            Value.defaultInstance.withLvl(Value.LVL(quantity + 1))
-          )
-        )
+        valToTxo(lvlValue.copy(lvlValue.value.setQuantity(lvlValue.value.quantity + 1)))
       ),
       inPredicateLockFull,
       trivialOutLock.getPredicate,
