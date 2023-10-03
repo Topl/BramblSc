@@ -136,7 +136,7 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
     )
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
-      .withInputs(buildStxos)
+      .withInputs(buildStxos())
       .withOutputs(
         buildRecipientUtxos(
           // No more LVLs for recipient. All other tokens go to recipient
@@ -180,7 +180,7 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
     )
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
-      .withInputs(buildStxos)
+      .withInputs(buildStxos())
       .withOutputs(
         // No more LVLs for recipient. All other tokens go to change
         buildChangeUtxos(
@@ -224,7 +224,7 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
     )
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
-      .withInputs(buildStxos)
+      .withInputs(buildStxos())
       .withOutputs(
         buildRecipientUtxos(List(groupValue.copy(groupValue.value.setQuantity(quantity * 2))))
         ++
@@ -269,7 +269,7 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
     )
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
-      .withInputs(buildStxos)
+      .withInputs(buildStxos())
       .withOutputs(
         buildRecipientUtxos(List(groupValue.copy(groupValue.value.setQuantity(quantity * 2))))
         ++
@@ -314,7 +314,7 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
     )
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
-      .withInputs(buildStxos)
+      .withInputs(buildStxos())
       .withOutputs(
         buildRecipientUtxos(List(seriesValue.copy(seriesValue.value.setQuantity(quantity * 2))))
         ++
@@ -359,7 +359,7 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
     )
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
-      .withInputs(buildStxos)
+      .withInputs(buildStxos())
       .withOutputs(
         buildRecipientUtxos(List(lvlValue))
         ++
@@ -408,7 +408,7 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
     )
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
-      .withInputs(buildStxos)
+      .withInputs(buildStxos())
       .withOutputs(
         buildRecipientUtxos(List(assetGroup.copy(assetGroup.value.setQuantity(quantity * 2))))
         ++
@@ -457,7 +457,7 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
     )
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
-      .withInputs(buildStxos)
+      .withInputs(buildStxos())
       .withOutputs(
         buildRecipientUtxos(List(assetSeries.copy(assetSeries.value.setQuantity(quantity * 2))))
         ++
@@ -506,7 +506,7 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
     )
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
-      .withInputs(buildStxos)
+      .withInputs(buildStxos())
       .withOutputs(
         buildRecipientUtxos(List(assetGroupSeries.copy(assetGroupSeries.value.setQuantity(quantity * 2))))
         ++
@@ -555,7 +555,7 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
     )
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
-      .withInputs(buildStxos)
+      .withInputs(buildStxos())
       .withOutputs(
         buildRecipientUtxos(
           List(
@@ -608,7 +608,7 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
     )
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
-      .withInputs(buildStxos)
+      .withInputs(buildStxos())
       .withOutputs(
         buildRecipientUtxos(
           List(
@@ -661,7 +661,7 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
     )
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
-      .withInputs(buildStxos)
+      .withInputs(buildStxos())
       .withOutputs(
         buildRecipientUtxos(
           List(
@@ -709,7 +709,7 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
     )
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
-      .withInputs(buildStxos)
+      .withInputs(buildStxos())
       .withOutputs(
         buildRecipientUtxos(
           List(

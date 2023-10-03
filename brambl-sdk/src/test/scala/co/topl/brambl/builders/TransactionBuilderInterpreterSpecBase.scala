@@ -41,8 +41,8 @@ trait TransactionBuilderInterpreterSpecBase extends munit.FunSuite with MockHelp
     seriesId = mockSeriesPolicyAlt.computeId.some
   )
 
-  def buildStxos: Seq[SpentTransactionOutput] =
-    mockTxos.map(txo => SpentTransactionOutput(txo.outputAddress, attFull, txo.transactionOutput.value))
+  def buildStxos(txos: Seq[Txo] = mockTxos): Seq[SpentTransactionOutput] =
+    txos.map(txo => SpentTransactionOutput(txo.outputAddress, attFull, txo.transactionOutput.value))
 
   def buildUtxos(values: Seq[Value], lockAddr: LockAddress): Seq[UnspentTransactionOutput] =
     values.map(valToUtxo(_, lockAddr))

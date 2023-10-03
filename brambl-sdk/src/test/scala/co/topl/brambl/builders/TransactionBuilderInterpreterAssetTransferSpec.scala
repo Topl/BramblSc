@@ -32,8 +32,8 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
       mockTxos :+ valToTxo(Value.defaultInstance.withTopl(Value.TOPL(quantity))),
       inPredicateLockFull,
       1,
-      inLockFullAddress,
-      trivialLockAddress,
+      RecipientAddr,
+      ChangeAddr,
       0
     )
     assertEquals(testTx, Left(UserInputErrors(Seq(UserInputError(s"Invalid value type")))))
@@ -49,8 +49,8 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
       mockTxos,
       inPredicateLockFull,
       0,
-      inLockFullAddress,
-      trivialLockAddress,
+      RecipientAddr,
+      ChangeAddr,
       0
     )
     assertEquals(testTx, Left(UserInputErrors(Seq(UserInputError(s"quantity to transfer must be positive")))))
@@ -66,8 +66,8 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
       mockTxos :+ valToTxo(lvlValue, trivialLockAddress),
       inPredicateLockFull,
       1,
-      inLockFullAddress,
-      trivialLockAddress,
+      RecipientAddr,
+      ChangeAddr,
       0
     )
     assertEquals(
@@ -86,8 +86,8 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
       mockTxos,
       inPredicateLockFull,
       4,
-      inLockFullAddress,
-      trivialLockAddress,
+      RecipientAddr,
+      ChangeAddr,
       0
     )
     assertEquals(
@@ -110,8 +110,8 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
       mockTxos,
       inPredicateLockFull,
       1,
-      inLockFullAddress,
-      trivialLockAddress,
+      RecipientAddr,
+      ChangeAddr,
       3
     )
     assertEquals(
@@ -134,57 +134,39 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
       mockTxos,
       inPredicateLockFull,
       1,
-      inLockFullAddress,
-      trivialLockAddress,
+      RecipientAddr,
+      ChangeAddr,
       1
     )
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
-      .withInputs(mockTxos.map(txo => SpentTransactionOutput(txo.outputAddress, attFull, txo.transactionOutput.value)))
+      .withInputs(buildStxos())
       .withOutputs(
-        List(
-          UnspentTransactionOutput(inLockFullAddress, assetGroupSeries), // recipient
-          UnspentTransactionOutput(trivialLockAddress, assetGroupSeries),
-          UnspentTransactionOutput(trivialLockAddress, lvlValue),
-          UnspentTransactionOutput(trivialLockAddress, groupValue.copy(groupValue.value.setQuantity(quantity * 2))),
-          UnspentTransactionOutput(
-            trivialLockAddress,
-            groupValue.copy(groupValue.getGroup.withGroupId(mockGroupPolicyAlt.computeId))
-          ),
-          UnspentTransactionOutput(trivialLockAddress, seriesValue.copy(seriesValue.value.setQuantity(quantity * 2))),
-          UnspentTransactionOutput(
-            trivialLockAddress,
-            seriesValue.copy(seriesValue.getSeries.withSeriesId(mockSeriesPolicyAlt.computeId))
-          ),
-          UnspentTransactionOutput(
-            trivialLockAddress,
-            assetGroupSeries.copy(
-              assetGroupSeries.getAsset.copy(mockGroupPolicyAlt.computeId.some, mockSeriesPolicyAlt.computeId.some)
-            )
-          ),
-          UnspentTransactionOutput(trivialLockAddress, assetGroup.copy(assetGroup.value.setQuantity(quantity * 2))),
-          UnspentTransactionOutput(
-            trivialLockAddress,
-            assetGroup.copy(
-              assetGroup.getAsset.copy(mockGroupPolicyAlt.computeId.some, mockSeriesPolicyAlt.computeId.some)
-            )
-          ),
-          UnspentTransactionOutput(trivialLockAddress, assetSeries.copy(assetSeries.value.setQuantity(quantity * 2))),
-          UnspentTransactionOutput(
-            trivialLockAddress,
-            assetSeries.copy(
-              assetSeries.getAsset.copy(mockGroupPolicyAlt.computeId.some, mockSeriesPolicyAlt.computeId.some)
-            )
-          ),
-          UnspentTransactionOutput(trivialLockAddress, assetGroupSeriesAccumulator),
-          UnspentTransactionOutput(trivialLockAddress, assetGroupSeriesAccumulator.copy()),
-          UnspentTransactionOutput(trivialLockAddress, assetGroupSeriesAccumulatorAlt),
-          UnspentTransactionOutput(trivialLockAddress, assetGroupAccumulator),
-          UnspentTransactionOutput(trivialLockAddress, assetGroupAccumulator.copy()),
-          UnspentTransactionOutput(trivialLockAddress, assetGroupAccumulatorAlt),
-          UnspentTransactionOutput(trivialLockAddress, assetSeriesAccumulator),
-          UnspentTransactionOutput(trivialLockAddress, assetSeriesAccumulator.copy()),
-          UnspentTransactionOutput(trivialLockAddress, assetSeriesAccumulatorAlt)
+        buildRecipientUtxos(List(assetGroupSeries))
+        ++
+        buildChangeUtxos(
+          List(
+            lvlValue,
+            groupValue.copy(groupValue.value.setQuantity(quantity * 2)),
+            groupValueAlt,
+            seriesValue.copy(seriesValue.value.setQuantity(quantity * 2)),
+            seriesValueAlt,
+            assetGroupSeries,
+            assetGroupSeriesAlt,
+            assetGroup.copy(assetGroup.value.setQuantity(quantity * 2)),
+            assetGroupAlt,
+            assetSeries.copy(assetSeries.value.setQuantity(quantity * 2)),
+            assetSeriesAlt,
+            assetGroupSeriesAccumulator,
+            assetGroupSeriesAccumulator.copy(),
+            assetGroupSeriesAccumulatorAlt,
+            assetGroupAccumulator,
+            assetGroupAccumulator.copy(),
+            assetGroupAccumulatorAlt,
+            assetSeriesAccumulator,
+            assetSeriesAccumulator.copy(),
+            assetSeriesAccumulatorAlt
+          )
         )
       )
     assertEquals(
@@ -203,60 +185,39 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
       mockTxos,
       inPredicateLockFull,
       1,
-      inLockFullAddress,
-      trivialLockAddress,
+      RecipientAddr,
+      ChangeAddr,
       1
     )
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
-      .withInputs(mockTxos.map(txo => SpentTransactionOutput(txo.outputAddress, attFull, txo.transactionOutput.value)))
+      .withInputs(buildStxos())
       .withOutputs(
-        List(
-          UnspentTransactionOutput(inLockFullAddress, assetGroup), // recipient
-          UnspentTransactionOutput(
-            trivialLockAddress,
-            assetGroupSeries.copy(assetGroupSeries.value.setQuantity(quantity * 2))
-          ),
-          UnspentTransactionOutput(trivialLockAddress, lvlValue),
-          UnspentTransactionOutput(trivialLockAddress, groupValue.copy(groupValue.value.setQuantity(quantity * 2))),
-          UnspentTransactionOutput(
-            trivialLockAddress,
-            groupValue.copy(groupValue.getGroup.withGroupId(mockGroupPolicyAlt.computeId))
-          ),
-          UnspentTransactionOutput(trivialLockAddress, seriesValue.copy(seriesValue.value.setQuantity(quantity * 2))),
-          UnspentTransactionOutput(
-            trivialLockAddress,
-            seriesValue.copy(seriesValue.getSeries.withSeriesId(mockSeriesPolicyAlt.computeId))
-          ),
-          UnspentTransactionOutput(
-            trivialLockAddress,
-            assetGroupSeries.copy(
-              assetGroupSeries.getAsset.copy(mockGroupPolicyAlt.computeId.some, mockSeriesPolicyAlt.computeId.some)
-            )
-          ),
-          UnspentTransactionOutput(trivialLockAddress, assetGroup),
-          UnspentTransactionOutput(
-            trivialLockAddress,
-            assetGroup.copy(
-              assetGroup.getAsset.copy(mockGroupPolicyAlt.computeId.some, mockSeriesPolicyAlt.computeId.some)
-            )
-          ),
-          UnspentTransactionOutput(trivialLockAddress, assetSeries.copy(assetSeries.value.setQuantity(quantity * 2))),
-          UnspentTransactionOutput(
-            trivialLockAddress,
-            assetSeries.copy(
-              assetSeries.getAsset.copy(mockGroupPolicyAlt.computeId.some, mockSeriesPolicyAlt.computeId.some)
-            )
-          ),
-          UnspentTransactionOutput(trivialLockAddress, assetGroupSeriesAccumulator),
-          UnspentTransactionOutput(trivialLockAddress, assetGroupSeriesAccumulator.copy()),
-          UnspentTransactionOutput(trivialLockAddress, assetGroupSeriesAccumulatorAlt),
-          UnspentTransactionOutput(trivialLockAddress, assetGroupAccumulator),
-          UnspentTransactionOutput(trivialLockAddress, assetGroupAccumulator.copy()),
-          UnspentTransactionOutput(trivialLockAddress, assetGroupAccumulatorAlt),
-          UnspentTransactionOutput(trivialLockAddress, assetSeriesAccumulator),
-          UnspentTransactionOutput(trivialLockAddress, assetSeriesAccumulator.copy()),
-          UnspentTransactionOutput(trivialLockAddress, assetSeriesAccumulatorAlt)
+        buildRecipientUtxos(List(assetGroup))
+        ++
+        buildChangeUtxos(
+          List(
+            lvlValue,
+            groupValue.copy(groupValue.value.setQuantity(quantity * 2)),
+            groupValueAlt,
+            seriesValue.copy(seriesValue.value.setQuantity(quantity * 2)),
+            seriesValueAlt,
+            assetGroupSeries.copy(assetGroupSeries.value.setQuantity(quantity * 2)),
+            assetGroupSeriesAlt,
+            assetGroup,
+            assetGroupAlt,
+            assetSeries.copy(assetSeries.value.setQuantity(quantity * 2)),
+            assetSeriesAlt,
+            assetGroupSeriesAccumulator,
+            assetGroupSeriesAccumulator.copy(),
+            assetGroupSeriesAccumulatorAlt,
+            assetGroupAccumulator,
+            assetGroupAccumulator.copy(),
+            assetGroupAccumulatorAlt,
+            assetSeriesAccumulator,
+            assetSeriesAccumulator.copy(),
+            assetSeriesAccumulatorAlt
+          )
         )
       )
     assertEquals(
@@ -275,60 +236,39 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
       mockTxos,
       inPredicateLockFull,
       1,
-      inLockFullAddress,
-      trivialLockAddress,
+      RecipientAddr,
+      ChangeAddr,
       1
     )
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
-      .withInputs(mockTxos.map(txo => SpentTransactionOutput(txo.outputAddress, attFull, txo.transactionOutput.value)))
+      .withInputs(buildStxos())
       .withOutputs(
-        List(
-          UnspentTransactionOutput(inLockFullAddress, assetSeries), // recipient
-          UnspentTransactionOutput(
-            trivialLockAddress,
-            assetGroupSeries.copy(assetGroupSeries.value.setQuantity(quantity * 2))
-          ),
-          UnspentTransactionOutput(trivialLockAddress, lvlValue),
-          UnspentTransactionOutput(trivialLockAddress, groupValue.copy(groupValue.value.setQuantity(quantity * 2))),
-          UnspentTransactionOutput(
-            trivialLockAddress,
-            groupValue.copy(groupValue.getGroup.withGroupId(mockGroupPolicyAlt.computeId))
-          ),
-          UnspentTransactionOutput(trivialLockAddress, seriesValue.copy(seriesValue.value.setQuantity(quantity * 2))),
-          UnspentTransactionOutput(
-            trivialLockAddress,
-            seriesValue.copy(seriesValue.getSeries.withSeriesId(mockSeriesPolicyAlt.computeId))
-          ),
-          UnspentTransactionOutput(
-            trivialLockAddress,
-            assetGroupSeries.copy(
-              assetGroupSeries.getAsset.copy(mockGroupPolicyAlt.computeId.some, mockSeriesPolicyAlt.computeId.some)
-            )
-          ),
-          UnspentTransactionOutput(trivialLockAddress, assetGroup.copy(assetGroup.value.setQuantity(quantity * 2))),
-          UnspentTransactionOutput(
-            trivialLockAddress,
-            assetGroup.copy(
-              assetGroup.getAsset.copy(mockGroupPolicyAlt.computeId.some, mockSeriesPolicyAlt.computeId.some)
-            )
-          ),
-          UnspentTransactionOutput(trivialLockAddress, assetSeries),
-          UnspentTransactionOutput(
-            trivialLockAddress,
-            assetSeries.copy(
-              assetSeries.getAsset.copy(mockGroupPolicyAlt.computeId.some, mockSeriesPolicyAlt.computeId.some)
-            )
-          ),
-          UnspentTransactionOutput(trivialLockAddress, assetGroupSeriesAccumulator),
-          UnspentTransactionOutput(trivialLockAddress, assetGroupSeriesAccumulator.copy()),
-          UnspentTransactionOutput(trivialLockAddress, assetGroupSeriesAccumulatorAlt),
-          UnspentTransactionOutput(trivialLockAddress, assetGroupAccumulator),
-          UnspentTransactionOutput(trivialLockAddress, assetGroupAccumulator.copy()),
-          UnspentTransactionOutput(trivialLockAddress, assetGroupAccumulatorAlt),
-          UnspentTransactionOutput(trivialLockAddress, assetSeriesAccumulator),
-          UnspentTransactionOutput(trivialLockAddress, assetSeriesAccumulator.copy()),
-          UnspentTransactionOutput(trivialLockAddress, assetSeriesAccumulatorAlt)
+        buildRecipientUtxos(List(assetSeries))
+        ++
+        buildChangeUtxos(
+          List(
+            lvlValue,
+            groupValue.copy(groupValue.value.setQuantity(quantity * 2)),
+            groupValueAlt,
+            seriesValue.copy(seriesValue.value.setQuantity(quantity * 2)),
+            seriesValueAlt,
+            assetGroupSeries.copy(assetGroupSeries.value.setQuantity(quantity * 2)),
+            assetGroupSeriesAlt,
+            assetGroup.copy(assetGroup.value.setQuantity(quantity * 2)),
+            assetGroupAlt,
+            assetSeries,
+            assetSeriesAlt,
+            assetGroupSeriesAccumulator,
+            assetGroupSeriesAccumulator.copy(),
+            assetGroupSeriesAccumulatorAlt,
+            assetGroupAccumulator,
+            assetGroupAccumulator.copy(),
+            assetGroupAccumulatorAlt,
+            assetSeriesAccumulator,
+            assetSeriesAccumulator.copy(),
+            assetSeriesAccumulatorAlt
+          )
         )
       )
     assertEquals(
@@ -348,14 +288,14 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
       txos,
       inPredicateLockFull,
       1,
-      inLockFullAddress,
-      trivialLockAddress,
+      RecipientAddr,
+      ChangeAddr,
       0
     )
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
-      .withInputs(txos.map(txo => SpentTransactionOutput(txo.outputAddress, attFull, txo.transactionOutput.value)))
-      .withOutputs(List(UnspentTransactionOutput(inLockFullAddress, assetGroupSeries)))
+      .withInputs(buildStxos(txos))
+      .withOutputs(buildRecipientUtxos(List(assetGroupSeries)))
     assertEquals(testTx.toOption.get.computeId, expectedTx.computeId)
   }
 
@@ -369,8 +309,8 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
       mockTxos,
       inPredicateLockFull,
       1,
-      inLockFullAddress,
-      trivialLockAddress,
+      RecipientAddr,
+      ChangeAddr,
       1
     )
     assertEquals(
@@ -395,8 +335,8 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
       mockTxos,
       inPredicateLockFull,
       1,
-      inLockFullAddress,
-      trivialLockAddress,
+      RecipientAddr,
+      ChangeAddr,
       1
     )
     assertEquals(
@@ -421,8 +361,8 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
       mockTxos,
       inPredicateLockFull,
       1,
-      inLockFullAddress,
-      trivialLockAddress,
+      RecipientAddr,
+      ChangeAddr,
       1
     )
     assertEquals(
