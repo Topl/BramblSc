@@ -14,6 +14,7 @@ import co.topl.brambl.syntax.{
   seriesAsBoxVal,
   seriesPolicyAsSeriesPolicySyntaxOps,
   valueToQuantitySyntaxOps,
+  valueToTypeIdentifierSyntaxOps,
   GroupAndSeriesFungible,
   GroupFungible,
   GroupType,
@@ -87,12 +88,12 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
 
   test("buildTransferAllTransaction > tokenIdentifier is provided but does not exist in TXOs") {
     val testTx = txBuilder.buildTransferAllTransaction(
-      Seq(valToTxo(lvlValue, RecipientAddr)),
+      Seq(valToTxo(lvlValue)),
       inPredicateLockFull,
       RecipientAddr,
       ChangeAddr,
       0,
-      GroupType(mockGroupPolicy.computeId).some
+      groupValue.value.typeIdentifier.some
     )
     assertEquals(
       testTx,
@@ -220,7 +221,7 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
       RecipientAddr,
       ChangeAddr,
       2,
-      GroupType(mockGroupPolicy.computeId).some
+      groupValue.value.typeIdentifier.some
     )
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
@@ -265,7 +266,7 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
       RecipientAddr,
       ChangeAddr,
       1,
-      GroupType(mockGroupPolicy.computeId).some
+      groupValue.value.typeIdentifier.some
     )
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
@@ -310,7 +311,7 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
       RecipientAddr,
       ChangeAddr,
       1,
-      SeriesType(mockSeriesPolicy.computeId).some
+      seriesValue.value.typeIdentifier.some
     )
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
@@ -400,11 +401,7 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
       RecipientAddr,
       ChangeAddr,
       1,
-      GroupFungible(
-        mockGroupPolicy.computeId,
-        mockSeriesPolicy.computeId.value,
-        LIQUID
-      ).some
+      assetGroup.value.typeIdentifier.some
     )
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
@@ -449,11 +446,7 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
       RecipientAddr,
       ChangeAddr,
       1,
-      SeriesFungible(
-        mockSeriesPolicy.computeId,
-        mockGroupPolicy.computeId.value,
-        LIQUID
-      ).some
+      assetSeries.value.typeIdentifier.some
     )
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
@@ -498,11 +491,7 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
       RecipientAddr,
       ChangeAddr,
       1,
-      GroupAndSeriesFungible(
-        mockGroupPolicy.computeId,
-        mockSeriesPolicy.computeId,
-        LIQUID
-      ).some
+      assetGroupSeries.value.typeIdentifier.some
     )
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
@@ -547,11 +536,7 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
       RecipientAddr,
       ChangeAddr,
       1,
-      GroupAndSeriesFungible(
-        mockGroupPolicy.computeId,
-        mockSeriesPolicy.computeId,
-        ACCUMULATOR
-      ).some
+      assetGroupSeriesAccumulator.value.typeIdentifier.some
     )
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
@@ -600,11 +585,7 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
       RecipientAddr,
       ChangeAddr,
       1,
-      GroupFungible(
-        mockGroupPolicy.computeId,
-        mockSeriesPolicy.computeId.value,
-        ACCUMULATOR
-      ).some
+      assetGroupAccumulator.value.typeIdentifier.some
     )
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
@@ -653,11 +634,7 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
       RecipientAddr,
       ChangeAddr,
       1,
-      SeriesFungible(
-        mockSeriesPolicy.computeId,
-        mockGroupPolicy.computeId.value,
-        ACCUMULATOR
-      ).some
+      assetSeriesAccumulator.value.typeIdentifier.some
     )
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)

@@ -13,6 +13,7 @@ import co.topl.brambl.syntax.{
   seriesAsBoxVal,
   seriesPolicyAsSeriesPolicySyntaxOps,
   valueToQuantitySyntaxOps,
+  valueToTypeIdentifierSyntaxOps,
   SeriesType
 }
 
@@ -20,7 +21,7 @@ class TransactionBuilderInterpreterSeriesTransferSpec extends TransactionBuilder
 
   test("buildTransferAmountTransaction > underlying error fails (unsupported token type)") {
     val testTx = txBuilder.buildTransferAmountTransaction(
-      SeriesType(mockSeriesPolicy.computeId),
+      seriesValue.value.typeIdentifier,
       mockTxos :+ valToTxo(Value.defaultInstance.withTopl(Value.TOPL(quantity))),
       inPredicateLockFull,
       1,
@@ -33,7 +34,7 @@ class TransactionBuilderInterpreterSeriesTransferSpec extends TransactionBuilder
 
   test("buildTransferAmountTransaction > quantity to transfer is non positive") {
     val testTx = txBuilder.buildTransferAmountTransaction(
-      SeriesType(mockSeriesPolicy.computeId),
+      seriesValue.value.typeIdentifier,
       mockTxos,
       inPredicateLockFull,
       0,
@@ -46,7 +47,7 @@ class TransactionBuilderInterpreterSeriesTransferSpec extends TransactionBuilder
 
   test("buildTransferAmountTransaction > a txo isnt tied to lockPredicateFrom") {
     val testTx = txBuilder.buildTransferAmountTransaction(
-      SeriesType(mockSeriesPolicy.computeId),
+      seriesValue.value.typeIdentifier,
       mockTxos :+ valToTxo(lvlValue, trivialLockAddress),
       inPredicateLockFull,
       1,
@@ -62,7 +63,7 @@ class TransactionBuilderInterpreterSeriesTransferSpec extends TransactionBuilder
 
   test("buildTransferAmountTransaction > non sufficient funds") {
     val testTx = txBuilder.buildTransferAmountTransaction(
-      SeriesType(mockSeriesPolicy.computeId),
+      seriesValue.value.typeIdentifier,
       mockTxos,
       inPredicateLockFull,
       4,
@@ -82,7 +83,7 @@ class TransactionBuilderInterpreterSeriesTransferSpec extends TransactionBuilder
 
   test("buildTransferAmountTransaction > fee not satisfied") {
     val testTx = txBuilder.buildTransferAmountTransaction(
-      SeriesType(mockSeriesPolicy.computeId),
+      seriesValue.value.typeIdentifier,
       mockTxos,
       inPredicateLockFull,
       1,
@@ -102,7 +103,7 @@ class TransactionBuilderInterpreterSeriesTransferSpec extends TransactionBuilder
 
   test("buildTransferAmountTransaction > [complex] duplicate inputs are merged and split correctly") {
     val testTx = txBuilder.buildTransferAmountTransaction(
-      SeriesType(mockSeriesPolicy.computeId),
+      seriesValue.value.typeIdentifier,
       mockTxos,
       inPredicateLockFull,
       1,
@@ -150,7 +151,7 @@ class TransactionBuilderInterpreterSeriesTransferSpec extends TransactionBuilder
   test("buildTransferAmountTransaction > [simplest case] no change, only 1 output") {
     val txos = Seq(valToTxo(seriesValue))
     val testTx = txBuilder.buildTransferAmountTransaction(
-      SeriesType(mockSeriesPolicy.computeId),
+      seriesValue.value.typeIdentifier,
       txos,
       inPredicateLockFull,
       1,

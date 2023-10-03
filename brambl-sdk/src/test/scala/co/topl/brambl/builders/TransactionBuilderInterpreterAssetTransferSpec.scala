@@ -24,11 +24,7 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
 
   test("buildTransferAmountTransaction > underlying error fails (unsupported token type)") {
     val testTx = txBuilder.buildTransferAmountTransaction(
-      GroupAndSeriesFungible(
-        mockGroupPolicy.computeId,
-        mockSeriesPolicy.computeId,
-        mockSeriesPolicy.quantityDescriptor
-      ),
+      assetGroupSeries.value.typeIdentifier,
       mockTxos :+ valToTxo(Value.defaultInstance.withTopl(Value.TOPL(quantity))),
       inPredicateLockFull,
       1,
@@ -41,11 +37,7 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
 
   test("buildTransferAmountTransaction > quantity to transfer is non positive") {
     val testTx = txBuilder.buildTransferAmountTransaction(
-      GroupAndSeriesFungible(
-        mockGroupPolicy.computeId,
-        mockSeriesPolicy.computeId,
-        mockSeriesPolicy.quantityDescriptor
-      ),
+      assetGroupSeries.value.typeIdentifier,
       mockTxos,
       inPredicateLockFull,
       0,
@@ -58,11 +50,7 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
 
   test("buildTransferAmountTransaction > a txo isnt tied to lockPredicateFrom") {
     val testTx = txBuilder.buildTransferAmountTransaction(
-      GroupAndSeriesFungible(
-        mockGroupPolicy.computeId,
-        mockSeriesPolicy.computeId,
-        mockSeriesPolicy.quantityDescriptor
-      ),
+      assetGroupSeries.value.typeIdentifier,
       mockTxos :+ valToTxo(lvlValue, trivialLockAddress),
       inPredicateLockFull,
       1,
@@ -78,11 +66,7 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
 
   test("buildTransferAmountTransaction > non sufficient funds") {
     val testTx = txBuilder.buildTransferAmountTransaction(
-      GroupAndSeriesFungible(
-        mockGroupPolicy.computeId,
-        mockSeriesPolicy.computeId,
-        mockSeriesPolicy.quantityDescriptor
-      ),
+      assetGroupSeries.value.typeIdentifier,
       mockTxos,
       inPredicateLockFull,
       4,
@@ -102,11 +86,7 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
 
   test("buildTransferAmountTransaction > fee not satisfied") {
     val testTx = txBuilder.buildTransferAmountTransaction(
-      GroupAndSeriesFungible(
-        mockGroupPolicy.computeId,
-        mockSeriesPolicy.computeId,
-        mockSeriesPolicy.quantityDescriptor
-      ),
+      assetGroupSeries.value.typeIdentifier,
       mockTxos,
       inPredicateLockFull,
       1,
@@ -126,11 +106,7 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
 
   test("buildTransferAmountTransaction > [complex, GROUP_AND_SERIES] duplicate inputs are merged and split correctly") {
     val testTx = txBuilder.buildTransferAmountTransaction(
-      GroupAndSeriesFungible(
-        mockGroupPolicy.computeId,
-        mockSeriesPolicy.computeId,
-        mockSeriesPolicy.quantityDescriptor
-      ),
+      assetGroupSeries.value.typeIdentifier,
       mockTxos,
       inPredicateLockFull,
       1,
@@ -177,11 +153,7 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
 
   test("buildTransferAmountTransaction > [complex, GROUP] duplicate inputs are merged and split correctly") {
     val testTx = txBuilder.buildTransferAmountTransaction(
-      GroupFungible(
-        mockGroupPolicy.computeId,
-        mockSeriesPolicy.computeId.value,
-        mockSeriesPolicy.quantityDescriptor
-      ),
+      assetGroup.value.typeIdentifier,
       mockTxos,
       inPredicateLockFull,
       1,
@@ -228,11 +200,7 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
 
   test("buildTransferAmountTransaction > [complex, SERIES] duplicate inputs are merged and split correctly") {
     val testTx = txBuilder.buildTransferAmountTransaction(
-      SeriesFungible(
-        mockSeriesPolicy.computeId,
-        mockGroupPolicy.computeId.value,
-        mockSeriesPolicy.quantityDescriptor
-      ),
+      assetSeries.value.typeIdentifier,
       mockTxos,
       inPredicateLockFull,
       1,
@@ -280,11 +248,7 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
   test("buildTransferAmountTransaction > [simplest case] no change, only 1 output") {
     val txos = Seq(valToTxo(assetGroupSeries))
     val testTx = txBuilder.buildTransferAmountTransaction(
-      GroupAndSeriesFungible(
-        mockGroupPolicy.computeId,
-        mockSeriesPolicy.computeId,
-        mockSeriesPolicy.quantityDescriptor
-      ),
+      assetGroupSeries.value.typeIdentifier,
       txos,
       inPredicateLockFull,
       1,
@@ -301,11 +265,7 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
 
   test("buildTransferAmountTransaction > IMMUTABLE asset quantity descriptor in transfer type".fail) {
     val testTx = txBuilder.buildTransferAmountTransaction(
-      GroupAndSeriesFungible(
-        mockGroupPolicy.computeId,
-        mockSeriesPolicy.computeId,
-        IMMUTABLE
-      ),
+      assetGroupSeriesImmutable.value.typeIdentifier,
       mockTxos,
       inPredicateLockFull,
       1,
@@ -327,11 +287,7 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
 
   test("buildTransferAmountTransaction > FRACTIONABLE asset quantity descriptor in transfer type".fail) {
     val testTx = txBuilder.buildTransferAmountTransaction(
-      GroupAndSeriesFungible(
-        mockGroupPolicy.computeId,
-        mockSeriesPolicy.computeId,
-        FRACTIONABLE
-      ),
+      assetGroupSeriesFractionable.value.typeIdentifier,
       mockTxos,
       inPredicateLockFull,
       1,
@@ -353,11 +309,7 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
 
   test("buildTransferAmountTransaction > ACCUMULATOR asset quantity descriptor in transfer type") {
     val testTx = txBuilder.buildTransferAmountTransaction(
-      GroupAndSeriesFungible(
-        mockGroupPolicy.computeId,
-        mockSeriesPolicy.computeId,
-        ACCUMULATOR
-      ),
+      assetGroupSeriesAccumulator.value.typeIdentifier,
       mockTxos,
       inPredicateLockFull,
       1,
