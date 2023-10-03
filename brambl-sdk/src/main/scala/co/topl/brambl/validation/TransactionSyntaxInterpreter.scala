@@ -5,6 +5,7 @@ import cats.data.{Chain, NonEmptyChain, Validated, ValidatedNec}
 import cats.implicits._
 import co.topl.brambl.common.ContainsImmutable.ContainsImmutableTOps
 import co.topl.brambl.common.ContainsImmutable.instances._
+import co.topl.brambl.models.Datum.GroupPolicy
 import co.topl.brambl.models.TransactionOutputAddress
 import co.topl.brambl.models.box._
 import co.topl.brambl.models.transaction.{IoTransaction, SpentTransactionOutput, UnspentTransactionOutput}
@@ -39,6 +40,7 @@ object TransactionSyntaxInterpreter {
       attestationValidation,
       dataLengthValidation,
       assetEqualFundsValidation,
+      groupEqualFundsValidation,
       assetNoRepeatedUtxosValidation,
       mintingValidation
     )
@@ -237,7 +239,7 @@ object TransactionSyntaxInterpreter {
     )
 
   /**
-   * AssetEqualFundsValidation For each asset: input assets + minted assets == total asset output
+   * AssetEqualFundsValidation For each asset: input assets + minted assets == output asset
    * @param transaction - transaction
    * @return
    */
@@ -294,6 +296,49 @@ object TransactionSyntaxInterpreter {
 
     Validated.condNec(
       res.map(_ == true).getOrElse(false),
+      (),
+      TransactionSyntaxError.InsufficientInputFunds(
+        transaction.inputs.map(_.value.value).toList,
+        transaction.outputs.map(_.value.value).toList
+      )
+    )
+
+  }
+
+  /**
+   * GroupEqualFundsValidation
+   *
+   *  - Check Moving Constructor Tokens: Let 'g' be a group identifier, then the number of Group Constructor Tokens with group identifier 'g'
+   *    in the input is equal to the quantity of Group Constructor Tokens with identifier 'g' in the output.
+   *  - Check Minting Constructor Tokens: Let 'g' be a group identifier and 'p' the group policy whose digest is equal to 'g', a transaction is valid only if the all of the following statements are true:
+   *   - The policy 'p' is attached to the transaction.
+   *   - The number of group constructor tokens with identifier 'g' in the output of the transaction is strictly bigger than 0.
+   *   - The registration UTXO referenced in 'p' is present in the inputs and contains LVLs.
+   *
+   * @param transaction - transaction
+   * @return
+   */
+  private def groupEqualFundsValidation(transaction: IoTransaction): ValidatedNec[TransactionSyntaxError, Unit] = {
+
+    val groupsIn = transaction.inputs.filter(_.value.value.isGroup).map(_.value.getGroup)
+    val groupsOut = transaction.outputs.filter(_.value.value.isGroup).map(_.value.getGroup)
+
+    val gIds =
+      groupsIn.groupBy(_.groupId).keySet ++
+      groupsOut.groupBy(_.groupId).keySet ++
+      transaction.groupPolicies.map(_.event.computeId).toSet
+
+    val res = gIds.forall { gId =>
+      if (!transaction.groupPolicies.map(_.event.computeId).contains(gId)) {
+        groupsIn.filter(_.groupId == gId).map(_.quantity: BigInt).sum ==
+          groupsOut.filter(_.groupId == gId).map(_.quantity: BigInt).sum
+      } else {
+        groupsOut.filter(_.groupId == gId).map(_.quantity: BigInt).sum > 0
+      }
+    }
+
+    Validated.condNec(
+      res,
       (),
       TransactionSyntaxError.InsufficientInputFunds(
         transaction.inputs.map(_.value.value).toList,
