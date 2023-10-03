@@ -63,7 +63,7 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
         mockSeriesPolicy.computeId,
         mockSeriesPolicy.quantityDescriptor
       ),
-      mockTxos :+ valToTxo(value, trivialLockAddress),
+      mockTxos :+ valToTxo(lvlValue, trivialLockAddress),
       inPredicateLockFull,
       1,
       inLockFullAddress,
@@ -145,7 +145,7 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
         List(
           UnspentTransactionOutput(inLockFullAddress, assetGroupSeries), // recipient
           UnspentTransactionOutput(trivialLockAddress, assetGroupSeries),
-          UnspentTransactionOutput(trivialLockAddress, value),
+          UnspentTransactionOutput(trivialLockAddress, lvlValue),
           UnspentTransactionOutput(trivialLockAddress, groupValue.copy(groupValue.value.setQuantity(quantity * 2))),
           UnspentTransactionOutput(
             trivialLockAddress,
@@ -217,7 +217,7 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
             trivialLockAddress,
             assetGroupSeries.copy(assetGroupSeries.value.setQuantity(quantity * 2))
           ),
-          UnspentTransactionOutput(trivialLockAddress, value),
+          UnspentTransactionOutput(trivialLockAddress, lvlValue),
           UnspentTransactionOutput(trivialLockAddress, groupValue.copy(groupValue.value.setQuantity(quantity * 2))),
           UnspentTransactionOutput(
             trivialLockAddress,
@@ -289,7 +289,7 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
             trivialLockAddress,
             assetGroupSeries.copy(assetGroupSeries.value.setQuantity(quantity * 2))
           ),
-          UnspentTransactionOutput(trivialLockAddress, value),
+          UnspentTransactionOutput(trivialLockAddress, lvlValue),
           UnspentTransactionOutput(trivialLockAddress, groupValue.copy(groupValue.value.setQuantity(quantity * 2))),
           UnspentTransactionOutput(
             trivialLockAddress,

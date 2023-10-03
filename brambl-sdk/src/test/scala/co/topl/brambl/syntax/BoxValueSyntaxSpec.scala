@@ -11,7 +11,7 @@ class BoxValueSyntaxSpec extends munit.FunSuite with MockHelpers {
   val mockNewQuantity: Int128 = Int128(ByteString.copyFrom(BigInt(100).toByteArray))
 
   test("lvlAsBoxVal") {
-    assertEquals(value.getLvl: BoxValue, value.value)
+    assertEquals(lvlValue.getLvl: BoxValue, lvlValue.value)
   }
 
   test("groupAsBoxVal") {
@@ -27,7 +27,7 @@ class BoxValueSyntaxSpec extends munit.FunSuite with MockHelpers {
   }
 
   test("get quantity") {
-    assertEquals(value.value.quantity, quantity)
+    assertEquals(lvlValue.value.quantity, quantity)
     assertEquals(groupValue.value.quantity, quantity)
     assertEquals(seriesValue.value.quantity, quantity)
     assertEquals(assetGroupSeries.value.quantity, quantity)
@@ -35,7 +35,7 @@ class BoxValueSyntaxSpec extends munit.FunSuite with MockHelpers {
   }
 
   test("setQuantity") {
-    assertEquals(value.value.setQuantity(mockNewQuantity).quantity, mockNewQuantity)
+    assertEquals(lvlValue.value.setQuantity(mockNewQuantity).quantity, mockNewQuantity)
     assertEquals(groupValue.value.setQuantity(mockNewQuantity).quantity, mockNewQuantity)
     assertEquals(seriesValue.value.setQuantity(mockNewQuantity).quantity, mockNewQuantity)
     assertEquals(assetGroupSeries.value.setQuantity(mockNewQuantity).quantity, mockNewQuantity)

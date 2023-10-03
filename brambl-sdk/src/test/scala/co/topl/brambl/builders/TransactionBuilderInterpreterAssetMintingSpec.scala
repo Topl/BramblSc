@@ -436,7 +436,7 @@ class TransactionBuilderInterpreterAssetMintingSpec extends TransactionBuilderIn
     val seriesLock = inPredicateLockFull
 
     val groupAddr = dummyTxoAddress.copy(index = 2)
-    val groupTxo = Txo(UnspentTransactionOutput(inLockFullAddress, value), UNSPENT, groupAddr)
+    val groupTxo = Txo(UnspentTransactionOutput(inLockFullAddress, lvlValue), UNSPENT, groupAddr)
     val groupLock = inPredicateLockFull
 
     val outAddr = trivialLockAddress
@@ -458,7 +458,7 @@ class TransactionBuilderInterpreterAssetMintingSpec extends TransactionBuilderIn
     val quantity = Int128(ByteString.copyFrom(BigInt(10).toByteArray))
 
     val seriesAddr = dummyTxoAddress.copy(index = 1)
-    val seriesTxo = Txo(UnspentTransactionOutput(inLockFullAddress, value), UNSPENT, seriesAddr)
+    val seriesTxo = Txo(UnspentTransactionOutput(inLockFullAddress, lvlValue), UNSPENT, seriesAddr)
     val seriesLock = inPredicateLockFull
 
     val groupAddr = dummyTxoAddress.copy(index = 2)

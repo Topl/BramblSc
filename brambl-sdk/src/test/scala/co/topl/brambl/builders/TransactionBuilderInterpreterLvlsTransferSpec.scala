@@ -47,7 +47,7 @@ class TransactionBuilderInterpreterLvlsTransferSpec extends TransactionBuilderIn
   test("buildTransferAmountTransaction > a txo isnt tied to lockPredicateFrom") {
     val testTx = txBuilder.buildTransferAmountTransaction(
       LvlType,
-      mockTxos :+ valToTxo(value, trivialLockAddress),
+      mockTxos :+ valToTxo(lvlValue, trivialLockAddress),
       inPredicateLockFull,
       1,
       inLockFullAddress,
@@ -118,7 +118,7 @@ class TransactionBuilderInterpreterLvlsTransferSpec extends TransactionBuilderIn
       .withInputs(mockTxos.map(txo => SpentTransactionOutput(txo.outputAddress, attFull, txo.transactionOutput.value)))
       .withOutputs(
         List(
-          UnspentTransactionOutput(inLockFullAddress, value), // recipient
+          UnspentTransactionOutput(inLockFullAddress, lvlValue), // recipient
           UnspentTransactionOutput(trivialLockAddress, groupValue.copy(groupValue.value.setQuantity(quantity * 2))),
           UnspentTransactionOutput(
             trivialLockAddress,
@@ -171,7 +171,7 @@ class TransactionBuilderInterpreterLvlsTransferSpec extends TransactionBuilderIn
   }
 
   test("buildTransferAmountTransaction > [simplest case] no change, only 1 output") {
-    val txos = Seq(valToTxo(value))
+    val txos = Seq(valToTxo(lvlValue))
     val testTx = txBuilder.buildTransferAmountTransaction(
       LvlType,
       txos,
@@ -184,7 +184,7 @@ class TransactionBuilderInterpreterLvlsTransferSpec extends TransactionBuilderIn
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
       .withInputs(txos.map(txo => SpentTransactionOutput(txo.outputAddress, attFull, txo.transactionOutput.value)))
-      .withOutputs(List(UnspentTransactionOutput(inLockFullAddress, value)))
+      .withOutputs(List(UnspentTransactionOutput(inLockFullAddress, lvlValue)))
     assertEquals(testTx.toOption.get.computeId, expectedTx.computeId)
   }
 }

@@ -26,7 +26,7 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
 
   test("buildTransferAllTransaction > All locks don't match") {
     val testTx = txBuilder.buildTransferAllTransaction(
-      mockTxos :+ valToTxo(value, trivialLockAddress),
+      mockTxos :+ valToTxo(lvlValue, trivialLockAddress),
       inPredicateLockFull,
       inLockFullAddress,
       trivialLockAddress,
@@ -87,7 +87,7 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
 
   test("buildTransferAllTransaction > tokenIdentifier is provided but does not exist in TXOs") {
     val testTx = txBuilder.buildTransferAllTransaction(
-      Seq(valToTxo(value, inLockFullAddress)),
+      Seq(valToTxo(lvlValue, inLockFullAddress)),
       inPredicateLockFull,
       inLockFullAddress,
       trivialLockAddress,
@@ -270,7 +270,7 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
           .map(valToUtxo(_, inLockFullAddress)) // recipient
         ++
         List(
-          value,
+          lvlValue,
           groupValueAlt,
           seriesValue.copy(seriesValue.value.setQuantity(quantity * 2)),
           seriesValueAlt,
@@ -314,7 +314,7 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
           .map(valToUtxo(_, inLockFullAddress)) // recipient
         ++
         List(
-          value,
+          lvlValue,
           groupValue.copy(groupValue.value.setQuantity(quantity * 2)),
           groupValueAlt,
           seriesValueAlt,
@@ -354,7 +354,7 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
       .withDatum(txDatum)
       .withInputs(mockTxos.map(txo => SpentTransactionOutput(txo.outputAddress, attFull, txo.transactionOutput.value)))
       .withOutputs(
-        List(value).map(valToUtxo(_, inLockFullAddress)) // recipient
+        List(lvlValue).map(valToUtxo(_, inLockFullAddress)) // recipient
         ++
         List(
           groupValue.copy(groupValue.value.setQuantity(quantity * 2)),
@@ -405,7 +405,7 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
           .map(valToUtxo(_, inLockFullAddress)) // recipient
         ++
         List(
-          value,
+          lvlValue,
           groupValue.copy(groupValue.value.setQuantity(quantity * 2)),
           groupValueAlt,
           seriesValue.copy(seriesValue.value.setQuantity(quantity * 2)),
@@ -453,7 +453,7 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
           .map(valToUtxo(_, inLockFullAddress)) // recipient
         ++
         List(
-          value,
+          lvlValue,
           groupValue.copy(groupValue.value.setQuantity(quantity * 2)),
           groupValueAlt,
           seriesValue.copy(seriesValue.value.setQuantity(quantity * 2)),
@@ -501,7 +501,7 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
           .map(valToUtxo(_, inLockFullAddress)) // recipient
         ++
         List(
-          value,
+          lvlValue,
           groupValue.copy(groupValue.value.setQuantity(quantity * 2)),
           groupValueAlt,
           seriesValue.copy(seriesValue.value.setQuantity(quantity * 2)),
@@ -551,7 +551,7 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
         ).map(valToUtxo(_, inLockFullAddress)) // recipient
         ++
         List(
-          value,
+          lvlValue,
           groupValue.copy(groupValue.value.setQuantity(quantity * 2)),
           groupValueAlt,
           seriesValue.copy(seriesValue.value.setQuantity(quantity * 2)),
@@ -600,7 +600,7 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
         ).map(valToUtxo(_, inLockFullAddress)) // recipient
         ++
         List(
-          value,
+          lvlValue,
           groupValue.copy(groupValue.value.setQuantity(quantity * 2)),
           groupValueAlt,
           seriesValue.copy(seriesValue.value.setQuantity(quantity * 2)),
@@ -649,7 +649,7 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
         ).map(valToUtxo(_, inLockFullAddress)) // recipient
         ++
         List(
-          value,
+          lvlValue,
           groupValue.copy(groupValue.value.setQuantity(quantity * 2)),
           groupValueAlt,
           seriesValue.copy(seriesValue.value.setQuantity(quantity * 2)),
@@ -688,7 +688,7 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
       .withInputs(mockTxos.map(txo => SpentTransactionOutput(txo.outputAddress, attFull, txo.transactionOutput.value)))
       .withOutputs(
         List(
-          value,
+          lvlValue,
           groupValue.copy(groupValue.value.setQuantity(quantity * 2)),
           groupValueAlt,
           seriesValue.copy(seriesValue.value.setQuantity(quantity * 2)),

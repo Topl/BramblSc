@@ -8,7 +8,7 @@ class AggregationOpsSpec extends TransactionBuilderInterpreterSpecBase {
   test("typeIdentifier grouping") {
     val testMap = mockValues.groupBy(_.value.typeIdentifier)
     val expectedMap = Map(
-      value.value.typeIdentifier               -> Seq(value, value.copy()),
+      lvlValue.value.typeIdentifier            -> Seq(lvlValue, lvlValue.copy()),
       groupValue.value.typeIdentifier          -> Seq(groupValue, groupValue.copy()),
       groupValueAlt.value.typeIdentifier       -> Seq(groupValueAlt),
       seriesValue.value.typeIdentifier         -> Seq(seriesValue, seriesValue.copy()),

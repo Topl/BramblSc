@@ -3,18 +3,6 @@ package co.topl.brambl
 import cats.Id
 import cats.effect.IO
 import cats.implicits.catsSyntaxOptionId
-import co.topl.brambl.builders.locks.LockTemplate.PredicateTemplate
-import co.topl.brambl.builders.locks.PropositionTemplate.{
-  AndTemplate,
-  DigestTemplate,
-  HeightTemplate,
-  LockedTemplate,
-  NotTemplate,
-  OrTemplate,
-  SignatureTemplate,
-  ThresholdTemplate,
-  TickTemplate
-}
 import co.topl.brambl.common.ContainsEvidence.Ops
 import co.topl.brambl.common.ContainsImmutable.ContainsImmutableTOps
 import co.topl.brambl.common.ContainsImmutable.instances._
@@ -29,13 +17,7 @@ import co.topl.brambl.models.box.Lock
 import co.topl.brambl.models.box.QuantityDescriptorType.{ACCUMULATOR, FRACTIONABLE, IMMUTABLE}
 import co.topl.brambl.models.box.Value
 import co.topl.brambl.models.transaction._
-import co.topl.brambl.syntax.{
-  assetAsBoxVal,
-  groupPolicyAsGroupPolicySyntaxOps,
-  ioTransactionAsTransactionSyntaxOps,
-  seriesPolicyAsSeriesPolicySyntaxOps
-}
-import co.topl.brambl.utils.Encoding.encodeToBase58
+import co.topl.brambl.syntax.{assetAsBoxVal, groupPolicyAsGroupPolicySyntaxOps, seriesPolicyAsSeriesPolicySyntaxOps}
 import co.topl.crypto.hash.Blake2b256
 import co.topl.quivr.api.Proposer
 import co.topl.quivr.api.Prover
@@ -58,8 +40,6 @@ import co.topl.crypto.generation.Bip32Indexes
 import co.topl.crypto.signing.ExtendedEd25519
 import co.topl.genus.services.Txo
 import co.topl.genus.services.TxoState.UNSPENT
-import io.circe.Json
-import org.bouncycastle.util.Strings
 
 trait MockHelpers {
   type F[A] = IO[A]
@@ -134,8 +114,7 @@ trait MockHelpers {
 
   val quantity: Int128 = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
 
-  val value: Value =
-    Value.defaultInstance.withLvl(Value.LVL(quantity))
+  val lvlValue: Value = Value.defaultInstance.withLvl(Value.LVL(quantity))
 
   val trivialOutLock: Lock =
     Lock().withPredicate(Lock.Predicate(List(Challenge().withRevealed(Proposer.tickProposer[Id].propose(5, 15))), 1))
@@ -171,15 +150,15 @@ trait MockHelpers {
 
   val nonEmptyAttestation: Attestation = Attestation().withPredicate(inPredicateLockFullAttestation)
 
-  val output: UnspentTransactionOutput = UnspentTransactionOutput(trivialLockAddress, value)
+  val output: UnspentTransactionOutput = UnspentTransactionOutput(trivialLockAddress, lvlValue)
 
-  val fullOutput: UnspentTransactionOutput = UnspentTransactionOutput(inLockFullAddress, value)
+  val fullOutput: UnspentTransactionOutput = UnspentTransactionOutput(inLockFullAddress, lvlValue)
 
   val attFull: Attestation = Attestation().withPredicate(
     Attestation.Predicate(inPredicateLockFull, List.fill(inPredicateLockFull.challenges.length)(Proof()))
   )
 
-  val inputFull: SpentTransactionOutput = SpentTransactionOutput(dummyTxoAddress, attFull, value)
+  val inputFull: SpentTransactionOutput = SpentTransactionOutput(dummyTxoAddress, attFull, lvlValue)
 
   val txFull: IoTransaction =
     IoTransaction.defaultInstance.withInputs(List(inputFull)).withOutputs(List(output)).withDatum(txDatum)
@@ -207,23 +186,11 @@ trait MockHelpers {
     Value.Asset(mockGroupPolicy.computeId.some, mockSeriesPolicy.computeId.some, quantity)
   )
 
-  val assetGroupSeriesImmutable: Value = Value.defaultInstance.withAsset(
-    Value.Asset(
-      mockGroupPolicy.computeId.some,
-      mockSeriesPolicy.computeId.some,
-      quantity,
-      quantityDescriptor = IMMUTABLE
-    )
-  )
+  val assetGroupSeriesImmutable: Value =
+    assetGroupSeries.copy(assetGroupSeries.getAsset.copy(quantityDescriptor = IMMUTABLE))
 
-  val assetGroupSeriesFractionable: Value = Value.defaultInstance.withAsset(
-    Value.Asset(
-      mockGroupPolicy.computeId.some,
-      mockSeriesPolicy.computeId.some,
-      quantity,
-      quantityDescriptor = FRACTIONABLE
-    )
-  )
+  val assetGroupSeriesFractionable: Value =
+    assetGroupSeries.copy(assetGroupSeries.getAsset.copy(quantityDescriptor = FRACTIONABLE))
 
   val assetGroupSeriesAccumulator: Value =
     assetGroupSeries.copy(assetGroupSeries.getAsset.copy(quantityDescriptor = ACCUMULATOR))

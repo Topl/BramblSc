@@ -9,6 +9,7 @@ import co.topl.brambl.models.Event.{GroupPolicy, SeriesPolicy}
 import co.topl.brambl.models.box.Value
 import co.topl.brambl.models.transaction.{IoTransaction, UnspentTransactionOutput}
 import co.topl.brambl.models.LockAddress
+import co.topl.brambl.models.box.Value.Asset
 import co.topl.brambl.syntax.{
   assetAsBoxVal,
   groupAsBoxVal,
@@ -32,6 +33,11 @@ trait TransactionBuilderInterpreterSpecBase extends munit.FunSuite with MockHelp
     .withOutputs(tx.outputs.sortBy(_.value.immutable.value.toByteArray.mkString))
     .withInputs(tx.inputs.sortBy(_.value.immutable.value.toByteArray.mkString))
 
+  def toAltAsset(asset: Asset): Asset = asset.copy(
+    groupId = mockGroupPolicyAlt.computeId.some,
+    seriesId = mockSeriesPolicyAlt.computeId.some
+  )
+
   val mockSeriesPolicyAlt: SeriesPolicy = SeriesPolicy("Mock Series Policy", None, dummyTxoAddress.copy(index = 44))
   val mockGroupPolicyAlt: GroupPolicy = GroupPolicy("Mock Group Policy", dummyTxoAddress.copy(index = 55))
 
@@ -39,51 +45,22 @@ trait TransactionBuilderInterpreterSpecBase extends munit.FunSuite with MockHelp
 
   val seriesValueAlt: Value = seriesValue.copy(seriesValue.getSeries.copy(seriesId = mockSeriesPolicyAlt.computeId))
 
-  val assetGroupSeriesAlt: Value = assetGroupSeries.copy(
-    assetGroupSeries.getAsset.copy(
-      groupId = mockGroupPolicyAlt.computeId.some,
-      seriesId = mockSeriesPolicyAlt.computeId.some
-    )
-  )
+  val assetGroupSeriesAlt: Value = assetGroupSeries.copy(toAltAsset(assetGroupSeries.getAsset))
 
-  val assetGroupAlt: Value = assetGroup.copy(
-    assetGroup.getAsset.copy(
-      groupId = mockGroupPolicyAlt.computeId.some,
-      seriesId = mockSeriesPolicyAlt.computeId.some
-    )
-  )
+  val assetGroupAlt: Value = assetGroup.copy(toAltAsset(assetGroup.getAsset))
 
-  val assetSeriesAlt: Value = assetSeries.copy(
-    assetSeries.getAsset.copy(
-      groupId = mockGroupPolicyAlt.computeId.some,
-      seriesId = mockSeriesPolicyAlt.computeId.some
-    )
-  )
+  val assetSeriesAlt: Value = assetSeries.copy(toAltAsset(assetSeries.getAsset))
 
-  val assetGroupSeriesAccumulatorAlt: Value = assetGroupSeriesAccumulator.copy(
-    assetGroupSeriesAccumulator.getAsset.copy(
-      groupId = mockGroupPolicyAlt.computeId.some,
-      seriesId = mockSeriesPolicyAlt.computeId.some
-    )
-  )
+  val assetGroupSeriesAccumulatorAlt: Value =
+    assetGroupSeriesAccumulator.copy(toAltAsset(assetGroupSeriesAccumulator.getAsset))
 
-  val assetGroupAccumulatorAlt: Value = assetGroupAccumulator.copy(
-    assetGroupAccumulator.getAsset.copy(
-      groupId = mockGroupPolicyAlt.computeId.some,
-      seriesId = mockSeriesPolicyAlt.computeId.some
-    )
-  )
+  val assetGroupAccumulatorAlt: Value = assetGroupAccumulator.copy(toAltAsset(assetGroupAccumulator.getAsset))
 
-  val assetSeriesAccumulatorAlt: Value = assetSeriesAccumulator.copy(
-    assetSeriesAccumulator.getAsset.copy(
-      groupId = mockGroupPolicyAlt.computeId.some,
-      seriesId = mockSeriesPolicyAlt.computeId.some
-    )
-  )
+  val assetSeriesAccumulatorAlt: Value = assetSeriesAccumulator.copy(toAltAsset(assetSeriesAccumulator.getAsset))
 
   val mockValues: Seq[Value] = Seq(
-    value,
-    value.copy(), // exact duplicate
+    lvlValue,
+    lvlValue.copy(), // exact duplicate
     groupValue,
     groupValue.copy(), // exact duplicate
     groupValueAlt, // diff group

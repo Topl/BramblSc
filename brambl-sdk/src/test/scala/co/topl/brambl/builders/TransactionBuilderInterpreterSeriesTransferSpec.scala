@@ -47,7 +47,7 @@ class TransactionBuilderInterpreterSeriesTransferSpec extends TransactionBuilder
   test("buildTransferAmountTransaction > a txo isnt tied to lockPredicateFrom") {
     val testTx = txBuilder.buildTransferAmountTransaction(
       SeriesType(mockSeriesPolicy.computeId),
-      mockTxos :+ valToTxo(value, trivialLockAddress),
+      mockTxos :+ valToTxo(lvlValue, trivialLockAddress),
       inPredicateLockFull,
       1,
       inLockFullAddress,
@@ -117,7 +117,7 @@ class TransactionBuilderInterpreterSeriesTransferSpec extends TransactionBuilder
         List(
           UnspentTransactionOutput(inLockFullAddress, seriesValue), // recipient
           UnspentTransactionOutput(trivialLockAddress, seriesValue),
-          UnspentTransactionOutput(trivialLockAddress, value),
+          UnspentTransactionOutput(trivialLockAddress, lvlValue),
           UnspentTransactionOutput(trivialLockAddress, groupValue.copy(groupValue.value.setQuantity(quantity * 2))),
           UnspentTransactionOutput(
             trivialLockAddress,
