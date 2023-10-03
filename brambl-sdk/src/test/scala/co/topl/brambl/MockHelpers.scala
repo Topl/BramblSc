@@ -30,6 +30,7 @@ import co.topl.brambl.models.box.QuantityDescriptorType.{ACCUMULATOR, FRACTIONAB
 import co.topl.brambl.models.box.Value
 import co.topl.brambl.models.transaction._
 import co.topl.brambl.syntax.{
+  assetAsBoxVal,
   groupPolicyAsGroupPolicySyntaxOps,
   ioTransactionAsTransactionSyntaxOps,
   seriesPolicyAsSeriesPolicySyntaxOps
@@ -224,22 +225,16 @@ trait MockHelpers {
     )
   )
 
-  val assetGroupSeriesAccumulator: Value = Value.defaultInstance.withAsset(
-    Value.Asset(
-      mockGroupPolicy.computeId.some,
-      mockSeriesPolicy.computeId.some,
-      quantity,
-      quantityDescriptor = ACCUMULATOR
-    )
-  )
+  val assetGroupSeriesAccumulator: Value =
+    assetGroupSeries.copy(assetGroupSeries.getAsset.copy(quantityDescriptor = ACCUMULATOR))
 
-  val assetGroup: Value = Value.defaultInstance.withAsset(
-    Value.Asset(mockGroupPolicy.computeId.some, mockSeriesPolicy.computeId.some, quantity, None, None, GROUP)
-  )
+  val assetGroup: Value = assetGroupSeries.copy(assetGroupSeries.getAsset.copy(fungibility = GROUP))
 
-  val assetSeries: Value = Value.defaultInstance.withAsset(
-    Value.Asset(mockGroupPolicy.computeId.some, mockSeriesPolicy.computeId.some, quantity, None, None, SERIES)
-  )
+  val assetGroupAccumulator: Value = assetGroup.copy(assetGroup.getAsset.copy(quantityDescriptor = ACCUMULATOR))
+
+  val assetSeries: Value = assetGroupSeries.copy(assetGroupSeries.getAsset.copy(fungibility = SERIES))
+
+  val assetSeriesAccumulator: Value = assetSeries.copy(assetSeries.getAsset.copy(quantityDescriptor = ACCUMULATOR))
 
   object ExpectedLockedProposition {
     val data: Array[Byte] = "Hello world".getBytes

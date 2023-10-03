@@ -152,7 +152,13 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
           assetSeriesAlt,
           assetGroupSeriesAccumulator,
           assetGroupSeriesAccumulator.copy(),
-          assetGroupSeriesAccumulatorAlt
+          assetGroupSeriesAccumulatorAlt,
+          assetGroupAccumulator,
+          assetGroupAccumulator.copy(),
+          assetGroupAccumulatorAlt,
+          assetSeriesAccumulator,
+          assetSeriesAccumulator.copy(),
+          assetSeriesAccumulatorAlt
         ).map(valToUtxo(_, inLockFullAddress)) // recipient
       )
     assertEquals(
@@ -188,7 +194,13 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
           assetSeriesAlt,
           assetGroupSeriesAccumulator,
           assetGroupSeriesAccumulator.copy(),
-          assetGroupSeriesAccumulatorAlt
+          assetGroupSeriesAccumulatorAlt,
+          assetGroupAccumulator,
+          assetGroupAccumulator.copy(),
+          assetGroupAccumulatorAlt,
+          assetSeriesAccumulator,
+          assetSeriesAccumulator.copy(),
+          assetSeriesAccumulatorAlt
         ).map(valToUtxo(_, trivialLockAddress)) // change
       )
     assertEquals(
@@ -226,7 +238,13 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
           assetSeriesAlt,
           assetGroupSeriesAccumulator,
           assetGroupSeriesAccumulator.copy(),
-          assetGroupSeriesAccumulatorAlt
+          assetGroupSeriesAccumulatorAlt,
+          assetGroupAccumulator,
+          assetGroupAccumulator.copy(),
+          assetGroupAccumulatorAlt,
+          assetSeriesAccumulator,
+          assetSeriesAccumulator.copy(),
+          assetSeriesAccumulatorAlt
         ).map(valToUtxo(_, trivialLockAddress)) // change
       )
     assertEquals(
@@ -264,7 +282,13 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
           assetSeriesAlt,
           assetGroupSeriesAccumulator,
           assetGroupSeriesAccumulator.copy(),
-          assetGroupSeriesAccumulatorAlt
+          assetGroupSeriesAccumulatorAlt,
+          assetGroupAccumulator,
+          assetGroupAccumulator.copy(),
+          assetGroupAccumulatorAlt,
+          assetSeriesAccumulator,
+          assetSeriesAccumulator.copy(),
+          assetSeriesAccumulatorAlt
         ).map(valToUtxo(_, trivialLockAddress)) // change
       )
     assertEquals(
@@ -302,7 +326,13 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
           assetSeriesAlt,
           assetGroupSeriesAccumulator,
           assetGroupSeriesAccumulator.copy(),
-          assetGroupSeriesAccumulatorAlt
+          assetGroupSeriesAccumulatorAlt,
+          assetGroupAccumulator,
+          assetGroupAccumulator.copy(),
+          assetGroupAccumulatorAlt,
+          assetSeriesAccumulator,
+          assetSeriesAccumulator.copy(),
+          assetSeriesAccumulatorAlt
         ).map(valToUtxo(_, trivialLockAddress)) // change
       )
     assertEquals(
@@ -339,7 +369,13 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
           assetSeriesAlt,
           assetGroupSeriesAccumulator,
           assetGroupSeriesAccumulator.copy(),
-          assetGroupSeriesAccumulatorAlt
+          assetGroupSeriesAccumulatorAlt,
+          assetGroupAccumulator,
+          assetGroupAccumulator.copy(),
+          assetGroupAccumulatorAlt,
+          assetSeriesAccumulator,
+          assetSeriesAccumulator.copy(),
+          assetSeriesAccumulatorAlt
         ).map(valToUtxo(_, trivialLockAddress)) // change
       )
     assertEquals(
@@ -381,7 +417,13 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
           assetSeriesAlt,
           assetGroupSeriesAccumulator,
           assetGroupSeriesAccumulator.copy(),
-          assetGroupSeriesAccumulatorAlt
+          assetGroupSeriesAccumulatorAlt,
+          assetGroupAccumulator,
+          assetGroupAccumulator.copy(),
+          assetGroupAccumulatorAlt,
+          assetSeriesAccumulator,
+          assetSeriesAccumulator.copy(),
+          assetSeriesAccumulatorAlt
         ).map(valToUtxo(_, trivialLockAddress)) // change
       )
     assertEquals(
@@ -423,7 +465,13 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
           assetSeriesAlt,
           assetGroupSeriesAccumulator,
           assetGroupSeriesAccumulator.copy(),
-          assetGroupSeriesAccumulatorAlt
+          assetGroupSeriesAccumulatorAlt,
+          assetGroupAccumulator,
+          assetGroupAccumulator.copy(),
+          assetGroupAccumulatorAlt,
+          assetSeriesAccumulator,
+          assetSeriesAccumulator.copy(),
+          assetSeriesAccumulatorAlt
         ).map(valToUtxo(_, trivialLockAddress)) // change
       )
     assertEquals(
@@ -465,7 +513,13 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
           assetSeriesAlt,
           assetGroupSeriesAccumulator,
           assetGroupSeriesAccumulator.copy(),
-          assetGroupSeriesAccumulatorAlt
+          assetGroupSeriesAccumulatorAlt,
+          assetGroupAccumulator,
+          assetGroupAccumulator.copy(),
+          assetGroupAccumulatorAlt,
+          assetSeriesAccumulator,
+          assetSeriesAccumulator.copy(),
+          assetSeriesAccumulatorAlt
         ).map(valToUtxo(_, trivialLockAddress)) // change
       )
     assertEquals(
@@ -508,7 +562,111 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
           assetGroupAlt,
           assetSeries.copy(assetSeries.value.setQuantity(quantity * 2)),
           assetSeriesAlt,
-          assetGroupSeriesAccumulatorAlt
+          assetGroupSeriesAccumulatorAlt,
+          assetGroupAccumulator,
+          assetGroupAccumulator.copy(),
+          assetGroupAccumulatorAlt,
+          assetSeriesAccumulator,
+          assetSeriesAccumulator.copy(),
+          assetSeriesAccumulatorAlt
+        ).map(valToUtxo(_, trivialLockAddress)) // change
+      )
+    assertEquals(
+      sortedTx(testTx.toOption.get).computeId,
+      sortedTx(expectedTx).computeId
+    )
+  }
+
+  test("buildTransferAllTransaction > Transfer all Assets (accumulator, group fungible)") {
+    val testTx = txBuilder.buildTransferAllTransaction(
+      mockTxos,
+      inPredicateLockFull,
+      inLockFullAddress,
+      trivialLockAddress,
+      1,
+      GroupFungible(
+        mockGroupPolicy.computeId,
+        mockSeriesPolicy.computeId.value,
+        ACCUMULATOR
+      ).some
+    )
+    val expectedTx = IoTransaction.defaultInstance
+      .withDatum(txDatum)
+      .withInputs(mockTxos.map(txo => SpentTransactionOutput(txo.outputAddress, attFull, txo.transactionOutput.value)))
+      .withOutputs(
+        List(
+          assetGroupAccumulator,
+          assetGroupAccumulator.copy() // Have not been aggregated together
+        ).map(valToUtxo(_, inLockFullAddress)) // recipient
+        ++
+        List(
+          value,
+          groupValue.copy(groupValue.value.setQuantity(quantity * 2)),
+          groupValueAlt,
+          seriesValue.copy(seriesValue.value.setQuantity(quantity * 2)),
+          seriesValueAlt,
+          assetGroupSeries.copy(assetGroupSeries.value.setQuantity(quantity * 2)),
+          assetGroupSeriesAlt,
+          assetGroup.copy(assetGroup.value.setQuantity(quantity * 2)),
+          assetGroupAlt,
+          assetSeries.copy(assetSeries.value.setQuantity(quantity * 2)),
+          assetSeriesAlt,
+          assetGroupSeriesAccumulator,
+          assetGroupSeriesAccumulator.copy(),
+          assetGroupSeriesAccumulatorAlt,
+          assetGroupAccumulatorAlt,
+          assetSeriesAccumulator,
+          assetSeriesAccumulator.copy(),
+          assetSeriesAccumulatorAlt
+        ).map(valToUtxo(_, trivialLockAddress)) // change
+      )
+    assertEquals(
+      sortedTx(testTx.toOption.get).computeId,
+      sortedTx(expectedTx).computeId
+    )
+  }
+
+  test("buildTransferAllTransaction > Transfer all Assets (accumulator, series fungible)") {
+    val testTx = txBuilder.buildTransferAllTransaction(
+      mockTxos,
+      inPredicateLockFull,
+      inLockFullAddress,
+      trivialLockAddress,
+      1,
+      SeriesFungible(
+        mockSeriesPolicy.computeId,
+        mockGroupPolicy.computeId.value,
+        ACCUMULATOR
+      ).some
+    )
+    val expectedTx = IoTransaction.defaultInstance
+      .withDatum(txDatum)
+      .withInputs(mockTxos.map(txo => SpentTransactionOutput(txo.outputAddress, attFull, txo.transactionOutput.value)))
+      .withOutputs(
+        List(
+          assetSeriesAccumulator,
+          assetSeriesAccumulator.copy() // Have not been aggregated together
+        ).map(valToUtxo(_, inLockFullAddress)) // recipient
+        ++
+        List(
+          value,
+          groupValue.copy(groupValue.value.setQuantity(quantity * 2)),
+          groupValueAlt,
+          seriesValue.copy(seriesValue.value.setQuantity(quantity * 2)),
+          seriesValueAlt,
+          assetGroupSeries.copy(assetGroupSeries.value.setQuantity(quantity * 2)),
+          assetGroupSeriesAlt,
+          assetGroup.copy(assetGroup.value.setQuantity(quantity * 2)),
+          assetGroupAlt,
+          assetSeries.copy(assetSeries.value.setQuantity(quantity * 2)),
+          assetSeriesAlt,
+          assetGroupSeriesAccumulator,
+          assetGroupSeriesAccumulator.copy(),
+          assetGroupSeriesAccumulatorAlt,
+          assetGroupAccumulator,
+          assetGroupAccumulator.copy(),
+          assetGroupAccumulatorAlt,
+          assetSeriesAccumulatorAlt
         ).map(valToUtxo(_, trivialLockAddress)) // change
       )
     assertEquals(
@@ -543,7 +701,13 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
           assetSeriesAlt,
           assetGroupSeriesAccumulator,
           assetGroupSeriesAccumulator.copy(),
-          assetGroupSeriesAccumulatorAlt
+          assetGroupSeriesAccumulatorAlt,
+          assetGroupAccumulator,
+          assetGroupAccumulator.copy(),
+          assetGroupAccumulatorAlt,
+          assetSeriesAccumulator,
+          assetSeriesAccumulator.copy(),
+          assetSeriesAccumulatorAlt
         ).map(valToUtxo(_, inLockFullAddress)) // all to recipient
       )
     assertEquals(

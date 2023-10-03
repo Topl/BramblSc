@@ -153,13 +153,13 @@ class TransactionBuilderInterpreterGroupTransferSpec extends TransactionBuilderI
           ),
           UnspentTransactionOutput(trivialLockAddress, assetGroupSeriesAccumulator),
           UnspentTransactionOutput(trivialLockAddress, assetGroupSeriesAccumulator.copy()),
-          UnspentTransactionOutput(
-            trivialLockAddress,
-            assetGroupSeriesAccumulator.copy(
-              assetGroupSeriesAccumulator.getAsset
-                .copy(mockGroupPolicyAlt.computeId.some, mockSeriesPolicyAlt.computeId.some)
-            )
-          )
+          UnspentTransactionOutput(trivialLockAddress, assetGroupSeriesAccumulatorAlt),
+          UnspentTransactionOutput(trivialLockAddress, assetGroupAccumulator),
+          UnspentTransactionOutput(trivialLockAddress, assetGroupAccumulator.copy()),
+          UnspentTransactionOutput(trivialLockAddress, assetGroupAccumulatorAlt),
+          UnspentTransactionOutput(trivialLockAddress, assetSeriesAccumulator),
+          UnspentTransactionOutput(trivialLockAddress, assetSeriesAccumulator.copy()),
+          UnspentTransactionOutput(trivialLockAddress, assetSeriesAccumulatorAlt)
         )
       )
     assertEquals(
