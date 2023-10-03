@@ -7,7 +7,7 @@ import co.topl.brambl.common.ContainsImmutable.ContainsImmutableTOps
 import co.topl.brambl.common.ContainsImmutable.instances.valueImmutable
 import co.topl.brambl.models.Event.{GroupPolicy, SeriesPolicy}
 import co.topl.brambl.models.box.Value
-import co.topl.brambl.models.transaction.{IoTransaction, UnspentTransactionOutput}
+import co.topl.brambl.models.transaction.{IoTransaction, SpentTransactionOutput, UnspentTransactionOutput}
 import co.topl.brambl.models.LockAddress
 import co.topl.brambl.models.box.Value.Asset
 import co.topl.brambl.syntax.{
@@ -23,6 +23,9 @@ import co.topl.genus.services.TxoState.UNSPENT
 trait TransactionBuilderInterpreterSpecBase extends munit.FunSuite with MockHelpers {
   val txBuilder: TransactionBuilderApi[Id] = TransactionBuilderApi.make[Id](0, 0)
 
+  val RecipientAddr: LockAddress = inLockFullAddress
+  val ChangeAddr: LockAddress = trivialLockAddress
+
   def valToTxo(value: Value, lockAddr: LockAddress = inLockFullAddress): Txo =
     Txo(valToUtxo(value, lockAddr), UNSPENT, dummyTxoAddress)
 
@@ -37,6 +40,15 @@ trait TransactionBuilderInterpreterSpecBase extends munit.FunSuite with MockHelp
     groupId = mockGroupPolicyAlt.computeId.some,
     seriesId = mockSeriesPolicyAlt.computeId.some
   )
+
+  def buildStxos: Seq[SpentTransactionOutput] =
+    mockTxos.map(txo => SpentTransactionOutput(txo.outputAddress, attFull, txo.transactionOutput.value))
+
+  def buildUtxos(values: Seq[Value], lockAddr: LockAddress): Seq[UnspentTransactionOutput] =
+    values.map(valToUtxo(_, lockAddr))
+
+  def buildRecipientUtxos(values: Seq[Value]): Seq[UnspentTransactionOutput] = buildUtxos(values, RecipientAddr)
+  def buildChangeUtxos(values:    Seq[Value]): Seq[UnspentTransactionOutput] = buildUtxos(values, ChangeAddr)
 
   val mockSeriesPolicyAlt: SeriesPolicy = SeriesPolicy("Mock Series Policy", None, dummyTxoAddress.copy(index = 44))
   val mockGroupPolicyAlt: GroupPolicy = GroupPolicy("Mock Group Policy", dummyTxoAddress.copy(index = 55))
