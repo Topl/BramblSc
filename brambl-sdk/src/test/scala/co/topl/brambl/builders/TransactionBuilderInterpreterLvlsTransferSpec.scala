@@ -142,7 +142,16 @@ class TransactionBuilderInterpreterLvlsTransferSpec extends TransactionBuilderIn
             assetGroupFractionableAlt,
             assetSeriesFractionable,
             assetSeriesFractionable.copy(),
-            assetSeriesFractionableAlt
+            assetSeriesFractionableAlt,
+            assetGroupSeriesImmutable,
+            assetGroupSeriesImmutable.copy(),
+            assetGroupSeriesImmutableAlt,
+            assetGroupImmutable,
+            assetGroupImmutable.copy(),
+            assetGroupImmutableAlt,
+            assetSeriesImmutable,
+            assetSeriesImmutable.copy(),
+            assetSeriesImmutableAlt
           )
         )
       )

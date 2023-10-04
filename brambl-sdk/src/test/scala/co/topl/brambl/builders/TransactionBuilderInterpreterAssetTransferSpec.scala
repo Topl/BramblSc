@@ -140,7 +140,16 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
             assetGroupFractionableAlt,
             assetSeriesFractionable,
             assetSeriesFractionable.copy(),
-            assetSeriesFractionableAlt
+            assetSeriesFractionableAlt,
+            assetGroupSeriesImmutable,
+            assetGroupSeriesImmutable.copy(),
+            assetGroupSeriesImmutableAlt,
+            assetGroupImmutable,
+            assetGroupImmutable.copy(),
+            assetGroupImmutableAlt,
+            assetSeriesImmutable,
+            assetSeriesImmutable.copy(),
+            assetSeriesImmutableAlt
           )
         )
       )
@@ -196,7 +205,16 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
             assetGroupFractionableAlt,
             assetSeriesFractionable,
             assetSeriesFractionable.copy(),
-            assetSeriesFractionableAlt
+            assetSeriesFractionableAlt,
+            assetGroupSeriesImmutable,
+            assetGroupSeriesImmutable.copy(),
+            assetGroupSeriesImmutableAlt,
+            assetGroupImmutable,
+            assetGroupImmutable.copy(),
+            assetGroupImmutableAlt,
+            assetSeriesImmutable,
+            assetSeriesImmutable.copy(),
+            assetSeriesImmutableAlt
           )
         )
       )
@@ -252,7 +270,16 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
             assetGroupFractionableAlt,
             assetSeriesFractionable,
             assetSeriesFractionable.copy(),
-            assetSeriesFractionableAlt
+            assetSeriesFractionableAlt,
+            assetGroupSeriesImmutable,
+            assetGroupSeriesImmutable.copy(),
+            assetGroupSeriesImmutableAlt,
+            assetGroupImmutable,
+            assetGroupImmutable.copy(),
+            assetGroupImmutableAlt,
+            assetSeriesImmutable,
+            assetSeriesImmutable.copy(),
+            assetSeriesImmutableAlt
           )
         )
       )
@@ -280,7 +307,7 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
     assertEquals(testTx.toOption.get.computeId, expectedTx.computeId)
   }
 
-  test("buildTransferAmountTransaction > IMMUTABLE asset quantity descriptor in transfer type".fail) {
+  test("buildTransferAmountTransaction > IMMUTABLE asset quantity descriptor in transfer type") {
     val testTx = txBuilder.buildTransferAmountTransaction(
       assetGroupSeriesImmutable.value.typeIdentifier,
       mockTxos,

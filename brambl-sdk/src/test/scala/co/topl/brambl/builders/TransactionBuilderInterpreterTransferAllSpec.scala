@@ -157,7 +157,16 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
             assetGroupFractionableAlt,
             assetSeriesFractionable,
             assetSeriesFractionable.copy(),
-            assetSeriesFractionableAlt
+            assetSeriesFractionableAlt,
+            assetGroupSeriesImmutable,
+            assetGroupSeriesImmutable.copy(),
+            assetGroupSeriesImmutableAlt,
+            assetGroupImmutable,
+            assetGroupImmutable.copy(),
+            assetGroupImmutableAlt,
+            assetSeriesImmutable,
+            assetSeriesImmutable.copy(),
+            assetSeriesImmutableAlt
           )
         )
       )
@@ -210,7 +219,16 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
             assetGroupFractionableAlt,
             assetSeriesFractionable,
             assetSeriesFractionable.copy(),
-            assetSeriesFractionableAlt
+            assetSeriesFractionableAlt,
+            assetGroupSeriesImmutable,
+            assetGroupSeriesImmutable.copy(),
+            assetGroupSeriesImmutableAlt,
+            assetGroupImmutable,
+            assetGroupImmutable.copy(),
+            assetGroupImmutableAlt,
+            assetSeriesImmutable,
+            assetSeriesImmutable.copy(),
+            assetSeriesImmutableAlt
           )
         )
       )
@@ -264,7 +282,16 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
             assetGroupFractionableAlt,
             assetSeriesFractionable,
             assetSeriesFractionable.copy(),
-            assetSeriesFractionableAlt
+            assetSeriesFractionableAlt,
+            assetGroupSeriesImmutable,
+            assetGroupSeriesImmutable.copy(),
+            assetGroupSeriesImmutableAlt,
+            assetGroupImmutable,
+            assetGroupImmutable.copy(),
+            assetGroupImmutableAlt,
+            assetSeriesImmutable,
+            assetSeriesImmutable.copy(),
+            assetSeriesImmutableAlt
           )
         )
       )
@@ -318,7 +345,16 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
             assetGroupFractionableAlt,
             assetSeriesFractionable,
             assetSeriesFractionable.copy(),
-            assetSeriesFractionableAlt
+            assetSeriesFractionableAlt,
+            assetGroupSeriesImmutable,
+            assetGroupSeriesImmutable.copy(),
+            assetGroupSeriesImmutableAlt,
+            assetGroupImmutable,
+            assetGroupImmutable.copy(),
+            assetGroupImmutableAlt,
+            assetSeriesImmutable,
+            assetSeriesImmutable.copy(),
+            assetSeriesImmutableAlt
           )
         )
       )
@@ -372,7 +408,16 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
             assetGroupFractionableAlt,
             assetSeriesFractionable,
             assetSeriesFractionable.copy(),
-            assetSeriesFractionableAlt
+            assetSeriesFractionableAlt,
+            assetGroupSeriesImmutable,
+            assetGroupSeriesImmutable.copy(),
+            assetGroupSeriesImmutableAlt,
+            assetGroupImmutable,
+            assetGroupImmutable.copy(),
+            assetGroupImmutableAlt,
+            assetSeriesImmutable,
+            assetSeriesImmutable.copy(),
+            assetSeriesImmutableAlt
           )
         )
       )
@@ -426,7 +471,16 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
             assetGroupFractionableAlt,
             assetSeriesFractionable,
             assetSeriesFractionable.copy(),
-            assetSeriesFractionableAlt
+            assetSeriesFractionableAlt,
+            assetGroupSeriesImmutable,
+            assetGroupSeriesImmutable.copy(),
+            assetGroupSeriesImmutableAlt,
+            assetGroupImmutable,
+            assetGroupImmutable.copy(),
+            assetGroupImmutableAlt,
+            assetSeriesImmutable,
+            assetSeriesImmutable.copy(),
+            assetSeriesImmutableAlt
           )
         )
       )
@@ -480,7 +534,16 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
             assetGroupFractionableAlt,
             assetSeriesFractionable,
             assetSeriesFractionable.copy(),
-            assetSeriesFractionableAlt
+            assetSeriesFractionableAlt,
+            assetGroupSeriesImmutable,
+            assetGroupSeriesImmutable.copy(),
+            assetGroupSeriesImmutableAlt,
+            assetGroupImmutable,
+            assetGroupImmutable.copy(),
+            assetGroupImmutableAlt,
+            assetSeriesImmutable,
+            assetSeriesImmutable.copy(),
+            assetSeriesImmutableAlt
           )
         )
       )
@@ -534,7 +597,16 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
             assetGroupFractionableAlt,
             assetSeriesFractionable,
             assetSeriesFractionable.copy(),
-            assetSeriesFractionableAlt
+            assetSeriesFractionableAlt,
+            assetGroupSeriesImmutable,
+            assetGroupSeriesImmutable.copy(),
+            assetGroupSeriesImmutableAlt,
+            assetGroupImmutable,
+            assetGroupImmutable.copy(),
+            assetGroupImmutableAlt,
+            assetSeriesImmutable,
+            assetSeriesImmutable.copy(),
+            assetSeriesImmutableAlt
           )
         )
       )
@@ -588,7 +660,16 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
             assetGroupFractionableAlt,
             assetSeriesFractionable,
             assetSeriesFractionable.copy(),
-            assetSeriesFractionableAlt
+            assetSeriesFractionableAlt,
+            assetGroupSeriesImmutable,
+            assetGroupSeriesImmutable.copy(),
+            assetGroupSeriesImmutableAlt,
+            assetGroupImmutable,
+            assetGroupImmutable.copy(),
+            assetGroupImmutableAlt,
+            assetSeriesImmutable,
+            assetSeriesImmutable.copy(),
+            assetSeriesImmutableAlt
           )
         )
       )
@@ -646,7 +727,16 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
             assetGroupFractionableAlt,
             assetSeriesFractionable,
             assetSeriesFractionable.copy(),
-            assetSeriesFractionableAlt
+            assetSeriesFractionableAlt,
+            assetGroupSeriesImmutable,
+            assetGroupSeriesImmutable.copy(),
+            assetGroupSeriesImmutableAlt,
+            assetGroupImmutable,
+            assetGroupImmutable.copy(),
+            assetGroupImmutableAlt,
+            assetSeriesImmutable,
+            assetSeriesImmutable.copy(),
+            assetSeriesImmutableAlt
           )
         )
       )
@@ -704,7 +794,16 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
             assetGroupFractionableAlt,
             assetSeriesFractionable,
             assetSeriesFractionable.copy(),
-            assetSeriesFractionableAlt
+            assetSeriesFractionableAlt,
+            assetGroupSeriesImmutable,
+            assetGroupSeriesImmutable.copy(),
+            assetGroupSeriesImmutableAlt,
+            assetGroupImmutable,
+            assetGroupImmutable.copy(),
+            assetGroupImmutableAlt,
+            assetSeriesImmutable,
+            assetSeriesImmutable.copy(),
+            assetSeriesImmutableAlt
           )
         )
       )
@@ -762,7 +861,16 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
             assetGroupFractionableAlt,
             assetSeriesFractionable,
             assetSeriesFractionable.copy(),
-            assetSeriesFractionableAlt
+            assetSeriesFractionableAlt,
+            assetGroupSeriesImmutable,
+            assetGroupSeriesImmutable.copy(),
+            assetGroupSeriesImmutableAlt,
+            assetGroupImmutable,
+            assetGroupImmutable.copy(),
+            assetGroupImmutableAlt,
+            assetSeriesImmutable,
+            assetSeriesImmutable.copy(),
+            assetSeriesImmutableAlt
           )
         )
       )
@@ -820,7 +928,16 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
             assetGroupFractionableAlt,
             assetSeriesFractionable,
             assetSeriesFractionable.copy(),
-            assetSeriesFractionableAlt
+            assetSeriesFractionableAlt,
+            assetGroupSeriesImmutable,
+            assetGroupSeriesImmutable.copy(),
+            assetGroupSeriesImmutableAlt,
+            assetGroupImmutable,
+            assetGroupImmutable.copy(),
+            assetGroupImmutableAlt,
+            assetSeriesImmutable,
+            assetSeriesImmutable.copy(),
+            assetSeriesImmutableAlt
           )
         )
       )
@@ -878,7 +995,16 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
             assetGroupFractionableAlt,
             assetSeriesFractionable,
             assetSeriesFractionable.copy(),
-            assetSeriesFractionableAlt
+            assetSeriesFractionableAlt,
+            assetGroupSeriesImmutable,
+            assetGroupSeriesImmutable.copy(),
+            assetGroupSeriesImmutableAlt,
+            assetGroupImmutable,
+            assetGroupImmutable.copy(),
+            assetGroupImmutableAlt,
+            assetSeriesImmutable,
+            assetSeriesImmutable.copy(),
+            assetSeriesImmutableAlt
           )
         )
       )
@@ -936,7 +1062,16 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
             assetGroupFractionable,
             assetGroupFractionable.copy(),
             assetGroupFractionableAlt,
-            assetSeriesFractionableAlt
+            assetSeriesFractionableAlt,
+            assetGroupSeriesImmutable,
+            assetGroupSeriesImmutable.copy(),
+            assetGroupSeriesImmutableAlt,
+            assetGroupImmutable,
+            assetGroupImmutable.copy(),
+            assetGroupImmutableAlt,
+            assetSeriesImmutable,
+            assetSeriesImmutable.copy(),
+            assetSeriesImmutableAlt
           )
         )
       )
@@ -988,7 +1123,16 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
             assetGroupFractionableAlt,
             assetSeriesFractionable,
             assetSeriesFractionable.copy(),
-            assetSeriesFractionableAlt
+            assetSeriesFractionableAlt,
+            assetGroupSeriesImmutable,
+            assetGroupSeriesImmutable.copy(),
+            assetGroupSeriesImmutableAlt,
+            assetGroupImmutable,
+            assetGroupImmutable.copy(),
+            assetGroupImmutableAlt,
+            assetSeriesImmutable,
+            assetSeriesImmutable.copy(),
+            assetSeriesImmutableAlt
           )
         )
       )

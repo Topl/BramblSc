@@ -70,6 +70,10 @@ trait TransactionBuilderInterpreterSpecBase extends munit.FunSuite with MockHelp
   val assetGroupFractionableAlt: Value = toAltAsset(assetGroupFractionable)
   val assetSeriesFractionableAlt: Value = toAltAsset(assetSeriesFractionable)
 
+  val assetGroupSeriesImmutableAlt: Value = toAltAsset(assetGroupSeriesImmutable)
+  val assetGroupImmutableAlt: Value = toAltAsset(assetGroupImmutable)
+  val assetSeriesImmutableAlt: Value = toAltAsset(assetSeriesImmutable)
+
   val mockValues: Seq[Value] = Seq(
     lvlValue,
     lvlValue.copy(), // exact duplicate
@@ -105,7 +109,16 @@ trait TransactionBuilderInterpreterSpecBase extends munit.FunSuite with MockHelp
     assetGroupFractionableAlt, // diff group and series
     assetSeriesFractionable,
     assetSeriesFractionable.copy(),
-    assetSeriesFractionableAlt // diff group and series
+    assetSeriesFractionableAlt, // diff group and series
+    assetGroupSeriesImmutable,
+    assetGroupSeriesImmutable.copy(),
+    assetGroupSeriesImmutableAlt, // diff group and series
+    assetGroupImmutable,
+    assetGroupImmutable.copy(),
+    assetGroupImmutableAlt, // diff group and series
+    assetSeriesImmutable,
+    assetSeriesImmutable.copy(),
+    assetSeriesImmutableAlt // diff group and series
   )
 
   val mockTxos: Seq[Txo] = mockValues.map(valToTxo(_))
