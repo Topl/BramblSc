@@ -131,7 +131,16 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
             assetGroupAccumulatorAlt,
             assetSeriesAccumulator,
             assetSeriesAccumulator.copy(),
-            assetSeriesAccumulatorAlt
+            assetSeriesAccumulatorAlt,
+            assetGroupSeriesFractionable,
+            assetGroupSeriesFractionable.copy(),
+            assetGroupSeriesFractionableAlt,
+            assetGroupFractionable,
+            assetGroupFractionable.copy(),
+            assetGroupFractionableAlt,
+            assetSeriesFractionable,
+            assetSeriesFractionable.copy(),
+            assetSeriesFractionableAlt
           )
         )
       )
@@ -178,7 +187,16 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
             assetGroupAccumulatorAlt,
             assetSeriesAccumulator,
             assetSeriesAccumulator.copy(),
-            assetSeriesAccumulatorAlt
+            assetSeriesAccumulatorAlt,
+            assetGroupSeriesFractionable,
+            assetGroupSeriesFractionable.copy(),
+            assetGroupSeriesFractionableAlt,
+            assetGroupFractionable,
+            assetGroupFractionable.copy(),
+            assetGroupFractionableAlt,
+            assetSeriesFractionable,
+            assetSeriesFractionable.copy(),
+            assetSeriesFractionableAlt
           )
         )
       )
@@ -225,7 +243,16 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
             assetGroupAccumulatorAlt,
             assetSeriesAccumulator,
             assetSeriesAccumulator.copy(),
-            assetSeriesAccumulatorAlt
+            assetSeriesAccumulatorAlt,
+            assetGroupSeriesFractionable,
+            assetGroupSeriesFractionable.copy(),
+            assetGroupSeriesFractionableAlt,
+            assetGroupFractionable,
+            assetGroupFractionable.copy(),
+            assetGroupFractionableAlt,
+            assetSeriesFractionable,
+            assetSeriesFractionable.copy(),
+            assetSeriesFractionableAlt
           )
         )
       )
@@ -275,7 +302,7 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
     )
   }
 
-  test("buildTransferAmountTransaction > FRACTIONABLE asset quantity descriptor in transfer type".fail) {
+  test("buildTransferAmountTransaction > FRACTIONABLE asset quantity descriptor in transfer type") {
     val testTx = txBuilder.buildTransferAmountTransaction(
       assetGroupSeriesFractionable.value.typeIdentifier,
       mockTxos,

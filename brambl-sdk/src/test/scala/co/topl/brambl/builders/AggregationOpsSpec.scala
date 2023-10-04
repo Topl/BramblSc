@@ -33,7 +33,22 @@ class AggregationOpsSpec extends TransactionBuilderInterpreterSpecBase {
         assetSeriesAccumulator,
         assetSeriesAccumulator.copy()
       ),
-      assetSeriesAccumulatorAlt.value.typeIdentifier -> Seq(assetSeriesAccumulatorAlt)
+      assetSeriesAccumulatorAlt.value.typeIdentifier -> Seq(assetSeriesAccumulatorAlt),
+      assetGroupSeriesFractionable.value.typeIdentifier -> Seq(
+        assetGroupSeriesFractionable,
+        assetGroupSeriesFractionable.copy()
+      ),
+      assetGroupSeriesFractionableAlt.value.typeIdentifier -> Seq(assetGroupSeriesFractionableAlt),
+      assetGroupFractionable.value.typeIdentifier -> Seq(
+        assetGroupFractionable,
+        assetGroupFractionable.copy()
+      ),
+      assetGroupFractionableAlt.value.typeIdentifier -> Seq(assetGroupFractionableAlt),
+      assetSeriesFractionable.value.typeIdentifier -> Seq(
+        assetSeriesFractionable,
+        assetSeriesFractionable.copy()
+      ),
+      assetSeriesFractionableAlt.value.typeIdentifier -> Seq(assetSeriesFractionableAlt)
     )
     assertEquals(testMap, expectedMap)
   }

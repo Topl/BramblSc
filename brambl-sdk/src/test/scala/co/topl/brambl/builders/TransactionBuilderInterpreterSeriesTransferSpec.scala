@@ -131,7 +131,16 @@ class TransactionBuilderInterpreterSeriesTransferSpec extends TransactionBuilder
             assetGroupAccumulatorAlt,
             assetSeriesAccumulator,
             assetSeriesAccumulator.copy(),
-            assetSeriesAccumulatorAlt
+            assetSeriesAccumulatorAlt,
+            assetGroupSeriesFractionable,
+            assetGroupSeriesFractionable.copy(),
+            assetGroupSeriesFractionableAlt,
+            assetGroupFractionable,
+            assetGroupFractionable.copy(),
+            assetGroupFractionableAlt,
+            assetSeriesFractionable,
+            assetSeriesFractionable.copy(),
+            assetSeriesFractionableAlt
           )
         )
       )
