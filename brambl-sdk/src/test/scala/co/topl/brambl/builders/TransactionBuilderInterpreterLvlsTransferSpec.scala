@@ -6,48 +6,29 @@ import co.topl.brambl.syntax.{
   bigIntAsInt128,
   int128AsBigInt,
   ioTransactionAsTransactionSyntaxOps,
-  valueToQuantitySyntaxOps,
-  LvlType
+  valueToQuantitySyntaxOps
 }
 
 class TransactionBuilderInterpreterLvlsTransferSpec extends TransactionBuilderInterpreterSpecBase {
 
   test("buildTransferAmountTransaction > underlying error fails (unsupported token type)") {
-    val testTx = txBuilder.buildTransferAmountTransaction(
-      LvlType,
-      mockTxos :+ valToTxo(Value.defaultInstance.withTopl(Value.TOPL(quantity))),
-      inPredicateLockFull,
-      1,
-      RecipientAddr,
-      ChangeAddr,
-      0
-    )
+    val testTx = buildTransferAmountTransaction
+      .withTxos(mockTxos :+ valToTxo(Value.defaultInstance.withTopl(Value.TOPL(quantity))))
+      .run
     assertEquals(testTx, Left(UserInputErrors(Seq(UserInputError(s"Invalid value type")))))
   }
 
   test("buildTransferAmountTransaction > quantity to transfer is non positive") {
-    val testTx = txBuilder.buildTransferAmountTransaction(
-      LvlType,
-      mockTxos,
-      inPredicateLockFull,
-      0,
-      RecipientAddr,
-      ChangeAddr,
-      0
-    )
+    val testTx = buildTransferAmountTransaction
+      .withAmount(0)
+      .run
     assertEquals(testTx, Left(UserInputErrors(Seq(UserInputError(s"quantity to transfer must be positive")))))
   }
 
   test("buildTransferAmountTransaction > a txo isnt tied to lockPredicateFrom") {
-    val testTx = txBuilder.buildTransferAmountTransaction(
-      LvlType,
-      mockTxos :+ valToTxo(lvlValue, trivialLockAddress),
-      inPredicateLockFull,
-      1,
-      RecipientAddr,
-      ChangeAddr,
-      0
-    )
+    val testTx = buildTransferAmountTransaction
+      .withTxos(mockTxos :+ valToTxo(lvlValue, trivialLockAddress))
+      .run
     assertEquals(
       testTx,
       Left(UserInputErrors(Seq(UserInputError(s"every lock does not correspond to fromLockAddr"))))
@@ -55,15 +36,9 @@ class TransactionBuilderInterpreterLvlsTransferSpec extends TransactionBuilderIn
   }
 
   test("buildTransferAmountTransaction > non sufficient funds") {
-    val testTx = txBuilder.buildTransferAmountTransaction(
-      LvlType,
-      mockTxos,
-      inPredicateLockFull,
-      4,
-      RecipientAddr,
-      ChangeAddr,
-      0
-    )
+    val testTx = buildTransferAmountTransaction
+      .withAmount(4)
+      .run
     assertEquals(
       testTx,
       Left(
@@ -78,15 +53,9 @@ class TransactionBuilderInterpreterLvlsTransferSpec extends TransactionBuilderIn
   }
 
   test("buildTransferAmountTransaction > fee not satisfied") {
-    val testTx = txBuilder.buildTransferAmountTransaction(
-      LvlType,
-      mockTxos,
-      inPredicateLockFull,
-      1,
-      RecipientAddr,
-      ChangeAddr,
-      2
-    )
+    val testTx = buildTransferAmountTransaction
+      .withFee(2)
+      .run
     assertEquals(
       testTx,
       Left(
@@ -98,15 +67,7 @@ class TransactionBuilderInterpreterLvlsTransferSpec extends TransactionBuilderIn
   }
 
   test("buildTransferAmountTransaction > [complex] duplicate inputs are merged and split correctly") {
-    val testTx = txBuilder.buildTransferAmountTransaction(
-      LvlType,
-      mockTxos,
-      inPredicateLockFull,
-      1,
-      RecipientAddr,
-      ChangeAddr,
-      1
-    )
+    val testTx = buildTransferAmountTransaction.run
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
       .withInputs(buildStxos())
@@ -163,15 +124,10 @@ class TransactionBuilderInterpreterLvlsTransferSpec extends TransactionBuilderIn
 
   test("buildTransferAmountTransaction > [simplest case] no change, only 1 output") {
     val txos = Seq(valToTxo(lvlValue))
-    val testTx = txBuilder.buildTransferAmountTransaction(
-      LvlType,
-      txos,
-      inPredicateLockFull,
-      1,
-      RecipientAddr,
-      ChangeAddr,
-      0
-    )
+    val testTx = buildTransferAmountTransaction
+      .withTxos(txos)
+      .withFee(0)
+      .run
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
       .withInputs(buildStxos(txos))

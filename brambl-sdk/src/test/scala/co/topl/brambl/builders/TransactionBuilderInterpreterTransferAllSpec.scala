@@ -1,6 +1,5 @@
 package co.topl.brambl.builders
 
-import cats.implicits.catsSyntaxOptionId
 import co.topl.brambl.models.transaction.IoTransaction
 import co.topl.brambl.syntax.{
   bigIntAsInt128,
@@ -14,13 +13,9 @@ import co.topl.brambl.syntax.{
 class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInterpreterSpecBase {
 
   test("buildTransferAllTransaction > All locks don't match") {
-    val testTx = txBuilder.buildTransferAllTransaction(
-      mockTxos :+ valToTxo(lvlValue, trivialLockAddress),
-      inPredicateLockFull,
-      RecipientAddr,
-      ChangeAddr,
-      1
-    )
+    val testTx = buildTransferAllTransaction
+      .withTxos(mockTxos :+ valToTxo(lvlValue, trivialLockAddress))
+      .run
     assertEquals(
       testTx,
       Left(
@@ -34,13 +29,10 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
   }
 
   test("buildTransferAllTransaction > empty TXOs, tokenIdentifier not provided") {
-    val testTx = txBuilder.buildTransferAllTransaction(
-      Seq.empty,
-      inPredicateLockFull,
-      RecipientAddr,
-      ChangeAddr,
-      0
-    )
+    val testTx = buildTransferAllTransaction
+      .withTxos(Seq.empty)
+      .withFee(0)
+      .run
     assertEquals(
       testTx,
       Left(
@@ -54,14 +46,11 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
   }
 
   test("buildTransferAllTransaction > empty TXOs, tokenIdentifier is provided") {
-    val testTx = txBuilder.buildTransferAllTransaction(
-      Seq.empty,
-      inPredicateLockFull,
-      RecipientAddr,
-      ChangeAddr,
-      0,
-      LvlType.some
-    )
+    val testTx = buildTransferAllTransaction
+      .withTxos(Seq.empty)
+      .withTokenIdentifier(LvlType)
+      .withFee(0)
+      .run
     assertEquals(
       testTx,
       Left(
@@ -75,14 +64,10 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
   }
 
   test("buildTransferAllTransaction > tokenIdentifier is provided but does not exist in TXOs") {
-    val testTx = txBuilder.buildTransferAllTransaction(
-      Seq(valToTxo(lvlValue)),
-      inPredicateLockFull,
-      RecipientAddr,
-      ChangeAddr,
-      0,
-      groupValue.value.typeIdentifier.some
-    )
+    val testTx = buildTransferAllTransaction
+      .withTxos(Seq(valToTxo(lvlValue)))
+      .withTokenIdentifier(groupValue.value.typeIdentifier)
+      .run
     assertEquals(
       testTx,
       Left(
@@ -96,13 +81,9 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
   }
 
   test("buildTransferAllTransaction > not enough LVLs to satisfy fee") {
-    val testTx = txBuilder.buildTransferAllTransaction(
-      mockTxos,
-      inPredicateLockFull,
-      RecipientAddr,
-      ChangeAddr,
-      3
-    )
+    val testTx = buildTransferAllTransaction
+      .withFee(3)
+      .run
     assertEquals(
       testTx,
       Left(
@@ -116,13 +97,9 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
   }
 
   test("buildTransferAllTransaction > exactly amount of LVLs to satisfy fee, tokenIdentifier not provided") {
-    val testTx = txBuilder.buildTransferAllTransaction(
-      mockTxos,
-      inPredicateLockFull,
-      RecipientAddr,
-      ChangeAddr,
-      2
-    )
+    val testTx = buildTransferAllTransaction
+      .withFee(2)
+      .run
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
       .withInputs(buildStxos())
@@ -177,14 +154,10 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
   }
 
   test("buildTransferAllTransaction > exactly amount of LVLs to satisfy fee, tokenIdentifier is LVLs") {
-    val testTx = txBuilder.buildTransferAllTransaction(
-      mockTxos,
-      inPredicateLockFull,
-      RecipientAddr,
-      ChangeAddr,
-      2,
-      LvlType.some
-    )
+    val testTx = buildTransferAllTransaction
+      .withFee(2)
+      .withTokenIdentifier(LvlType)
+      .run
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
       .withInputs(buildStxos())
@@ -239,14 +212,10 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
   }
 
   test("buildTransferAllTransaction > exactly amount of LVLs to satisfy fee, tokenIdentifier is not LVLs") {
-    val testTx = txBuilder.buildTransferAllTransaction(
-      mockTxos,
-      inPredicateLockFull,
-      RecipientAddr,
-      ChangeAddr,
-      2,
-      groupValue.value.typeIdentifier.some
-    )
+    val testTx = buildTransferAllTransaction
+      .withFee(2)
+      .withTokenIdentifier(groupValue.value.typeIdentifier)
+      .run
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
       .withInputs(buildStxos())
@@ -302,14 +271,9 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
   }
 
   test("buildTransferAllTransaction > Transfer all Group") {
-    val testTx = txBuilder.buildTransferAllTransaction(
-      mockTxos,
-      inPredicateLockFull,
-      RecipientAddr,
-      ChangeAddr,
-      1,
-      groupValue.value.typeIdentifier.some
-    )
+    val testTx = buildTransferAllTransaction
+      .withTokenIdentifier(groupValue.value.typeIdentifier)
+      .run
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
       .withInputs(buildStxos())
@@ -365,14 +329,9 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
   }
 
   test("buildTransferAllTransaction > Transfer all Series") {
-    val testTx = txBuilder.buildTransferAllTransaction(
-      mockTxos,
-      inPredicateLockFull,
-      RecipientAddr,
-      ChangeAddr,
-      1,
-      seriesValue.value.typeIdentifier.some
-    )
+    val testTx = buildTransferAllTransaction
+      .withTokenIdentifier(seriesValue.value.typeIdentifier)
+      .run
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
       .withInputs(buildStxos())
@@ -428,14 +387,9 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
   }
 
   test("buildTransferAllTransaction > Transfer all LVLs") {
-    val testTx = txBuilder.buildTransferAllTransaction(
-      mockTxos,
-      inPredicateLockFull,
-      RecipientAddr,
-      ChangeAddr,
-      1,
-      LvlType.some
-    )
+    val testTx = buildTransferAllTransaction
+      .withTokenIdentifier(LvlType)
+      .run
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
       .withInputs(buildStxos())
@@ -491,14 +445,9 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
   }
 
   test("buildTransferAllTransaction > Transfer all Assets (liquid, group fungible)") {
-    val testTx = txBuilder.buildTransferAllTransaction(
-      mockTxos,
-      inPredicateLockFull,
-      RecipientAddr,
-      ChangeAddr,
-      1,
-      assetGroup.value.typeIdentifier.some
-    )
+    val testTx = buildTransferAllTransaction
+      .withTokenIdentifier(assetGroup.value.typeIdentifier)
+      .run
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
       .withInputs(buildStxos())
@@ -554,14 +503,9 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
   }
 
   test("buildTransferAllTransaction > Transfer all Assets (liquid, series fungible)") {
-    val testTx = txBuilder.buildTransferAllTransaction(
-      mockTxos,
-      inPredicateLockFull,
-      RecipientAddr,
-      ChangeAddr,
-      1,
-      assetSeries.value.typeIdentifier.some
-    )
+    val testTx = buildTransferAllTransaction
+      .withTokenIdentifier(assetSeries.value.typeIdentifier)
+      .run
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
       .withInputs(buildStxos())
@@ -617,14 +561,9 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
   }
 
   test("buildTransferAllTransaction > Transfer all Assets (liquid, group and series fungible)") {
-    val testTx = txBuilder.buildTransferAllTransaction(
-      mockTxos,
-      inPredicateLockFull,
-      RecipientAddr,
-      ChangeAddr,
-      1,
-      assetGroupSeries.value.typeIdentifier.some
-    )
+    val testTx = buildTransferAllTransaction
+      .withTokenIdentifier(assetGroupSeries.value.typeIdentifier)
+      .run
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
       .withInputs(buildStxos())
@@ -680,14 +619,9 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
   }
 
   test("buildTransferAllTransaction > Transfer all Assets (accumulator, group and series fungible)") {
-    val testTx = txBuilder.buildTransferAllTransaction(
-      mockTxos,
-      inPredicateLockFull,
-      RecipientAddr,
-      ChangeAddr,
-      1,
-      assetGroupSeriesAccumulator.value.typeIdentifier.some
-    )
+    val testTx = buildTransferAllTransaction
+      .withTokenIdentifier(assetGroupSeriesAccumulator.value.typeIdentifier)
+      .run
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
       .withInputs(buildStxos())
@@ -747,14 +681,9 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
   }
 
   test("buildTransferAllTransaction > Transfer all Assets (accumulator, group fungible)") {
-    val testTx = txBuilder.buildTransferAllTransaction(
-      mockTxos,
-      inPredicateLockFull,
-      RecipientAddr,
-      ChangeAddr,
-      1,
-      assetGroupAccumulator.value.typeIdentifier.some
-    )
+    val testTx = buildTransferAllTransaction
+      .withTokenIdentifier(assetGroupAccumulator.value.typeIdentifier)
+      .run
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
       .withInputs(buildStxos())
@@ -814,14 +743,9 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
   }
 
   test("buildTransferAllTransaction > Transfer all Assets (accumulator, series fungible)") {
-    val testTx = txBuilder.buildTransferAllTransaction(
-      mockTxos,
-      inPredicateLockFull,
-      RecipientAddr,
-      ChangeAddr,
-      1,
-      assetSeriesAccumulator.value.typeIdentifier.some
-    )
+    val testTx = buildTransferAllTransaction
+      .withTokenIdentifier(assetSeriesAccumulator.value.typeIdentifier)
+      .run
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
       .withInputs(buildStxos())
@@ -881,14 +805,9 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
   }
 
   test("buildTransferAllTransaction > Transfer all Assets (fractionable, group and series fungible)") {
-    val testTx = txBuilder.buildTransferAllTransaction(
-      mockTxos,
-      inPredicateLockFull,
-      RecipientAddr,
-      ChangeAddr,
-      1,
-      assetGroupSeriesFractionable.value.typeIdentifier.some
-    )
+    val testTx = buildTransferAllTransaction
+      .withTokenIdentifier(assetGroupSeriesFractionable.value.typeIdentifier)
+      .run
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
       .withInputs(buildStxos())
@@ -948,14 +867,9 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
   }
 
   test("buildTransferAllTransaction > Transfer all Assets (fractionable, group fungible)") {
-    val testTx = txBuilder.buildTransferAllTransaction(
-      mockTxos,
-      inPredicateLockFull,
-      RecipientAddr,
-      ChangeAddr,
-      1,
-      assetGroupFractionable.value.typeIdentifier.some
-    )
+    val testTx = buildTransferAllTransaction
+      .withTokenIdentifier(assetGroupFractionable.value.typeIdentifier)
+      .run
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
       .withInputs(buildStxos())
@@ -1015,14 +929,9 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
   }
 
   test("buildTransferAllTransaction > Transfer all Assets (fractionable, series fungible)") {
-    val testTx = txBuilder.buildTransferAllTransaction(
-      mockTxos,
-      inPredicateLockFull,
-      RecipientAddr,
-      ChangeAddr,
-      1,
-      assetSeriesFractionable.value.typeIdentifier.some
-    )
+    val testTx = buildTransferAllTransaction
+      .withTokenIdentifier(assetSeriesFractionable.value.typeIdentifier)
+      .run
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
       .withInputs(buildStxos())
@@ -1082,14 +991,9 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
   }
 
   test("buildTransferAllTransaction > Transfer all Assets (immutable, group and series fungible)") {
-    val testTx = txBuilder.buildTransferAllTransaction(
-      mockTxos,
-      inPredicateLockFull,
-      RecipientAddr,
-      ChangeAddr,
-      1,
-      assetGroupSeriesImmutable.value.typeIdentifier.some
-    )
+    val testTx = buildTransferAllTransaction
+      .withTokenIdentifier(assetGroupSeriesImmutable.value.typeIdentifier)
+      .run
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
       .withInputs(buildStxos())
@@ -1149,14 +1053,9 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
   }
 
   test("buildTransferAllTransaction > Transfer all Assets (immutable, group fungible)") {
-    val testTx = txBuilder.buildTransferAllTransaction(
-      mockTxos,
-      inPredicateLockFull,
-      RecipientAddr,
-      ChangeAddr,
-      1,
-      assetGroupImmutable.value.typeIdentifier.some
-    )
+    val testTx = buildTransferAllTransaction
+      .withTokenIdentifier(assetGroupImmutable.value.typeIdentifier)
+      .run
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
       .withInputs(buildStxos())
@@ -1216,14 +1115,9 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
   }
 
   test("buildTransferAllTransaction > Transfer all Assets (immutable, series fungible)") {
-    val testTx = txBuilder.buildTransferAllTransaction(
-      mockTxos,
-      inPredicateLockFull,
-      RecipientAddr,
-      ChangeAddr,
-      1,
-      assetSeriesImmutable.value.typeIdentifier.some
-    )
+    val testTx = buildTransferAllTransaction
+      .withTokenIdentifier(assetSeriesImmutable.value.typeIdentifier)
+      .run
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
       .withInputs(buildStxos())
@@ -1283,13 +1177,7 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
   }
 
   test("buildTransferAllTransaction > Transfer ALL tokens") {
-    val testTx = txBuilder.buildTransferAllTransaction(
-      mockTxos,
-      inPredicateLockFull,
-      RecipientAddr,
-      ChangeAddr,
-      1
-    )
+    val testTx = buildTransferAllTransaction.run
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
       .withInputs(buildStxos())
