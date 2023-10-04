@@ -772,6 +772,180 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
     )
   }
 
+  test("buildTransferAllTransaction > Transfer all Assets (fractionable, group and series fungible)") {
+    val testTx = txBuilder.buildTransferAllTransaction(
+      mockTxos,
+      inPredicateLockFull,
+      RecipientAddr,
+      ChangeAddr,
+      1,
+      assetGroupSeriesFractionable.value.typeIdentifier.some
+    )
+    val expectedTx = IoTransaction.defaultInstance
+      .withDatum(txDatum)
+      .withInputs(buildStxos())
+      .withOutputs(
+        buildRecipientUtxos(
+          List(
+            assetGroupSeriesFractionable,
+            assetGroupSeriesFractionable.copy() // Have not been aggregated together
+          )
+        )
+        ++
+        buildChangeUtxos(
+          List(
+            lvlValue,
+            groupValue.copy(groupValue.value.setQuantity(quantity * 2)),
+            groupValueAlt,
+            seriesValue.copy(seriesValue.value.setQuantity(quantity * 2)),
+            seriesValueAlt,
+            assetGroupSeries.copy(assetGroupSeries.value.setQuantity(quantity * 2)),
+            assetGroupSeriesAlt,
+            assetGroup.copy(assetGroup.value.setQuantity(quantity * 2)),
+            assetGroupAlt,
+            assetSeries.copy(assetSeries.value.setQuantity(quantity * 2)),
+            assetSeriesAlt,
+            assetGroupSeriesAccumulator,
+            assetGroupSeriesAccumulator.copy(),
+            assetGroupSeriesAccumulatorAlt,
+            assetGroupAccumulator,
+            assetGroupAccumulator.copy(),
+            assetGroupAccumulatorAlt,
+            assetSeriesAccumulator,
+            assetSeriesAccumulator.copy(),
+            assetSeriesAccumulatorAlt,
+            assetGroupSeriesFractionableAlt,
+            assetGroupFractionable,
+            assetGroupFractionable.copy(),
+            assetGroupFractionableAlt,
+            assetSeriesFractionable,
+            assetSeriesFractionable.copy(),
+            assetSeriesFractionableAlt
+          )
+        )
+      )
+    assertEquals(
+      sortedTx(testTx.toOption.get).computeId,
+      sortedTx(expectedTx).computeId
+    )
+  }
+
+  test("buildTransferAllTransaction > Transfer all Assets (fractionable, group fungible)") {
+    val testTx = txBuilder.buildTransferAllTransaction(
+      mockTxos,
+      inPredicateLockFull,
+      RecipientAddr,
+      ChangeAddr,
+      1,
+      assetGroupFractionable.value.typeIdentifier.some
+    )
+    val expectedTx = IoTransaction.defaultInstance
+      .withDatum(txDatum)
+      .withInputs(buildStxos())
+      .withOutputs(
+        buildRecipientUtxos(
+          List(
+            assetGroupFractionable,
+            assetGroupFractionable.copy() // Have not been aggregated together
+          )
+        )
+        ++
+        buildChangeUtxos(
+          List(
+            lvlValue,
+            groupValue.copy(groupValue.value.setQuantity(quantity * 2)),
+            groupValueAlt,
+            seriesValue.copy(seriesValue.value.setQuantity(quantity * 2)),
+            seriesValueAlt,
+            assetGroupSeries.copy(assetGroupSeries.value.setQuantity(quantity * 2)),
+            assetGroupSeriesAlt,
+            assetGroup.copy(assetGroup.value.setQuantity(quantity * 2)),
+            assetGroupAlt,
+            assetSeries.copy(assetSeries.value.setQuantity(quantity * 2)),
+            assetSeriesAlt,
+            assetGroupSeriesAccumulator,
+            assetGroupSeriesAccumulator.copy(),
+            assetGroupSeriesAccumulatorAlt,
+            assetGroupAccumulator,
+            assetGroupAccumulator.copy(),
+            assetGroupAccumulatorAlt,
+            assetSeriesAccumulator,
+            assetSeriesAccumulator.copy(),
+            assetSeriesAccumulatorAlt,
+            assetGroupSeriesFractionable,
+            assetGroupSeriesFractionable.copy(),
+            assetGroupSeriesFractionableAlt,
+            assetGroupFractionableAlt,
+            assetSeriesFractionable,
+            assetSeriesFractionable.copy(),
+            assetSeriesFractionableAlt
+          )
+        )
+      )
+    assertEquals(
+      sortedTx(testTx.toOption.get).computeId,
+      sortedTx(expectedTx).computeId
+    )
+  }
+
+  test("buildTransferAllTransaction > Transfer all Assets (fractionable, series fungible)") {
+    val testTx = txBuilder.buildTransferAllTransaction(
+      mockTxos,
+      inPredicateLockFull,
+      RecipientAddr,
+      ChangeAddr,
+      1,
+      assetSeriesFractionable.value.typeIdentifier.some
+    )
+    val expectedTx = IoTransaction.defaultInstance
+      .withDatum(txDatum)
+      .withInputs(buildStxos())
+      .withOutputs(
+        buildRecipientUtxos(
+          List(
+            assetSeriesFractionable,
+            assetSeriesFractionable.copy() // Have not been aggregated together
+          )
+        )
+        ++
+        buildChangeUtxos(
+          List(
+            lvlValue,
+            groupValue.copy(groupValue.value.setQuantity(quantity * 2)),
+            groupValueAlt,
+            seriesValue.copy(seriesValue.value.setQuantity(quantity * 2)),
+            seriesValueAlt,
+            assetGroupSeries.copy(assetGroupSeries.value.setQuantity(quantity * 2)),
+            assetGroupSeriesAlt,
+            assetGroup.copy(assetGroup.value.setQuantity(quantity * 2)),
+            assetGroupAlt,
+            assetSeries.copy(assetSeries.value.setQuantity(quantity * 2)),
+            assetSeriesAlt,
+            assetGroupSeriesAccumulator,
+            assetGroupSeriesAccumulator.copy(),
+            assetGroupSeriesAccumulatorAlt,
+            assetGroupAccumulator,
+            assetGroupAccumulator.copy(),
+            assetGroupAccumulatorAlt,
+            assetSeriesAccumulator,
+            assetSeriesAccumulator.copy(),
+            assetSeriesAccumulatorAlt,
+            assetGroupSeriesFractionable,
+            assetGroupSeriesFractionable.copy(),
+            assetGroupSeriesFractionableAlt,
+            assetGroupFractionable,
+            assetGroupFractionable.copy(),
+            assetGroupFractionableAlt,
+            assetSeriesFractionableAlt
+          )
+        )
+      )
+    assertEquals(
+      sortedTx(testTx.toOption.get).computeId,
+      sortedTx(expectedTx).computeId
+    )
+  }
+
   test("buildTransferAllTransaction > Transfer ALL tokens") {
     val testTx = txBuilder.buildTransferAllTransaction(
       mockTxos,
