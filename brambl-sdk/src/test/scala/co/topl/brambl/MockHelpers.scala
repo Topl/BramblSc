@@ -186,9 +186,11 @@ trait MockHelpers {
 
   val assetGroup: Value = assetGroupSeries.copy(assetGroupSeries.getAsset.copy(fungibility = GROUP))
 
+  val assetGroupFractionable: Value = assetGroup.copy(assetGroup.getAsset.copy(quantityDescriptor = FRACTIONABLE))
   val assetGroupAccumulator: Value = assetGroup.copy(assetGroup.getAsset.copy(quantityDescriptor = ACCUMULATOR))
 
   val assetSeries: Value = assetGroupSeries.copy(assetGroupSeries.getAsset.copy(fungibility = SERIES))
 
+  val assetSeriesFractionable: Value = assetSeries.copy(assetSeries.getAsset.copy(quantityDescriptor = FRACTIONABLE))
   val assetSeriesAccumulator: Value = assetSeries.copy(assetSeries.getAsset.copy(quantityDescriptor = ACCUMULATOR))
 }
