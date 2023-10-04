@@ -6,7 +6,9 @@ import co.topl.brambl.syntax.{
   bigIntAsInt128,
   int128AsBigInt,
   ioTransactionAsTransactionSyntaxOps,
-  valueToQuantitySyntaxOps
+  valueToQuantitySyntaxOps,
+  valueToTypeIdentifierSyntaxOps,
+  LvlType
 }
 
 class TransactionBuilderInterpreterLvlsTransferSpec extends TransactionBuilderInterpreterSpecBase {
@@ -72,49 +74,11 @@ class TransactionBuilderInterpreterLvlsTransferSpec extends TransactionBuilderIn
       .withDatum(txDatum)
       .withInputs(buildStxos())
       .withOutputs(
+        // to recipient
         buildRecipientUtxos(List(lvlValue))
         ++
-        buildChangeUtxos(
-          List(
-            groupValue.copy(groupValue.value.setQuantity(quantity * 2)),
-            groupValueAlt,
-            seriesValue.copy(seriesValue.value.setQuantity(quantity * 2)),
-            seriesValueAlt,
-            assetGroupSeries.copy(assetGroupSeries.value.setQuantity(quantity * 2)),
-            assetGroupSeriesAlt,
-            assetGroup.copy(assetGroup.value.setQuantity(quantity * 2)),
-            assetGroupAlt,
-            assetSeries.copy(assetSeries.value.setQuantity(quantity * 2)),
-            assetSeriesAlt,
-            assetGroupSeriesAccumulator,
-            assetGroupSeriesAccumulator.copy(),
-            assetGroupSeriesAccumulatorAlt,
-            assetGroupAccumulator,
-            assetGroupAccumulator.copy(),
-            assetGroupAccumulatorAlt,
-            assetSeriesAccumulator,
-            assetSeriesAccumulator.copy(),
-            assetSeriesAccumulatorAlt,
-            assetGroupSeriesFractionable,
-            assetGroupSeriesFractionable.copy(),
-            assetGroupSeriesFractionableAlt,
-            assetGroupFractionable,
-            assetGroupFractionable.copy(),
-            assetGroupFractionableAlt,
-            assetSeriesFractionable,
-            assetSeriesFractionable.copy(),
-            assetSeriesFractionableAlt,
-            assetGroupSeriesImmutable,
-            assetGroupSeriesImmutable.copy(),
-            assetGroupSeriesImmutableAlt,
-            assetGroupImmutable,
-            assetGroupImmutable.copy(),
-            assetGroupImmutableAlt,
-            assetSeriesImmutable,
-            assetSeriesImmutable.copy(),
-            assetSeriesImmutableAlt
-          )
-        )
+        // change values unaffected by recipient transfer and fee
+        buildChangeUtxos(mockChange.filterNot(_.value.typeIdentifier == LvlType))
       )
     assertEquals(
       sortedTx(testTx.toOption.get).computeId,

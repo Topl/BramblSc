@@ -7,7 +7,8 @@ import co.topl.brambl.syntax.{
   int128AsBigInt,
   ioTransactionAsTransactionSyntaxOps,
   valueToQuantitySyntaxOps,
-  valueToTypeIdentifierSyntaxOps
+  valueToTypeIdentifierSyntaxOps,
+  LvlType
 }
 
 class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderInterpreterSpecBase {
@@ -77,49 +78,16 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
       .withDatum(txDatum)
       .withInputs(buildStxos())
       .withOutputs(
+        // to recipient
         buildRecipientUtxos(List(assetGroupSeries))
         ++
+        // change due to excess fee and transfer input
+        buildChangeUtxos(List(lvlValue, assetGroupSeries))
+        ++
+        // change values unaffected by recipient transfer and fee
         buildChangeUtxos(
-          List(
-            lvlValue,
-            groupValue.copy(groupValue.value.setQuantity(quantity * 2)),
-            groupValueAlt,
-            seriesValue.copy(seriesValue.value.setQuantity(quantity * 2)),
-            seriesValueAlt,
-            assetGroupSeries,
-            assetGroupSeriesAlt,
-            assetGroup.copy(assetGroup.value.setQuantity(quantity * 2)),
-            assetGroupAlt,
-            assetSeries.copy(assetSeries.value.setQuantity(quantity * 2)),
-            assetSeriesAlt,
-            assetGroupSeriesAccumulator,
-            assetGroupSeriesAccumulator.copy(),
-            assetGroupSeriesAccumulatorAlt,
-            assetGroupAccumulator,
-            assetGroupAccumulator.copy(),
-            assetGroupAccumulatorAlt,
-            assetSeriesAccumulator,
-            assetSeriesAccumulator.copy(),
-            assetSeriesAccumulatorAlt,
-            assetGroupSeriesFractionable,
-            assetGroupSeriesFractionable.copy(),
-            assetGroupSeriesFractionableAlt,
-            assetGroupFractionable,
-            assetGroupFractionable.copy(),
-            assetGroupFractionableAlt,
-            assetSeriesFractionable,
-            assetSeriesFractionable.copy(),
-            assetSeriesFractionableAlt,
-            assetGroupSeriesImmutable,
-            assetGroupSeriesImmutable.copy(),
-            assetGroupSeriesImmutableAlt,
-            assetGroupImmutable,
-            assetGroupImmutable.copy(),
-            assetGroupImmutableAlt,
-            assetSeriesImmutable,
-            assetSeriesImmutable.copy(),
-            assetSeriesImmutableAlt
-          )
+          mockChange
+            .filterNot(v => List(LvlType, assetGroupSeries.value.typeIdentifier).contains(v.value.typeIdentifier))
         )
       )
     assertEquals(
@@ -136,49 +104,15 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
       .withDatum(txDatum)
       .withInputs(buildStxos())
       .withOutputs(
+        // to recipient
         buildRecipientUtxos(List(assetGroup))
         ++
+        // change due to excess fee and transfer input
+        buildChangeUtxos(List(lvlValue, assetGroup))
+        ++
+        // change values unaffected by recipient transfer and fee
         buildChangeUtxos(
-          List(
-            lvlValue,
-            groupValue.copy(groupValue.value.setQuantity(quantity * 2)),
-            groupValueAlt,
-            seriesValue.copy(seriesValue.value.setQuantity(quantity * 2)),
-            seriesValueAlt,
-            assetGroupSeries.copy(assetGroupSeries.value.setQuantity(quantity * 2)),
-            assetGroupSeriesAlt,
-            assetGroup,
-            assetGroupAlt,
-            assetSeries.copy(assetSeries.value.setQuantity(quantity * 2)),
-            assetSeriesAlt,
-            assetGroupSeriesAccumulator,
-            assetGroupSeriesAccumulator.copy(),
-            assetGroupSeriesAccumulatorAlt,
-            assetGroupAccumulator,
-            assetGroupAccumulator.copy(),
-            assetGroupAccumulatorAlt,
-            assetSeriesAccumulator,
-            assetSeriesAccumulator.copy(),
-            assetSeriesAccumulatorAlt,
-            assetGroupSeriesFractionable,
-            assetGroupSeriesFractionable.copy(),
-            assetGroupSeriesFractionableAlt,
-            assetGroupFractionable,
-            assetGroupFractionable.copy(),
-            assetGroupFractionableAlt,
-            assetSeriesFractionable,
-            assetSeriesFractionable.copy(),
-            assetSeriesFractionableAlt,
-            assetGroupSeriesImmutable,
-            assetGroupSeriesImmutable.copy(),
-            assetGroupSeriesImmutableAlt,
-            assetGroupImmutable,
-            assetGroupImmutable.copy(),
-            assetGroupImmutableAlt,
-            assetSeriesImmutable,
-            assetSeriesImmutable.copy(),
-            assetSeriesImmutableAlt
-          )
+          mockChange.filterNot(v => List(LvlType, assetGroup.value.typeIdentifier).contains(v.value.typeIdentifier))
         )
       )
     assertEquals(
@@ -195,49 +129,15 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
       .withDatum(txDatum)
       .withInputs(buildStxos())
       .withOutputs(
+        // to recipient
         buildRecipientUtxos(List(assetSeries))
         ++
+        // change due to excess fee and transfer input
+        buildChangeUtxos(List(lvlValue, assetSeries))
+        ++
+        // change values unaffected by recipient transfer and fee
         buildChangeUtxos(
-          List(
-            lvlValue,
-            groupValue.copy(groupValue.value.setQuantity(quantity * 2)),
-            groupValueAlt,
-            seriesValue.copy(seriesValue.value.setQuantity(quantity * 2)),
-            seriesValueAlt,
-            assetGroupSeries.copy(assetGroupSeries.value.setQuantity(quantity * 2)),
-            assetGroupSeriesAlt,
-            assetGroup.copy(assetGroup.value.setQuantity(quantity * 2)),
-            assetGroupAlt,
-            assetSeries,
-            assetSeriesAlt,
-            assetGroupSeriesAccumulator,
-            assetGroupSeriesAccumulator.copy(),
-            assetGroupSeriesAccumulatorAlt,
-            assetGroupAccumulator,
-            assetGroupAccumulator.copy(),
-            assetGroupAccumulatorAlt,
-            assetSeriesAccumulator,
-            assetSeriesAccumulator.copy(),
-            assetSeriesAccumulatorAlt,
-            assetGroupSeriesFractionable,
-            assetGroupSeriesFractionable.copy(),
-            assetGroupSeriesFractionableAlt,
-            assetGroupFractionable,
-            assetGroupFractionable.copy(),
-            assetGroupFractionableAlt,
-            assetSeriesFractionable,
-            assetSeriesFractionable.copy(),
-            assetSeriesFractionableAlt,
-            assetGroupSeriesImmutable,
-            assetGroupSeriesImmutable.copy(),
-            assetGroupSeriesImmutableAlt,
-            assetGroupImmutable,
-            assetGroupImmutable.copy(),
-            assetGroupImmutableAlt,
-            assetSeriesImmutable,
-            assetSeriesImmutable.copy(),
-            assetSeriesImmutableAlt
-          )
+          mockChange.filterNot(v => List(LvlType, assetSeries.value.typeIdentifier).contains(v.value.typeIdentifier))
         )
       )
     assertEquals(

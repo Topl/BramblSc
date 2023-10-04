@@ -7,7 +7,8 @@ import co.topl.brambl.syntax.{
   int128AsBigInt,
   ioTransactionAsTransactionSyntaxOps,
   valueToQuantitySyntaxOps,
-  valueToTypeIdentifierSyntaxOps
+  valueToTypeIdentifierSyntaxOps,
+  LvlType
 }
 
 class TransactionBuilderInterpreterGroupTransferSpec extends TransactionBuilderInterpreterSpecBase {
@@ -77,49 +78,15 @@ class TransactionBuilderInterpreterGroupTransferSpec extends TransactionBuilderI
       .withDatum(txDatum)
       .withInputs(buildStxos())
       .withOutputs(
+        // to recipient
         buildRecipientUtxos(List(groupValue))
         ++
+        // change due to excess fee and transfer input
+        buildChangeUtxos(List(lvlValue, groupValue))
+        ++
+        // change values unaffected by recipient transfer and fee
         buildChangeUtxos(
-          List(
-            lvlValue,
-            groupValue,
-            groupValueAlt,
-            seriesValue.copy(seriesValue.value.setQuantity(quantity * 2)),
-            seriesValueAlt,
-            assetGroupSeries.copy(assetGroupSeries.value.setQuantity(quantity * 2)),
-            assetGroupSeriesAlt,
-            assetGroup.copy(assetGroup.value.setQuantity(quantity * 2)),
-            assetGroupAlt,
-            assetSeries.copy(assetSeries.value.setQuantity(quantity * 2)),
-            assetSeriesAlt,
-            assetGroupSeriesAccumulator,
-            assetGroupSeriesAccumulator.copy(),
-            assetGroupSeriesAccumulatorAlt,
-            assetGroupAccumulator,
-            assetGroupAccumulator.copy(),
-            assetGroupAccumulatorAlt,
-            assetSeriesAccumulator,
-            assetSeriesAccumulator.copy(),
-            assetSeriesAccumulatorAlt,
-            assetGroupSeriesFractionable,
-            assetGroupSeriesFractionable.copy(),
-            assetGroupSeriesFractionableAlt,
-            assetGroupFractionable,
-            assetGroupFractionable.copy(),
-            assetGroupFractionableAlt,
-            assetSeriesFractionable,
-            assetSeriesFractionable.copy(),
-            assetSeriesFractionableAlt,
-            assetGroupSeriesImmutable,
-            assetGroupSeriesImmutable.copy(),
-            assetGroupSeriesImmutableAlt,
-            assetGroupImmutable,
-            assetGroupImmutable.copy(),
-            assetGroupImmutableAlt,
-            assetSeriesImmutable,
-            assetSeriesImmutable.copy(),
-            assetSeriesImmutableAlt
-          )
+          mockChange.filterNot(v => List(LvlType, groupValue.value.typeIdentifier).contains(v.value.typeIdentifier))
         )
       )
     assertEquals(

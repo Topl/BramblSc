@@ -13,13 +13,13 @@ import co.topl.brambl.models.Event.{GroupPolicy, SeriesPolicy}
 import co.topl.brambl.models.box.{Lock, Value}
 import co.topl.brambl.models.transaction.{IoTransaction, SpentTransactionOutput, UnspentTransactionOutput}
 import co.topl.brambl.models.LockAddress
-import co.topl.brambl.models.box.Value.Value.Asset
 import co.topl.brambl.syntax.{
   assetAsBoxVal,
   groupAsBoxVal,
   groupPolicyAsGroupPolicySyntaxOps,
   seriesAsBoxVal,
   seriesPolicyAsSeriesPolicySyntaxOps,
+  valueToTypeIdentifierSyntaxOps,
   LvlType,
   ValueTypeIdentifier
 }
@@ -134,6 +134,17 @@ trait TransactionBuilderInterpreterSpecBase extends munit.FunSuite with MockHelp
   )
 
   val mockTxos: Seq[Txo] = mockValues.map(valToTxo(_))
+
+  val mockChange: Seq[Value] = mockValues
+    .map(_.value)
+    .groupBy(_.typeIdentifier)
+    .view
+    .mapValues(DefaultAggregationOps.aggregate)
+    .values
+    .flatten
+    .toSeq
+    .map(Value.defaultInstance.withValue)
+
 }
 
 /**
