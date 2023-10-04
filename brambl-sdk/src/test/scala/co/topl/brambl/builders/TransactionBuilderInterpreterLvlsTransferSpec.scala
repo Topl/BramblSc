@@ -1,17 +1,11 @@
 package co.topl.brambl.builders
 
-import cats.implicits.catsSyntaxOptionId
 import co.topl.brambl.models.box.Value
-import co.topl.brambl.models.transaction.{IoTransaction, SpentTransactionOutput, UnspentTransactionOutput}
+import co.topl.brambl.models.transaction.IoTransaction
 import co.topl.brambl.syntax.{
-  assetAsBoxVal,
   bigIntAsInt128,
-  groupAsBoxVal,
-  groupPolicyAsGroupPolicySyntaxOps,
   int128AsBigInt,
   ioTransactionAsTransactionSyntaxOps,
-  seriesAsBoxVal,
-  seriesPolicyAsSeriesPolicySyntaxOps,
   valueToQuantitySyntaxOps,
   LvlType
 }

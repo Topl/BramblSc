@@ -1,23 +1,18 @@
 package co.topl.brambl.builders
 
 import cats.implicits.catsSyntaxOptionId
-import co.topl.brambl.models.Event.{GroupPolicy, SeriesPolicy}
-import co.topl.brambl.models.box.FungibilityType.{GROUP, GROUP_AND_SERIES, SERIES}
+import co.topl.brambl.models.box.FungibilityType.{GROUP, SERIES}
 import co.topl.brambl.models.box.QuantityDescriptorType.{ACCUMULATOR, FRACTIONABLE, IMMUTABLE}
-import co.topl.brambl.models.box.{AssetMintingStatement, Value}
-import co.topl.brambl.models.transaction.{IoTransaction, SpentTransactionOutput, UnspentTransactionOutput}
+import co.topl.brambl.models.box.AssetMintingStatement
+import co.topl.brambl.models.transaction.{IoTransaction, UnspentTransactionOutput}
 import co.topl.brambl.syntax.{
   assetAsBoxVal,
   bigIntAsInt128,
   groupAsBoxVal,
-  groupPolicyAsGroupPolicySyntaxOps,
   ioTransactionAsTransactionSyntaxOps,
   seriesAsBoxVal,
   seriesPolicyAsSeriesPolicySyntaxOps
 }
-import co.topl.genus.services.Txo
-import co.topl.genus.services.TxoState.UNSPENT
-import com.google.protobuf.ByteString
 import quivr.models.Int128
 
 class TransactionBuilderInterpreterAssetMintingSpec extends TransactionBuilderInterpreterSpecBase {

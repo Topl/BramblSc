@@ -1,12 +1,9 @@
 package co.topl.brambl.builders
 
-import co.topl.brambl.models.Event.GroupPolicy
-import co.topl.brambl.models.box.{Attestation, Value}
-import co.topl.brambl.models.transaction.{IoTransaction, SpentTransactionOutput, UnspentTransactionOutput}
+import co.topl.brambl.models.box.Value
+import co.topl.brambl.models.transaction.IoTransaction
 import co.topl.brambl.models.Datum
-import co.topl.brambl.syntax.{bigIntAsInt128, groupPolicyAsGroupPolicySyntaxOps, ioTransactionAsTransactionSyntaxOps}
-import com.google.protobuf.ByteString
-import quivr.models.{Int128, Proof}
+import co.topl.brambl.syntax.{bigIntAsInt128, ioTransactionAsTransactionSyntaxOps}
 
 class TransactionBuilderInterpreterGroupMintingSpec extends TransactionBuilderInterpreterSpecBase {
 

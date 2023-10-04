@@ -23,7 +23,6 @@ import co.topl.quivr.api.Proposer
 import co.topl.quivr.api.Prover
 import com.google.protobuf.ByteString
 import quivr.models.{
-  Data,
   Digest,
   Int128,
   KeyPair,
@@ -38,8 +37,6 @@ import quivr.models.{
 import co.topl.brambl.wallet.WalletApi.{cryptoToPbKeyPair, pbKeyPairToCryotoKeyPair}
 import co.topl.crypto.generation.Bip32Indexes
 import co.topl.crypto.signing.ExtendedEd25519
-import co.topl.genus.services.Txo
-import co.topl.genus.services.TxoState.UNSPENT
 
 trait MockHelpers {
   type F[A] = IO[A]

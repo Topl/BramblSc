@@ -1,26 +1,14 @@
 package co.topl.brambl.builders
 
 import cats.implicits.catsSyntaxOptionId
-import co.topl.brambl.models.box.QuantityDescriptorType.{ACCUMULATOR, FRACTIONABLE, IMMUTABLE, LIQUID}
-import co.topl.brambl.models.box.Value
-import co.topl.brambl.models.transaction.{IoTransaction, SpentTransactionOutput, UnspentTransactionOutput}
+import co.topl.brambl.models.transaction.IoTransaction
 import co.topl.brambl.syntax.{
-  assetAsBoxVal,
   bigIntAsInt128,
-  groupAsBoxVal,
-  groupPolicyAsGroupPolicySyntaxOps,
   int128AsBigInt,
   ioTransactionAsTransactionSyntaxOps,
-  seriesAsBoxVal,
-  seriesPolicyAsSeriesPolicySyntaxOps,
   valueToQuantitySyntaxOps,
   valueToTypeIdentifierSyntaxOps,
-  GroupAndSeriesFungible,
-  GroupFungible,
-  GroupType,
-  LvlType,
-  SeriesFungible,
-  SeriesType
+  LvlType
 }
 
 class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInterpreterSpecBase {
