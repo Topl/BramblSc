@@ -393,56 +393,81 @@ object TransactionSyntaxInterpreter {
       }
     }
 
-    /**
-     * Let sIn be the total number of series constructor tokens with identifier in the input,
-     * sOut the total number of series constructor tokens with identifier in the output,
-     * and burned the number of where the referenced series specifies a token supply, then we have:
-     * sIn - burned = sOut
-     */
-    val validAssets = transaction.mintingStatements.forall { ams =>
-      val maybeSeries: Option[Value.Series] =
-        transaction.inputs
-          .filter(_.value.value.isSeries)
-          .filter(_.address == ams.seriesTokenUtxo)
-          .map(_.value.getSeries)
-          .headOption
+    val validAssets = assets.forall { asset =>
+      def getGroupStoGivenStm(stm: AssetMintingStatement) = transaction.inputs
+        .filter(_.value.value.isGroup)
+        .find(sto =>
+          sto.address == stm.groupTokenUtxo &&
+          asset.groupId.isDefined &&
+          sto.value.getGroup.groupId == asset.groupId.get
+        )
 
-      maybeSeries match {
-        case Some(s) =>
-          s.tokenSupply match {
-            case Some(tokenSupplied) =>
-              val sIn = transaction.inputs
+      def getSeriesStoGivenStm(stm: AssetMintingStatement) = transaction.inputs
+        .filter(_.value.value.isSeries)
+        .find(sto =>
+          sto.address == stm.seriesTokenUtxo &&
+          asset.seriesId.isDefined &&
+          sto.value.getSeries.seriesId == asset.seriesId.get
+        )
+
+      val ams = transaction.mintingStatements.find { stm =>
+        (getGroupStoGivenStm(stm), getSeriesStoGivenStm(stm)) match {
+          case (Some(g), Some(s)) => stm.groupTokenUtxo == g.address && stm.seriesTokenUtxo == s.address
+          case _                  => false
+        }
+      }
+
+      val group = getGroupStoGivenStm(ams.get).map(_.value.getGroup)
+      val series = getSeriesStoGivenStm(ams.get).map(_.value.getSeries)
+
+      (ams, group, series) match {
+        case (Some(ams), Some(g), Some(s)) =>
+          val b1 = (asset.quantity: BigInt) == (ams.quantity: BigInt) &&
+            asset.groupId.isDefined &&
+            asset.groupId.get == g.groupId &&
+            asset.seriesId.isDefined &&
+            asset.seriesId.get == s.seriesId
+
+          val b2 =
+            if (s.tokenSupply.isEmpty) {
+              val sOut = transaction.outputs
                 .filter(_.value.value.isSeries)
-                .filter(_.value.getSeries.seriesId == s.seriesId)
-                .map(_.value.getSeries.quantity: BigInt)
-                .sum
+                .map(_.value.getSeries)
+                .filter(sOut =>
+                  sOut.seriesId == s.seriesId &&
+                  (sOut.quantity: BigInt) == (s.quantity: BigInt) &&
+                  sOut.tokenSupply == s.tokenSupply
+                )
+              sOut.nonEmpty
 
-              val sOut =
-                transaction.outputs
-                  .filter(_.value.value.isSeries)
-                  .filter(_.value.getSeries.seriesId == s.seriesId)
-                  .map(_.value.getSeries.quantity: BigInt)
-                  .sum
+            } else {
+              val burned = ams.quantity / s.tokenSupply.get: BigInt
+              val outQuantity = (s.quantity: BigInt) - burned
 
-              val burned = sIn - sOut
-
-              // all asset minting statements quantity with the same series id
-              def quantity(s: Value.Series) = transaction.mintingStatements.map { ams =>
-                val filterSeries = transaction.inputs
-                  .filter(_.address == ams.seriesTokenUtxo)
-                  .filter(_.value.value.isSeries)
-                  .map(_.value.getSeries)
-                  .filter(_.seriesId == s.seriesId)
-                if (filterSeries.isEmpty) BigInt(0) else ams.quantity: BigInt
+              val sOut = transaction.outputs
+                .filter(_.value.value.isSeries)
+                .map(_.value.getSeries)
+                .filter(sOut =>
+                  sOut.seriesId == s.seriesId &&
+                  (sOut.quantity: BigInt) == outQuantity &&
+                  sOut.tokenSupply == s.tokenSupply
+                )
+              if (outQuantity != 0) {
+                sOut.nonEmpty
+              } else {
+                sOut.isEmpty
               }
+            }
 
-              burned * tokenSupplied == quantity(s).sum
-
-            case None => true
-          }
-        case None => false
+          b1 && b2
+        case _ =>
+          println("some some some error")
+          false
       }
     }
+
+//    println(" validGroups && validSeries && validAssets")
+//    println(s"$validGroups && $validSeries && $validAssets")
 
     Validated.condNec(
       validGroups && validSeries && validAssets,

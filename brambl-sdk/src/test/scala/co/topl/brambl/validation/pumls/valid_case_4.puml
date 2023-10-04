@@ -8,13 +8,13 @@ end title
 'Asset minting statements
 package AssetMintingStatements {
     object ams_1
-        ams_1 : seriesUtxo = ABC
         ams_1 : groupUtxo = XYZ
+        ams_1 : seriesUtxo = ABC
         ams_1 : quantity = 1
 
     object ams_2
-        ams_2 : seriesUtxo = DEF
         ams_2 : groupUtxo = UVW
+        ams_2 : seriesUtxo = DEF
         ams_2 : quantity = 1
 }
 
@@ -48,6 +48,7 @@ package Outputs {
     object output_2 #pink
         output_2 : series = s1
         output_2 : quantity = 1
+        output_2 : tokenSupply = 1
 
     'minted asset
     object output_3 #cyan
@@ -66,6 +67,12 @@ package Outputs {
 }
 
 'relationships
+ams_1 *-- utxo_ABC
+ams_1 *-- utxo_XYZ
+
+ams_2 *-- utxo_DEF
+ams_2 *-- utxo_UVW
+
 utxo_ABC *-- output_1
 utxo_XYZ *-- output_1
 utxo_ABC *-- output_2
@@ -74,8 +81,8 @@ utxo_UVW *-- output_3
 utxo_XYZ *-- output_4
 utxo_UVW *-- output_5
 
-note bottom of output_1: 1 item was burned
-note bottom of output_3: Burned series
+note bottom of output_2: 1 series burned
+note bottom of utxo_DEF: Burned series
 
 legend
  |= |= Type |
