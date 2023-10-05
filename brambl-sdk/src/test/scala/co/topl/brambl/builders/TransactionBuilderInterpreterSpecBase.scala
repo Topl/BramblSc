@@ -3,19 +3,25 @@ package co.topl.brambl.builders
 import cats.Id
 import cats.implicits.catsSyntaxOptionId
 import co.topl.brambl.MockHelpers
+import co.topl.brambl.builders.TransactionBuilderInterpreterSpecBase.{
+  BuildTransferAllTransaction,
+  BuildTransferAmountTransaction
+}
 import co.topl.brambl.common.ContainsImmutable.ContainsImmutableTOps
 import co.topl.brambl.common.ContainsImmutable.instances.valueImmutable
 import co.topl.brambl.models.Event.{GroupPolicy, SeriesPolicy}
-import co.topl.brambl.models.box.Value
+import co.topl.brambl.models.box.{Lock, Value}
 import co.topl.brambl.models.transaction.{IoTransaction, SpentTransactionOutput, UnspentTransactionOutput}
 import co.topl.brambl.models.LockAddress
-import co.topl.brambl.models.box.Value.Value.Asset
 import co.topl.brambl.syntax.{
   assetAsBoxVal,
   groupAsBoxVal,
   groupPolicyAsGroupPolicySyntaxOps,
   seriesAsBoxVal,
-  seriesPolicyAsSeriesPolicySyntaxOps
+  seriesPolicyAsSeriesPolicySyntaxOps,
+  valueToTypeIdentifierSyntaxOps,
+  LvlType,
+  ValueTypeIdentifier
 }
 import co.topl.genus.services.Txo
 import co.topl.genus.services.TxoState.UNSPENT
@@ -25,6 +31,12 @@ trait TransactionBuilderInterpreterSpecBase extends munit.FunSuite with MockHelp
 
   val RecipientAddr: LockAddress = inLockFullAddress
   val ChangeAddr: LockAddress = trivialLockAddress
+
+  def buildTransferAmountTransaction: BuildTransferAmountTransaction[Id] =
+    BuildTransferAmountTransaction(txBuilder, LvlType, mockTxos, inPredicateLockFull, 1, RecipientAddr, ChangeAddr, 1)
+
+  def buildTransferAllTransaction: BuildTransferAllTransaction[Id] =
+    BuildTransferAllTransaction(txBuilder, mockTxos, inPredicateLockFull, RecipientAddr, ChangeAddr, 1, None)
 
   def valToTxo(value: Value, lockAddr: LockAddress = inLockFullAddress): Txo =
     Txo(valToUtxo(value, lockAddr), UNSPENT, dummyTxoAddress)
@@ -122,4 +134,102 @@ trait TransactionBuilderInterpreterSpecBase extends munit.FunSuite with MockHelp
   )
 
   val mockTxos: Seq[Txo] = mockValues.map(valToTxo(_))
+
+  val mockChange: Seq[Value] = mockValues
+    .map(_.value)
+    .groupBy(_.typeIdentifier)
+    .view
+    .mapValues(DefaultAggregationOps.aggregate)
+    .values
+    .flatten
+    .toSeq
+    .map(Value.defaultInstance.withValue)
+
+}
+
+/**
+ * Helpers for the TransactionBuilder test cases
+ */
+object TransactionBuilderInterpreterSpecBase {
+
+  case class BuildTransferAllTransaction[F[_]](
+    txBuilder:         TransactionBuilderApi[F],
+    txos:              Seq[Txo],
+    lockPredicateFrom: Lock.Predicate,
+    recipientLockAddr: LockAddress,
+    changeLockAddr:    LockAddress,
+    fee:               Long,
+    tokenIdentifier:   Option[ValueTypeIdentifier]
+  ) {
+
+    def withTokenIdentifier(tokenIdentifier: ValueTypeIdentifier): BuildTransferAllTransaction[F] =
+      this.copy(tokenIdentifier = tokenIdentifier.some)
+
+    def noTokenIdentifier: BuildTransferAllTransaction[F] =
+      this.copy(tokenIdentifier = None)
+
+    def withTxos(txos: Seq[Txo]): BuildTransferAllTransaction[F] = this.copy(txos = txos)
+
+    def withFromPredicate(lockPredicateFrom: Lock.Predicate): BuildTransferAllTransaction[F] =
+      this.copy(lockPredicateFrom = lockPredicateFrom)
+
+    def withRecipientLockAddr(recipientLockAddr: LockAddress): BuildTransferAllTransaction[F] =
+      this.copy(recipientLockAddr = recipientLockAddr)
+
+    def withChangeLockAddr(changeLockAddr: LockAddress): BuildTransferAllTransaction[F] =
+      this.copy(changeLockAddr = changeLockAddr)
+
+    def withFee(fee: Long): BuildTransferAllTransaction[F] = this.copy(fee = fee)
+
+    def run: F[Either[BuilderError, IoTransaction]] =
+      txBuilder.buildTransferAllTransaction(
+        txos,
+        lockPredicateFrom,
+        recipientLockAddr,
+        changeLockAddr,
+        fee,
+        tokenIdentifier
+      )
+  }
+
+  case class BuildTransferAmountTransaction[F[_]](
+    txBuilder:         TransactionBuilderApi[F],
+    tokenIdentifier:   ValueTypeIdentifier,
+    txos:              Seq[Txo],
+    lockPredicateFrom: Lock.Predicate,
+    amount:            Long,
+    recipientLockAddr: LockAddress,
+    changeLockAddr:    LockAddress,
+    fee:               Long
+  ) {
+
+    def withTokenIdentifier(tokenIdentifier: ValueTypeIdentifier): BuildTransferAmountTransaction[F] =
+      this.copy(tokenIdentifier = tokenIdentifier)
+
+    def withTxos(txos: Seq[Txo]): BuildTransferAmountTransaction[F] = this.copy(txos = txos)
+
+    def withFromPredicate(lockPredicateFrom: Lock.Predicate): BuildTransferAmountTransaction[F] =
+      this.copy(lockPredicateFrom = lockPredicateFrom)
+
+    def withAmount(amount: Long): BuildTransferAmountTransaction[F] = this.copy(amount = amount)
+
+    def withRecipientLockAddr(recipientLockAddr: LockAddress): BuildTransferAmountTransaction[F] =
+      this.copy(recipientLockAddr = recipientLockAddr)
+
+    def withChangeLockAddr(changeLockAddr: LockAddress): BuildTransferAmountTransaction[F] =
+      this.copy(changeLockAddr = changeLockAddr)
+
+    def withFee(fee: Long): BuildTransferAmountTransaction[F] = this.copy(fee = fee)
+
+    def run: F[Either[BuilderError, IoTransaction]] = txBuilder
+      .buildTransferAmountTransaction(
+        tokenIdentifier,
+        txos,
+        lockPredicateFrom,
+        amount,
+        recipientLockAddr,
+        changeLockAddr,
+        fee
+      )
+  }
 }
