@@ -3,18 +3,6 @@ package co.topl.brambl
 import cats.Id
 import cats.effect.IO
 import cats.implicits.catsSyntaxOptionId
-import co.topl.brambl.builders.locks.LockTemplate.PredicateTemplate
-import co.topl.brambl.builders.locks.PropositionTemplate.{
-  AndTemplate,
-  DigestTemplate,
-  HeightTemplate,
-  LockedTemplate,
-  NotTemplate,
-  OrTemplate,
-  SignatureTemplate,
-  ThresholdTemplate,
-  TickTemplate
-}
 import co.topl.brambl.common.ContainsEvidence.Ops
 import co.topl.brambl.common.ContainsImmutable.ContainsImmutableTOps
 import co.topl.brambl.common.ContainsImmutable.instances._
@@ -29,19 +17,12 @@ import co.topl.brambl.models.box.Lock
 import co.topl.brambl.models.box.QuantityDescriptorType.{ACCUMULATOR, FRACTIONABLE, IMMUTABLE}
 import co.topl.brambl.models.box.Value
 import co.topl.brambl.models.transaction._
-import co.topl.brambl.syntax.{
-  assetAsBoxVal,
-  groupPolicyAsGroupPolicySyntaxOps,
-  ioTransactionAsTransactionSyntaxOps,
-  seriesPolicyAsSeriesPolicySyntaxOps
-}
-import co.topl.brambl.utils.Encoding.encodeToBase58
+import co.topl.brambl.syntax.{assetAsBoxVal, groupPolicyAsGroupPolicySyntaxOps, seriesPolicyAsSeriesPolicySyntaxOps}
 import co.topl.crypto.hash.Blake2b256
 import co.topl.quivr.api.Proposer
 import co.topl.quivr.api.Prover
 import com.google.protobuf.ByteString
 import quivr.models.{
-  Data,
   Digest,
   Int128,
   KeyPair,
@@ -56,10 +37,6 @@ import quivr.models.{
 import co.topl.brambl.wallet.WalletApi.{cryptoToPbKeyPair, pbKeyPairToCryotoKeyPair}
 import co.topl.crypto.generation.Bip32Indexes
 import co.topl.crypto.signing.ExtendedEd25519
-import co.topl.genus.services.Txo
-import co.topl.genus.services.TxoState.UNSPENT
-import io.circe.Json
-import org.bouncycastle.util.Strings
 
 trait MockHelpers {
   type F[A] = IO[A]
@@ -134,8 +111,7 @@ trait MockHelpers {
 
   val quantity: Int128 = Int128(ByteString.copyFrom(BigInt(1).toByteArray))
 
-  val value: Value =
-    Value.defaultInstance.withLvl(Value.LVL(quantity))
+  val lvlValue: Value = Value.defaultInstance.withLvl(Value.LVL(quantity))
 
   val trivialOutLock: Lock =
     Lock().withPredicate(Lock.Predicate(List(Challenge().withRevealed(Proposer.tickProposer[Id].propose(5, 15))), 1))
@@ -171,26 +147,18 @@ trait MockHelpers {
 
   val nonEmptyAttestation: Attestation = Attestation().withPredicate(inPredicateLockFullAttestation)
 
-  val output: UnspentTransactionOutput = UnspentTransactionOutput(trivialLockAddress, value)
+  val output: UnspentTransactionOutput = UnspentTransactionOutput(trivialLockAddress, lvlValue)
 
-  val fullOutput: UnspentTransactionOutput = UnspentTransactionOutput(inLockFullAddress, value)
+  val fullOutput: UnspentTransactionOutput = UnspentTransactionOutput(inLockFullAddress, lvlValue)
 
   val attFull: Attestation = Attestation().withPredicate(
     Attestation.Predicate(inPredicateLockFull, List.fill(inPredicateLockFull.challenges.length)(Proof()))
   )
 
-  val inputFull: SpentTransactionOutput = SpentTransactionOutput(dummyTxoAddress, attFull, value)
+  val inputFull: SpentTransactionOutput = SpentTransactionOutput(dummyTxoAddress, attFull, lvlValue)
 
   val txFull: IoTransaction =
     IoTransaction.defaultInstance.withInputs(List(inputFull)).withOutputs(List(output)).withDatum(txDatum)
-
-  val txFullAlternative: IoTransaction = txFull.copy(outputs = Seq(fullOutput))
-
-  val inputTxo: Txo = Txo(
-    fullOutput,
-    UNSPENT,
-    dummyTxoAddress
-  )
 
   val mockVks: List[VerificationKey] = List(
     MockChildKeyPair.vk,
@@ -207,181 +175,24 @@ trait MockHelpers {
     Value.Asset(mockGroupPolicy.computeId.some, mockSeriesPolicy.computeId.some, quantity)
   )
 
-  val assetGroupSeriesImmutable: Value = Value.defaultInstance.withAsset(
-    Value.Asset(
-      mockGroupPolicy.computeId.some,
-      mockSeriesPolicy.computeId.some,
-      quantity,
-      quantityDescriptor = IMMUTABLE
-    )
-  )
+  val assetGroupSeriesImmutable: Value =
+    assetGroupSeries.copy(assetGroupSeries.getAsset.copy(quantityDescriptor = IMMUTABLE))
 
-  val assetGroupSeriesFractionable: Value = Value.defaultInstance.withAsset(
-    Value.Asset(
-      mockGroupPolicy.computeId.some,
-      mockSeriesPolicy.computeId.some,
-      quantity,
-      quantityDescriptor = FRACTIONABLE
-    )
-  )
+  val assetGroupSeriesFractionable: Value =
+    assetGroupSeries.copy(assetGroupSeries.getAsset.copy(quantityDescriptor = FRACTIONABLE))
 
   val assetGroupSeriesAccumulator: Value =
     assetGroupSeries.copy(assetGroupSeries.getAsset.copy(quantityDescriptor = ACCUMULATOR))
 
   val assetGroup: Value = assetGroupSeries.copy(assetGroupSeries.getAsset.copy(fungibility = GROUP))
 
+  val assetGroupImmutable: Value = assetGroup.copy(assetGroup.getAsset.copy(quantityDescriptor = IMMUTABLE))
+  val assetGroupFractionable: Value = assetGroup.copy(assetGroup.getAsset.copy(quantityDescriptor = FRACTIONABLE))
   val assetGroupAccumulator: Value = assetGroup.copy(assetGroup.getAsset.copy(quantityDescriptor = ACCUMULATOR))
 
   val assetSeries: Value = assetGroupSeries.copy(assetGroupSeries.getAsset.copy(fungibility = SERIES))
 
+  val assetSeriesImmutable: Value = assetSeries.copy(assetSeries.getAsset.copy(quantityDescriptor = IMMUTABLE))
+  val assetSeriesFractionable: Value = assetSeries.copy(assetSeries.getAsset.copy(quantityDescriptor = FRACTIONABLE))
   val assetSeriesAccumulator: Value = assetSeries.copy(assetSeries.getAsset.copy(quantityDescriptor = ACCUMULATOR))
-
-  object ExpectedLockedProposition {
-    val data: Array[Byte] = "Hello world".getBytes
-    val value: LockedTemplate[Id] = LockedTemplate[Id](Data(ByteString.copyFrom(data)).some)
-
-    val fields: List[(String, Json)] = List(
-      "type" -> Json.fromString(value.propositionType.label),
-      "data" -> Json.fromString(encodeToBase58(data))
-    )
-    val json: Json = Json.fromFields(fields)
-  }
-
-  object ExpectedHeightProposition {
-    val value: HeightTemplate[Id] = HeightTemplate[Id](MockChain, MockMin, MockMax)
-
-    val fields: List[(String, Json)] = List(
-      "type"  -> Json.fromString(value.propositionType.label),
-      "chain" -> Json.fromString(MockChain),
-      "min"   -> Json.fromLong(MockMin),
-      "max"   -> Json.fromLong(MockMax)
-    )
-    val json: Json = Json.fromFields(fields)
-  }
-
-  object ExpectedTickProposition {
-    val value: TickTemplate[Id] = TickTemplate[Id](MockMin, MockMax)
-
-    val fields: List[(String, Json)] = List(
-      "type" -> Json.fromString(value.propositionType.label),
-      "min"  -> Json.fromLong(MockMin),
-      "max"  -> Json.fromLong(MockMax)
-    )
-    val json: Json = Json.fromFields(fields)
-  }
-
-  object ExpectedDigestProposition {
-    val value: DigestTemplate[Id] = DigestTemplate[Id](MockDigestRoutine, MockDigest)
-
-    val fields: List[(String, Json)] = List(
-      "type"    -> Json.fromString(value.propositionType.label),
-      "routine" -> Json.fromString(MockDigestRoutine),
-      "digest"  -> Json.fromString(encodeToBase58(MockDigest.value.toByteArray))
-    )
-    val json: Json = Json.fromFields(fields)
-  }
-
-  object ExpectedSignatureProposition {
-    def value(entityIdx: Int): SignatureTemplate[Id] = SignatureTemplate[Id](MockSigningRoutine, entityIdx)
-
-    def fields(entityIdx: Int): List[(String, Json)] = List(
-      "type"      -> Json.fromString(value(entityIdx).propositionType.label),
-      "routine"   -> Json.fromString(MockSigningRoutine),
-      "entityIdx" -> Json.fromInt(entityIdx)
-    )
-    def json(entityIdx: Int): Json = Json.fromFields(fields(entityIdx))
-  }
-
-  object ExpectedAndProposition {
-
-    val value: AndTemplate[Id] = AndTemplate[Id](
-      ExpectedSignatureProposition.value(0),
-      ExpectedSignatureProposition.value(1)
-    )
-
-    val fields: List[(String, Json)] = List(
-      "type"  -> Json.fromString(value.propositionType.label),
-      "left"  -> ExpectedSignatureProposition.json(0),
-      "right" -> ExpectedSignatureProposition.json(1)
-    )
-
-    val json: Json = Json.fromFields(fields)
-  }
-
-  object ExpectedOrProposition {
-
-    val value: OrTemplate[Id] = OrTemplate[Id](
-      ExpectedLockedProposition.value,
-      ExpectedTickProposition.value
-    )
-
-    val fields: List[(String, Json)] = List(
-      "type"  -> Json.fromString(value.propositionType.label),
-      "left"  -> ExpectedLockedProposition.json,
-      "right" -> ExpectedTickProposition.json
-    )
-
-    val json: Json = Json.fromFields(fields)
-  }
-
-  object ExpectedNotProposition {
-    val value: NotTemplate[Id] = NotTemplate[Id](ExpectedHeightProposition.value)
-
-    val fields: List[(String, Json)] = List(
-      "type"          -> Json.fromString(value.propositionType.label),
-      "innerTemplate" -> ExpectedHeightProposition.json
-    )
-
-    val json: Json = Json.fromFields(fields)
-  }
-
-  object ExpectedThresholdProposition {
-
-    val value: ThresholdTemplate[Id] = ThresholdTemplate[Id](
-      List(
-        ExpectedAndProposition.value,
-        ExpectedOrProposition.value,
-        ExpectedNotProposition.value
-      ),
-      3
-    )
-
-    val fields: List[(String, Json)] = List(
-      "type"      -> Json.fromString(value.propositionType.label),
-      "threshold" -> Json.fromInt(value.threshold),
-      "innerTemplates" -> Json.fromValues(
-        List(
-          ExpectedAndProposition.json,
-          ExpectedOrProposition.json,
-          ExpectedNotProposition.json
-        )
-      )
-    )
-
-    val json: Json = Json.fromFields(fields)
-  }
-
-  object ExpectedPredicateLock {
-
-    val value: PredicateTemplate[Id] = PredicateTemplate[Id](
-      List(
-        ExpectedAndProposition.value,
-        ExpectedThresholdProposition.value
-      ),
-      2
-    )
-
-    val fields: List[(String, Json)] = List(
-      "type"      -> Json.fromString(value.lockType.label),
-      "threshold" -> Json.fromInt(value.threshold),
-      "innerTemplates" -> Json.fromValues(
-        List(
-          ExpectedAndProposition.json,
-          ExpectedThresholdProposition.json
-        )
-      )
-    )
-
-    val json: Json = Json.fromFields(fields)
-  }
 }

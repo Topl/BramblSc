@@ -1,37 +1,21 @@
 package co.topl.brambl.builders
 
-import cats.implicits.catsSyntaxOptionId
-import co.topl.brambl.models.box.QuantityDescriptorType.{ACCUMULATOR, FRACTIONABLE, IMMUTABLE, LIQUID}
-import co.topl.brambl.models.box.Value
-import co.topl.brambl.models.transaction.{IoTransaction, SpentTransactionOutput, UnspentTransactionOutput}
+import co.topl.brambl.models.transaction.IoTransaction
 import co.topl.brambl.syntax.{
-  assetAsBoxVal,
   bigIntAsInt128,
-  groupAsBoxVal,
-  groupPolicyAsGroupPolicySyntaxOps,
   int128AsBigInt,
   ioTransactionAsTransactionSyntaxOps,
-  seriesAsBoxVal,
-  seriesPolicyAsSeriesPolicySyntaxOps,
   valueToQuantitySyntaxOps,
-  GroupAndSeriesFungible,
-  GroupFungible,
-  GroupType,
-  LvlType,
-  SeriesFungible,
-  SeriesType
+  valueToTypeIdentifierSyntaxOps,
+  LvlType
 }
 
 class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInterpreterSpecBase {
 
   test("buildTransferAllTransaction > All locks don't match") {
-    val testTx = txBuilder.buildTransferAllTransaction(
-      mockTxos :+ valToTxo(value, trivialLockAddress),
-      inPredicateLockFull,
-      inLockFullAddress,
-      trivialLockAddress,
-      1
-    )
+    val testTx = buildTransferAllTransaction
+      .withTxos(mockTxos :+ valToTxo(lvlValue, trivialLockAddress))
+      .run
     assertEquals(
       testTx,
       Left(
@@ -45,13 +29,10 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
   }
 
   test("buildTransferAllTransaction > empty TXOs, tokenIdentifier not provided") {
-    val testTx = txBuilder.buildTransferAllTransaction(
-      Seq.empty,
-      inPredicateLockFull,
-      inLockFullAddress,
-      trivialLockAddress,
-      0
-    )
+    val testTx = buildTransferAllTransaction
+      .withTxos(Seq.empty)
+      .withFee(0)
+      .run
     assertEquals(
       testTx,
       Left(
@@ -65,14 +46,11 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
   }
 
   test("buildTransferAllTransaction > empty TXOs, tokenIdentifier is provided") {
-    val testTx = txBuilder.buildTransferAllTransaction(
-      Seq.empty,
-      inPredicateLockFull,
-      inLockFullAddress,
-      trivialLockAddress,
-      0,
-      LvlType.some
-    )
+    val testTx = buildTransferAllTransaction
+      .withTxos(Seq.empty)
+      .withTokenIdentifier(LvlType)
+      .withFee(0)
+      .run
     assertEquals(
       testTx,
       Left(
@@ -86,14 +64,10 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
   }
 
   test("buildTransferAllTransaction > tokenIdentifier is provided but does not exist in TXOs") {
-    val testTx = txBuilder.buildTransferAllTransaction(
-      Seq(valToTxo(value, inLockFullAddress)),
-      inPredicateLockFull,
-      inLockFullAddress,
-      trivialLockAddress,
-      0,
-      GroupType(mockGroupPolicy.computeId).some
-    )
+    val testTx = buildTransferAllTransaction
+      .withTxos(Seq(valToTxo(lvlValue)))
+      .withTokenIdentifier(groupValue.value.typeIdentifier)
+      .run
     assertEquals(
       testTx,
       Left(
@@ -107,13 +81,9 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
   }
 
   test("buildTransferAllTransaction > not enough LVLs to satisfy fee") {
-    val testTx = txBuilder.buildTransferAllTransaction(
-      mockTxos,
-      inPredicateLockFull,
-      inLockFullAddress,
-      trivialLockAddress,
-      3
-    )
+    val testTx = buildTransferAllTransaction
+      .withFee(3)
+      .run
     assertEquals(
       testTx,
       Left(
@@ -127,39 +97,15 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
   }
 
   test("buildTransferAllTransaction > exactly amount of LVLs to satisfy fee, tokenIdentifier not provided") {
-    val testTx = txBuilder.buildTransferAllTransaction(
-      mockTxos,
-      inPredicateLockFull,
-      inLockFullAddress,
-      trivialLockAddress,
-      2
-    )
+    val testTx = buildTransferAllTransaction
+      .withFee(2)
+      .run
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
-      .withInputs(mockTxos.map(txo => SpentTransactionOutput(txo.outputAddress, attFull, txo.transactionOutput.value)))
+      .withInputs(buildStxos())
       .withOutputs(
         // No more LVLs for recipient. All other tokens go to recipient
-        List(
-          groupValue.copy(groupValue.value.setQuantity(quantity * 2)),
-          groupValueAlt,
-          seriesValue.copy(seriesValue.value.setQuantity(quantity * 2)),
-          seriesValueAlt,
-          assetGroupSeries.copy(assetGroupSeries.value.setQuantity(quantity * 2)),
-          assetGroupSeriesAlt,
-          assetGroup.copy(assetGroup.value.setQuantity(quantity * 2)),
-          assetGroupAlt,
-          assetSeries.copy(assetSeries.value.setQuantity(quantity * 2)),
-          assetSeriesAlt,
-          assetGroupSeriesAccumulator,
-          assetGroupSeriesAccumulator.copy(),
-          assetGroupSeriesAccumulatorAlt,
-          assetGroupAccumulator,
-          assetGroupAccumulator.copy(),
-          assetGroupAccumulatorAlt,
-          assetSeriesAccumulator,
-          assetSeriesAccumulator.copy(),
-          assetSeriesAccumulatorAlt
-        ).map(valToUtxo(_, inLockFullAddress)) // recipient
+        buildRecipientUtxos(mockChange.filterNot(_.value.typeIdentifier == LvlType))
       )
     assertEquals(
       sortedTx(testTx.toOption.get).computeId,
@@ -168,40 +114,16 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
   }
 
   test("buildTransferAllTransaction > exactly amount of LVLs to satisfy fee, tokenIdentifier is LVLs") {
-    val testTx = txBuilder.buildTransferAllTransaction(
-      mockTxos,
-      inPredicateLockFull,
-      inLockFullAddress,
-      trivialLockAddress,
-      2,
-      LvlType.some
-    )
+    val testTx = buildTransferAllTransaction
+      .withFee(2)
+      .withTokenIdentifier(LvlType)
+      .run
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
-      .withInputs(mockTxos.map(txo => SpentTransactionOutput(txo.outputAddress, attFull, txo.transactionOutput.value)))
+      .withInputs(buildStxos())
       .withOutputs(
         // No more LVLs for recipient. All other tokens go to change
-        List(
-          groupValue.copy(groupValue.value.setQuantity(quantity * 2)),
-          groupValueAlt,
-          seriesValue.copy(seriesValue.value.setQuantity(quantity * 2)),
-          seriesValueAlt,
-          assetGroupSeries.copy(assetGroupSeries.value.setQuantity(quantity * 2)),
-          assetGroupSeriesAlt,
-          assetGroup.copy(assetGroup.value.setQuantity(quantity * 2)),
-          assetGroupAlt,
-          assetSeries.copy(assetSeries.value.setQuantity(quantity * 2)),
-          assetSeriesAlt,
-          assetGroupSeriesAccumulator,
-          assetGroupSeriesAccumulator.copy(),
-          assetGroupSeriesAccumulatorAlt,
-          assetGroupAccumulator,
-          assetGroupAccumulator.copy(),
-          assetGroupAccumulatorAlt,
-          assetSeriesAccumulator,
-          assetSeriesAccumulator.copy(),
-          assetSeriesAccumulatorAlt
-        ).map(valToUtxo(_, trivialLockAddress)) // change
+        buildChangeUtxos(mockChange.filterNot(_.value.typeIdentifier == LvlType))
       )
     assertEquals(
       sortedTx(testTx.toOption.get).computeId,
@@ -210,42 +132,21 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
   }
 
   test("buildTransferAllTransaction > exactly amount of LVLs to satisfy fee, tokenIdentifier is not LVLs") {
-    val testTx = txBuilder.buildTransferAllTransaction(
-      mockTxos,
-      inPredicateLockFull,
-      inLockFullAddress,
-      trivialLockAddress,
-      2,
-      GroupType(mockGroupPolicy.computeId).some
-    )
+    val testTx = buildTransferAllTransaction
+      .withFee(2)
+      .withTokenIdentifier(groupValue.value.typeIdentifier)
+      .run
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
-      .withInputs(mockTxos.map(txo => SpentTransactionOutput(txo.outputAddress, attFull, txo.transactionOutput.value)))
+      .withInputs(buildStxos())
       .withOutputs(
-        List(groupValue.copy(groupValue.value.setQuantity(quantity * 2)))
-          .map(valToUtxo(_, inLockFullAddress)) // recipient
+        // To recipient
+        buildRecipientUtxos(List(groupValue.copy(groupValue.value.setQuantity(quantity * 2))))
         ++
         // No more LVLs for change
-        List(
-          groupValueAlt,
-          seriesValue.copy(seriesValue.value.setQuantity(quantity * 2)),
-          seriesValueAlt,
-          assetGroupSeries.copy(assetGroupSeries.value.setQuantity(quantity * 2)),
-          assetGroupSeriesAlt,
-          assetGroup.copy(assetGroup.value.setQuantity(quantity * 2)),
-          assetGroupAlt,
-          assetSeries.copy(assetSeries.value.setQuantity(quantity * 2)),
-          assetSeriesAlt,
-          assetGroupSeriesAccumulator,
-          assetGroupSeriesAccumulator.copy(),
-          assetGroupSeriesAccumulatorAlt,
-          assetGroupAccumulator,
-          assetGroupAccumulator.copy(),
-          assetGroupAccumulatorAlt,
-          assetSeriesAccumulator,
-          assetSeriesAccumulator.copy(),
-          assetSeriesAccumulatorAlt
-        ).map(valToUtxo(_, trivialLockAddress)) // change
+        buildChangeUtxos(
+          mockChange.filterNot(v => List(LvlType, groupValue.value.typeIdentifier).contains(v.value.typeIdentifier))
+        )
       )
     assertEquals(
       sortedTx(testTx.toOption.get).computeId,
@@ -254,42 +155,23 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
   }
 
   test("buildTransferAllTransaction > Transfer all Group") {
-    val testTx = txBuilder.buildTransferAllTransaction(
-      mockTxos,
-      inPredicateLockFull,
-      inLockFullAddress,
-      trivialLockAddress,
-      1,
-      GroupType(mockGroupPolicy.computeId).some
-    )
+    val testTx = buildTransferAllTransaction
+      .withTokenIdentifier(groupValue.value.typeIdentifier)
+      .run
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
-      .withInputs(mockTxos.map(txo => SpentTransactionOutput(txo.outputAddress, attFull, txo.transactionOutput.value)))
+      .withInputs(buildStxos())
       .withOutputs(
-        List(groupValue.copy(groupValue.value.setQuantity(quantity * 2)))
-          .map(valToUtxo(_, inLockFullAddress)) // recipient
+        // to recipient
+        buildRecipientUtxos(List(groupValue.copy(groupValue.value.setQuantity(quantity * 2))))
         ++
-        List(
-          value,
-          groupValueAlt,
-          seriesValue.copy(seriesValue.value.setQuantity(quantity * 2)),
-          seriesValueAlt,
-          assetGroupSeries.copy(assetGroupSeries.value.setQuantity(quantity * 2)),
-          assetGroupSeriesAlt,
-          assetGroup.copy(assetGroup.value.setQuantity(quantity * 2)),
-          assetGroupAlt,
-          assetSeries.copy(assetSeries.value.setQuantity(quantity * 2)),
-          assetSeriesAlt,
-          assetGroupSeriesAccumulator,
-          assetGroupSeriesAccumulator.copy(),
-          assetGroupSeriesAccumulatorAlt,
-          assetGroupAccumulator,
-          assetGroupAccumulator.copy(),
-          assetGroupAccumulatorAlt,
-          assetSeriesAccumulator,
-          assetSeriesAccumulator.copy(),
-          assetSeriesAccumulatorAlt
-        ).map(valToUtxo(_, trivialLockAddress)) // change
+        // change due to excess fee
+        buildChangeUtxos(List(lvlValue))
+        ++
+        // change values unaffected by recipient transfer and fee
+        buildChangeUtxos(
+          mockChange.filterNot(v => List(LvlType, groupValue.value.typeIdentifier).contains(v.value.typeIdentifier))
+        )
       )
     assertEquals(
       sortedTx(testTx.toOption.get).computeId,
@@ -298,42 +180,23 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
   }
 
   test("buildTransferAllTransaction > Transfer all Series") {
-    val testTx = txBuilder.buildTransferAllTransaction(
-      mockTxos,
-      inPredicateLockFull,
-      inLockFullAddress,
-      trivialLockAddress,
-      1,
-      SeriesType(mockSeriesPolicy.computeId).some
-    )
+    val testTx = buildTransferAllTransaction
+      .withTokenIdentifier(seriesValue.value.typeIdentifier)
+      .run
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
-      .withInputs(mockTxos.map(txo => SpentTransactionOutput(txo.outputAddress, attFull, txo.transactionOutput.value)))
+      .withInputs(buildStxos())
       .withOutputs(
-        List(seriesValue.copy(seriesValue.value.setQuantity(quantity * 2)))
-          .map(valToUtxo(_, inLockFullAddress)) // recipient
+        // to recipient
+        buildRecipientUtxos(List(seriesValue.copy(seriesValue.value.setQuantity(quantity * 2))))
         ++
-        List(
-          value,
-          groupValue.copy(groupValue.value.setQuantity(quantity * 2)),
-          groupValueAlt,
-          seriesValueAlt,
-          assetGroupSeries.copy(assetGroupSeries.value.setQuantity(quantity * 2)),
-          assetGroupSeriesAlt,
-          assetGroup.copy(assetGroup.value.setQuantity(quantity * 2)),
-          assetGroupAlt,
-          assetSeries.copy(assetSeries.value.setQuantity(quantity * 2)),
-          assetSeriesAlt,
-          assetGroupSeriesAccumulator,
-          assetGroupSeriesAccumulator.copy(),
-          assetGroupSeriesAccumulatorAlt,
-          assetGroupAccumulator,
-          assetGroupAccumulator.copy(),
-          assetGroupAccumulatorAlt,
-          assetSeriesAccumulator,
-          assetSeriesAccumulator.copy(),
-          assetSeriesAccumulatorAlt
-        ).map(valToUtxo(_, trivialLockAddress)) // change
+        // change due to excess fee
+        buildChangeUtxos(List(lvlValue))
+        ++
+        // change values unaffected by recipient transfer and fee
+        buildChangeUtxos(
+          mockChange.filterNot(v => List(LvlType, seriesValue.value.typeIdentifier).contains(v.value.typeIdentifier))
+        )
       )
     assertEquals(
       sortedTx(testTx.toOption.get).computeId,
@@ -342,41 +205,18 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
   }
 
   test("buildTransferAllTransaction > Transfer all LVLs") {
-    val testTx = txBuilder.buildTransferAllTransaction(
-      mockTxos,
-      inPredicateLockFull,
-      inLockFullAddress,
-      trivialLockAddress,
-      1,
-      LvlType.some
-    )
+    val testTx = buildTransferAllTransaction
+      .withTokenIdentifier(LvlType)
+      .run
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
-      .withInputs(mockTxos.map(txo => SpentTransactionOutput(txo.outputAddress, attFull, txo.transactionOutput.value)))
+      .withInputs(buildStxos())
       .withOutputs(
-        List(value).map(valToUtxo(_, inLockFullAddress)) // recipient
+        // to recipient
+        buildRecipientUtxos(List(lvlValue))
         ++
-        List(
-          groupValue.copy(groupValue.value.setQuantity(quantity * 2)),
-          groupValueAlt,
-          seriesValue.copy(seriesValue.value.setQuantity(quantity * 2)),
-          seriesValueAlt,
-          assetGroupSeries.copy(assetGroupSeries.value.setQuantity(quantity * 2)),
-          assetGroupSeriesAlt,
-          assetGroup.copy(assetGroup.value.setQuantity(quantity * 2)),
-          assetGroupAlt,
-          assetSeries.copy(assetSeries.value.setQuantity(quantity * 2)),
-          assetSeriesAlt,
-          assetGroupSeriesAccumulator,
-          assetGroupSeriesAccumulator.copy(),
-          assetGroupSeriesAccumulatorAlt,
-          assetGroupAccumulator,
-          assetGroupAccumulator.copy(),
-          assetGroupAccumulatorAlt,
-          assetSeriesAccumulator,
-          assetSeriesAccumulator.copy(),
-          assetSeriesAccumulatorAlt
-        ).map(valToUtxo(_, trivialLockAddress)) // change
+        // change values unaffected by recipient transfer and fee
+        buildChangeUtxos(mockChange.filterNot(_.value.typeIdentifier == LvlType))
       )
     assertEquals(
       sortedTx(testTx.toOption.get).computeId,
@@ -385,46 +225,23 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
   }
 
   test("buildTransferAllTransaction > Transfer all Assets (liquid, group fungible)") {
-    val testTx = txBuilder.buildTransferAllTransaction(
-      mockTxos,
-      inPredicateLockFull,
-      inLockFullAddress,
-      trivialLockAddress,
-      1,
-      GroupFungible(
-        mockGroupPolicy.computeId,
-        mockSeriesPolicy.computeId.value,
-        LIQUID
-      ).some
-    )
+    val testTx = buildTransferAllTransaction
+      .withTokenIdentifier(assetGroup.value.typeIdentifier)
+      .run
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
-      .withInputs(mockTxos.map(txo => SpentTransactionOutput(txo.outputAddress, attFull, txo.transactionOutput.value)))
+      .withInputs(buildStxos())
       .withOutputs(
-        List(assetGroup.copy(assetGroup.value.setQuantity(quantity * 2)))
-          .map(valToUtxo(_, inLockFullAddress)) // recipient
+        // to recipient
+        buildRecipientUtxos(List(assetGroup.copy(assetGroup.value.setQuantity(quantity * 2))))
         ++
-        List(
-          value,
-          groupValue.copy(groupValue.value.setQuantity(quantity * 2)),
-          groupValueAlt,
-          seriesValue.copy(seriesValue.value.setQuantity(quantity * 2)),
-          seriesValueAlt,
-          assetGroupSeries.copy(assetGroupSeries.value.setQuantity(quantity * 2)),
-          assetGroupSeriesAlt,
-          assetGroupAlt,
-          assetSeries.copy(assetSeries.value.setQuantity(quantity * 2)),
-          assetSeriesAlt,
-          assetGroupSeriesAccumulator,
-          assetGroupSeriesAccumulator.copy(),
-          assetGroupSeriesAccumulatorAlt,
-          assetGroupAccumulator,
-          assetGroupAccumulator.copy(),
-          assetGroupAccumulatorAlt,
-          assetSeriesAccumulator,
-          assetSeriesAccumulator.copy(),
-          assetSeriesAccumulatorAlt
-        ).map(valToUtxo(_, trivialLockAddress)) // change
+        // change due to excess fee
+        buildChangeUtxos(List(lvlValue))
+        ++
+        // change values unaffected by recipient transfer and fee
+        buildChangeUtxos(
+          mockChange.filterNot(v => List(LvlType, assetGroup.value.typeIdentifier).contains(v.value.typeIdentifier))
+        )
       )
     assertEquals(
       sortedTx(testTx.toOption.get).computeId,
@@ -433,46 +250,23 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
   }
 
   test("buildTransferAllTransaction > Transfer all Assets (liquid, series fungible)") {
-    val testTx = txBuilder.buildTransferAllTransaction(
-      mockTxos,
-      inPredicateLockFull,
-      inLockFullAddress,
-      trivialLockAddress,
-      1,
-      SeriesFungible(
-        mockSeriesPolicy.computeId,
-        mockGroupPolicy.computeId.value,
-        LIQUID
-      ).some
-    )
+    val testTx = buildTransferAllTransaction
+      .withTokenIdentifier(assetSeries.value.typeIdentifier)
+      .run
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
-      .withInputs(mockTxos.map(txo => SpentTransactionOutput(txo.outputAddress, attFull, txo.transactionOutput.value)))
+      .withInputs(buildStxos())
       .withOutputs(
-        List(assetSeries.copy(assetSeries.value.setQuantity(quantity * 2)))
-          .map(valToUtxo(_, inLockFullAddress)) // recipient
+        // to recipient
+        buildRecipientUtxos(List(assetSeries.copy(assetSeries.value.setQuantity(quantity * 2))))
         ++
-        List(
-          value,
-          groupValue.copy(groupValue.value.setQuantity(quantity * 2)),
-          groupValueAlt,
-          seriesValue.copy(seriesValue.value.setQuantity(quantity * 2)),
-          seriesValueAlt,
-          assetGroupSeries.copy(assetGroupSeries.value.setQuantity(quantity * 2)),
-          assetGroupSeriesAlt,
-          assetGroup.copy(assetGroup.value.setQuantity(quantity * 2)),
-          assetGroupAlt,
-          assetSeriesAlt,
-          assetGroupSeriesAccumulator,
-          assetGroupSeriesAccumulator.copy(),
-          assetGroupSeriesAccumulatorAlt,
-          assetGroupAccumulator,
-          assetGroupAccumulator.copy(),
-          assetGroupAccumulatorAlt,
-          assetSeriesAccumulator,
-          assetSeriesAccumulator.copy(),
-          assetSeriesAccumulatorAlt
-        ).map(valToUtxo(_, trivialLockAddress)) // change
+        // change due to excess fee
+        buildChangeUtxos(List(lvlValue))
+        ++
+        // change values unaffected by recipient transfer and fee
+        buildChangeUtxos(
+          mockChange.filterNot(v => List(LvlType, assetSeries.value.typeIdentifier).contains(v.value.typeIdentifier))
+        )
       )
     assertEquals(
       sortedTx(testTx.toOption.get).computeId,
@@ -481,46 +275,24 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
   }
 
   test("buildTransferAllTransaction > Transfer all Assets (liquid, group and series fungible)") {
-    val testTx = txBuilder.buildTransferAllTransaction(
-      mockTxos,
-      inPredicateLockFull,
-      inLockFullAddress,
-      trivialLockAddress,
-      1,
-      GroupAndSeriesFungible(
-        mockGroupPolicy.computeId,
-        mockSeriesPolicy.computeId,
-        LIQUID
-      ).some
-    )
+    val testTx = buildTransferAllTransaction
+      .withTokenIdentifier(assetGroupSeries.value.typeIdentifier)
+      .run
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
-      .withInputs(mockTxos.map(txo => SpentTransactionOutput(txo.outputAddress, attFull, txo.transactionOutput.value)))
+      .withInputs(buildStxos())
       .withOutputs(
-        List(assetGroupSeries.copy(assetGroupSeries.value.setQuantity(quantity * 2)))
-          .map(valToUtxo(_, inLockFullAddress)) // recipient
+        // to recipient
+        buildRecipientUtxos(List(assetGroupSeries.copy(assetGroupSeries.value.setQuantity(quantity * 2))))
         ++
-        List(
-          value,
-          groupValue.copy(groupValue.value.setQuantity(quantity * 2)),
-          groupValueAlt,
-          seriesValue.copy(seriesValue.value.setQuantity(quantity * 2)),
-          seriesValueAlt,
-          assetGroupSeriesAlt,
-          assetGroup.copy(assetGroup.value.setQuantity(quantity * 2)),
-          assetGroupAlt,
-          assetSeries.copy(assetSeries.value.setQuantity(quantity * 2)),
-          assetSeriesAlt,
-          assetGroupSeriesAccumulator,
-          assetGroupSeriesAccumulator.copy(),
-          assetGroupSeriesAccumulatorAlt,
-          assetGroupAccumulator,
-          assetGroupAccumulator.copy(),
-          assetGroupAccumulatorAlt,
-          assetSeriesAccumulator,
-          assetSeriesAccumulator.copy(),
-          assetSeriesAccumulatorAlt
-        ).map(valToUtxo(_, trivialLockAddress)) // change
+        // change due to excess fee
+        buildChangeUtxos(List(lvlValue))
+        ++
+        // change values unaffected by recipient transfer and fee
+        buildChangeUtxos(
+          mockChange
+            .filterNot(v => List(LvlType, assetGroupSeries.value.typeIdentifier).contains(v.value.typeIdentifier))
+        )
       )
     assertEquals(
       sortedTx(testTx.toOption.get).computeId,
@@ -529,47 +301,30 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
   }
 
   test("buildTransferAllTransaction > Transfer all Assets (accumulator, group and series fungible)") {
-    val testTx = txBuilder.buildTransferAllTransaction(
-      mockTxos,
-      inPredicateLockFull,
-      inLockFullAddress,
-      trivialLockAddress,
-      1,
-      GroupAndSeriesFungible(
-        mockGroupPolicy.computeId,
-        mockSeriesPolicy.computeId,
-        ACCUMULATOR
-      ).some
-    )
+    val testTx = buildTransferAllTransaction
+      .withTokenIdentifier(assetGroupSeriesAccumulator.value.typeIdentifier)
+      .run
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
-      .withInputs(mockTxos.map(txo => SpentTransactionOutput(txo.outputAddress, attFull, txo.transactionOutput.value)))
+      .withInputs(buildStxos())
       .withOutputs(
-        List(
-          assetGroupSeriesAccumulator,
-          assetGroupSeriesAccumulator.copy() // Have not been aggregated together
-        ).map(valToUtxo(_, inLockFullAddress)) // recipient
+        // to recipient
+        buildRecipientUtxos(
+          List(
+            assetGroupSeriesAccumulator,
+            assetGroupSeriesAccumulator.copy() // Have not been aggregated together
+          )
+        )
         ++
-        List(
-          value,
-          groupValue.copy(groupValue.value.setQuantity(quantity * 2)),
-          groupValueAlt,
-          seriesValue.copy(seriesValue.value.setQuantity(quantity * 2)),
-          seriesValueAlt,
-          assetGroupSeries.copy(assetGroupSeries.value.setQuantity(quantity * 2)),
-          assetGroupSeriesAlt,
-          assetGroup.copy(assetGroup.value.setQuantity(quantity * 2)),
-          assetGroupAlt,
-          assetSeries.copy(assetSeries.value.setQuantity(quantity * 2)),
-          assetSeriesAlt,
-          assetGroupSeriesAccumulatorAlt,
-          assetGroupAccumulator,
-          assetGroupAccumulator.copy(),
-          assetGroupAccumulatorAlt,
-          assetSeriesAccumulator,
-          assetSeriesAccumulator.copy(),
-          assetSeriesAccumulatorAlt
-        ).map(valToUtxo(_, trivialLockAddress)) // change
+        // change due to excess fee
+        buildChangeUtxos(List(lvlValue))
+        ++
+        // change values unaffected by recipient transfer and fee
+        buildChangeUtxos(
+          mockChange.filterNot(v =>
+            List(LvlType, assetGroupSeriesAccumulator.value.typeIdentifier).contains(v.value.typeIdentifier)
+          )
+        )
       )
     assertEquals(
       sortedTx(testTx.toOption.get).computeId,
@@ -578,47 +333,29 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
   }
 
   test("buildTransferAllTransaction > Transfer all Assets (accumulator, group fungible)") {
-    val testTx = txBuilder.buildTransferAllTransaction(
-      mockTxos,
-      inPredicateLockFull,
-      inLockFullAddress,
-      trivialLockAddress,
-      1,
-      GroupFungible(
-        mockGroupPolicy.computeId,
-        mockSeriesPolicy.computeId.value,
-        ACCUMULATOR
-      ).some
-    )
+    val testTx = buildTransferAllTransaction
+      .withTokenIdentifier(assetGroupAccumulator.value.typeIdentifier)
+      .run
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
-      .withInputs(mockTxos.map(txo => SpentTransactionOutput(txo.outputAddress, attFull, txo.transactionOutput.value)))
+      .withInputs(buildStxos())
       .withOutputs(
-        List(
-          assetGroupAccumulator,
-          assetGroupAccumulator.copy() // Have not been aggregated together
-        ).map(valToUtxo(_, inLockFullAddress)) // recipient
+        // to recipient
+        buildRecipientUtxos(
+          List(
+            assetGroupAccumulator,
+            assetGroupAccumulator.copy() // Have not been aggregated together
+          )
+        )
         ++
-        List(
-          value,
-          groupValue.copy(groupValue.value.setQuantity(quantity * 2)),
-          groupValueAlt,
-          seriesValue.copy(seriesValue.value.setQuantity(quantity * 2)),
-          seriesValueAlt,
-          assetGroupSeries.copy(assetGroupSeries.value.setQuantity(quantity * 2)),
-          assetGroupSeriesAlt,
-          assetGroup.copy(assetGroup.value.setQuantity(quantity * 2)),
-          assetGroupAlt,
-          assetSeries.copy(assetSeries.value.setQuantity(quantity * 2)),
-          assetSeriesAlt,
-          assetGroupSeriesAccumulator,
-          assetGroupSeriesAccumulator.copy(),
-          assetGroupSeriesAccumulatorAlt,
-          assetGroupAccumulatorAlt,
-          assetSeriesAccumulator,
-          assetSeriesAccumulator.copy(),
-          assetSeriesAccumulatorAlt
-        ).map(valToUtxo(_, trivialLockAddress)) // change
+        // change due to excess fee
+        buildChangeUtxos(List(lvlValue))
+        ++
+        // change values unaffected by recipient transfer and fee
+        buildChangeUtxos(
+          mockChange
+            .filterNot(v => List(LvlType, assetGroupAccumulator.value.typeIdentifier).contains(v.value.typeIdentifier))
+        )
       )
     assertEquals(
       sortedTx(testTx.toOption.get).computeId,
@@ -627,47 +364,218 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
   }
 
   test("buildTransferAllTransaction > Transfer all Assets (accumulator, series fungible)") {
-    val testTx = txBuilder.buildTransferAllTransaction(
-      mockTxos,
-      inPredicateLockFull,
-      inLockFullAddress,
-      trivialLockAddress,
-      1,
-      SeriesFungible(
-        mockSeriesPolicy.computeId,
-        mockGroupPolicy.computeId.value,
-        ACCUMULATOR
-      ).some
-    )
+    val testTx = buildTransferAllTransaction
+      .withTokenIdentifier(assetSeriesAccumulator.value.typeIdentifier)
+      .run
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
-      .withInputs(mockTxos.map(txo => SpentTransactionOutput(txo.outputAddress, attFull, txo.transactionOutput.value)))
+      .withInputs(buildStxos())
       .withOutputs(
-        List(
-          assetSeriesAccumulator,
-          assetSeriesAccumulator.copy() // Have not been aggregated together
-        ).map(valToUtxo(_, inLockFullAddress)) // recipient
+        // to recipient
+        buildRecipientUtxos(
+          List(
+            assetSeriesAccumulator,
+            assetSeriesAccumulator.copy() // Have not been aggregated together
+          )
+        )
         ++
-        List(
-          value,
-          groupValue.copy(groupValue.value.setQuantity(quantity * 2)),
-          groupValueAlt,
-          seriesValue.copy(seriesValue.value.setQuantity(quantity * 2)),
-          seriesValueAlt,
-          assetGroupSeries.copy(assetGroupSeries.value.setQuantity(quantity * 2)),
-          assetGroupSeriesAlt,
-          assetGroup.copy(assetGroup.value.setQuantity(quantity * 2)),
-          assetGroupAlt,
-          assetSeries.copy(assetSeries.value.setQuantity(quantity * 2)),
-          assetSeriesAlt,
-          assetGroupSeriesAccumulator,
-          assetGroupSeriesAccumulator.copy(),
-          assetGroupSeriesAccumulatorAlt,
-          assetGroupAccumulator,
-          assetGroupAccumulator.copy(),
-          assetGroupAccumulatorAlt,
-          assetSeriesAccumulatorAlt
-        ).map(valToUtxo(_, trivialLockAddress)) // change
+        // change due to excess fee
+        buildChangeUtxos(List(lvlValue))
+        ++
+        // change values unaffected by recipient transfer and fee
+        buildChangeUtxos(
+          mockChange
+            .filterNot(v => List(LvlType, assetSeriesAccumulator.value.typeIdentifier).contains(v.value.typeIdentifier))
+        )
+      )
+    assertEquals(
+      sortedTx(testTx.toOption.get).computeId,
+      sortedTx(expectedTx).computeId
+    )
+  }
+
+  test("buildTransferAllTransaction > Transfer all Assets (fractionable, group and series fungible)") {
+    val testTx = buildTransferAllTransaction
+      .withTokenIdentifier(assetGroupSeriesFractionable.value.typeIdentifier)
+      .run
+    val expectedTx = IoTransaction.defaultInstance
+      .withDatum(txDatum)
+      .withInputs(buildStxos())
+      .withOutputs(
+        // to recipient
+        buildRecipientUtxos(
+          List(
+            assetGroupSeriesFractionable,
+            assetGroupSeriesFractionable.copy() // Have not been aggregated together
+          )
+        )
+        ++
+        // change due to excess fee
+        buildChangeUtxos(List(lvlValue))
+        ++
+        // change values unaffected by recipient transfer and fee
+        buildChangeUtxos(
+          mockChange.filterNot(v =>
+            List(LvlType, assetGroupSeriesFractionable.value.typeIdentifier).contains(v.value.typeIdentifier)
+          )
+        )
+      )
+    assertEquals(
+      sortedTx(testTx.toOption.get).computeId,
+      sortedTx(expectedTx).computeId
+    )
+  }
+
+  test("buildTransferAllTransaction > Transfer all Assets (fractionable, group fungible)") {
+    val testTx = buildTransferAllTransaction
+      .withTokenIdentifier(assetGroupFractionable.value.typeIdentifier)
+      .run
+    val expectedTx = IoTransaction.defaultInstance
+      .withDatum(txDatum)
+      .withInputs(buildStxos())
+      .withOutputs(
+        // to recipient
+        buildRecipientUtxos(
+          List(
+            assetGroupFractionable,
+            assetGroupFractionable.copy() // Have not been aggregated together
+          )
+        )
+        ++
+        // change due to excess fee
+        buildChangeUtxos(List(lvlValue))
+        ++
+        // change values unaffected by recipient transfer and fee
+        buildChangeUtxos(
+          mockChange
+            .filterNot(v => List(LvlType, assetGroupFractionable.value.typeIdentifier).contains(v.value.typeIdentifier))
+        )
+      )
+    assertEquals(
+      sortedTx(testTx.toOption.get).computeId,
+      sortedTx(expectedTx).computeId
+    )
+  }
+
+  test("buildTransferAllTransaction > Transfer all Assets (fractionable, series fungible)") {
+    val testTx = buildTransferAllTransaction
+      .withTokenIdentifier(assetSeriesFractionable.value.typeIdentifier)
+      .run
+    val expectedTx = IoTransaction.defaultInstance
+      .withDatum(txDatum)
+      .withInputs(buildStxos())
+      .withOutputs(
+        // to recipient
+        buildRecipientUtxos(
+          List(
+            assetSeriesFractionable,
+            assetSeriesFractionable.copy() // Have not been aggregated together
+          )
+        )
+        ++
+        // change due to excess fee
+        buildChangeUtxos(List(lvlValue))
+        ++
+        // change values unaffected by recipient transfer and fee
+        buildChangeUtxos(
+          mockChange.filterNot(v =>
+            List(LvlType, assetSeriesFractionable.value.typeIdentifier).contains(v.value.typeIdentifier)
+          )
+        )
+      )
+    assertEquals(
+      sortedTx(testTx.toOption.get).computeId,
+      sortedTx(expectedTx).computeId
+    )
+  }
+
+  test("buildTransferAllTransaction > Transfer all Assets (immutable, group and series fungible)") {
+    val testTx = buildTransferAllTransaction
+      .withTokenIdentifier(assetGroupSeriesImmutable.value.typeIdentifier)
+      .run
+    val expectedTx = IoTransaction.defaultInstance
+      .withDatum(txDatum)
+      .withInputs(buildStxos())
+      .withOutputs(
+        // to recipient
+        buildRecipientUtxos(
+          List(
+            assetGroupSeriesImmutable,
+            assetGroupSeriesImmutable.copy() // Have not been aggregated together
+          )
+        )
+        ++
+        // change due to excess fee
+        buildChangeUtxos(List(lvlValue))
+        ++
+        // change values unaffected by recipient transfer and fee
+        buildChangeUtxos(
+          mockChange.filterNot(v =>
+            List(LvlType, assetGroupSeriesImmutable.value.typeIdentifier).contains(v.value.typeIdentifier)
+          )
+        )
+      )
+    assertEquals(
+      sortedTx(testTx.toOption.get).computeId,
+      sortedTx(expectedTx).computeId
+    )
+  }
+
+  test("buildTransferAllTransaction > Transfer all Assets (immutable, group fungible)") {
+    val testTx = buildTransferAllTransaction
+      .withTokenIdentifier(assetGroupImmutable.value.typeIdentifier)
+      .run
+    val expectedTx = IoTransaction.defaultInstance
+      .withDatum(txDatum)
+      .withInputs(buildStxos())
+      .withOutputs(
+        // to recipient
+        buildRecipientUtxos(
+          List(
+            assetGroupImmutable,
+            assetGroupImmutable.copy() // Have not been aggregated together
+          )
+        )
+        ++
+        // change due to excess fee
+        buildChangeUtxos(List(lvlValue))
+        ++
+        // change values unaffected by recipient transfer and fee
+        buildChangeUtxos(
+          mockChange
+            .filterNot(v => List(LvlType, assetGroupImmutable.value.typeIdentifier).contains(v.value.typeIdentifier))
+        )
+      )
+    assertEquals(
+      sortedTx(testTx.toOption.get).computeId,
+      sortedTx(expectedTx).computeId
+    )
+  }
+
+  test("buildTransferAllTransaction > Transfer all Assets (immutable, series fungible)") {
+    val testTx = buildTransferAllTransaction
+      .withTokenIdentifier(assetSeriesImmutable.value.typeIdentifier)
+      .run
+    val expectedTx = IoTransaction.defaultInstance
+      .withDatum(txDatum)
+      .withInputs(buildStxos())
+      .withOutputs(
+        // to recipient
+        buildRecipientUtxos(
+          List(
+            assetSeriesImmutable,
+            assetSeriesImmutable.copy() // Have not been aggregated together
+          )
+        )
+        ++
+        // change due to excess fee
+        buildChangeUtxos(List(lvlValue))
+        ++
+        // change values unaffected by recipient transfer and fee
+        buildChangeUtxos(
+          mockChange
+            .filterNot(v => List(LvlType, assetSeriesImmutable.value.typeIdentifier).contains(v.value.typeIdentifier))
+        )
       )
     assertEquals(
       sortedTx(testTx.toOption.get).computeId,
@@ -676,39 +584,16 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
   }
 
   test("buildTransferAllTransaction > Transfer ALL tokens") {
-    val testTx = txBuilder.buildTransferAllTransaction(
-      mockTxos,
-      inPredicateLockFull,
-      inLockFullAddress,
-      trivialLockAddress,
-      1
-    )
+    val testTx = buildTransferAllTransaction.run
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
-      .withInputs(mockTxos.map(txo => SpentTransactionOutput(txo.outputAddress, attFull, txo.transactionOutput.value)))
+      .withInputs(buildStxos())
       .withOutputs(
-        List(
-          value,
-          groupValue.copy(groupValue.value.setQuantity(quantity * 2)),
-          groupValueAlt,
-          seriesValue.copy(seriesValue.value.setQuantity(quantity * 2)),
-          seriesValueAlt,
-          assetGroupSeries.copy(assetGroupSeries.value.setQuantity(quantity * 2)),
-          assetGroupSeriesAlt,
-          assetGroup.copy(assetGroup.value.setQuantity(quantity * 2)),
-          assetGroupAlt,
-          assetSeries.copy(assetSeries.value.setQuantity(quantity * 2)),
-          assetSeriesAlt,
-          assetGroupSeriesAccumulator,
-          assetGroupSeriesAccumulator.copy(),
-          assetGroupSeriesAccumulatorAlt,
-          assetGroupAccumulator,
-          assetGroupAccumulator.copy(),
-          assetGroupAccumulatorAlt,
-          assetSeriesAccumulator,
-          assetSeriesAccumulator.copy(),
-          assetSeriesAccumulatorAlt
-        ).map(valToUtxo(_, inLockFullAddress)) // all to recipient
+        // all (except fee) go to recipient
+        buildRecipientUtxos(mockChange.filterNot(_.value.typeIdentifier == LvlType))
+        ++
+        // lvl in excess of fee goes to recipient
+        buildRecipientUtxos(List(lvlValue))
       )
     assertEquals(
       sortedTx(testTx.toOption.get).computeId,

@@ -1,7 +1,6 @@
 package co.topl.brambl.codecs
 
 import cats.Id
-import co.topl.brambl.MockHelpers
 import co.topl.brambl.builders.locks.PropositionTemplate
 import co.topl.brambl.builders.locks.PropositionTemplate.{
   AndTemplate,
@@ -17,7 +16,7 @@ import co.topl.brambl.builders.locks.PropositionTemplate.{
 import co.topl.brambl.codecs.PropositionTemplateCodecs.{decodePropositionTemplate, encodePropositionTemplate}
 import io.circe.Json
 
-class PropositionTemplateCodecsSpec extends munit.FunSuite with MockHelpers {
+class PropositionTemplateCodecsSpec extends munit.FunSuite with PropositionTemplateCodecsSpecBase {
 
   def assertEncodeDecode[TemplateType <: PropositionTemplate[Id]](
     expectedValue: TemplateType,

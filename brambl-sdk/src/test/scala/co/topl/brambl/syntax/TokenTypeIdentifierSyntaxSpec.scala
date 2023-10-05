@@ -12,7 +12,7 @@ class TokenTypeIdentifierSyntaxSpec extends munit.FunSuite with MockHelpers {
     val gId = mockGroupPolicy.computeId
     val sId = mockSeriesPolicy.computeId
     val qd = mockSeriesPolicy.quantityDescriptor
-    assertEquals(value.value.typeIdentifier, LvlType)
+    assertEquals(lvlValue.value.typeIdentifier, LvlType)
     assertEquals(groupValue.value.typeIdentifier, GroupType(gId))
     assertEquals(seriesValue.value.typeIdentifier, SeriesType(sId))
     assertEquals(assetGroupSeries.value.typeIdentifier, GroupAndSeriesFungible(gId, sId, qd))
