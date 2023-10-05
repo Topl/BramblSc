@@ -5,13 +5,15 @@ import cats.implicits._
 import co.topl.brambl.MockHelpers
 import co.topl.brambl.models.box.{AssetMintingStatement, Value}
 import co.topl.brambl.models.transaction.{SpentTransactionOutput, UnspentTransactionOutput}
-import co.topl.brambl.models.{Event, TransactionOutputAddress}
+import co.topl.brambl.models.{Datum, Event, TransactionOutputAddress}
 import co.topl.brambl.syntax._
 import scala.language.implicitConversions
 
 /**
  * Test to coverage this specific syntax validation:
  *  - Rule B - For all assets minting statement ams1, ams2, ...,  Should not contain repeated UTXOs
+ *  - For all group policies gp1, gp2, ...,  Should not contain repeated UTXOs
+ *  - For all series policies sp1, sp2, ...,  Should not contain repeated UTXOs
  */
 class TransactionSyntaxInterpreterRuleBSpec extends munit.FunSuite with MockHelpers {
 
@@ -253,6 +255,141 @@ class TransactionSyntaxInterpreterRuleBSpec extends munit.FunSuite with MockHelp
     assertEquals(assertError, true)
     assertEquals(assertError_2, true)
     assertEquals(result.map(_.toList.size).getOrElse(0), 3)
+
+  }
+
+  test("Invalid data-input case 1, minting a Group constructor Token") {
+    val groupPolicy = Event.GroupPolicy(label = "groupLabelA", registrationUtxo = txoAddress_1)
+    val value_1_in: Value =
+      Value.defaultInstance.withLvl(Value.LVL(quantity = BigInt(1)))
+
+    val value_1_out: Value =
+      Value.defaultInstance.withGroup(Value.Group(groupId = groupPolicy.computeId, quantity = BigInt(1)))
+
+    val inputs = List(SpentTransactionOutput(txoAddress_1, attFull, value_1_in))
+    val outputs = List(UnspentTransactionOutput(trivialLockAddress, value_1_out))
+
+    // policies contains same referenced Utxos
+    val groupPolicies = List(Datum.GroupPolicy(groupPolicy), Datum.GroupPolicy(groupPolicy))
+
+    val testTx = txFull.copy(inputs = inputs, outputs = outputs, groupPolicies = groupPolicies)
+
+    val validator = TransactionSyntaxInterpreter.make[Id]()
+    val result = validator.validate(testTx).swap
+
+    val assertError = result.exists(
+      _.toList.contains(
+        TransactionSyntaxError.DuplicateInput(txoAddress_1)
+      )
+    )
+    assertEquals(assertError, true)
+    assertEquals(result.map(_.toList.size).getOrElse(0), 1)
+
+  }
+
+  test("Invalid data-input case 2, minting a Group constructor Token") {
+    val groupPolicy_A = Event.GroupPolicy(label = "groupLabelA", registrationUtxo = txoAddress_1)
+    val groupPolicy_B = Event.GroupPolicy(label = "groupLabelB", registrationUtxo = txoAddress_1)
+    val value_1_in: Value =
+      Value.defaultInstance.withLvl(Value.LVL(quantity = BigInt(1)))
+
+    val value_1_out: Value =
+      Value.defaultInstance.withGroup(Value.Group(groupId = groupPolicy_A.computeId, quantity = BigInt(1)))
+
+    val value_2_out: Value =
+      Value.defaultInstance.withGroup(Value.Group(groupId = groupPolicy_B.computeId, quantity = BigInt(1)))
+
+    val inputs = List(SpentTransactionOutput(txoAddress_1, attFull, value_1_in))
+    val outputs = List(
+      UnspentTransactionOutput(trivialLockAddress, value_1_out),
+      UnspentTransactionOutput(trivialLockAddress, value_2_out)
+    )
+
+    // policies contains same referenced Utxos
+    val groupPolicies = List(Datum.GroupPolicy(groupPolicy_A), Datum.GroupPolicy(groupPolicy_B))
+
+    val testTx = txFull.copy(inputs = inputs, outputs = outputs, groupPolicies = groupPolicies)
+
+    val validator = TransactionSyntaxInterpreter.make[Id]()
+    val result = validator.validate(testTx).swap
+
+    val assertError = result.exists(
+      _.toList.contains(
+        TransactionSyntaxError.DuplicateInput(txoAddress_1)
+      )
+    )
+    assertEquals(assertError, true)
+    assertEquals(result.map(_.toList.size).getOrElse(0), 1)
+
+  }
+
+  test("Invalid data-input case 1, minting a Series constructor Token") {
+    val seriesPolicy = Event.SeriesPolicy(label = "seriesLabelB", registrationUtxo = txoAddress_1)
+    val value_1_in: Value =
+      Value.defaultInstance.withLvl(Value.LVL(quantity = BigInt(1)))
+
+    val value_1_out: Value =
+      Value.defaultInstance.withSeries(
+        Value.Series(seriesId = seriesPolicy.computeId, quantity = BigInt(1))
+      )
+
+    val inputs = List(SpentTransactionOutput(txoAddress_1, attFull, value_1_in))
+    val outputs = List(UnspentTransactionOutput(trivialLockAddress, value_1_out))
+    // policies contains same referenced Utxos
+    val seriesPolicies = List(Datum.SeriesPolicy(seriesPolicy), Datum.SeriesPolicy(seriesPolicy))
+
+    val testTx = txFull.copy(inputs = inputs, outputs = outputs, seriesPolicies = seriesPolicies)
+
+    val validator = TransactionSyntaxInterpreter.make[Id]()
+    val result = validator.validate(testTx).swap
+
+    val assertError = result.exists(
+      _.toList.contains(
+        TransactionSyntaxError.DuplicateInput(txoAddress_1)
+      )
+    )
+    assertEquals(assertError, true)
+    assertEquals(result.map(_.toList.size).getOrElse(0), 1)
+
+  }
+
+  test("Invalid data-input case 2, minting a Series constructor Token") {
+    val seriesPolicy_A = Event.SeriesPolicy(label = "seriesLabelA", registrationUtxo = txoAddress_1)
+    val seriesPolicy_B = Event.SeriesPolicy(label = "seriesLabelB", registrationUtxo = txoAddress_1)
+
+    val value_1_in: Value =
+      Value.defaultInstance.withLvl(Value.LVL(quantity = BigInt(1)))
+
+    val value_1_out: Value =
+      Value.defaultInstance.withSeries(
+        Value.Series(seriesId = seriesPolicy_A.computeId, quantity = BigInt(1))
+      )
+
+    val value_2_out: Value =
+      Value.defaultInstance.withSeries(
+        Value.Series(seriesId = seriesPolicy_B.computeId, quantity = BigInt(1))
+      )
+
+    val inputs = List(SpentTransactionOutput(txoAddress_1, attFull, value_1_in))
+    val outputs = List(
+      UnspentTransactionOutput(trivialLockAddress, value_1_out),
+      UnspentTransactionOutput(trivialLockAddress, value_2_out)
+    )
+    // policies contains same referenced Utxos
+    val seriesPolicies = List(Datum.SeriesPolicy(seriesPolicy_A), Datum.SeriesPolicy(seriesPolicy_B))
+
+    val testTx = txFull.copy(inputs = inputs, outputs = outputs, seriesPolicies = seriesPolicies)
+
+    val validator = TransactionSyntaxInterpreter.make[Id]()
+    val result = validator.validate(testTx).swap
+
+    val assertError = result.exists(
+      _.toList.contains(
+        TransactionSyntaxError.DuplicateInput(txoAddress_1)
+      )
+    )
+    assertEquals(assertError, true)
+    assertEquals(result.map(_.toList.size).getOrElse(0), 1)
 
   }
 

@@ -349,16 +349,18 @@ object TransactionSyntaxInterpreter {
   }
 
   /**
-   * Asset No Repeated Utxos Validation
+   * Asset, Group ans Series,  No Repeated Utxos Validation
    * - For all assets minting statement ams1, ams2, ...,  Should not contain repeated UTXOs
+   * - For all group policies gp1, gp2, ...,  Should not contain repeated UTXOs
+   * - For all series policies sp1, sp2, ...,  Should not contain repeated UTXOs
    *
    * @param transaction - transaction
    * @return
    */
   private def assetNoRepeatedUtxosValidation(transaction: IoTransaction): ValidatedNec[TransactionSyntaxError, Unit] =
     NonEmptyChain
-      .fromSeq(
-        transaction.mintingStatements
+      .fromSeq {
+        val mintingStatementsValidation = transaction.mintingStatements
           .flatMap(stm => Seq(stm.groupTokenUtxo, stm.seriesTokenUtxo))
           .groupBy(identity)
           .collect {
@@ -366,7 +368,27 @@ object TransactionSyntaxInterpreter {
               TransactionSyntaxError.DuplicateInput(address)
           }
           .toSeq
-      )
+
+        val groupPoliciesValidation = transaction.groupPolicies
+          .map(_.event.registrationUtxo)
+          .groupBy(identity)
+          .collect {
+            case (address, seqAddresses) if seqAddresses.size > 1 =>
+              TransactionSyntaxError.DuplicateInput(address)
+          }
+          .toSeq
+
+        val seriesPoliciesValidation = transaction.seriesPolicies
+          .map(_.event.registrationUtxo)
+          .groupBy(identity)
+          .collect {
+            case (address, seqAddresses) if seqAddresses.size > 1 =>
+              TransactionSyntaxError.DuplicateInput(address)
+          }
+          .toSeq
+
+        mintingStatementsValidation ++ groupPoliciesValidation ++ seriesPoliciesValidation
+      }
       .fold(().validNec[TransactionSyntaxError])(_.invalid[Unit])
 
   private def mintingInputsProjection(transaction: IoTransaction): Seq[SpentTransactionOutput] =
