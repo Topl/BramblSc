@@ -483,6 +483,7 @@ object TransactionSyntaxInterpreter {
               }
 
               (ams.quantity: BigInt) <= s.quantity * tokenSupplied &&
+              (ams.quantity: BigInt) % tokenSupplied == 0 &&
               burned * tokenSupplied == quantity(s).sum
 
             case None => true
