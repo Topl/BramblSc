@@ -5,7 +5,6 @@ import cats.data.{Chain, NonEmptyChain, Validated, ValidatedNec}
 import cats.implicits._
 import co.topl.brambl.common.ContainsImmutable.ContainsImmutableTOps
 import co.topl.brambl.common.ContainsImmutable.instances._
-import co.topl.brambl.models.Datum.GroupPolicy
 import co.topl.brambl.models.TransactionOutputAddress
 import co.topl.brambl.models.box._
 import co.topl.brambl.models.transaction.{IoTransaction, SpentTransactionOutput, UnspentTransactionOutput}
@@ -351,8 +350,7 @@ object TransactionSyntaxInterpreter {
   /**
    * Asset, Group ans Series,  No Repeated Utxos Validation
    * - For all assets minting statement ams1, ams2, ...,  Should not contain repeated UTXOs
-   * - For all group policies gp1, gp2, ...,  Should not contain repeated UTXOs
-   * - For all series policies sp1, sp2, ...,  Should not contain repeated UTXOs
+   * - For all group/series policies gp1, gp2, ..., ++ sp1, sp2, ..., Should not contain repeated UTXOs
    *
    * @param transaction - transaction
    * @return
@@ -369,25 +367,17 @@ object TransactionSyntaxInterpreter {
           }
           .toSeq
 
-        val groupPoliciesValidation = transaction.groupPolicies
-          .map(_.event.registrationUtxo)
-          .groupBy(identity)
-          .collect {
-            case (address, seqAddresses) if seqAddresses.size > 1 =>
-              TransactionSyntaxError.DuplicateInput(address)
-          }
-          .toSeq
+        val policiesValidation =
+          (transaction.groupPolicies.map(_.event.registrationUtxo) ++ transaction.seriesPolicies
+            .map(_.event.registrationUtxo))
+            .groupBy(identity)
+            .collect {
+              case (address, seqAddresses) if seqAddresses.size > 1 =>
+                TransactionSyntaxError.DuplicateInput(address)
+            }
+            .toSeq
 
-        val seriesPoliciesValidation = transaction.seriesPolicies
-          .map(_.event.registrationUtxo)
-          .groupBy(identity)
-          .collect {
-            case (address, seqAddresses) if seqAddresses.size > 1 =>
-              TransactionSyntaxError.DuplicateInput(address)
-          }
-          .toSeq
-
-        mintingStatementsValidation ++ groupPoliciesValidation ++ seriesPoliciesValidation
+        policiesValidation ++ mintingStatementsValidation
       }
       .fold(().validNec[TransactionSyntaxError])(_.invalid[Unit])
 

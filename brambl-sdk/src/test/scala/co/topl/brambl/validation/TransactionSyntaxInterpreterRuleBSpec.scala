@@ -12,8 +12,7 @@ import scala.language.implicitConversions
 /**
  * Test to coverage this specific syntax validation:
  *  - Rule B - For all assets minting statement ams1, ams2, ...,  Should not contain repeated UTXOs
- *  - For all group policies gp1, gp2, ...,  Should not contain repeated UTXOs
- *  - For all series policies sp1, sp2, ...,  Should not contain repeated UTXOs
+ *  - For all group/series policies gp1, gp2, ..., ++ sp1, sp2, ..., Should not contain repeated UTXOs
  */
 class TransactionSyntaxInterpreterRuleBSpec extends munit.FunSuite with MockHelpers {
 
@@ -379,6 +378,44 @@ class TransactionSyntaxInterpreterRuleBSpec extends munit.FunSuite with MockHelp
     val seriesPolicies = List(Datum.SeriesPolicy(seriesPolicy_A), Datum.SeriesPolicy(seriesPolicy_B))
 
     val testTx = txFull.copy(inputs = inputs, outputs = outputs, seriesPolicies = seriesPolicies)
+
+    val validator = TransactionSyntaxInterpreter.make[Id]()
+    val result = validator.validate(testTx).swap
+
+    val assertError = result.exists(
+      _.toList.contains(
+        TransactionSyntaxError.DuplicateInput(txoAddress_1)
+      )
+    )
+    assertEquals(assertError, true)
+    assertEquals(result.map(_.toList.size).getOrElse(0), 1)
+
+  }
+
+  test("Invalid data-input case 1, minting a Group and Series constructor Token") {
+    val g1 = Event.GroupPolicy(label = "g1", registrationUtxo = txoAddress_1)
+    val s1 = Event.SeriesPolicy(label = "s1", registrationUtxo = txoAddress_1)
+
+    val value_abc_in: Value =
+      Value.defaultInstance.withLvl(Value.LVL(quantity = BigInt(1)))
+
+    val value_1_out: Value =
+      Value.defaultInstance.withGroup(Value.Group(groupId = g1.computeId, quantity = BigInt(1)))
+
+    val value_2_out: Value =
+      Value.defaultInstance.withSeries(Value.Series(seriesId = s1.computeId, quantity = BigInt(1)))
+
+    val inputs = List(SpentTransactionOutput(txoAddress_1, attFull, value_abc_in))
+    val outputs = List(
+      UnspentTransactionOutput(trivialLockAddress, value_1_out),
+      UnspentTransactionOutput(trivialLockAddress, value_2_out)
+    )
+    // policies contains same referenced Utxos
+    val groupPolicies = List(Datum.GroupPolicy(g1))
+    val seriesPolicies = List(Datum.SeriesPolicy(s1))
+
+    val testTx =
+      txFull.copy(inputs = inputs, outputs = outputs, groupPolicies = groupPolicies, seriesPolicies = seriesPolicies)
 
     val validator = TransactionSyntaxInterpreter.make[Id]()
     val result = validator.validate(testTx).swap
