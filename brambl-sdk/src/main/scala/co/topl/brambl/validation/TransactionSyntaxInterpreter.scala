@@ -482,6 +482,7 @@ object TransactionSyntaxInterpreter {
                 if (filterSeries.isEmpty) BigInt(0) else ams.quantity: BigInt
               }
 
+              (ams.quantity: BigInt) <= s.quantity * tokenSupplied &&
               burned * tokenSupplied == quantity(s).sum
 
             case None => true

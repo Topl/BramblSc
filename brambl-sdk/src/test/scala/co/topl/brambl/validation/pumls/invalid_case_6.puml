@@ -1,0 +1,106 @@
+@startuml
+
+title
+    Invalid data-input case 6
+    A transaction with 2 minting statements that point to distinct UTXOs series,
+    and 2 distinct utxos groups
+    but their series UTXOs have the same seriesId.
+end title
+
+'Asset minting statements
+package AssetMintingStatements {
+    object ams_1
+        ams_1 : groupUtxo = utxo1
+        ams_1 : seriesUtxo = utxo3
+        ams_1 : quantity = 25
+
+    object ams_2
+        ams_2 : groupUtxo = utxo2
+        ams_2 : seriesUtxo = utxo4
+        ams_2 : quantity = 10
+}
+
+package Inputs {
+    object utxo_1 #lightgreen
+        utxo_1 : group = gA
+        utxo_1 : quantity = 1
+
+    object utxo_2 #lightgreen
+        utxo_2 : group = gB
+        utxo_2 : quantity = 1
+
+    object utxo_3 #pink
+        utxo_3 : series = sC
+        utxo_3 : quantity = 4
+        utxo_3 : tokenSupply = 5
+
+    object utxo_4 #pink
+        utxo_4 : series = sC
+        utxo_4 : quantity = 3
+        utxo_4 : tokenSupply = 5
+}
+
+package Outputs {
+
+    object output_1 #lightgreen
+        output_1 : group = gA
+        output_1 : quantity = 1
+
+    object output_2 #lightgreen
+        output_2 : group = gB
+        output_2 : quantity = 1
+
+    object output_3 #pink
+        output_3 : series = sC
+        output_3 : quantity = -1
+        output_3 : tokenSupply = 5
+
+
+    object output_4 #pink
+        output_4 : series = sC
+        output_4 : quantity = 1
+        output_4 : tokenSupply = 5
+
+    object output_5 #cyan
+        output_5 : asset = gA_sC
+        output_5 : quantity = 25
+
+    object output_6 #cyan
+        output_6 : asset = gB_sC
+        output_6 : quantity = 10
+
+}
+
+'relationships
+
+ams_1 *-- utxo_1
+ams_1 *-- utxo_3
+
+ams_2 *-- utxo_2
+ams_2 *-- utxo_4
+
+
+utxo_1 *-- output_1
+utxo_2 *-- output_2
+
+utxo_3 *-- output_3
+utxo_4 *-- output_4
+
+utxo_3 *-- output_5
+utxo_1 *-- output_5
+
+utxo_4 *-- output_6
+utxo_2 *-- output_6
+
+note bottom of output_4 #white/Green: 2 series was burned
+note bottom of output_3 #white/Red: 5 series was burned, (but  we only have 4)
+
+legend
+ |= |= Type |
+ |<#lightgreen>     | Group |
+ |<#pink>           | Series |
+ |<#cyan>           | Asset  |
+
+ endlegend
+
+@enduml
