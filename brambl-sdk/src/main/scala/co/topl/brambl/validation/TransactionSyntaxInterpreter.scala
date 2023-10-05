@@ -5,6 +5,7 @@ import cats.data.{Chain, NonEmptyChain, Validated, ValidatedNec}
 import cats.implicits._
 import co.topl.brambl.common.ContainsImmutable.ContainsImmutableTOps
 import co.topl.brambl.common.ContainsImmutable.instances._
+import co.topl.brambl.models.{SeriesId, TransactionOutputAddress}
 import co.topl.brambl.models.Datum.GroupPolicy
 import co.topl.brambl.models.TransactionOutputAddress
 import co.topl.brambl.models.box._
@@ -438,7 +439,58 @@ object TransactionSyntaxInterpreter {
       }
     }
 
-    val validAssets: Boolean = true // TODO
+    /**
+     * Let sIn be the total number of series constructor tokens with identifier in the input,
+     * sOut the total number of series constructor tokens with identifier in the output,
+     * and burned the number of where the referenced series specifies a token supply, then we have:
+     * sIn - burned = sOut
+     */
+    val validAssets = transaction.mintingStatements.forall { ams =>
+      val maybeSeries: Option[Value.Series] =
+        transaction.inputs
+          .filter(_.value.value.isSeries)
+          .filter(_.address == ams.seriesTokenUtxo)
+          .map(_.value.getSeries)
+          .headOption
+
+      maybeSeries match {
+        case Some(s) =>
+          s.tokenSupply match {
+            case Some(tokenSupplied) =>
+              val sIn = transaction.inputs
+                .filter(_.value.value.isSeries)
+                .filter(_.value.getSeries.seriesId == s.seriesId)
+                .map(_.value.getSeries.quantity: BigInt)
+                .sum
+
+              val sOut =
+                transaction.outputs
+                  .filter(_.value.value.isSeries)
+                  .filter(_.value.getSeries.seriesId == s.seriesId)
+                  .map(_.value.getSeries.quantity: BigInt)
+                  .sum
+
+              val burned = sIn - sOut
+
+              // all asset minting statements quantity with the same series id
+              def quantity(s: Value.Series) = transaction.mintingStatements.map { ams =>
+                val filterSeries = transaction.inputs
+                  .filter(_.address == ams.seriesTokenUtxo)
+                  .filter(_.value.value.isSeries)
+                  .map(_.value.getSeries)
+                  .filter(_.seriesId == s.seriesId)
+                if (filterSeries.isEmpty) BigInt(0) else ams.quantity: BigInt
+              }
+
+              (ams.quantity: BigInt) <= s.quantity * tokenSupplied &&
+              (ams.quantity: BigInt) % tokenSupplied == 0 &&
+              burned * tokenSupplied == quantity(s).sum
+
+            case None => true
+          }
+        case None => false
+      }
+    }
 
     Validated.condNec(
       validGroups && validSeries && validAssets,

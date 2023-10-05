@@ -96,6 +96,7 @@ class TransactionSyntaxInterpreterRuleBSpec extends munit.FunSuite with MockHelp
   /**
    * In this case there 2 validations that are failing;
    * InsufficientInputFunds, because is not able to pass assetEqualFundsValidation
+   * InsufficientInputFunds, because is not able to pass mintingValidation
    * DuplicateInput because minting statements contains the same txoAddress
    */
   test("Invalid data-input case, input(0) + minted(1) == output(1), asset mining statements are duplicated") {
@@ -164,7 +165,7 @@ class TransactionSyntaxInterpreterRuleBSpec extends munit.FunSuite with MockHelp
     )
 
     assertEquals(assertError, true)
-    assertEquals(result.map(_.toList.size).getOrElse(0), 2)
+    assertEquals(result.map(_.toList.size).getOrElse(0), 3)
 
   }
 
