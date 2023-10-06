@@ -7,7 +7,7 @@ import co.topl.brambl.common.ContainsImmutable.ContainsImmutableTOps
 import co.topl.brambl.common.ContainsImmutable.instances._
 import co.topl.brambl.models.{SeriesId, TransactionOutputAddress}
 import co.topl.brambl.models.Datum.GroupPolicy
-import co.topl.brambl.models.TransactionOutputAddress
+import co.topl.brambl.models.{SeriesId, TransactionOutputAddress}
 import co.topl.brambl.models.box._
 import co.topl.brambl.models.transaction.{IoTransaction, SpentTransactionOutput, UnspentTransactionOutput}
 import co.topl.brambl.syntax._
@@ -42,6 +42,7 @@ object TransactionSyntaxInterpreter {
       dataLengthValidation,
       assetEqualFundsValidation,
       groupEqualFundsValidation,
+      seriesEqualFundsValidation,
       assetNoRepeatedUtxosValidation,
       mintingValidation
     )
@@ -335,6 +336,48 @@ object TransactionSyntaxInterpreter {
           groupsOut.filter(_.groupId == gId).map(_.quantity: BigInt).sum
       } else {
         groupsOut.filter(_.groupId == gId).map(_.quantity: BigInt).sum > 0
+      }
+    }
+
+    Validated.condNec(
+      res,
+      (),
+      TransactionSyntaxError.InsufficientInputFunds(
+        transaction.inputs.map(_.value.value).toList,
+        transaction.outputs.map(_.value.value).toList
+      )
+    )
+
+  }
+
+  /**
+   * SeriesEqualFundsValidation
+   *  - Check Moving Series Tokens: Let s be a series identifier, then the number of Series Constructor Tokens with group identifier s
+   * in the input is equal to the number of the number of Series Constructor Tokens with identifier s in the output.
+   *  - Check Minting Constructor Tokens: Let s be a series identifier and p the series policy whose digest is equal to s, all of the following statements are true:
+   *    The policy p is attached to the transaction.
+   *    The number of series constructor tokens with identifiers in the output of the transaction is strictly bigger than 0.
+   *    The registration UTXO referenced in p is present in the inputs and contains LVLs.
+   *
+   * @param transaction
+   * @return
+   */
+  private def seriesEqualFundsValidation(transaction: IoTransaction): ValidatedNec[TransactionSyntaxError, Unit] = {
+
+    val seriesIn = transaction.inputs.filter(_.value.value.isSeries).map(_.value.getSeries)
+    val seriesOut = transaction.outputs.filter(_.value.value.isSeries).map(_.value.getSeries)
+
+    val sIds =
+      seriesIn.groupBy(_.seriesId).keySet ++
+      seriesOut.groupBy(_.seriesId).keySet ++
+      transaction.seriesPolicies.map(_.event.computeId).toSet
+
+    val res = sIds.forall { sId =>
+      if (!transaction.seriesPolicies.map(_.event.computeId).contains(sId)) {
+        seriesIn.filter(_.seriesId == sId).map(_.quantity: BigInt).sum ==
+          seriesOut.filter(_.seriesId == sId).map(_.quantity: BigInt).sum
+      } else {
+        seriesOut.filter(_.seriesId == sId).map(_.quantity: BigInt).sum > 0
       }
     }
 
