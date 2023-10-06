@@ -56,9 +56,21 @@ const config = {
         items: [
           {
             type: 'docSidebar',
+            sidebarId: 'referenceSidebar',
+            position: 'left',
+            label: 'Reference',
+          },
+          {
+            type: 'docSidebar',
             sidebarId: 'tutorialSidebar',
             position: 'left',
-            label: 'Tutorial',
+            label: 'Tutorials',
+          },
+          {
+            type: 'docSidebar',
+            sidebarId: 'conceptsSidebar',
+            position: 'left',
+            label: 'Concepts',
           },
           {
             href: 'https://github.com/Topl/BramblSc',
@@ -70,15 +82,6 @@ const config = {
       footer: {
         style: 'dark',
         links: [
-          {
-            title: 'Docs',
-            items: [
-              {
-                label: 'Tutorial',
-                to: '/docs/intro',
-              },
-            ],
-          },
           {
             title: 'Community',
             items: [
