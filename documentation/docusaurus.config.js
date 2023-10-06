@@ -34,6 +34,14 @@ const config = {
       ({
         docs: {
           sidebarPath: require.resolve('./sidebars.js'),
+          lastVersion: 'current',
+          versions: {
+            current: {
+              label: '2.0.0',
+              path: '2.0.0',
+              badge: true,
+            },
+          },
         },
         theme: {
           customCss: require.resolve('./src/css/custom.css'),
