@@ -70,7 +70,7 @@ const config = {
           },
           {
             type: 'docSidebar',
-            sidebarId: 'tutorialSidebar',
+            sidebarId: 'tutorialsSidebar',
             position: 'left',
             label: 'Tutorials',
           },
