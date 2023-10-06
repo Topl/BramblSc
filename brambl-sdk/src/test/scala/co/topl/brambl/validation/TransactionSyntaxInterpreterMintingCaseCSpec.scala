@@ -83,32 +83,23 @@ class TransactionSyntaxInterpreterMintingCaseCSpec extends munit.FunSuite with M
       Event.SeriesPolicy(label = "seriesLabelB", registrationUtxo = txoAddress_2, tokenSupply = Some(10))
 
     val value_1_in: Value =
-      Value.defaultInstance.withGroup(Value.Group(groupId = groupPolicy.computeId, quantity = BigInt(1)))
+      Value.defaultInstance.withGroup(Value.Group(groupId = groupPolicy.computeId, quantity = 1))
 
     val value_2_in: Value =
       Value.defaultInstance.withSeries(
-        Value.Series(seriesId = seriesPolicy.computeId, quantity = BigInt(1), tokenSupply = Some(10))
+        Value.Series(seriesId = seriesPolicy.computeId, quantity = 1, tokenSupply = Some(10))
       )
 
     // case 1 token supply Limited
     // only possible value is 10, 1*10.  if quantity is 2 = could be 10 or 20. 1*10, 2*10,
     val value_1_out: Value =
       Value.defaultInstance.withAsset(
-        Value.Asset(
-          groupId = Some(groupPolicy.computeId),
-          seriesId = Some(seriesPolicy.computeId),
-          quantity = BigInt(10)
-        )
+        Value.Asset(groupId = Some(groupPolicy.computeId), seriesId = Some(seriesPolicy.computeId), quantity = 10)
       )
 
     // quantity should be equal value_1_in
     val value_2_out: Value =
-      Value.defaultInstance.withGroup(
-        Value.Group(
-          groupId = groupPolicy.computeId,
-          quantity = BigInt(1)
-        )
-      )
+      Value.defaultInstance.withGroup(Value.Group(groupId = groupPolicy.computeId, quantity = 1))
 
     // Here we burning the series, burned == 1 keep comment to understand the test
     // when we burn a series, means quantity =0, but this output is not produced
@@ -125,11 +116,8 @@ class TransactionSyntaxInterpreterMintingCaseCSpec extends munit.FunSuite with M
     val output_1 = UnspentTransactionOutput(trivialLockAddress, value_1_out)
     val output_2 = UnspentTransactionOutput(trivialLockAddress, value_2_out)
 
-    val mintingStatement_1 = AssetMintingStatement(
-      groupTokenUtxo = txoAddress_1,
-      seriesTokenUtxo = txoAddress_2,
-      quantity = BigInt(10)
-    )
+    val mintingStatement_1 =
+      AssetMintingStatement(groupTokenUtxo = txoAddress_1, seriesTokenUtxo = txoAddress_2, quantity = 10)
 
     val testTx = txFull.copy(
       inputs = List(input_1, input_2),

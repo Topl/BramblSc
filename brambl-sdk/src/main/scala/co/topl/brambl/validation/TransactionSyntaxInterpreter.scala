@@ -5,6 +5,7 @@ import cats.data.{Chain, NonEmptyChain, Validated, ValidatedNec}
 import cats.implicits._
 import co.topl.brambl.common.ContainsImmutable.ContainsImmutableTOps
 import co.topl.brambl.common.ContainsImmutable.instances._
+import co.topl.brambl.models.TransactionOutputAddress
 import co.topl.brambl.models.{SeriesId, TransactionOutputAddress}
 import co.topl.brambl.models.Datum.GroupPolicy
 import co.topl.brambl.models.{SeriesId, TransactionOutputAddress}
@@ -372,8 +373,18 @@ object TransactionSyntaxInterpreter {
       seriesOut.groupBy(_.seriesId).keySet ++
       transaction.seriesPolicies.map(_.event.computeId).toSet
 
+    val sIdsOnMintingStatements = {
+      val sIdsAddress = transaction.mintingStatements.map(_.seriesTokenUtxo)
+      transaction.inputs
+        .filter(sto => sIdsAddress.contains(sto.address))
+        .filter(_.value.value.isSeries)
+        .map(_.value.getSeries.seriesId)
+    }
+
     val res = sIds.forall { sId =>
-      if (!transaction.seriesPolicies.map(_.event.computeId).contains(sId)) {
+      if (sIdsOnMintingStatements.contains(sId)) {
+        seriesOut.filter(_.seriesId == sId).map(_.quantity: BigInt).sum >= 0
+      } else if (!transaction.seriesPolicies.map(_.event.computeId).contains(sId)) {
         seriesIn.filter(_.seriesId == sId).map(_.quantity: BigInt).sum ==
           seriesOut.filter(_.seriesId == sId).map(_.quantity: BigInt).sum
       } else {
@@ -393,16 +404,17 @@ object TransactionSyntaxInterpreter {
   }
 
   /**
-   * Asset No Repeated Utxos Validation
+   * Asset, Group and Series,  No Repeated Utxos Validation
    * - For all assets minting statement ams1, ams2, ...,  Should not contain repeated UTXOs
+   * - For all group/series policies gp1, gp2, ..., ++ sp1, sp2, ..., Should not contain repeated UTXOs
    *
    * @param transaction - transaction
    * @return
    */
   private def assetNoRepeatedUtxosValidation(transaction: IoTransaction): ValidatedNec[TransactionSyntaxError, Unit] =
     NonEmptyChain
-      .fromSeq(
-        transaction.mintingStatements
+      .fromSeq {
+        val mintingStatementsValidation = transaction.mintingStatements
           .flatMap(stm => Seq(stm.groupTokenUtxo, stm.seriesTokenUtxo))
           .groupBy(identity)
           .collect {
@@ -410,7 +422,19 @@ object TransactionSyntaxInterpreter {
               TransactionSyntaxError.DuplicateInput(address)
           }
           .toSeq
-      )
+
+        val policiesValidation =
+          (transaction.groupPolicies.map(_.event.registrationUtxo) ++ transaction.seriesPolicies
+            .map(_.event.registrationUtxo))
+            .groupBy(identity)
+            .collect {
+              case (address, seqAddresses) if seqAddresses.size > 1 =>
+                TransactionSyntaxError.DuplicateInput(address)
+            }
+            .toSeq
+
+        policiesValidation ++ mintingStatementsValidation
+      }
       .fold(().validNec[TransactionSyntaxError])(_.invalid[Unit])
 
   private def mintingInputsProjection(transaction: IoTransaction): Seq[SpentTransactionOutput] =
