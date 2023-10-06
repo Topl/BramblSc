@@ -1,0 +1,56 @@
+@startuml
+
+title
+    Invalid data-input case 7
+    Invalid since seriesUtxo does not refer to a series token
+end title
+
+'Asset minting statements
+package AssetMintingStatements {
+    object ams_1
+        ams_1 : groupUtxo = xyz
+        ams_1 : seriesUtxo = abc
+        ams_1 : quantity = 1
+}
+
+package Inputs {
+    object utxo_abc #coral
+        utxo_abc : lvl
+        utxo_abc : quantity = 1
+
+    object utxo_xyz #lightgreen
+        utxo_xyz : group = g1
+        utxo_xyz : quantity = 1
+}
+
+package Outputs {
+
+    object output_2 #cyan
+        output_2 : asset = g1_
+        output_2 : quantity = 1
+
+    object output_1 #lightgreen
+        output_1 : group = g1
+        output_1 : quantity = 1
+}
+
+'relationships
+
+ams_1 *-- utxo_abc
+ams_1 *-- utxo_xyz
+
+utxo_xyz *-- output_1
+
+
+note right of ams_1 #white/Red: Series 'utxo_abc' is LVL
+
+legend
+ |= |= Type |
+ |<#coral>           | Lvl  |
+ |<#lightgreen>     | Group |
+ |<#pink>           | Series |
+ |<#cyan>           | Asset  |
+
+ endlegend
+
+@enduml

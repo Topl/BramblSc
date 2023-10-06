@@ -24,28 +24,24 @@ class TransactionSyntaxInterpreterRuleBSpec extends munit.FunSuite with MockHelp
    * DuplicateInput because input contains the same txoAddress
    * DuplicateInput because minting statements contains the same txoAddress
    */
-  test("Invalid data-input case, input(0) + minted(1) == output(1), input and asset mining statements are duplicated") {
+  test("Invalid data-input case, input(0) + minted1 == output1, input and asset mining statements are duplicated") {
     val groupPolicy = Event.GroupPolicy(label = "groupLabelA", registrationUtxo = txoAddress_1)
     val seriesPolicy = Event.SeriesPolicy(label = "seriesLabelB", registrationUtxo = txoAddress_1)
-    val value_1_in: Value =
-      Value.defaultInstance.withGroup(Value.Group(groupId = groupPolicy.computeId, quantity = BigInt(1)))
+    val value_1_in =
+      Value.defaultInstance.withGroup(Value.Group(groupId = groupPolicy.computeId, quantity = 1))
 
-    val value_2_in: Value =
-      Value.defaultInstance.withSeries(Value.Series(seriesId = seriesPolicy.computeId, quantity = BigInt(1)))
+    val value_2_in =
+      Value.defaultInstance.withSeries(Value.Series(seriesId = seriesPolicy.computeId, quantity = 1))
 
-    val value_1_out: Value =
+    val value_1_out =
       Value.defaultInstance.withAsset(
-        Value.Asset(
-          groupId = Some(groupPolicy.computeId),
-          seriesId = Some(seriesPolicy.computeId),
-          quantity = BigInt(1)
-        )
+        Value.Asset(groupId = Some(groupPolicy.computeId), seriesId = Some(seriesPolicy.computeId), quantity = 1)
       )
-    val value_2_out: Value =
-      Value.defaultInstance.withGroup(Value.Group(groupId = groupPolicy.computeId, quantity = BigInt(1)))
+    val value_2_out =
+      Value.defaultInstance.withGroup(Value.Group(groupId = groupPolicy.computeId, quantity = 1))
 
-    val value_3_out: Value =
-      Value.defaultInstance.withSeries(Value.Series(seriesId = seriesPolicy.computeId, quantity = BigInt(1)))
+    val value_3_out =
+      Value.defaultInstance.withSeries(Value.Series(seriesId = seriesPolicy.computeId, quantity = 1))
 
     // Note: duplicate sto address
     val inputs = List(
@@ -61,11 +57,7 @@ class TransactionSyntaxInterpreterRuleBSpec extends munit.FunSuite with MockHelp
 
     // Note: duplicate minting statements
     val mintingStatements = List(
-      AssetMintingStatement(
-        groupTokenUtxo = txoAddress_1,
-        seriesTokenUtxo = txoAddress_1,
-        quantity = BigInt(1)
-      )
+      AssetMintingStatement(groupTokenUtxo = txoAddress_1, seriesTokenUtxo = txoAddress_1, quantity = 1)
     )
 
     val testTx = txFull.copy(inputs = inputs, outputs = outputs, mintingStatements = mintingStatements)
@@ -73,11 +65,7 @@ class TransactionSyntaxInterpreterRuleBSpec extends munit.FunSuite with MockHelp
     val validator = TransactionSyntaxInterpreter.make[Id]()
     val result = validator.validate(testTx).swap
 
-    val assertError = result.exists(
-      _.toList.contains(
-        TransactionSyntaxError.DuplicateInput(txoAddress_1)
-      )
-    )
+    val assertError = result.exists(_.toList.contains(TransactionSyntaxError.DuplicateInput(txoAddress_1)))
     assertEquals(assertError, true)
     assertEquals(result.map(_.toList.size).getOrElse(0), 2)
 
@@ -89,29 +77,25 @@ class TransactionSyntaxInterpreterRuleBSpec extends munit.FunSuite with MockHelp
    * InsufficientInputFunds, because is not able to pass mintingValidation
    * DuplicateInput because minting statements contains the same txoAddress
    */
-  test("Invalid data-input case, input(0) + minted(1) == output(1), asset mining statements are duplicated") {
+  test("Invalid data-input case, input(0) + minted1 == output1, asset mining statements are duplicated") {
     val groupPolicy = Event.GroupPolicy(label = "groupLabelA", registrationUtxo = txoAddress_1)
     val seriesPolicy = Event.SeriesPolicy(label = "seriesLabelB", registrationUtxo = txoAddress_2)
-    val value_1_in: Value =
-      Value.defaultInstance.withGroup(Value.Group(groupId = groupPolicy.computeId, quantity = BigInt(1)))
+    val value_1_in =
+      Value.defaultInstance.withGroup(Value.Group(groupId = groupPolicy.computeId, quantity = 1))
 
-    val value_2_in: Value =
-      Value.defaultInstance.withSeries(Value.Series(seriesId = seriesPolicy.computeId, quantity = BigInt(1)))
+    val value_2_in =
+      Value.defaultInstance.withSeries(Value.Series(seriesId = seriesPolicy.computeId, quantity = 1))
 
-    val value_1_out: Value =
+    val value_1_out =
       Value.defaultInstance.withAsset(
-        Value.Asset(
-          groupId = Some(groupPolicy.computeId),
-          seriesId = Some(seriesPolicy.computeId),
-          quantity = BigInt(1)
-        )
+        Value.Asset(groupId = Some(groupPolicy.computeId), seriesId = Some(seriesPolicy.computeId), quantity = 1)
       )
 
-    val value_2_out: Value =
-      Value.defaultInstance.withGroup(Value.Group(groupId = groupPolicy.computeId, quantity = BigInt(1)))
+    val value_2_out =
+      Value.defaultInstance.withGroup(Value.Group(groupId = groupPolicy.computeId, quantity = 1))
 
-    val value_3_out: Value =
-      Value.defaultInstance.withSeries(Value.Series(seriesId = seriesPolicy.computeId, quantity = BigInt(1)))
+    val value_3_out =
+      Value.defaultInstance.withSeries(Value.Series(seriesId = seriesPolicy.computeId, quantity = 1))
 
     val inputs = List(
       SpentTransactionOutput(txoAddress_1, attFull, value_1_in),
@@ -128,7 +112,7 @@ class TransactionSyntaxInterpreterRuleBSpec extends munit.FunSuite with MockHelp
       AssetMintingStatement(
         groupTokenUtxo = txoAddress_1,
         seriesTokenUtxo = txoAddress_1,
-        quantity = BigInt(1)
+        quantity = 1
       )
     )
 
@@ -137,11 +121,7 @@ class TransactionSyntaxInterpreterRuleBSpec extends munit.FunSuite with MockHelp
     val validator = TransactionSyntaxInterpreter.make[Id]()
     val result = validator.validate(testTx).swap
 
-    val assertError = result.exists(
-      _.toList.contains(
-        TransactionSyntaxError.DuplicateInput(txoAddress_1)
-      )
-    )
+    val assertError = result.exists(_.toList.contains(TransactionSyntaxError.DuplicateInput(txoAddress_1)))
 
     assertEquals(assertError, true)
     assertEquals(result.map(_.toList.size).getOrElse(0), 3)
@@ -152,29 +132,25 @@ class TransactionSyntaxInterpreterRuleBSpec extends munit.FunSuite with MockHelp
    * In this case there only 1 validation is failing, but contains 2 items;
    * DuplicateInput because minting statements contains the same txoAddress
    */
-  test("Invalid data-input case, input(0) + minted(1) == output(1), asset mining statements are duplicated, case 2") {
+  test("Invalid data-input case, input(0) + minted1 == output1, asset mining statements are duplicated, case 2") {
     val groupPolicy = Event.GroupPolicy(label = "groupLabelA", registrationUtxo = txoAddress_1)
     val seriesPolicy = Event.SeriesPolicy(label = "seriesLabelB", registrationUtxo = txoAddress_2)
-    val value_1_in: Value =
-      Value.defaultInstance.withGroup(Value.Group(groupId = groupPolicy.computeId, quantity = BigInt(1)))
+    val value_1_in =
+      Value.defaultInstance.withGroup(Value.Group(groupId = groupPolicy.computeId, quantity = 1))
 
-    val value_2_in: Value =
-      Value.defaultInstance.withSeries(Value.Series(seriesId = seriesPolicy.computeId, quantity = BigInt(1)))
+    val value_2_in =
+      Value.defaultInstance.withSeries(Value.Series(seriesId = seriesPolicy.computeId, quantity = 1))
 
-    val value_1_out: Value =
+    val value_1_out =
       Value.defaultInstance.withAsset(
-        Value.Asset(
-          groupId = Some(groupPolicy.computeId),
-          seriesId = Some(seriesPolicy.computeId),
-          quantity = BigInt(1)
-        )
+        Value.Asset(groupId = Some(groupPolicy.computeId), seriesId = Some(seriesPolicy.computeId), quantity = 1)
       )
 
-    val value_2_out: Value =
-      Value.defaultInstance.withGroup(Value.Group(groupId = groupPolicy.computeId, quantity = BigInt(1)))
+    val value_2_out =
+      Value.defaultInstance.withGroup(Value.Group(groupId = groupPolicy.computeId, quantity = 1))
 
-    val value_3_out: Value =
-      Value.defaultInstance.withSeries(Value.Series(seriesId = seriesPolicy.computeId, quantity = BigInt(1)))
+    val value_3_out =
+      Value.defaultInstance.withSeries(Value.Series(seriesId = seriesPolicy.computeId, quantity = 1))
 
     val inputs = List(
       SpentTransactionOutput(txoAddress_1, attFull, value_1_in),
@@ -188,17 +164,11 @@ class TransactionSyntaxInterpreterRuleBSpec extends munit.FunSuite with MockHelp
     )
 
     // Note: duplicate minting statements, but in two statements mintingStatement_1 and mintingStatement_2
-    val mintingStatement_1 = AssetMintingStatement(
-      groupTokenUtxo = txoAddress_1,
-      seriesTokenUtxo = txoAddress_2,
-      quantity = BigInt(1)
-    )
+    val mintingStatement_1 =
+      AssetMintingStatement(groupTokenUtxo = txoAddress_1, seriesTokenUtxo = txoAddress_2, quantity = 1)
 
-    val mintingStatement_2 = AssetMintingStatement(
-      groupTokenUtxo = txoAddress_1,
-      seriesTokenUtxo = txoAddress_2,
-      quantity = BigInt(1)
-    )
+    val mintingStatement_2 =
+      AssetMintingStatement(groupTokenUtxo = txoAddress_1, seriesTokenUtxo = txoAddress_2, quantity = 1)
 
     val mintingStatements = List(mintingStatement_1, mintingStatement_2)
 
@@ -207,17 +177,9 @@ class TransactionSyntaxInterpreterRuleBSpec extends munit.FunSuite with MockHelp
     val validator = TransactionSyntaxInterpreter.make[Id]()
     val result = validator.validate(testTx).swap
 
-    val assertError = result.exists(
-      _.toList.contains(
-        TransactionSyntaxError.DuplicateInput(txoAddress_1)
-      )
-    )
+    val assertError = result.exists(_.toList.contains(TransactionSyntaxError.DuplicateInput(txoAddress_1)))
 
-    val assertError_2 = result.exists(
-      _.toList.contains(
-        TransactionSyntaxError.DuplicateInput(txoAddress_2)
-      )
-    )
+    val assertError_2 = result.exists(_.toList.contains(TransactionSyntaxError.DuplicateInput(txoAddress_2)))
 
     assertEquals(assertError, true)
     assertEquals(assertError_2, true)
@@ -225,13 +187,13 @@ class TransactionSyntaxInterpreterRuleBSpec extends munit.FunSuite with MockHelp
 
   }
 
-  test("Invalid data-input case 1, minting a Group constructor Token") {
+  test("Invalid data-input, minting a Group constructor Token") {
     val groupPolicy = Event.GroupPolicy(label = "groupLabelA", registrationUtxo = txoAddress_1)
-    val value_1_in: Value =
-      Value.defaultInstance.withLvl(Value.LVL(quantity = BigInt(1)))
+    val value_1_in =
+      Value.defaultInstance.withLvl(Value.LVL(quantity = 1))
 
-    val value_1_out: Value =
-      Value.defaultInstance.withGroup(Value.Group(groupId = groupPolicy.computeId, quantity = BigInt(1)))
+    val value_1_out =
+      Value.defaultInstance.withGroup(Value.Group(groupId = groupPolicy.computeId, quantity = 1))
 
     val inputs = List(SpentTransactionOutput(txoAddress_1, attFull, value_1_in))
     val outputs = List(UnspentTransactionOutput(trivialLockAddress, value_1_out))
@@ -244,27 +206,23 @@ class TransactionSyntaxInterpreterRuleBSpec extends munit.FunSuite with MockHelp
     val validator = TransactionSyntaxInterpreter.make[Id]()
     val result = validator.validate(testTx).swap
 
-    val assertError = result.exists(
-      _.toList.contains(
-        TransactionSyntaxError.DuplicateInput(txoAddress_1)
-      )
-    )
+    val assertError = result.exists(_.toList.contains(TransactionSyntaxError.DuplicateInput(txoAddress_1)))
     assertEquals(assertError, true)
     assertEquals(result.map(_.toList.size).getOrElse(0), 1)
 
   }
 
-  test("Invalid data-input case 2, minting a Group constructor Token") {
+  test("Invalid data-input, minting a Group constructor Token") {
     val groupPolicy_A = Event.GroupPolicy(label = "groupLabelA", registrationUtxo = txoAddress_1)
     val groupPolicy_B = Event.GroupPolicy(label = "groupLabelB", registrationUtxo = txoAddress_1)
-    val value_1_in: Value =
-      Value.defaultInstance.withLvl(Value.LVL(quantity = BigInt(1)))
+    val value_1_in =
+      Value.defaultInstance.withLvl(Value.LVL(quantity = 1))
 
-    val value_1_out: Value =
-      Value.defaultInstance.withGroup(Value.Group(groupId = groupPolicy_A.computeId, quantity = BigInt(1)))
+    val value_1_out =
+      Value.defaultInstance.withGroup(Value.Group(groupId = groupPolicy_A.computeId, quantity = 1))
 
-    val value_2_out: Value =
-      Value.defaultInstance.withGroup(Value.Group(groupId = groupPolicy_B.computeId, quantity = BigInt(1)))
+    val value_2_out =
+      Value.defaultInstance.withGroup(Value.Group(groupId = groupPolicy_B.computeId, quantity = 1))
 
     val inputs = List(SpentTransactionOutput(txoAddress_1, attFull, value_1_in))
     val outputs = List(
@@ -290,15 +248,13 @@ class TransactionSyntaxInterpreterRuleBSpec extends munit.FunSuite with MockHelp
 
   }
 
-  test("Invalid data-input case 1, minting a Series constructor Token") {
+  test("Invalid data-input, minting a Series constructor Token") {
     val seriesPolicy = Event.SeriesPolicy(label = "seriesLabelB", registrationUtxo = txoAddress_1)
-    val value_1_in: Value =
-      Value.defaultInstance.withLvl(Value.LVL(quantity = BigInt(1)))
+    val value_1_in =
+      Value.defaultInstance.withLvl(Value.LVL(quantity = 1))
 
-    val value_1_out: Value =
-      Value.defaultInstance.withSeries(
-        Value.Series(seriesId = seriesPolicy.computeId, quantity = BigInt(1))
-      )
+    val value_1_out =
+      Value.defaultInstance.withSeries(Value.Series(seriesId = seriesPolicy.computeId, quantity = 1))
 
     val inputs = List(SpentTransactionOutput(txoAddress_1, attFull, value_1_in))
     val outputs = List(UnspentTransactionOutput(trivialLockAddress, value_1_out))
@@ -310,32 +266,24 @@ class TransactionSyntaxInterpreterRuleBSpec extends munit.FunSuite with MockHelp
     val validator = TransactionSyntaxInterpreter.make[Id]()
     val result = validator.validate(testTx).swap
 
-    val assertError = result.exists(
-      _.toList.contains(
-        TransactionSyntaxError.DuplicateInput(txoAddress_1)
-      )
-    )
+    val assertError = result.exists(_.toList.contains(TransactionSyntaxError.DuplicateInput(txoAddress_1)))
     assertEquals(assertError, true)
     assertEquals(result.map(_.toList.size).getOrElse(0), 1)
 
   }
 
-  test("Invalid data-input case 2, minting a Series constructor Token") {
+  test("Invalid data-input, minting a Series constructor Token") {
     val seriesPolicy_A = Event.SeriesPolicy(label = "seriesLabelA", registrationUtxo = txoAddress_1)
     val seriesPolicy_B = Event.SeriesPolicy(label = "seriesLabelB", registrationUtxo = txoAddress_1)
 
-    val value_1_in: Value =
-      Value.defaultInstance.withLvl(Value.LVL(quantity = BigInt(1)))
+    val value_1_in =
+      Value.defaultInstance.withLvl(Value.LVL(quantity = 1))
 
-    val value_1_out: Value =
-      Value.defaultInstance.withSeries(
-        Value.Series(seriesId = seriesPolicy_A.computeId, quantity = BigInt(1))
-      )
+    val value_1_out =
+      Value.defaultInstance.withSeries(Value.Series(seriesId = seriesPolicy_A.computeId, quantity = 1))
 
-    val value_2_out: Value =
-      Value.defaultInstance.withSeries(
-        Value.Series(seriesId = seriesPolicy_B.computeId, quantity = BigInt(1))
-      )
+    val value_2_out =
+      Value.defaultInstance.withSeries(Value.Series(seriesId = seriesPolicy_B.computeId, quantity = 1))
 
     val inputs = List(SpentTransactionOutput(txoAddress_1, attFull, value_1_in))
     val outputs = List(
@@ -350,28 +298,24 @@ class TransactionSyntaxInterpreterRuleBSpec extends munit.FunSuite with MockHelp
     val validator = TransactionSyntaxInterpreter.make[Id]()
     val result = validator.validate(testTx).swap
 
-    val assertError = result.exists(
-      _.toList.contains(
-        TransactionSyntaxError.DuplicateInput(txoAddress_1)
-      )
-    )
+    val assertError = result.exists(_.toList.contains(TransactionSyntaxError.DuplicateInput(txoAddress_1)))
     assertEquals(assertError, true)
     assertEquals(result.map(_.toList.size).getOrElse(0), 1)
 
   }
 
-  test("Invalid data-input case 1, minting a Group and Series constructor Token") {
+  test("Invalid data-input, minting a Group and Series constructor Token") {
     val g1 = Event.GroupPolicy(label = "g1", registrationUtxo = txoAddress_1)
     val s1 = Event.SeriesPolicy(label = "s1", registrationUtxo = txoAddress_1)
 
-    val value_abc_in: Value =
-      Value.defaultInstance.withLvl(Value.LVL(quantity = BigInt(1)))
+    val value_abc_in =
+      Value.defaultInstance.withLvl(Value.LVL(quantity = 1))
 
-    val value_1_out: Value =
-      Value.defaultInstance.withGroup(Value.Group(groupId = g1.computeId, quantity = BigInt(1)))
+    val value_1_out =
+      Value.defaultInstance.withGroup(Value.Group(groupId = g1.computeId, quantity = 1))
 
-    val value_2_out: Value =
-      Value.defaultInstance.withSeries(Value.Series(seriesId = s1.computeId, quantity = BigInt(1)))
+    val value_2_out =
+      Value.defaultInstance.withSeries(Value.Series(seriesId = s1.computeId, quantity = 1))
 
     val inputs = List(SpentTransactionOutput(txoAddress_1, attFull, value_abc_in))
     val outputs = List(
@@ -388,11 +332,7 @@ class TransactionSyntaxInterpreterRuleBSpec extends munit.FunSuite with MockHelp
     val validator = TransactionSyntaxInterpreter.make[Id]()
     val result = validator.validate(testTx).swap
 
-    val assertError = result.exists(
-      _.toList.contains(
-        TransactionSyntaxError.DuplicateInput(txoAddress_1)
-      )
-    )
+    val assertError = result.exists(_.toList.contains(TransactionSyntaxError.DuplicateInput(txoAddress_1)))
     assertEquals(assertError, true)
     assertEquals(result.map(_.toList.size).getOrElse(0), 1)
 
