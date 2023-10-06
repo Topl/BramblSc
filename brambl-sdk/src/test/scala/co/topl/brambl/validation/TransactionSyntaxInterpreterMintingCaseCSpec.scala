@@ -1088,4 +1088,126 @@ class TransactionSyntaxInterpreterMintingCaseCSpec extends munit.FunSuite with M
     assertEquals(result.map(_.toList.size).getOrElse(0), 1)
   }
 
+  /**
+   * Invalid since seriesUtxo does not refer to a series token
+   *
+   * @see [[co.topl.brambl.validation.pumls.invalid_case_7.puml]]
+   */
+  test("Invalid data-input case 7, minting 1 Asset, series Utxo does not refer to a series token") {
+    val utxo = TransactionOutputAddress(0, 0, 0, dummyTxIdentifier)
+    val utxo_abc = TransactionOutputAddress(1, 0, 0, dummyTxIdentifier)
+    val utxo_xyz = TransactionOutputAddress(2, 0, 0, dummyTxIdentifier)
+
+    val g1 = Event.GroupPolicy(label = "policyG1", registrationUtxo = utxo_xyz)
+
+    val sC = Event.SeriesPolicy(label = "policyS1", registrationUtxo = utxo, tokenSupply = Some(5))
+
+    // inputs
+    val inValue1_abc: Value =
+      Value.defaultInstance.withLvl(Value.LVL(quantity = 1))
+
+    val inValue2_xyz: Value =
+      Value.defaultInstance.withGroup(Value.Group(groupId = g1.computeId, quantity = 1))
+
+    // outputs
+    val outValue_mintedAsset: Value =
+      Value.defaultInstance.withAsset(
+        Value.Asset(groupId = Some(g1.computeId), seriesId = Some(sC.computeId), quantity = 1)
+      )
+    val outValue_groupChange: Value =
+      Value.defaultInstance.withGroup(Value.Group(groupId = g1.computeId, quantity = 1))
+
+    val inputs = List(
+      SpentTransactionOutput(utxo_abc, attFull, inValue1_abc),
+      SpentTransactionOutput(utxo_xyz, attFull, inValue2_xyz)
+    )
+
+    val outputs = List(
+      UnspentTransactionOutput(trivialLockAddress, outValue_mintedAsset),
+      UnspentTransactionOutput(trivialLockAddress, outValue_groupChange)
+    )
+
+    val mintingStatements = List(
+      AssetMintingStatement(groupTokenUtxo = utxo_xyz, seriesTokenUtxo = utxo_abc, quantity = 1)
+    )
+
+    val testTx = txFull.copy(inputs = inputs, outputs = outputs, mintingStatements = mintingStatements)
+
+    val validator = TransactionSyntaxInterpreter.make[Id]()
+    val result = validator.validate(testTx).swap
+
+    val assertError = result.exists(
+      _.toList.contains(
+        TransactionSyntaxError.InsufficientInputFunds(
+          testTx.inputs.map(_.value.value).toList,
+          testTx.outputs.map(_.value.value).toList
+        )
+      )
+    )
+
+    assertEquals(assertError, true)
+    // InsufficientInputFunds twice
+    assertEquals(result.map(_.toList.size).getOrElse(0), 2)
+  }
+
+  /**
+   * Invalid since groupUtxo does not refer to a group token
+   *
+   * @see [[co.topl.brambl.validation.pumls.invalid_case_8.puml]]
+   */
+  test("Invalid data-input case 8, minting 1 Asset, group Utxo does not refer to a series token") {
+    val utxo = TransactionOutputAddress(0, 0, 0, dummyTxIdentifier)
+    val utxo_abc = TransactionOutputAddress(1, 0, 0, dummyTxIdentifier)
+    val utxo_xyz = TransactionOutputAddress(2, 0, 0, dummyTxIdentifier)
+
+    val g1 = Event.GroupPolicy(label = "g1", registrationUtxo = utxo_xyz)
+    val s1 = Event.SeriesPolicy(label = "s1", registrationUtxo = utxo, tokenSupply = Some(5))
+
+    // inputs
+    val inValue1_abc: Value =
+      Value.defaultInstance.withSeries(Value.Series(seriesId = s1.computeId, quantity = 1))
+
+    val inValue2_xyz: Value =
+      Value.defaultInstance.withLvl(Value.LVL(quantity = 1))
+
+    // outputs
+    val outValue_mintedAsset: Value =
+      Value.defaultInstance.withAsset(
+        Value.Asset(groupId = Some(g1.computeId), seriesId = Some(s1.computeId), quantity = 1)
+      )
+    val outValue_seriesChange: Value =
+      Value.defaultInstance.withSeries(Value.Series(seriesId = s1.computeId, quantity = 1))
+
+    val inputs = List(
+      SpentTransactionOutput(utxo_abc, attFull, inValue1_abc),
+      SpentTransactionOutput(utxo_xyz, attFull, inValue2_xyz)
+    )
+
+    val outputs = List(
+      UnspentTransactionOutput(trivialLockAddress, outValue_mintedAsset),
+      UnspentTransactionOutput(trivialLockAddress, outValue_seriesChange)
+    )
+
+    val mintingStatements = List(
+      AssetMintingStatement(groupTokenUtxo = utxo_xyz, seriesTokenUtxo = utxo_abc, quantity = 1)
+    )
+
+    val testTx = txFull.copy(inputs = inputs, outputs = outputs, mintingStatements = mintingStatements)
+
+    val validator = TransactionSyntaxInterpreter.make[Id]()
+    val result = validator.validate(testTx).swap
+
+    val assertError = result.exists(
+      _.toList.contains(
+        TransactionSyntaxError.InsufficientInputFunds(
+          testTx.inputs.map(_.value.value).toList,
+          testTx.outputs.map(_.value.value).toList
+        )
+      )
+    )
+
+    assertEquals(assertError, true)
+    assertEquals(result.map(_.toList.size).getOrElse(0), 1)
+  }
+
 }
