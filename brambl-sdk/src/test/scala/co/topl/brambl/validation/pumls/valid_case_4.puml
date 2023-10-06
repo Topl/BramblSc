@@ -1,0 +1,88 @@
+@startuml
+
+title
+    Valid data-input case 4
+    A transaction with 2 minting statements that point to distinct UTXOs, but their series UTXOs have the same seriesId.
+end title
+
+'Asset minting statements
+package AssetMintingStatements {
+    object ams_1
+        ams_1 : seriesUtxo = ABC
+        ams_1 : groupUtxo = XYZ
+        ams_1 : quantity = 1
+
+    object ams_2
+        ams_2 : seriesUtxo = DEF
+        ams_2 : groupUtxo = UVW
+        ams_2 : quantity = 1
+}
+
+package Inputs {
+    object utxo_ABC #pink
+        utxo_ABC : series = s1
+        utxo_ABC : quantity = 2
+        utxo_ABC : tokenSupply = 1
+
+    object utxo_DEF #pink
+        utxo_DEF : series = s1
+        utxo_DEF : quantity = 1
+        utxo_DEF : tokenSupply = 1
+
+    object utxo_XYZ #lightgreen
+        utxo_XYZ : group = g1
+        utxo_XYZ : quantity = 1
+
+    object utxo_UVW #lightgreen
+        utxo_UVW : group = g2
+        utxo_UVW : quantity = 1
+}
+
+package Outputs {
+    'minted asset
+    object output_1 #cyan
+        output_1 : asset = g1_s1
+        output_1 : quantity = 1
+
+    'series change
+    object output_2 #pink
+        output_2 : series = s1
+        output_2 : quantity = 1
+
+    'minted asset
+    object output_3 #cyan
+        output_3 : asset = g2_s1
+        output_3 : quantity = 1
+
+    'group change
+        object output_4 #lightgreen
+        output_4 : group = g1
+        output_4 : quantity = 1
+
+    'group change
+    object output_5 #lightgreen
+        output_5 : group = g2
+        output_5 : quantity = 1
+}
+
+'relationships
+utxo_ABC *-- output_1
+utxo_XYZ *-- output_1
+utxo_ABC *-- output_2
+utxo_DEF *-- output_3
+utxo_UVW *-- output_3
+utxo_XYZ *-- output_4
+utxo_UVW *-- output_5
+
+note bottom of output_1: 1 item was burned
+note bottom of output_3: Burned series
+
+legend
+ |= |= Type |
+ |<#lightgreen>     | Group |
+ |<#pink>           | Series |
+ |<#cyan>           | Asset  |
+
+ endlegend
+
+@enduml

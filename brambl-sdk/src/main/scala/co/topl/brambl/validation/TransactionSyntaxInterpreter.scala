@@ -6,6 +6,9 @@ import cats.implicits._
 import co.topl.brambl.common.ContainsImmutable.ContainsImmutableTOps
 import co.topl.brambl.common.ContainsImmutable.instances._
 import co.topl.brambl.models.TransactionOutputAddress
+import co.topl.brambl.models.{SeriesId, TransactionOutputAddress}
+import co.topl.brambl.models.Datum.GroupPolicy
+import co.topl.brambl.models.{SeriesId, TransactionOutputAddress}
 import co.topl.brambl.models.box._
 import co.topl.brambl.models.transaction.{IoTransaction, SpentTransactionOutput, UnspentTransactionOutput}
 import co.topl.brambl.syntax._
@@ -40,6 +43,7 @@ object TransactionSyntaxInterpreter {
       dataLengthValidation,
       assetEqualFundsValidation,
       groupEqualFundsValidation,
+      seriesEqualFundsValidation,
       assetNoRepeatedUtxosValidation,
       mintingValidation
     )
@@ -348,7 +352,59 @@ object TransactionSyntaxInterpreter {
   }
 
   /**
-   * Asset, Group ans Series,  No Repeated Utxos Validation
+   * SeriesEqualFundsValidation
+   *  - Check Moving Series Tokens: Let s be a series identifier, then the number of Series Constructor Tokens with group identifier s
+   * in the input is equal to the number of the number of Series Constructor Tokens with identifier s in the output.
+   *  - Check Minting Constructor Tokens: Let s be a series identifier and p the series policy whose digest is equal to s, all of the following statements are true:
+   *    The policy p is attached to the transaction.
+   *    The number of series constructor tokens with identifiers in the output of the transaction is strictly bigger than 0.
+   *    The registration UTXO referenced in p is present in the inputs and contains LVLs.
+   *
+   * @param transaction
+   * @return
+   */
+  private def seriesEqualFundsValidation(transaction: IoTransaction): ValidatedNec[TransactionSyntaxError, Unit] = {
+
+    val seriesIn = transaction.inputs.filter(_.value.value.isSeries).map(_.value.getSeries)
+    val seriesOut = transaction.outputs.filter(_.value.value.isSeries).map(_.value.getSeries)
+
+    val sIds =
+      seriesIn.groupBy(_.seriesId).keySet ++
+      seriesOut.groupBy(_.seriesId).keySet ++
+      transaction.seriesPolicies.map(_.event.computeId).toSet
+
+    val sIdsOnMintingStatements = {
+      val sIdsAddress = transaction.mintingStatements.map(_.seriesTokenUtxo)
+      transaction.inputs
+        .filter(sto => sIdsAddress.contains(sto.address))
+        .filter(_.value.value.isSeries)
+        .map(_.value.getSeries.seriesId)
+    }
+
+    val res = sIds.forall { sId =>
+      if (sIdsOnMintingStatements.contains(sId)) {
+        seriesOut.filter(_.seriesId == sId).map(_.quantity: BigInt).sum >= 0
+      } else if (!transaction.seriesPolicies.map(_.event.computeId).contains(sId)) {
+        seriesIn.filter(_.seriesId == sId).map(_.quantity: BigInt).sum ==
+          seriesOut.filter(_.seriesId == sId).map(_.quantity: BigInt).sum
+      } else {
+        seriesOut.filter(_.seriesId == sId).map(_.quantity: BigInt).sum > 0
+      }
+    }
+
+    Validated.condNec(
+      res,
+      (),
+      TransactionSyntaxError.InsufficientInputFunds(
+        transaction.inputs.map(_.value.value).toList,
+        transaction.outputs.map(_.value.value).toList
+      )
+    )
+
+  }
+
+  /**
+   * Asset, Group and Series,  No Repeated Utxos Validation
    * - For all assets minting statement ams1, ams2, ...,  Should not contain repeated UTXOs
    * - For all group/series policies gp1, gp2, ..., ++ sp1, sp2, ..., Should not contain repeated UTXOs
    *
@@ -450,7 +506,58 @@ object TransactionSyntaxInterpreter {
       }
     }
 
-    val validAssets: Boolean = true // TODO
+    /**
+     * Let sIn be the total number of series constructor tokens with identifier in the input,
+     * sOut the total number of series constructor tokens with identifier in the output,
+     * and burned the number of where the referenced series specifies a token supply, then we have:
+     * sIn - burned = sOut
+     */
+    val validAssets = transaction.mintingStatements.forall { ams =>
+      val maybeSeries: Option[Value.Series] =
+        transaction.inputs
+          .filter(_.value.value.isSeries)
+          .filter(_.address == ams.seriesTokenUtxo)
+          .map(_.value.getSeries)
+          .headOption
+
+      maybeSeries match {
+        case Some(s) =>
+          s.tokenSupply match {
+            case Some(tokenSupplied) =>
+              val sIn = transaction.inputs
+                .filter(_.value.value.isSeries)
+                .filter(_.value.getSeries.seriesId == s.seriesId)
+                .map(_.value.getSeries.quantity: BigInt)
+                .sum
+
+              val sOut =
+                transaction.outputs
+                  .filter(_.value.value.isSeries)
+                  .filter(_.value.getSeries.seriesId == s.seriesId)
+                  .map(_.value.getSeries.quantity: BigInt)
+                  .sum
+
+              val burned = sIn - sOut
+
+              // all asset minting statements quantity with the same series id
+              def quantity(s: Value.Series) = transaction.mintingStatements.map { ams =>
+                val filterSeries = transaction.inputs
+                  .filter(_.address == ams.seriesTokenUtxo)
+                  .filter(_.value.value.isSeries)
+                  .map(_.value.getSeries)
+                  .filter(_.seriesId == s.seriesId)
+                if (filterSeries.isEmpty) BigInt(0) else ams.quantity: BigInt
+              }
+
+              (ams.quantity: BigInt) <= s.quantity * tokenSupplied &&
+              (ams.quantity: BigInt) % tokenSupplied == 0 &&
+              burned * tokenSupplied == quantity(s).sum
+
+            case None => true
+          }
+        case None => false
+      }
+    }
 
     Validated.condNec(
       validGroups && validSeries && validAssets,

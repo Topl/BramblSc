@@ -30,7 +30,7 @@ class TransactionCostCalculatorInterpreterSpec extends munit.FunSuite with MockH
   }
 
   test("cost a transaction with schedule, inputs, and outputs") {
-    val tx = txFull.clearInputs.addInputs(SpentTransactionOutput(dummyTxoAddress, nonEmptyAttestation, value))
+    val tx = txFull.clearInputs.addInputs(SpentTransactionOutput(dummyTxoAddress, nonEmptyAttestation, lvlValue))
     val calculator = TransactionCostCalculatorInterpreter.make[Id](TransactionCostConfig())
     val result = calculator.costOf(tx)
     assertEquals(

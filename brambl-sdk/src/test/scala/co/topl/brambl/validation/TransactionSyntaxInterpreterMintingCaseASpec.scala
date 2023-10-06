@@ -161,7 +161,6 @@ class TransactionSyntaxInterpreterMintingCaseASpec extends munit.FunSuite with M
   test("Valid data-input case 4, minting a Group constructor Token") {
     val groupPolicy = Event.GroupPolicy(label = "groupLabelA", registrationUtxo = txoAddress_1)
 
-    // TODO discuss: is this correct or not, when we mint a Group the quantity should be igual to LVL input spent
     val value_1_in: Value =
       Value.defaultInstance.withLvl(
         Value.LVL(

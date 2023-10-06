@@ -28,20 +28,10 @@ class TransactionSyntaxInterpreterRuleBSpec extends munit.FunSuite with MockHelp
     val groupPolicy = Event.GroupPolicy(label = "groupLabelA", registrationUtxo = txoAddress_1)
     val seriesPolicy = Event.SeriesPolicy(label = "seriesLabelB", registrationUtxo = txoAddress_1)
     val value_1_in: Value =
-      Value.defaultInstance.withGroup(
-        Value.Group(
-          groupId = groupPolicy.computeId,
-          quantity = BigInt(1)
-        )
-      )
+      Value.defaultInstance.withGroup(Value.Group(groupId = groupPolicy.computeId, quantity = BigInt(1)))
 
     val value_2_in: Value =
-      Value.defaultInstance.withSeries(
-        Value.Series(
-          seriesId = seriesPolicy.computeId,
-          quantity = BigInt(1)
-        )
-      )
+      Value.defaultInstance.withSeries(Value.Series(seriesId = seriesPolicy.computeId, quantity = BigInt(1)))
 
     val value_1_out: Value =
       Value.defaultInstance.withAsset(
@@ -52,12 +42,10 @@ class TransactionSyntaxInterpreterRuleBSpec extends munit.FunSuite with MockHelp
         )
       )
     val value_2_out: Value =
-      Value.defaultInstance.withGroup(
-        Value.Group(
-          groupId = groupPolicy.computeId,
-          quantity = BigInt(1)
-        )
-      )
+      Value.defaultInstance.withGroup(Value.Group(groupId = groupPolicy.computeId, quantity = BigInt(1)))
+
+    val value_3_out: Value =
+      Value.defaultInstance.withSeries(Value.Series(seriesId = seriesPolicy.computeId, quantity = BigInt(1)))
 
     // Note: duplicate sto address
     val inputs = List(
@@ -67,7 +55,8 @@ class TransactionSyntaxInterpreterRuleBSpec extends munit.FunSuite with MockHelp
 
     val outputs = List(
       UnspentTransactionOutput(trivialLockAddress, value_1_out),
-      UnspentTransactionOutput(trivialLockAddress, value_2_out)
+      UnspentTransactionOutput(trivialLockAddress, value_2_out),
+      UnspentTransactionOutput(trivialLockAddress, value_3_out)
     )
 
     // Note: duplicate minting statements
@@ -97,26 +86,17 @@ class TransactionSyntaxInterpreterRuleBSpec extends munit.FunSuite with MockHelp
   /**
    * In this case there 2 validations that are failing;
    * InsufficientInputFunds, because is not able to pass assetEqualFundsValidation
+   * InsufficientInputFunds, because is not able to pass mintingValidation
    * DuplicateInput because minting statements contains the same txoAddress
    */
   test("Invalid data-input case, input(0) + minted(1) == output(1), asset mining statements are duplicated") {
     val groupPolicy = Event.GroupPolicy(label = "groupLabelA", registrationUtxo = txoAddress_1)
     val seriesPolicy = Event.SeriesPolicy(label = "seriesLabelB", registrationUtxo = txoAddress_2)
     val value_1_in: Value =
-      Value.defaultInstance.withGroup(
-        Value.Group(
-          groupId = groupPolicy.computeId,
-          quantity = BigInt(1)
-        )
-      )
+      Value.defaultInstance.withGroup(Value.Group(groupId = groupPolicy.computeId, quantity = BigInt(1)))
 
     val value_2_in: Value =
-      Value.defaultInstance.withSeries(
-        Value.Series(
-          seriesId = seriesPolicy.computeId,
-          quantity = BigInt(1)
-        )
-      )
+      Value.defaultInstance.withSeries(Value.Series(seriesId = seriesPolicy.computeId, quantity = BigInt(1)))
 
     val value_1_out: Value =
       Value.defaultInstance.withAsset(
@@ -128,12 +108,10 @@ class TransactionSyntaxInterpreterRuleBSpec extends munit.FunSuite with MockHelp
       )
 
     val value_2_out: Value =
-      Value.defaultInstance.withGroup(
-        Value.Group(
-          groupId = groupPolicy.computeId,
-          quantity = BigInt(1)
-        )
-      )
+      Value.defaultInstance.withGroup(Value.Group(groupId = groupPolicy.computeId, quantity = BigInt(1)))
+
+    val value_3_out: Value =
+      Value.defaultInstance.withSeries(Value.Series(seriesId = seriesPolicy.computeId, quantity = BigInt(1)))
 
     val inputs = List(
       SpentTransactionOutput(txoAddress_1, attFull, value_1_in),
@@ -141,7 +119,8 @@ class TransactionSyntaxInterpreterRuleBSpec extends munit.FunSuite with MockHelp
     )
     val outputs = List(
       UnspentTransactionOutput(trivialLockAddress, value_1_out),
-      UnspentTransactionOutput(trivialLockAddress, value_2_out)
+      UnspentTransactionOutput(trivialLockAddress, value_2_out),
+      UnspentTransactionOutput(trivialLockAddress, value_3_out)
     )
 
     // Note: duplicate minting statements
@@ -165,7 +144,7 @@ class TransactionSyntaxInterpreterRuleBSpec extends munit.FunSuite with MockHelp
     )
 
     assertEquals(assertError, true)
-    assertEquals(result.map(_.toList.size).getOrElse(0), 2)
+    assertEquals(result.map(_.toList.size).getOrElse(0), 3)
 
   }
 
@@ -177,20 +156,10 @@ class TransactionSyntaxInterpreterRuleBSpec extends munit.FunSuite with MockHelp
     val groupPolicy = Event.GroupPolicy(label = "groupLabelA", registrationUtxo = txoAddress_1)
     val seriesPolicy = Event.SeriesPolicy(label = "seriesLabelB", registrationUtxo = txoAddress_2)
     val value_1_in: Value =
-      Value.defaultInstance.withGroup(
-        Value.Group(
-          groupId = groupPolicy.computeId,
-          quantity = BigInt(1)
-        )
-      )
+      Value.defaultInstance.withGroup(Value.Group(groupId = groupPolicy.computeId, quantity = BigInt(1)))
 
     val value_2_in: Value =
-      Value.defaultInstance.withSeries(
-        Value.Series(
-          seriesId = seriesPolicy.computeId,
-          quantity = BigInt(1)
-        )
-      )
+      Value.defaultInstance.withSeries(Value.Series(seriesId = seriesPolicy.computeId, quantity = BigInt(1)))
 
     val value_1_out: Value =
       Value.defaultInstance.withAsset(
@@ -202,12 +171,10 @@ class TransactionSyntaxInterpreterRuleBSpec extends munit.FunSuite with MockHelp
       )
 
     val value_2_out: Value =
-      Value.defaultInstance.withGroup(
-        Value.Group(
-          groupId = groupPolicy.computeId,
-          quantity = BigInt(1)
-        )
-      )
+      Value.defaultInstance.withGroup(Value.Group(groupId = groupPolicy.computeId, quantity = BigInt(1)))
+
+    val value_3_out: Value =
+      Value.defaultInstance.withSeries(Value.Series(seriesId = seriesPolicy.computeId, quantity = BigInt(1)))
 
     val inputs = List(
       SpentTransactionOutput(txoAddress_1, attFull, value_1_in),
@@ -216,7 +183,8 @@ class TransactionSyntaxInterpreterRuleBSpec extends munit.FunSuite with MockHelp
 
     val outputs = List(
       UnspentTransactionOutput(trivialLockAddress, value_1_out),
-      UnspentTransactionOutput(trivialLockAddress, value_2_out)
+      UnspentTransactionOutput(trivialLockAddress, value_2_out),
+      UnspentTransactionOutput(trivialLockAddress, value_3_out)
     )
 
     // Note: duplicate minting statements, but in two statements mintingStatement_1 and mintingStatement_2
