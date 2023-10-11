@@ -45,7 +45,8 @@ object TransactionSyntaxInterpreter {
       groupEqualFundsValidation,
       seriesEqualFundsValidation,
       assetNoRepeatedUtxosValidation,
-      mintingValidation
+      mintingValidation,
+      updateProposalValidation
     )
 
   /**
@@ -568,5 +569,26 @@ object TransactionSyntaxInterpreter {
       )
     )
 
+  }
+
+  private def updateProposalValidation(transaction: IoTransaction) = {
+    val upsIn = transaction.inputs.filter(_.value.value.isUpdateProposal).map(_.value.getUpdateProposal)
+    val upsOut = transaction.outputs.filter(_.value.value.isUpdateProposal).map(_.value.getUpdateProposal)
+    val isValid = (upsIn ++ upsOut).forall { up =>
+      up.label.nonEmpty &&
+      up.fEffective.forall(r => (r.denominator: BigInt) > 0 && (r.numerator: BigInt) > 0) &&
+      up.vrfLddCutoff.forall(_ > 0) &&
+      up.vrfPrecision.forall(_ > 0) &&
+      up.vrfBaselineDifficulty.forall(r => (r.denominator: BigInt) > 0 && (r.numerator: BigInt) > 0) &&
+      up.vrfAmplitude.forall(r => (r.denominator: BigInt) > 0 && (r.numerator: BigInt) > 0) &&
+      up.chainSelectionKLookback.forall(_ > 0) &&
+      up.slotDuration.forall(d => d.seconds > 0) &&
+      up.forwardBiasedSlotWindow.forall(_ > 0) &&
+      up.operationalPeriodsPerEpoch.forall(_ > 0) &&
+      up.kesKeyHours.forall(_ > 0) &&
+      up.kesKeyMinutes.forall(_ > 0)
+    }
+
+    Validated.condNec(isValid, (), TransactionSyntaxError.InvalidUpdateProposal(upsIn, upsOut))
   }
 }

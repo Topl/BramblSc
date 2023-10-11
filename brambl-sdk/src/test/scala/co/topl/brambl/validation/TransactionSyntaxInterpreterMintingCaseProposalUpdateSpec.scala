@@ -21,42 +21,53 @@ class TransactionSyntaxInterpreterMintingCaseProposalUpdateSpec extends munit.Fu
 
   test("Valid data-input case 1, minting a proposal updated Token") {
     val value_1_in: Value =
-      Value.defaultInstance.withTopl(
-        Value.TOPL(
-          quantity = BigInt(1),
-          registration = None
-        )
-      )
+      Value.defaultInstance.withTopl(Value.TOPL(quantity = BigInt(1), registration = None))
 
     val value_1_out: Value =
       Value.defaultInstance.withUpdateProposal(
-        Value.UpdateProposal(
-          label = "Proposal update 1",
-          vrfPrecision = Some(1)
-        )
+        Value.UpdateProposal(label = "Proposal update 1", vrfPrecision = Some(1))
       )
 
+    // do define if a topl should be burned or not when minting UpdateProposal
     val value_2_out: Value =
-      Value.defaultInstance.withTopl(
-        Value.TOPL(
-          quantity = BigInt(1),
-          registration = None
-        )
-      )
+      Value.defaultInstance.withTopl(Value.TOPL(quantity = BigInt(1), registration = None))
 
-    val input_1 = SpentTransactionOutput(txoAddress_1, attFull, value_1_in)
-    val output_1: UnspentTransactionOutput = UnspentTransactionOutput(trivialLockAddress, value_1_out)
-    val output_2: UnspentTransactionOutput = UnspentTransactionOutput(trivialLockAddress, value_2_out)
-
-    val testTx = txFull.copy(
-      inputs = List(input_1),
-      outputs = List(output_1, output_2)
+    val inputs = List(SpentTransactionOutput(txoAddress_1, attFull, value_1_in))
+    val outputs = List(
+      UnspentTransactionOutput(trivialLockAddress, value_1_out),
+      UnspentTransactionOutput(trivialLockAddress, value_2_out)
     )
+
+    val testTx = txFull.copy(inputs = inputs, outputs = outputs)
 
     val validator = TransactionSyntaxInterpreter.make[Id]()
     val result = validator.validate(testTx).swap
 
     assertEquals(result.map(_.toList.size).getOrElse(0), 0)
+  }
+
+  test("Invalid data-input case 2, minting a proposal updated Token") {
+    val value_1_in: Value =
+      Value.defaultInstance.withTopl(Value.TOPL(quantity = BigInt(1), registration = None))
+
+    val value_1_out: Value =
+      Value.defaultInstance.withUpdateProposal(
+        Value.UpdateProposal(label = "Proposal update 1", vrfPrecision = Some(-1))
+      )
+
+    val inputs = List(SpentTransactionOutput(txoAddress_1, attFull, value_1_in))
+    val outputs = List(UnspentTransactionOutput(trivialLockAddress, value_1_out))
+
+    val testTx = txFull.copy(inputs = inputs, outputs = outputs)
+
+    val validator = TransactionSyntaxInterpreter.make[Id]()
+    val result = validator.validate(testTx).swap
+
+    val assertError = result.exists(
+      _.toList.contains(TransactionSyntaxError.InvalidUpdateProposal(Seq.empty, Seq(value_1_out.getUpdateProposal)))
+    )
+    assertEquals(assertError, true)
+    assertEquals(result.map(_.toList.size).getOrElse(0), 1)
   }
 
 }

@@ -54,4 +54,10 @@ object TransactionSyntaxError {
    * A Syntax error indicating that the size of this transaction is invalid.
    */
   case object InvalidDataLength extends TransactionSyntaxError
+
+  /**
+   * A Syntax error indicating that this transaction contains invalid UpdateProposals
+   */
+  case class InvalidUpdateProposal(inputs: Seq[Value.UpdateProposal], outputs: Seq[Value.UpdateProposal])
+      extends TransactionSyntaxError
 }
