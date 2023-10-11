@@ -58,6 +58,5 @@ object TransactionSyntaxError {
   /**
    * A Syntax error indicating that this transaction contains invalid UpdateProposals
    */
-  case class InvalidUpdateProposal(inputs: Seq[Value.UpdateProposal], outputs: Seq[Value.UpdateProposal])
-      extends TransactionSyntaxError
+  case class InvalidUpdateProposal(outputs: Seq[Value.UpdateProposal]) extends TransactionSyntaxError
 }

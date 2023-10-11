@@ -17,7 +17,6 @@ import scala.language.implicitConversions
 class TransactionSyntaxInterpreterMintingCaseProposalUpdateSpec extends munit.FunSuite with MockHelpers {
 
   private val txoAddress_1 = TransactionOutputAddress(1, 0, 0, dummyTxIdentifier)
-  private val txoAddress_2 = TransactionOutputAddress(2, 0, 0, dummyTxIdentifier)
 
   test("Valid data-input case 1, minting a proposal updated Token") {
     val value_1_in: Value =
@@ -64,7 +63,7 @@ class TransactionSyntaxInterpreterMintingCaseProposalUpdateSpec extends munit.Fu
     val result = validator.validate(testTx).swap
 
     val assertError = result.exists(
-      _.toList.contains(TransactionSyntaxError.InvalidUpdateProposal(Seq.empty, Seq(value_1_out.getUpdateProposal)))
+      _.toList.contains(TransactionSyntaxError.InvalidUpdateProposal(Seq(value_1_out.getUpdateProposal)))
     )
     assertEquals(assertError, true)
     assertEquals(result.map(_.toList.size).getOrElse(0), 1)
