@@ -469,21 +469,24 @@ object TransactionBuilderApi {
       }
 
       override def buildSimpleGroupMintingTransaction(
-        registrationTxo:              Txo,
-        registrationLock:             Lock.Predicate,
+        txos:              Seq[Txo],
+        lockPredicateFrom: Lock.Predicate,
         groupPolicy:                  GroupPolicy,
-        quantityToMint:               Int128,
-        mintedConstructorLockAddress: LockAddress
+        quantityToMint:               Long,
+        mintedAddress: LockAddress,
+        changeAddress:    LockAddress,
+        fee: Long
       ): F[Either[BuilderError, IoTransaction]] = (
         for {
-          registrationLockAddr <- EitherT.right[BuilderError](lockAddress(Lock().withPredicate(registrationLock)))
+          registrationLockAddr <- EitherT.right[BuilderError](lockAddress(Lock().withPredicate(lockPredicateFrom)))
           _ <- EitherT
             .fromEither[F](
               validateConstructorMintingParams(
-                registrationTxo,
+                txos,
                 registrationLockAddr,
                 groupPolicy.registrationUtxo,
-                quantityToMint
+                quantityToMint,
+                fee
               )
             )
             .leftMap(errs => UserInputErrors(errs.toList))

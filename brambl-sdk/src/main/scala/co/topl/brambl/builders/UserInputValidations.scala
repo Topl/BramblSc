@@ -28,6 +28,13 @@ object UserInputValidations {
   ): ValidatedNec[UserInputError, Unit] =
     Validated.condNec(testAddr == expectedAddr, (), UserInputError(s"$testLabel does not match $expectedLabel"))
 
+  def txosContainsAddress(
+    expectedAddr:  TransactionOutputAddress,
+    expetedLabel: String,
+    testTxos: Seq[Txo]
+  ): ValidatedNec[UserInputError, Unit] =
+    Validated.condNec(testTxos.count(_.outputAddress == expectedAddr) == 1, (), UserInputError(s"Input TXOs need to contain exactly one txo matching the $expetedLabel"))
+
   def isLvls(testValue: Value, testLabel: String): ValidatedNec[UserInputError, Unit] =
     Validated.condNec(testValue.isLvl, (), UserInputError(s"$testLabel does not contain LVLs"))
 
@@ -135,7 +142,7 @@ object UserInputValidations {
   def validFee(
     fee:                  Long,
     testValues:           Seq[Value],
-    transferRequirements: Long
+    transferRequirements: Long = 0
   ): ValidatedNec[UserInputError, Unit] =
     Validated.condNec(
       testValues.filter(_.isLvl).map(_.quantity: BigInt).sum >= fee + transferRequirements,
@@ -164,7 +171,7 @@ object UserInputValidations {
       Chain(
         allInputLocksMatch(txos.map(_.transactionOutput.address), fromLockAddr, "fromLockAddr"),
         validTransferSupplyAll(tokenIdentifier, allValues.map(_.typeIdentifier)),
-        validFee(fee, allValues, 0)
+        validFee(fee, allValues)
       ).fold.toEither
     } match {
       case Success(value) => value
@@ -196,21 +203,18 @@ object UserInputValidations {
      * If user parameters are invalid, return a UserInputError.
      */
     def validateConstructorMintingParams(
-      registrationTxo:        Txo,
-      registrationLockAddr:   LockAddress,
+      txos:        Seq[Txo],
+      fromLockAddr:   LockAddress,
       policyRegistrationUtxo: TransactionOutputAddress,
-      quantityToMint:         Int128
+      quantityToMint:         Long,
+      fee:                   Long
     ): Either[NonEmptyChain[UserInputError], Unit] =
       Chain(
-        txoAddressMatch(registrationTxo.outputAddress, policyRegistrationUtxo, "registrationTxo", "registrationUtxo"),
+        txosContainsAddress(policyRegistrationUtxo, "registrationUtxo", txos),
         isLvls(registrationTxo.transactionOutput.value.value, "registrationUtxo"),
-        inputLockMatch(
-          registrationLockAddr,
-          registrationTxo.transactionOutput.address,
-          "registrationLock",
-          "registrationTxo"
-        ),
-        positiveQuantity(quantityToMint.some, "quantityToMint")
+        allInputLocksMatch(txos.map(_.transactionOutput.address), fromLockAddr, "fromLockAddr"),
+        positiveQuantity(Some(quantityToMint), "quantityToMint"),
+        validFee(fee, txos.map(_.transactionOutput.value.value))
       ).fold.toEither
 
     /**
