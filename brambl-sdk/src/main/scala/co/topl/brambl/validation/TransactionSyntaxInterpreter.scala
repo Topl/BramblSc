@@ -45,7 +45,8 @@ object TransactionSyntaxInterpreter {
       groupEqualFundsValidation,
       seriesEqualFundsValidation,
       assetNoRepeatedUtxosValidation,
-      mintingValidation
+      mintingValidation,
+      updateProposalValidation
     )
 
   /**
@@ -323,8 +324,8 @@ object TransactionSyntaxInterpreter {
    */
   private def groupEqualFundsValidation(transaction: IoTransaction): ValidatedNec[TransactionSyntaxError, Unit] = {
 
-    val groupsIn = transaction.inputs.filter(_.value.value.isGroup).map(_.value.getGroup)
-    val groupsOut = transaction.outputs.filter(_.value.value.isGroup).map(_.value.getGroup)
+    val groupsIn = transaction.inputs.flatMap(_.value.value.group)
+    val groupsOut = transaction.outputs.flatMap(_.value.value.group)
 
     val gIds =
       groupsIn.groupBy(_.groupId).keySet ++
@@ -365,8 +366,8 @@ object TransactionSyntaxInterpreter {
    */
   private def seriesEqualFundsValidation(transaction: IoTransaction): ValidatedNec[TransactionSyntaxError, Unit] = {
 
-    val seriesIn = transaction.inputs.filter(_.value.value.isSeries).map(_.value.getSeries)
-    val seriesOut = transaction.outputs.filter(_.value.value.isSeries).map(_.value.getSeries)
+    val seriesIn = transaction.inputs.flatMap(_.value.value.series)
+    val seriesOut = transaction.outputs.flatMap(_.value.value.series)
 
     val sIds =
       seriesIn.groupBy(_.seriesId).keySet ++
@@ -479,9 +480,8 @@ object TransactionSyntaxInterpreter {
       .withInputs(mintingInputsProjection(transaction))
       .withOutputs(mintingOutputsProjection(transaction))
 
-    val groups = projectedTransaction.outputs.filter(_.value.value.isGroup).map(_.value.getGroup)
-    val series = projectedTransaction.outputs.filter(_.value.value.isSeries).map(_.value.getSeries)
-    val assets = projectedTransaction.outputs.filter(_.value.value.isAsset).map(_.value.getAsset)
+    val groups = projectedTransaction.outputs.flatMap(_.value.value.group)
+    val series = projectedTransaction.outputs.flatMap(_.value.value.series)
 
     def registrationInPolicyContainsLvls(registrationUtxo: TransactionOutputAddress): Boolean =
       projectedTransaction.inputs.exists { stxo =>
@@ -568,5 +568,25 @@ object TransactionSyntaxInterpreter {
       )
     )
 
+  }
+
+  private def updateProposalValidation(transaction: IoTransaction) = {
+    val upsOut = transaction.outputs.flatMap(_.value.value.updateProposal)
+    val isValid = upsOut.forall { up =>
+      up.label.nonEmpty &&
+      up.fEffective.forall(r => (r.denominator: BigInt) > 0 && (r.numerator: BigInt) > 0) &&
+      up.vrfLddCutoff.forall(_ > 0) &&
+      up.vrfPrecision.forall(_ > 0) &&
+      up.vrfBaselineDifficulty.forall(r => (r.denominator: BigInt) > 0 && (r.numerator: BigInt) > 0) &&
+      up.vrfAmplitude.forall(r => (r.denominator: BigInt) > 0 && (r.numerator: BigInt) > 0) &&
+      up.chainSelectionKLookback.forall(_ > 0) &&
+      up.slotDuration.forall(d => d.seconds > 0) &&
+      up.forwardBiasedSlotWindow.forall(_ > 0) &&
+      up.operationalPeriodsPerEpoch.forall(_ > 0) &&
+      up.kesKeyHours.forall(_ > 0) &&
+      up.kesKeyMinutes.forall(_ > 0)
+    }
+
+    Validated.condNec(isValid, (), TransactionSyntaxError.InvalidUpdateProposal(upsOut))
   }
 }
