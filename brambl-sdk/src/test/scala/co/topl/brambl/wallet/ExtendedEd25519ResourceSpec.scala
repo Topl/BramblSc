@@ -22,7 +22,7 @@ class ExtendedEd25519ResourceSpec extends munit.CatsEffectSuite with MockHelpers
       walletApi.deriveChildVerificationKey(MockMainKeyPair.vk, 0),
       walletApi.deriveChildVerificationKey(MockMainKeyPair.vk, idx),
       walletApi.createNewWallet("password".getBytes),
-    ).parMapN((_, _, _, _, _, _, _) => ()) // the results do no matter. We are testing if an exception occurs
+    ).parTupled.map(_ => ()) // the results do no matter. We are testing if an exception occurs
 
     0 to NumRuns foreach { idx =>
       assertIO_(runParallel(idx))
