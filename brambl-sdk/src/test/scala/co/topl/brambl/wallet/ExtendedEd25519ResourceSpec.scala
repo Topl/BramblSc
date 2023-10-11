@@ -1,7 +1,7 @@
 package co.topl.brambl.wallet
 
 import cats.arrow.FunctionK
-import cats.implicits.{catsSyntaxTuple7Parallel, catsSyntaxTuple9Parallel}
+import cats.implicits.catsSyntaxTuple8Parallel
 import co.topl.brambl.models.Indices
 import co.topl.brambl.{MockHelpers, MockWalletKeyApi}
 
@@ -21,6 +21,7 @@ class ExtendedEd25519ResourceSpec extends munit.CatsEffectSuite with MockHelpers
       walletApi.deriveChildKeysPartial(MockMainKeyPair, idx, idx),
       walletApi.deriveChildVerificationKey(MockMainKeyPair.vk, 0),
       walletApi.deriveChildVerificationKey(MockMainKeyPair.vk, idx),
+      walletApi.createNewWallet("password".getBytes),
       walletApi.createNewWallet("password".getBytes),
     ).parTupled.map(_ => ()) // the results do no matter. We are testing if an exception occurs
 
