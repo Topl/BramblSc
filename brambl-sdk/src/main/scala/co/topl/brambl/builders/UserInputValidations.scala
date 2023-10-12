@@ -28,12 +28,19 @@ object UserInputValidations {
   ): ValidatedNec[UserInputError, Unit] =
     Validated.condNec(testAddr == expectedAddr, (), UserInputError(s"$testLabel does not match $expectedLabel"))
 
-  def txosContainsAddress(
-    expectedAddr:  TransactionOutputAddress,
+  def txosContainsExactlyOneAddress(
+    expectedAddr: TransactionOutputAddress,
     expetedLabel: String,
-    testTxos: Seq[Txo]
-  ): ValidatedNec[UserInputError, Unit] =
-    Validated.condNec(testTxos.count(_.outputAddress == expectedAddr) == 1, (), UserInputError(s"Input TXOs need to contain exactly one txo matching the $expetedLabel"))
+    testTxos:     Seq[Txo]
+  ): ValidatedNec[UserInputError, Txo] = {
+    val filteredTxos = testTxos.filter(_.outputAddress == expectedAddr)
+    val testTxo = Option.when(filteredTxos.length == 1)(filteredTxos.head)
+    Validated.condNec(
+      testTxo.isDefined,
+      testTxo.get,
+      UserInputError(s"Input TXOs need to contain exactly one txo matching the $expetedLabel")
+    )
+  }
 
   def isLvls(testValue: Value, testLabel: String): ValidatedNec[UserInputError, Unit] =
     Validated.condNec(testValue.isLvl, (), UserInputError(s"$testLabel does not contain LVLs"))
@@ -161,6 +168,10 @@ object UserInputValidations {
 
   object TransactionBuilder {
 
+    /**
+     * Validates the parameters for transferring all tokens.
+     * If user parameters are invalid, return a UserInputError.
+     */
     def validateTransferAllParams(
       txos:            Seq[Txo],
       fromLockAddr:    LockAddress,
@@ -178,6 +189,10 @@ object UserInputValidations {
       case Failure(err)   => NonEmptyChain.one(UserInputError(err.getMessage)).asLeft
     }
 
+    /**
+     * Validates the parameters for transferring a specific amount of a token.
+     * If user parameters are invalid, return a UserInputError.
+     */
     def validateTransferAmountParams(
       txos:               Seq[Txo],
       fromLockAddr:       LockAddress,
@@ -203,19 +218,23 @@ object UserInputValidations {
      * If user parameters are invalid, return a UserInputError.
      */
     def validateConstructorMintingParams(
-      txos:        Seq[Txo],
-      fromLockAddr:   LockAddress,
+      txos:                   Seq[Txo],
+      fromLockAddr:           LockAddress,
       policyRegistrationUtxo: TransactionOutputAddress,
       quantityToMint:         Long,
-      fee:                   Long
-    ): Either[NonEmptyChain[UserInputError], Unit] =
+      fee:                    Long
+    ): Either[NonEmptyChain[UserInputError], Unit] = Try {
       Chain(
-        txosContainsAddress(policyRegistrationUtxo, "registrationUtxo", txos),
-        isLvls(registrationTxo.transactionOutput.value.value, "registrationUtxo"),
-        allInputLocksMatch(txos.map(_.transactionOutput.address), fromLockAddr, "fromLockAddr"),
+        txosContainsExactlyOneAddress(policyRegistrationUtxo, "registrationUtxo", txos)
+          .andThen(txo => isLvls(txo.transactionOutput.value.value, "registrationUtxo")),
+        allInputLocksMatch(txos.map(_.transactionOutput.address), fromLockAddr, "lockPredicateFrom"),
         positiveQuantity(Some(quantityToMint), "quantityToMint"),
         validFee(fee, txos.map(_.transactionOutput.value.value))
       ).fold.toEither
+    } match {
+      case Success(value) => value
+      case Failure(err)   => NonEmptyChain.one(UserInputError(err.getMessage)).asLeft
+    }
 
     /**
      * Validates the parameters for minting asset tokens

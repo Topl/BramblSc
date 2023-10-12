@@ -225,6 +225,8 @@ trait TransactionBuilderApi[F[_]] {
     fee:                  Long
   ): F[Either[BuilderError, IoTransaction]]
 
+  // TODO: Update scala doc
+
   /**
    * Builds a simple transaction to mint Group Constructor tokens.
    * If successful, the transaction will have a single input (the registrationUtxo) and a single output (the minted
@@ -241,12 +243,14 @@ trait TransactionBuilderApi[F[_]] {
    * @param mintedConstructorLockAddress The LockAddress to send the minted constructor tokens to.
    * @return An unproven Group Constructor minting transaction if possible. Else, an error
    */
-  def buildSimpleGroupMintingTransaction(
-    registrationTxo:              Txo,
-    registrationLock:             Lock.Predicate,
-    groupPolicy:                  GroupPolicy,
-    quantityToMint:               Int128,
-    mintedConstructorLockAddress: LockAddress
+  def buildGroupMintingTransaction(
+    txos:              Seq[Txo],
+    lockPredicateFrom: Lock.Predicate,
+    groupPolicy:       GroupPolicy,
+    quantityToMint:    Long,
+    mintedAddress:     LockAddress,
+    changeAddress:     LockAddress,
+    fee:               Long
   ): F[Either[BuilderError, IoTransaction]]
 
   /**
@@ -265,12 +269,14 @@ trait TransactionBuilderApi[F[_]] {
    * @param mintedConstructorLockAddress The LockAddress to send the minted constructor tokens to.
    * @return An unproven Series Constructor minting transaction if possible. Else, an error
    */
-  def buildSimpleSeriesMintingTransaction(
-    registrationTxo:              Txo,
-    registrationLock:             Lock.Predicate,
-    seriesPolicy:                 SeriesPolicy,
-    quantityToMint:               Int128,
-    mintedConstructorLockAddress: LockAddress
+  def buildSeriesMintingTransaction(
+    txos:              Seq[Txo],
+    lockPredicateFrom: Lock.Predicate,
+    seriesPolicy:      SeriesPolicy,
+    quantityToMint:    Long,
+    mintedAddress:     LockAddress,
+    changeAddress:     LockAddress,
+    fee:               Long
   ): F[Either[BuilderError, IoTransaction]]
 
   /**
@@ -468,14 +474,14 @@ object TransactionBuilderApi {
         case _ => values
       }
 
-      override def buildSimpleGroupMintingTransaction(
+      override def buildGroupMintingTransaction(
         txos:              Seq[Txo],
         lockPredicateFrom: Lock.Predicate,
-        groupPolicy:                  GroupPolicy,
-        quantityToMint:               Long,
-        mintedAddress: LockAddress,
-        changeAddress:    LockAddress,
-        fee: Long
+        groupPolicy:       GroupPolicy,
+        quantityToMint:    Long,
+        mintedAddress:     LockAddress,
+        changeAddress:     LockAddress,
+        fee:               Long
       ): F[Either[BuilderError, IoTransaction]] = (
         for {
           registrationLockAddr <- EitherT.right[BuilderError](lockAddress(Lock().withPredicate(lockPredicateFrom)))
@@ -490,45 +496,49 @@ object TransactionBuilderApi {
               )
             )
             .leftMap(errs => UserInputErrors(errs.toList))
-          stxoAttestation <- EitherT.right[BuilderError](unprovenAttestation(registrationLock))
-          stxos           <- buildStxos(Seq(registrationTxo), stxoAttestation)
+          stxoAttestation <- EitherT.right[BuilderError](unprovenAttestation(lockPredicateFrom))
+          stxos           <- buildStxos(txos, stxoAttestation)
           datum           <- EitherT.right[BuilderError](datum())
           utxoMinted <- EitherT.right[BuilderError](
-            groupOutput(mintedConstructorLockAddress, quantityToMint, groupPolicy.computeId, groupPolicy.fixedSeries)
+            groupOutput(mintedAddress, quantityToMint, groupPolicy.computeId, groupPolicy.fixedSeries)
           )
+          utxoChange <- buildUtxos(txos, None, None, changeAddress, changeAddress, fee)
         } yield IoTransaction(
           inputs = stxos,
-          outputs = Seq(utxoMinted),
+          outputs = utxoChange :+ utxoMinted,
           datum = datum,
           groupPolicies = Seq(Datum.GroupPolicy(groupPolicy))
         )
       ).value
 
-      override def buildSimpleSeriesMintingTransaction(
-        registrationTxo:              Txo,
-        registrationLock:             Lock.Predicate,
-        seriesPolicy:                 SeriesPolicy,
-        quantityToMint:               Int128,
-        mintedConstructorLockAddress: LockAddress
+      override def buildSeriesMintingTransaction(
+        txos:              Seq[Txo],
+        lockPredicateFrom: Lock.Predicate,
+        seriesPolicy:      SeriesPolicy,
+        quantityToMint:    Long,
+        mintedAddress:     LockAddress,
+        changeAddress:     LockAddress,
+        fee:               Long
       ): F[Either[BuilderError, IoTransaction]] = (
         for {
-          registrationLockAddr <- EitherT.right[BuilderError](lockAddress(Lock().withPredicate(registrationLock)))
+          registrationLockAddr <- EitherT.right[BuilderError](lockAddress(Lock().withPredicate(lockPredicateFrom)))
           _ <- EitherT
             .fromEither[F](
               validateConstructorMintingParams(
-                registrationTxo,
+                txos,
                 registrationLockAddr,
                 seriesPolicy.registrationUtxo,
-                quantityToMint
+                quantityToMint,
+                fee
               )
             )
             .leftMap(errs => UserInputErrors(errs.toList))
-          stxoAttestation <- EitherT.right[BuilderError](unprovenAttestation(registrationLock))
-          stxos           <- buildStxos(Seq(registrationTxo), stxoAttestation)
+          stxoAttestation <- EitherT.right[BuilderError](unprovenAttestation(lockPredicateFrom))
+          stxos           <- buildStxos(txos, stxoAttestation)
           datum           <- EitherT.right[BuilderError](datum())
           utxoMinted <- EitherT.right[BuilderError](
             seriesOutput(
-              mintedConstructorLockAddress,
+              mintedAddress,
               quantityToMint,
               seriesPolicy.computeId,
               seriesPolicy.tokenSupply,
@@ -536,9 +546,10 @@ object TransactionBuilderApi {
               seriesPolicy.quantityDescriptor
             )
           )
+          utxoChange <- buildUtxos(txos, None, None, changeAddress, changeAddress, fee)
         } yield IoTransaction(
           inputs = stxos,
-          outputs = Seq(utxoMinted),
+          outputs = utxoChange :+ utxoMinted,
           datum = datum,
           seriesPolicies = Seq(Datum.SeriesPolicy(seriesPolicy))
         )
