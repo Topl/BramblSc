@@ -46,7 +46,9 @@ class TransactionBuilderInterpreterLvlsTransferSpec extends TransactionBuilderIn
       Left(
         UserInputErrors(
           Seq(
-            UserInputError(s"All tokens selected to transfer do not have enough funds to transfer"),
+            UserInputError(
+              s"All tokens selected to transfer do not have enough funds to transfer. The desired quantity to transfer is 4 but the 2 tokens selected to transfer only have a combined quantity of 2."
+            ),
             UserInputError(s"Not enough LVLs in input to satisfy fee")
           )
         )

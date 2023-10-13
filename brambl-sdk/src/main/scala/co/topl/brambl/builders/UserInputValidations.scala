@@ -101,14 +101,22 @@ object UserInputValidations {
     }
 
   def validTransferSupplyAmount(
-    desiredQuantity: Int128,
-    testValues:      Seq[Value]
-  ): ValidatedNec[UserInputError, Unit] =
+    desiredQuantity:    Int128,
+    allValues:          Seq[Value],
+    transferIdentifier: ValueTypeIdentifier
+  ): ValidatedNec[UserInputError, Unit] = {
+    val testValues = allValues.filter(_.typeIdentifier == transferIdentifier)
+    val inputQuantity = testValues.foldLeft(BigInt(0))((acc, q) => acc + q.quantity)
     Validated.condNec(
-      testValues.foldLeft(BigInt(0))((acc, q) => acc + q.quantity) >= desiredQuantity,
+      inputQuantity >= desiredQuantity,
       (),
-      UserInputError(s"All tokens selected to transfer do not have enough funds to transfer")
+      UserInputError(
+        s"All tokens selected to transfer do not have enough funds to transfer. " +
+        s"The desired quantity to transfer is ${(desiredQuantity: BigInt).intValue} but the ${testValues.length} " +
+        s"tokens selected to transfer only have a combined quantity of ${inputQuantity.intValue}."
+      )
     )
+  }
 
   def validTransferSupplyAll(
     tokenIdentifier: Option[ValueTypeIdentifier],
@@ -171,11 +179,10 @@ object UserInputValidations {
       fee:                Long
     ): Either[NonEmptyChain[UserInputError], Unit] = Try {
       val allValues = txos.map(_.transactionOutput.value.value)
-      val transferValues = allValues.filter(_.typeIdentifier == transferIdentifier)
       Chain(
         positiveQuantity(Some(amount), "quantity to transfer"),
         allInputLocksMatch(txos.map(_.transactionOutput.address), fromLockAddr, "fromLockAddr"),
-        validTransferSupplyAmount(amount, transferValues),
+        validTransferSupplyAmount(amount, allValues, transferIdentifier),
         identifierQuantityDescriptorLiquidOrNone(transferIdentifier),
         validFee(fee, allValues, if (transferIdentifier == LvlType) amount else 0)
       ).fold.toEither

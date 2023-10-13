@@ -166,6 +166,10 @@ trait TransactionBuilderApi[F[_]] {
    * all tokens provided in txos will go to the recipient. Any remaining tokens in txos that are not transferred to the
    * recipient will be transferred to the change address.
    *
+   * TODO: Add support for TOPLs and UpdateProposals
+   * @note Currently TOPLs and UpdateProposal values are not supported in the txos. This will be added in TSDK-610
+   * @note Currently TOPLs and UpdateProposal values are not supported in tokenIdentifier. This will be added in TSDK-610
+   *
    * @param txos All the TXOs encumbered by the Lock given by lockPredicateFrom. These TXOs must contain some token
    *             matching tokenIdentifier (if it is provided) and at least the quantity of LVLs to satisfy the fee, else
    *             an error will be returned.
@@ -191,7 +195,13 @@ trait TransactionBuilderApi[F[_]] {
    * Builds a transaction to transfer a certain amount of a specified Token (given by tokenIdentifier). The transaction
    * will also transfer any other tokens (in the txos) that are encumbered by the same predicate to the change address.
    *
-   * We currently only support transferring assets with quantity descriptor type LIQUID.
+   * This function only supports transferring a specific amount of assets (via tokenIdentifier) if their quantity
+   * descriptor type is LIQUID.
+   *
+   * TODO: Add support for TOPLs and UpdateProposals
+   * @note Currently TOPLs and UpdateProposal values are not supported in the txos. This will be added in TSDK-610
+   * @note Currently TOPLs and UpdateProposal values are not supported in tokenIdentifier. This may or may not be added
+   *       in TSDK-610 depending if these values can be aggregated and deaggregated by default. Pending discussion.
    *
    * @param tokenIdentifier The Token Identifier denoting the type of token to transfer to the recipient. If this denotes
    *                        an Asset Token, the quantity descriptor type must be LIQUID, else an error will be returned.
