@@ -555,15 +555,20 @@ object TransactionBuilderApi {
         )
       ).value
 
+      // TODO: case when group and series have same lock vs diff locks
+      // bc we need to unlock both of them
+      // so then we need to transfer all to change
+      // but if the same, then
       override def buildSimpleAssetMintingTransaction(
         mintingStatement:       AssetMintingStatement,
-        groupTxo:               Txo,
-        seriesTxo:              Txo,
-        groupLock:              Lock.Predicate,
+        txos:               Seq[Txo], // has group, series, and change from both. all txos either have group or series lock
+        groupLock:              Lock.Predicate, // need to partition the txos into group and series when validating
         seriesLock:             Lock.Predicate,
         mintedAssetLockAddress: LockAddress,
         ephemeralMetadata:      Option[Struct],
-        commitment:             Option[Array[Byte]]
+        commitment:             Option[Array[Byte]],
+        changeAddress: LockAddress,
+        fee: Long
       ): F[Either[BuilderError, IoTransaction]] = (
         for {
           groupLockAddr  <- EitherT.right[BuilderError](lockAddress(Lock().withPredicate(groupLock)))
