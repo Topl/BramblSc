@@ -4,6 +4,7 @@ import cats.Id
 import cats.implicits.catsSyntaxOptionId
 import co.topl.brambl.MockHelpers
 import co.topl.brambl.builders.TransactionBuilderInterpreterSpecBase.{
+  BuildAssetMintingTransaction,
   BuildGroupConstructorMintingTransaction,
   BuildSeriesConstructorMintingTransaction,
   BuildTransferAllTransaction,
@@ -12,13 +13,14 @@ import co.topl.brambl.builders.TransactionBuilderInterpreterSpecBase.{
 import co.topl.brambl.common.ContainsImmutable.ContainsImmutableTOps
 import co.topl.brambl.common.ContainsImmutable.instances.{spentOutputImmutable, unspentOutputImmutable}
 import co.topl.brambl.models.Event.{GroupPolicy, SeriesPolicy}
-import co.topl.brambl.models.box.{Lock, Value}
+import co.topl.brambl.models.box.{AssetMintingStatement, Lock, Value}
 import co.topl.brambl.models.transaction.{IoTransaction, SpentTransactionOutput, UnspentTransactionOutput}
 import co.topl.brambl.models.{LockAddress, TransactionOutputAddress}
 import co.topl.brambl.syntax.{
   assetAsBoxVal,
   groupAsBoxVal,
   groupPolicyAsGroupPolicySyntaxOps,
+  longAsInt128,
   seriesAsBoxVal,
   seriesPolicyAsSeriesPolicySyntaxOps,
   valueToTypeIdentifierSyntaxOps,
@@ -62,6 +64,23 @@ trait TransactionBuilderInterpreterSpecBase extends munit.FunSuite with MockHelp
       RecipientAddr,
       ChangeAddr,
       2
+    )
+
+  def mockAssetMintingStatement: AssetMintingStatement =
+    AssetMintingStatement(mockGroupPolicyAlt.registrationUtxo, mockSeriesPolicyAlt.registrationUtxo, 1)
+
+  def buildMintAssetTransaction: BuildAssetMintingTransaction[Id] =
+    BuildAssetMintingTransaction(
+      txBuilder,
+      mockAssetMintingStatement,
+      mockTxos :+ valToTxo(groupValue, txAddr = mockGroupPolicyAlt.registrationUtxo) :+ valToTxo(
+        seriesValue,
+        txAddr = mockSeriesPolicyAlt.registrationUtxo
+      ),
+      Map(inLockFullAddress -> inPredicateLockFull),
+      1,
+      RecipientAddr,
+      ChangeAddr
     )
 
   def valToTxo(
@@ -165,7 +184,10 @@ trait TransactionBuilderInterpreterSpecBase extends munit.FunSuite with MockHelp
 
   val mockTxos: Seq[Txo] = mockValues.map(valToTxo(_))
 
-  val mockChange: Seq[Value] = mockValues
+  def mockChange: Seq[Value] = mockChange(mockTxos)
+
+  def mockChange(txos: Seq[Txo]): Seq[Value] = txos
+    .map(_.transactionOutput.value)
     .map(_.value)
     .groupBy(_.typeIdentifier)
     .view
@@ -245,6 +267,45 @@ object TransactionBuilderInterpreterSpecBase {
         mintedAddress,
         changeAddress,
         fee
+      )
+  }
+
+  case class BuildAssetMintingTransaction[F[_]](
+    txBuilder:              TransactionBuilderApi[F],
+    mintingStatement:       AssetMintingStatement,
+    txos:                   Seq[Txo],
+    locks:                  Map[LockAddress, Lock.Predicate],
+    fee:                    Long,
+    mintedAssetLockAddress: LockAddress,
+    changeAddress:          LockAddress
+  ) {
+
+    def addTxo(txo: Txo): BuildAssetMintingTransaction[F] = this.copy(txos = txos :+ txo)
+
+    def addLock(lock: (LockAddress, Lock.Predicate)): BuildAssetMintingTransaction[F] =
+      this.copy(locks = locks + lock)
+
+    def updateAmsQuantity(quantityToMint: Long): BuildAssetMintingTransaction[F] =
+      this.copy(mintingStatement = mintingStatement.copy(quantity = quantityToMint))
+
+    def updateAmsGroupUtxo(groupUtxo: TransactionOutputAddress): BuildAssetMintingTransaction[F] =
+      this.copy(mintingStatement = mintingStatement.copy(groupTokenUtxo = groupUtxo))
+
+    def updateAmsSeriesUtxo(seriesUtxo: TransactionOutputAddress): BuildAssetMintingTransaction[F] =
+      this.copy(mintingStatement = mintingStatement.copy(seriesTokenUtxo = seriesUtxo))
+
+    def withFee(fee: Long): BuildAssetMintingTransaction[F] = this.copy(fee = fee)
+
+    def run: F[Either[BuilderError, IoTransaction]] = txBuilder
+      .buildSimpleAssetMintingTransaction(
+        mintingStatement,
+        txos,
+        locks,
+        fee,
+        mintedAssetLockAddress,
+        changeAddress,
+        None,
+        None
       )
   }
 

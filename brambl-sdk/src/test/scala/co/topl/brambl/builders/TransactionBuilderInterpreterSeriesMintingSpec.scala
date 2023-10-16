@@ -63,7 +63,7 @@ class TransactionBuilderInterpreterSeriesMintingSpec extends TransactionBuilderI
       testTx,
       Left(
         UserInputErrors(
-          Seq(UserInputError("every lock does not correspond to lockPredicateFrom"))
+          Seq(UserInputError("every lock in the txos must correspond to lockPredicateFrom"))
         )
       )
     )

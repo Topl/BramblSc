@@ -246,10 +246,10 @@ object UserInputValidations {
         allInputLocksMatch(txoLocks, locks, "the txos", "a lock in the lock map"),
         allInputLocksMatch(locks, txoLocks, "the lock map", "a lock in the txos"),
         (
-          txosContainsExactlyOneAddress(mintingStatement.groupTokenUtxo, "registrationUtxo", txos)
+          txosContainsExactlyOneAddress(mintingStatement.groupTokenUtxo, "groupTokenUtxo", txos)
             .andThen(txo => isGroup(txo.transactionOutput.value.value, "groupTokenUtxo"))
           product
-          txosContainsExactlyOneAddress(mintingStatement.seriesTokenUtxo, "registrationUtxo", txos)
+          txosContainsExactlyOneAddress(mintingStatement.seriesTokenUtxo, "seriesTokenUtxo", txos)
             .andThen(txo => isSeries(txo.transactionOutput.value.value, "seriesTokenUtxo"))
             .andThen(s => positiveQuantity(s.quantity, "quantity of input series constructor tokens").map(_ => s))
             .andThen(s => validMintingSupply(mintingStatement.quantity, s).map(_ => s))

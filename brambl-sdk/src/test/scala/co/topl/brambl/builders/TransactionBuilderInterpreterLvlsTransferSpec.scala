@@ -33,7 +33,7 @@ class TransactionBuilderInterpreterLvlsTransferSpec extends TransactionBuilderIn
       .run
     assertEquals(
       testTx,
-      Left(UserInputErrors(Seq(UserInputError(s"every lock does not correspond to fromLockAddr"))))
+      Left(UserInputErrors(Seq(UserInputError(s"every lock in the txos must correspond to lockPredicateFrom"))))
     )
   }
 
