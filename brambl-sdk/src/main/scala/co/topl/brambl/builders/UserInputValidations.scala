@@ -2,7 +2,7 @@ package co.topl.brambl.builders
 
 import cats.data.{Chain, NonEmptyChain, Validated, ValidatedNec}
 import cats.implicits.{catsSyntaxEitherId, catsSyntaxOptionId, catsSyntaxValidatedIdBinCompat0, toFoldableOps}
-import co.topl.brambl.models.box.{AssetMintingStatement, FungibilityType, QuantityDescriptorType}
+import co.topl.brambl.models.box.{AssetMintingStatement, FungibilityType, Lock, QuantityDescriptorType}
 import co.topl.brambl.models.{LockAddress, SeriesId, TransactionOutputAddress}
 import co.topl.brambl.models.box.Value._
 import quivr.models.Int128
@@ -20,14 +20,6 @@ import scala.util.{Failure, Success, Try}
 
 object UserInputValidations {
 
-  def txoAddressMatch(
-    testAddr:      TransactionOutputAddress,
-    expectedAddr:  TransactionOutputAddress,
-    testLabel:     String,
-    expectedLabel: String
-  ): ValidatedNec[UserInputError, Unit] =
-    Validated.condNec(testAddr == expectedAddr, (), UserInputError(s"$testLabel does not match $expectedLabel"))
-
   def txosContainsExactlyOneAddress(
     expectedAddr: TransactionOutputAddress,
     expetedLabel: String,
@@ -42,74 +34,62 @@ object UserInputValidations {
     )
   }
 
-  def isLvls(testValue: Value, testLabel: String): ValidatedNec[UserInputError, Unit] =
-    Validated.condNec(testValue.isLvl, (), UserInputError(s"$testLabel does not contain LVLs"))
+  def isLvls(testValue: Value, testLabel: String): ValidatedNec[UserInputError, LVL] =
+    Validated.condNec(testValue.isLvl, testValue.lvl.get, UserInputError(s"$testLabel does not contain LVLs"))
 
-  def isGroup(testValue: Value, testLabel: String): ValidatedNec[UserInputError, Unit] =
-    Validated.condNec(testValue.isGroup, (), UserInputError(s"$testLabel does not contain Group Constructor Tokens"))
+  def isGroup(testValue: Value, testLabel: String): ValidatedNec[UserInputError, Group] =
+    Validated.condNec(
+      testValue.isGroup,
+      testValue.group.get,
+      UserInputError(s"$testLabel does not contain Group Constructor Tokens")
+    )
 
-  def isSeries(testValue: Value, testLabel: String): ValidatedNec[UserInputError, Unit] =
+  def isSeries(testValue: Value, testLabel: String): ValidatedNec[UserInputError, Series] =
     Validated.condNec(
       testValue.isSeries,
-      (),
+      testValue.series.get,
       UserInputError(s"$testLabel does not contain Series Constructor Tokens")
     )
 
   def fixedSeriesMatch(
     testValue:     Option[SeriesId],
-    expectedValue: Option[SeriesId]
+    expectedValue: SeriesId
   ): ValidatedNec[UserInputError, Unit] =
-    (testValue, expectedValue) match {
-      case (Some(fixedSeries), Some(expectedSeries)) =>
+    testValue match {
+      case Some(expectedSeries) =>
         Validated.condNec(
-          fixedSeries == expectedSeries,
+          expectedValue == expectedSeries,
           (),
           UserInputError(s"fixedSeries does not match provided Series ID")
         )
       case _ => ().validNec[UserInputError]
     }
 
-  def inputLockMatch(
-    testAddr:      LockAddress,
-    expectedAddr:  LockAddress,
+  def allInputLocksMatch(
+    testAddrs:     Set[LockAddress],
+    expectedAddrs: Set[LockAddress],
     testLabel:     String,
     expectedLabel: String
   ): ValidatedNec[UserInputError, Unit] =
     Validated.condNec(
-      testAddr == expectedAddr,
+      testAddrs.forall(expectedAddrs.contains),
       (),
-      UserInputError(s"$testLabel does not correspond to $expectedLabel")
+      UserInputError(s"every lock in $testLabel must correspond to $expectedLabel")
     )
 
-  def allInputLocksMatch(
-    testAddrs:     Seq[LockAddress],
-    expectedAddr:  LockAddress,
-    expectedLabel: String
-  ): ValidatedNec[UserInputError, Unit] =
-    Validated.condNec(
-      testAddrs.forall(_ == expectedAddr),
-      (),
-      UserInputError(s"every lock does not correspond to $expectedLabel")
-    )
-
-  def positiveQuantity(testQuantity: Option[Int128], testLabel: String): ValidatedNec[UserInputError, Unit] =
-    Validated.condNec(
-      testQuantity.isEmpty || testQuantity.get > 0,
-      (),
-      UserInputError(s"$testLabel must be positive")
-    )
+  def positiveQuantity(testQuantity: Int128, testLabel: String): ValidatedNec[UserInputError, Unit] =
+    Validated.condNec(testQuantity > 0, (), UserInputError(s"$testLabel must be positive"))
 
   def validMintingSupply(
     desiredQuantity: Int128,
-    seriesTokenOpt:  Option[Series],
-    testLabel:       String
+    seriesToken:     Series
   ): ValidatedNec[UserInputError, Unit] =
-    seriesTokenOpt match {
-      case Some(Series(_, availableQuantity, Some(tokenSupply), _, _, _)) =>
+    seriesToken.tokenSupply match {
+      case Some(tokenSupply) =>
         if (desiredQuantity % tokenSupply != 0)
-          UserInputError(s"$testLabel must be a multiple of token supply").invalidNec[Unit]
-        else if (desiredQuantity > availableQuantity * tokenSupply)
-          UserInputError(s"$testLabel must be less than total token supply available.").invalidNec[Unit]
+          UserInputError(s"quantity to mint must be a multiple of token supply").invalidNec[Unit]
+        else if (desiredQuantity > seriesToken.quantity * tokenSupply)
+          UserInputError(s"quantity to mint must be less than total token supply available.").invalidNec[Unit]
         else ().validNec[UserInputError]
       case _ => ().validNec[UserInputError]
     }
@@ -180,7 +160,12 @@ object UserInputValidations {
     ): Either[NonEmptyChain[UserInputError], Unit] = Try {
       val allValues = txos.map(_.transactionOutput.value.value)
       Chain(
-        allInputLocksMatch(txos.map(_.transactionOutput.address), fromLockAddr, "fromLockAddr"),
+        allInputLocksMatch(
+          txos.map(_.transactionOutput.address).toSet,
+          Set(fromLockAddr),
+          "the txos",
+          "lockPredicateFrom"
+        ),
         validTransferSupplyAll(tokenIdentifier, allValues.map(_.typeIdentifier)),
         validFee(fee, allValues)
       ).fold.toEither
@@ -202,8 +187,13 @@ object UserInputValidations {
     ): Either[NonEmptyChain[UserInputError], Unit] = Try {
       val allValues = txos.map(_.transactionOutput.value.value)
       Chain(
-        positiveQuantity(Some(amount), "quantity to transfer"),
-        allInputLocksMatch(txos.map(_.transactionOutput.address), fromLockAddr, "fromLockAddr"),
+        positiveQuantity(amount, "quantity to transfer"),
+        allInputLocksMatch(
+          txos.map(_.transactionOutput.address).toSet,
+          Set(fromLockAddr),
+          "the txos",
+          "lockPredicateFrom"
+        ),
         validTransferSupplyAmount(amount, allValues, transferIdentifier),
         identifierQuantityDescriptorLiquidOrNone(transferIdentifier),
         validFee(fee, allValues, if (transferIdentifier == LvlType) amount else 0)
@@ -226,9 +216,14 @@ object UserInputValidations {
     ): Either[NonEmptyChain[UserInputError], Unit] = Try {
       Chain(
         txosContainsExactlyOneAddress(policyRegistrationUtxo, "registrationUtxo", txos)
-          .andThen(txo => isLvls(txo.transactionOutput.value.value, "registrationUtxo")),
-        allInputLocksMatch(txos.map(_.transactionOutput.address), fromLockAddr, "lockPredicateFrom"),
-        positiveQuantity(Some(quantityToMint), "quantityToMint"),
+          .andThen(txo => isLvls(txo.transactionOutput.value.value, "registrationUtxo").map(_ => ())),
+        allInputLocksMatch(
+          txos.map(_.transactionOutput.address).toSet,
+          Set(fromLockAddr),
+          "the txos",
+          "lockPredicateFrom"
+        ),
+        positiveQuantity(quantityToMint, "quantityToMint"),
         validFee(fee, txos.map(_.transactionOutput.value.value))
       ).fold.toEither
     } match {
@@ -242,43 +237,29 @@ object UserInputValidations {
      */
     def validateAssetMintingParams(
       mintingStatement: AssetMintingStatement,
-      groupTxo:         Txo,
-      seriesTxo:        Txo,
-      groupLockAddr:    LockAddress,
-      seriesLockAddr:   LockAddress
-    ): Either[NonEmptyChain[UserInputError], Unit] =
+      txos:             Seq[Txo],
+      locks:            Set[LockAddress],
+      fee:              Long
+    ): Either[NonEmptyChain[UserInputError], Unit] = Try {
+      val txoLocks = txos.map(_.transactionOutput.address).toSet
       Chain(
-        txoAddressMatch(groupTxo.outputAddress, mintingStatement.groupTokenUtxo, "groupTxo", "groupTokenUtxo"),
-        txoAddressMatch(seriesTxo.outputAddress, mintingStatement.seriesTokenUtxo, "seriesTxo", "seriesTokenUtxo"),
-        isGroup(groupTxo.transactionOutput.value.value, "groupTxo"),
-        isSeries(seriesTxo.transactionOutput.value.value, "seriesTxo"),
-        inputLockMatch(
-          groupLockAddr,
-          groupTxo.transactionOutput.address,
-          "groupLock",
-          "groupTxo"
-        ),
-        inputLockMatch(
-          seriesLockAddr,
-          seriesTxo.transactionOutput.address,
-          "seriesLock",
-          "seriesTxo"
-        ),
-        positiveQuantity(mintingStatement.quantity.some, "quantity to mint"),
-        positiveQuantity(
-          seriesTxo.transactionOutput.value.value.series.map(_.quantity),
-          "quantity of input series constructor tokens"
-        ),
-        validMintingSupply(
-          mintingStatement.quantity,
-          seriesTxo.transactionOutput.value.value.series,
-          "quantity to mint"
-        ),
-        fixedSeriesMatch(
-          groupTxo.transactionOutput.value.value.group.flatMap(_.fixedSeries),
-          seriesTxo.transactionOutput.value.value.series.map(_.seriesId)
-        )
+        allInputLocksMatch(txoLocks, locks, "the txos", "a lock in the lock map"),
+        allInputLocksMatch(locks, txoLocks, "the lock map", "a lock in the txos"),
+        (
+          txosContainsExactlyOneAddress(mintingStatement.groupTokenUtxo, "registrationUtxo", txos)
+            .andThen(txo => isGroup(txo.transactionOutput.value.value, "groupTokenUtxo"))
+          product
+          txosContainsExactlyOneAddress(mintingStatement.seriesTokenUtxo, "registrationUtxo", txos)
+            .andThen(txo => isSeries(txo.transactionOutput.value.value, "seriesTokenUtxo"))
+            .andThen(s => positiveQuantity(s.quantity, "quantity of input series constructor tokens").map(_ => s))
+            .andThen(s => validMintingSupply(mintingStatement.quantity, s).map(_ => s))
+        ).andThen(res => fixedSeriesMatch(res._1.fixedSeries, res._2.seriesId)),
+        positiveQuantity(mintingStatement.quantity, "quantity to mint"),
+        validFee(fee, txos.map(_.transactionOutput.value.value))
       ).fold.toEither
-
+    } match {
+      case Success(value) => value
+      case Failure(err)   => NonEmptyChain.one(UserInputError(err.getMessage)).asLeft
+    }
   }
 }

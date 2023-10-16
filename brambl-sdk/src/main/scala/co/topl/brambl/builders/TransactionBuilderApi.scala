@@ -307,12 +307,12 @@ trait TransactionBuilderApi[F[_]] {
    * @return An unproven asset minting transaction if possible. Else, an error
    */
   def buildSimpleAssetMintingTransaction(
-    mintingStatement:       AssetMintingStatement,
-    groupTxo:               Txo,
-    seriesTxo:              Txo,
-    groupLock:              Lock.Predicate,
-    seriesLock:             Lock.Predicate,
+    mintingStatement:       AssetMintingStatement, // ensure utxos are within txos and valid
+    txos:                   Seq[Txo], // ensure all txos have a lock within locks
+    locks:                  Map[LockAddress, Lock.Predicate], // ensure all locks have a txo corresponding to them
+    fee:                    Long, // ensure fee
     mintedAssetLockAddress: LockAddress,
+    changeAddress:          LockAddress,
     ephemeralMetadata:      Option[Struct],
     commitment:             Option[Array[Byte]]
   ): F[Either[BuilderError, IoTransaction]]
@@ -555,40 +555,47 @@ object TransactionBuilderApi {
         )
       ).value
 
-      // TODO: case when group and series have same lock vs diff locks
-      // bc we need to unlock both of them
-      // so then we need to transfer all to change
-      // but if the same, then
+      private def toAttestationMap(
+        txos:  Seq[Txo],
+        locks: Map[LockAddress, Lock.Predicate]
+      ): EitherT[F, BuilderError, Map[Seq[Txo], Attestation]] = {
+        val txoMap = txos.groupBy(_.transactionOutput.address)
+        // Per validation, we know that all txos have a lock within locks and all locks have a txo corresponding to them
+        EitherT.right[BuilderError](
+          locks.toSeq.map(el => (txoMap(el._1), unprovenAttestation(el._2)).sequence).sequence.map(_.toMap)
+        )
+      }
+
       override def buildSimpleAssetMintingTransaction(
         mintingStatement:       AssetMintingStatement,
-        txos:               Seq[Txo], // has group, series, and change from both. all txos either have group or series lock
-        groupLock:              Lock.Predicate, // need to partition the txos into group and series when validating
-        seriesLock:             Lock.Predicate,
+        txos:                   Seq[Txo],
+        locks:                  Map[LockAddress, Lock.Predicate],
+        fee:                    Long,
         mintedAssetLockAddress: LockAddress,
+        changeAddress:          LockAddress,
         ephemeralMetadata:      Option[Struct],
-        commitment:             Option[Array[Byte]],
-        changeAddress: LockAddress,
-        fee: Long
+        commitment:             Option[Array[Byte]]
       ): F[Either[BuilderError, IoTransaction]] = (
         for {
-          groupLockAddr  <- EitherT.right[BuilderError](lockAddress(Lock().withPredicate(groupLock)))
-          seriesLockAddr <- EitherT.right[BuilderError](lockAddress(Lock().withPredicate(seriesLock)))
           _ <- EitherT
-            .fromEither[F](
-              validateAssetMintingParams(
-                mintingStatement,
-                groupTxo,
-                seriesTxo,
-                groupLockAddr,
-                seriesLockAddr
-              )
-            )
+            .fromEither[F](validateAssetMintingParams(mintingStatement, txos, locks.keySet, fee))
             .leftMap(errs => UserInputErrors(errs.toList))
-          groupAttestation  <- EitherT.right[BuilderError](unprovenAttestation(groupLock))
-          seriesAttestation <- EitherT.right[BuilderError](unprovenAttestation(seriesLock))
-          datum             <- EitherT.right[BuilderError](datum())
-          groupToken = groupTxo.transactionOutput.value.value.group.get
-          seriesToken = seriesTxo.transactionOutput.value.value.series.get
+          datum        <- EitherT.right[BuilderError](datum())
+          attestations <- toAttestationMap(txos, locks)
+          stxos        <- attestations.map(el => buildStxos(el._1, el._2)).toSeq.sequence.map(_.flatten)
+          // Per validation, there is exactly one series token in txos
+          (seriesTxo, nonSeriesTxo) = txos
+            .partition(_.outputAddress == mintingStatement.seriesTokenUtxo)
+            .leftMap(_.head)
+          seriesUtxo = seriesTxo.transactionOutput
+          seriesToken = seriesUtxo.value.getSeries
+          // Per validation, there is exactly one group token in txos
+          groupToken = txos
+            .filter(_.outputAddress == mintingStatement.groupTokenUtxo)
+            .head
+            .transactionOutput
+            .value
+            .getGroup
           utxoMinted <- EitherT.right[BuilderError](
             assetOutput(
               mintedAssetLockAddress,
@@ -601,47 +608,28 @@ object TransactionBuilderApi {
               commitment.map(ByteString.copyFrom)
             )
           )
-          groupOutput <- EitherT.right[BuilderError](
-            groupOutput(
-              groupTxo.transactionOutput.address,
-              groupToken.quantity,
-              groupToken.groupId,
-              groupToken.fixedSeries
-            )
-          )
-          seriesOutputSeq <- {
+          seriesTxoAdjusted = {
             val inputQuantity = seriesToken.quantity
             val outputQuantity: BigInt =
               if (seriesToken.tokenSupply.isEmpty) inputQuantity
               else inputQuantity - (mintingStatement.quantity / seriesToken.tokenSupply.get)
             if (outputQuantity > 0)
-              EitherT.right[BuilderError](
-                seriesOutput(
-                  seriesTxo.transactionOutput.address,
-                  outputQuantity,
-                  seriesToken.seriesId,
-                  seriesToken.tokenSupply,
-                  seriesToken.fungibility,
-                  seriesToken.quantityDescriptor
-                )
-                  .map(utxo => Seq(utxo))
+              Seq(
+                seriesTxo
+                  .withTransactionOutput(
+                    seriesUtxo
+                      .withValue(
+                        Value.defaultInstance
+                          .withSeries(seriesToken.withQuantity(outputQuantity))
+                      )
+                  ) // Only the quantity changes
               )
-            else EitherT.rightT[F, BuilderError](Seq.empty[UnspentTransactionOutput])
+            else Seq.empty[Txo]
           }
+          changeOutputs <- buildUtxos(nonSeriesTxo ++ seriesTxoAdjusted, None, None, changeAddress, changeAddress, fee)
         } yield IoTransaction(
-          inputs = Seq(
-            SpentTransactionOutput(
-              groupTxo.outputAddress,
-              groupAttestation,
-              groupTxo.transactionOutput.value
-            ),
-            SpentTransactionOutput(
-              seriesTxo.outputAddress,
-              seriesAttestation,
-              seriesTxo.transactionOutput.value
-            )
-          ),
-          outputs = seriesOutputSeq :+ utxoMinted :+ groupOutput,
+          inputs = stxos,
+          outputs = changeOutputs :+ utxoMinted,
           datum = datum,
           mintingStatements = Seq(mintingStatement)
         )
