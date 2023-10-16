@@ -225,22 +225,22 @@ trait TransactionBuilderApi[F[_]] {
     fee:                  Long
   ): F[Either[BuilderError, IoTransaction]]
 
-  // TODO: Update scala doc
-
   /**
    * Builds a simple transaction to mint Group Constructor tokens.
-   * If successful, the transaction will have a single input (the registrationUtxo) and a single output (the minted
-   * group constructor tokens).
+   * If successful, the transaction will have one or more inputs (at least the registrationUtxo) and one or more
+   * outputs (at least the minted group constructor tokens). There can be more inputs and outputs if the supplied txos
+   * contain more tokens.
    *
-   * @param registrationTxo The TXO that corresponds to the registrationUtxo to use as an input in this transaction.
-   *                        This TXO must contain LVLs, else an error will be returned. The entirety of this TXO will
-   *                        be used as the fee to mint the series constructor token.
-   * @param registrationLock The Predicate Lock that encumbers the funds in the registrationUtxo. This will be used in
-   *                         the attestation of the registrationUtxo input.
+   * @param txos All the TXOs encumbered by the Lock given by lockPredicateFrom. These TXOs must contain some LVLs (as
+   *             specified in the policy), to satisfy the registration fee, else an error will be returned.
+   * @param lockPredicateFrom The Predicate Lock that encumbers the funds in the txos. This will be used in
+   *                         the attestations of the inputs.
    * @param groupPolicy The group policy for which we are minting constructor tokens. This group policy specifies a
    *                    registrationUtxo to be used as an input in this transaction.
    * @param quantityToMint The quantity of constructor tokens to mint
-   * @param mintedConstructorLockAddress The LockAddress to send the minted constructor tokens to.
+   * @param mintedAddress The LockAddress to send the minted constructor tokens to.
+   * @param changeAddress The LockAddress to send the change to.
+   * @param fee              The transaction fee. The txos must contain enough LVLs to satisfy this fee
    * @return An unproven Group Constructor minting transaction if possible. Else, an error
    */
   def buildGroupMintingTransaction(
@@ -255,18 +255,21 @@ trait TransactionBuilderApi[F[_]] {
 
   /**
    * Builds a simple transaction to mint Series Constructor tokens.
-   * If successful, the transaction will have a single input (the registrationUtxo) and a single output (the minted
-   * series constructor tokens).
+   * If successful, the transaction will have one or more inputs (at least the registrationUtxo) and one or more
+   * outputs (at least the minted series constructor tokens). There can be more inputs and outputs if the supplied txos
+   * contain more tokens.
    *
-   * @param registrationTxo The TXO that corresponds to the registrationUtxo to use as an input in this transaction.
-   *                        This TXO must contain LVLs, else an error will be returned. The entirety of this TXO will
-   *                        be used as the fee to mint the series constructor token.
-   * @param registrationLock The Predicate Lock that encumbers the funds in the registrationUtxo. This will be used in
-   *                         the attestation of the registrationUtxo input.
+   * @param txos              All the TXOs encumbered by the Lock given by lockPredicateFrom. These TXOs must contain
+   *                          some LVLs (as specified in the policy), to satisfy the registration fee, else an error
+   *                          will be returned.
+   * @param lockPredicateFrom The Predicate Lock that encumbers the funds in the txos. This will be used in
+   *                          the attestations of the inputs.
    * @param seriesPolicy The series policy for which we are minting constructor tokens. This series policy specifies a
    *                    registrationUtxo to be used as an input in this transaction.
    * @param quantityToMint The quantity of constructor tokens to mint
-   * @param mintedConstructorLockAddress The LockAddress to send the minted constructor tokens to.
+   * @param mintedAddress The LockAddress to send the minted constructor tokens to.
+   * @param changeAddress The LockAddress to send the change to.
+   * @param fee           The transaction fee. The txos must contain enough LVLs to satisfy this fee
    * @return An unproven Series Constructor minting transaction if possible. Else, an error
    */
   def buildSeriesMintingTransaction(
@@ -281,27 +284,22 @@ trait TransactionBuilderApi[F[_]] {
 
   /**
    * Builds a simple transaction to mint asset tokens.
-   * If successful, the transaction will have two inputs (the group and series constructor token UTXOs) and 2-3 outputs.
-   * The first output will be the minted asset tokens. The second output will be the group constructor tokens (since
-   * they are never burned). The potential third output will be the series constructor tokens that were not burned.
+   * If successful, the transaction will have two or more inputs (at least the group and series registration tokens) and
+   * two or more outputs (at least the minted asset tokens and the input group constructor token). There can be more
+   * inputs and outputs if the supplied txos contain more tokens.
    *
-   * We currently only support assets with quantity descriptor type LIQUID.
-   *
+   * @note If the "tokenSupply" field in the registration series constructor tokens is present, then the quantity of
+   *       asset tokens to mint (defined in the AMS) has to be a multiple of this field, else an error will be returned.
+   *       In this case, minting each multiple of "tokenSupply" quantity of assets will burn a single series constructor token.
    * @param mintingStatement      The minting statement that specifies the asset to mint.
-   * @param groupTxo              The TXO that corresponds to the groupTokenUtxo (in the asset minting statement) to use
-   *                              as an input in this transaction. This TXO must contain group constructor tokens, else
-   *                              an error will be returned. None of this TXO will be burned.
-   * @param seriesTxo             The TXO that corresponds to the seriesTokenUtxo (in the asset minting statement) to
-   *                              use as an input in this transaction. This TXO must contain series constructor tokens,
-   *                              else an error will be returned. If the "tokenSupply" field in the series constructor
-   *                              tokens is present, then the quantity of asset tokens to mint has to be a multiple of
-   *                              this field, else an error will be returned. In this case, minting each multiple of
-   *                              "tokenSupply" quantity of assets will burn a single series constructor token.
-   * @param groupLock             The Predicate Lock that encumbers the funds in the groupTxo. This will be used in the
-   *                              attestation of the groupTxo input.
-   * @param seriesLock            The Predicate Lock that encumbers the funds in the seriesTxo. This will be used in the
-   *                              attestation of the seriesTxo input.
+   * @param txos                  All the TXOs encumbered by the Locks given by locks. These TXOs must contain some
+   *                              group and series constructors (as referenced in the AMS) to satisfy the minting
+   *                              requirements, else an error will be returned.
+   * @param locks             A mapping of Predicate Locks that encumbers the funds in the txos. This will be used in the
+   *                              attestations of the txos' inputs.
+   * @param fee The transaction fee. The txos must contain enough LVLs to satisfy this fee
    * @param mintedAssetLockAddress The LockAddress to send the minted asset tokens to.
+   * @param changeAddress The LockAddress to send the change to.
    * @param ephemeralMetadata     Optional ephemeral metadata to include in the minted asset tokens.
    * @param commitment            Optional commitment to include in the minted asset tokens.
    * @return An unproven asset minting transaction if possible. Else, an error
