@@ -297,7 +297,7 @@ object TransactionBuilderInterpreterSpecBase {
     def withFee(fee: Long): BuildAssetMintingTransaction[F] = this.copy(fee = fee)
 
     def run: F[Either[BuilderError, IoTransaction]] = txBuilder
-      .buildSimpleAssetMintingTransaction(
+      .buildAssetMintingTransaction(
         mintingStatement,
         txos,
         locks,

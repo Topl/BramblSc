@@ -304,7 +304,7 @@ trait TransactionBuilderApi[F[_]] {
    * @param commitment            Optional commitment to include in the minted asset tokens.
    * @return An unproven asset minting transaction if possible. Else, an error
    */
-  def buildSimpleAssetMintingTransaction(
+  def buildAssetMintingTransaction(
     mintingStatement:       AssetMintingStatement, // ensure utxos are within txos and valid
     txos:                   Seq[Txo], // ensure all txos have a lock within locks
     locks:                  Map[LockAddress, Lock.Predicate], // ensure all locks have a txo corresponding to them
@@ -564,7 +564,7 @@ object TransactionBuilderApi {
         )
       }
 
-      override def buildSimpleAssetMintingTransaction(
+      override def buildAssetMintingTransaction(
         mintingStatement:       AssetMintingStatement,
         txos:                   Seq[Txo],
         locks:                  Map[LockAddress, Lock.Predicate],
