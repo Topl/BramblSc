@@ -7,7 +7,7 @@ object Dependencies {
     val catsCoreVersion = "2.10.0"
     val simulacrumVersion = "1.0.1"
     val circeVersion = "0.14.6"
-    val protobufSpecsVersion = "2.0.0-alpha5"
+    val protobufSpecsVersion = "2.0.0-alpha5+5-893f7023-SNAPSHOT" // TODO :branch: BN-1252-update-proposal-validation-step-2
     val mUnitTeVersion = "0.7.29"
   }
 

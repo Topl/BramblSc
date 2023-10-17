@@ -571,14 +571,55 @@ object TransactionSyntaxInterpreter {
   }
 
   private def updateProposalValidation(transaction: IoTransaction) = {
+
+    // Mint an update proposal using the same utxo is not allowed
+    val notRepeatedValidation = transaction.updateProposalMintingStatements
+      .map(_.registrationUtxo)
+      .groupBy(identity)
+      .collect {
+        case (address, seqAddresses) if seqAddresses.size > 1 =>
+          address
+      }
+      .isEmpty
+
+    // Each statement should reference a valid input TOPL, and it is not burned
+    val referenceValidation = transaction.updateProposalMintingStatements.forall { stm =>
+      val inputTopl =
+        transaction.inputs.filter(_.address == stm.registrationUtxo).flatMap(_.value.value.topl)
+      val outputUpdateProposal =
+        transaction.outputs.flatMap(_.value.value.updateProposal).filter(_.computeId == stm.updateProposalId)
+
+      val outputTopls = transaction.outputs
+        .flatMap(_.value.value.topl)
+        .filter(_.registration == inputTopl.head.registration)
+        .map(_.quantity: BigInt)
+        .sum
+
+      val isValid = inputTopl.nonEmpty &&
+        inputTopl.head.registration.isDefined &&
+        inputTopl.head.quantity > 0 &&
+        outputUpdateProposal.nonEmpty &&
+        outputUpdateProposal.size == 1 &&
+        (inputTopl.head.quantity: BigInt) == outputTopls
+
+      isValid
+
+    }
+
     val upsOut = transaction.outputs.flatMap(_.value.value.updateProposal)
-    val isValid = upsOut.forall { up =>
+
+    // Transfer update proposal is not allowed, if exists an output should come from a minting statements
+    val noTransferValidation =
+      upsOut.forall(up => transaction.updateProposalMintingStatements.map(_.updateProposalId).contains(up.computeId))
+
+    // All update proposal fields should be valid
+    val outputsValidation = upsOut.forall { up =>
       up.label.nonEmpty &&
-      up.fEffective.forall(r => (r.denominator: BigInt) > 0 && (r.numerator: BigInt) > 0) &&
+      up.fEffective.forall(r => r.denominator > 0 && r.numerator > 0) &&
       up.vrfLddCutoff.forall(_ > 0) &&
       up.vrfPrecision.forall(_ > 0) &&
-      up.vrfBaselineDifficulty.forall(r => (r.denominator: BigInt) > 0 && (r.numerator: BigInt) > 0) &&
-      up.vrfAmplitude.forall(r => (r.denominator: BigInt) > 0 && (r.numerator: BigInt) > 0) &&
+      up.vrfBaselineDifficulty.forall(r => r.denominator > 0 && r.numerator > 0) &&
+      up.vrfAmplitude.forall(r => r.denominator > 0 && r.numerator > 0) &&
       up.chainSelectionKLookback.forall(_ > 0) &&
       up.slotDuration.forall(d => d.seconds > 0) &&
       up.forwardBiasedSlotWindow.forall(_ > 0) &&
@@ -587,6 +628,7 @@ object TransactionSyntaxInterpreter {
       up.kesKeyMinutes.forall(_ > 0)
     }
 
-    Validated.condNec(isValid, (), TransactionSyntaxError.InvalidUpdateProposal(upsOut))
+    val allValidation = notRepeatedValidation && referenceValidation && noTransferValidation && outputsValidation
+    Validated.condNec(allValidation, (), TransactionSyntaxError.InvalidUpdateProposal(upsOut))
   }
 }

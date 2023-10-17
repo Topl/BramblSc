@@ -8,4 +8,5 @@ package object syntax
     with SeriesPolicySyntax
     with BoxValueSyntax
     with TokenTypeIdentifierSyntax
-    with Int128Syntax {}
+    with Int128Syntax
+    with UpdateProposalSyntax {}
