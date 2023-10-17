@@ -305,14 +305,14 @@ trait TransactionBuilderApi[F[_]] {
    * @return An unproven asset minting transaction if possible. Else, an error
    */
   def buildAssetMintingTransaction(
-    mintingStatement:       AssetMintingStatement, // ensure utxos are within txos and valid
-    txos:                   Seq[Txo], // ensure all txos have a lock within locks
-    locks:                  Map[LockAddress, Lock.Predicate], // ensure all locks have a txo corresponding to them
-    fee:                    Long, // ensure fee
+    mintingStatement:       AssetMintingStatement,
+    txos:                   Seq[Txo],
+    locks:                  Map[LockAddress, Lock.Predicate],
+    fee:                    Long,
     mintedAssetLockAddress: LockAddress,
     changeAddress:          LockAddress,
     ephemeralMetadata:      Option[Struct],
-    commitment:             Option[Array[Byte]]
+    commitment:             Option[ByteString]
   ): F[Either[BuilderError, IoTransaction]]
 }
 
@@ -572,7 +572,7 @@ object TransactionBuilderApi {
         mintedAssetLockAddress: LockAddress,
         changeAddress:          LockAddress,
         ephemeralMetadata:      Option[Struct],
-        commitment:             Option[Array[Byte]]
+        commitment:             Option[ByteString]
       ): F[Either[BuilderError, IoTransaction]] = (
         for {
           _ <- EitherT
@@ -603,7 +603,7 @@ object TransactionBuilderApi {
               seriesToken.fungibility,
               seriesToken.quantityDescriptor,
               ephemeralMetadata,
-              commitment.map(ByteString.copyFrom)
+              commitment
             )
           )
           seriesTxoAdjusted = {
