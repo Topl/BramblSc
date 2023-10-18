@@ -411,7 +411,7 @@ object WalletStateApi {
                     genesisHeightLock.getPredicate.toByteArray
                   ) +
                 "', '" +
-                heightLockAddress.toBase58 + "')"
+                heightLockAddress.toBase58() + "')"
               )
             )
             _ <- Sync[F].delay(stmnt.close())
