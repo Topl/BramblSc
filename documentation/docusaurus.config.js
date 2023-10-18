@@ -63,21 +63,19 @@ const config = {
         items: [
           {
             type: 'docSidebar',
-            sidebarId: 'referenceSidebar',
-            position: 'left',
-            label: 'Reference',
-          },
-          {
-            type: 'docSidebar',
             sidebarId: 'tutorialsSidebar',
-            position: 'left',
             label: 'Tutorials',
           },
           {
             type: 'docSidebar',
             sidebarId: 'conceptsSidebar',
-            position: 'left',
             label: 'Concepts',
+          },
+          {
+            type: 'doc',
+            docId: 'scaladoc',
+            label: 'Reference',
+            target: '_blank',
           },
           {
             href: 'https://github.com/Topl/BramblSc',

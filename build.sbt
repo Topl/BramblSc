@@ -4,7 +4,8 @@ inThisBuild(
     homepage := Some(url("https://github.com/Topl/BramblSc")),
     licenses := Seq("MPL2.0" -> url("https://www.mozilla.org/en-US/MPL/2.0/")),
     scalaVersion := "2.13.12",
-    testFrameworks += TestFrameworks.MUnit
+    testFrameworks += TestFrameworks.MUnit,
+    autoAPIMappings := true
   )
 )
 
@@ -134,14 +135,18 @@ lazy val serviceKit = project
   )
   .dependsOn(bramblSdk)
 
+val DocumentationRoot = file("documentation") / "static"
+
 lazy val brambl = project
   .in(file("."))
   .settings(
     moduleName := "brambl",
     commonSettings,
-    publish / skip := true
+    publish / skip := true,
+    ScalaUnidoc / unidoc / unidocProjectFilter := inAnyProject -- inProjects(crypto, quivr4s),
+    ScalaUnidoc / unidoc / target := DocumentationRoot / "scaladoc",
   )
-  .enablePlugins(ReproducibleBuildsPlugin)
+  .enablePlugins(ReproducibleBuildsPlugin, ScalaUnidocPlugin)
   .aggregate(
     crypto,
     bramblSdk,
