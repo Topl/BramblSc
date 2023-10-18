@@ -21,7 +21,7 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
       Left(
         UserInputErrors(
           Seq(
-            UserInputError(s"every lock does not correspond to fromLockAddr")
+            UserInputError(s"every lock in the txos must correspond to lockPredicateFrom")
           )
         )
       )

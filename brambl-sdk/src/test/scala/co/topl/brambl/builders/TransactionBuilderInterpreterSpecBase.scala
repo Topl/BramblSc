@@ -4,19 +4,23 @@ import cats.Id
 import cats.implicits.catsSyntaxOptionId
 import co.topl.brambl.MockHelpers
 import co.topl.brambl.builders.TransactionBuilderInterpreterSpecBase.{
+  BuildAssetMintingTransaction,
+  BuildGroupConstructorMintingTransaction,
+  BuildSeriesConstructorMintingTransaction,
   BuildTransferAllTransaction,
   BuildTransferAmountTransaction
 }
 import co.topl.brambl.common.ContainsImmutable.ContainsImmutableTOps
-import co.topl.brambl.common.ContainsImmutable.instances.valueImmutable
+import co.topl.brambl.common.ContainsImmutable.instances.{spentOutputImmutable, unspentOutputImmutable}
 import co.topl.brambl.models.Event.{GroupPolicy, SeriesPolicy}
-import co.topl.brambl.models.box.{Lock, Value}
+import co.topl.brambl.models.box.{AssetMintingStatement, Lock, Value}
 import co.topl.brambl.models.transaction.{IoTransaction, SpentTransactionOutput, UnspentTransactionOutput}
-import co.topl.brambl.models.LockAddress
+import co.topl.brambl.models.{LockAddress, TransactionOutputAddress}
 import co.topl.brambl.syntax.{
   assetAsBoxVal,
   groupAsBoxVal,
   groupPolicyAsGroupPolicySyntaxOps,
+  longAsInt128,
   seriesAsBoxVal,
   seriesPolicyAsSeriesPolicySyntaxOps,
   valueToTypeIdentifierSyntaxOps,
@@ -38,15 +42,60 @@ trait TransactionBuilderInterpreterSpecBase extends munit.FunSuite with MockHelp
   def buildTransferAllTransaction: BuildTransferAllTransaction[Id] =
     BuildTransferAllTransaction(txBuilder, mockTxos, inPredicateLockFull, RecipientAddr, ChangeAddr, 1, None)
 
-  def valToTxo(value: Value, lockAddr: LockAddress = inLockFullAddress): Txo =
-    Txo(valToUtxo(value, lockAddr), UNSPENT, dummyTxoAddress)
+  def buildMintGroupTransaction: BuildGroupConstructorMintingTransaction[Id] =
+    BuildGroupConstructorMintingTransaction(
+      txBuilder,
+      mockTxos :+ valToTxo(lvlValue, txAddr = mockGroupPolicyAlt.registrationUtxo),
+      inPredicateLockFull,
+      mockGroupPolicyAlt,
+      1,
+      RecipientAddr,
+      ChangeAddr,
+      2
+    )
+
+  def buildMintSeriesTransaction: BuildSeriesConstructorMintingTransaction[Id] =
+    BuildSeriesConstructorMintingTransaction(
+      txBuilder,
+      mockTxos :+ valToTxo(lvlValue, txAddr = mockSeriesPolicyAlt.registrationUtxo),
+      inPredicateLockFull,
+      mockSeriesPolicyAlt,
+      1,
+      RecipientAddr,
+      ChangeAddr,
+      2
+    )
+
+  def mockAssetMintingStatement: AssetMintingStatement =
+    AssetMintingStatement(mockGroupPolicyAlt.registrationUtxo, mockSeriesPolicyAlt.registrationUtxo, 1)
+
+  def buildMintAssetTransaction: BuildAssetMintingTransaction[Id] =
+    BuildAssetMintingTransaction(
+      txBuilder,
+      mockAssetMintingStatement,
+      mockTxos :+ valToTxo(groupValue, txAddr = mockGroupPolicyAlt.registrationUtxo) :+ valToTxo(
+        seriesValue,
+        txAddr = mockSeriesPolicyAlt.registrationUtxo
+      ),
+      Map(inLockFullAddress -> inPredicateLockFull),
+      1,
+      RecipientAddr,
+      ChangeAddr
+    )
+
+  def valToTxo(
+    value:    Value,
+    lockAddr: LockAddress = inLockFullAddress,
+    txAddr:   TransactionOutputAddress = dummyTxoAddress
+  ): Txo =
+    Txo(valToUtxo(value, lockAddr), UNSPENT, txAddr)
 
   def valToUtxo(value: Value, lockAddr: LockAddress = inLockFullAddress): UnspentTransactionOutput =
     UnspentTransactionOutput(lockAddr, value)
 
   def sortedTx(tx: IoTransaction): IoTransaction = tx
-    .withOutputs(tx.outputs.sortBy(_.value.immutable.value.toByteArray.mkString))
-    .withInputs(tx.inputs.sortBy(_.value.immutable.value.toByteArray.mkString))
+    .withOutputs(tx.outputs.sortBy(_.immutable.value.toByteArray.mkString))
+    .withInputs(tx.inputs.sortBy(_.immutable.value.toByteArray.mkString))
 
   def toAltAsset(asset: Value): Value = asset.copy(
     asset.getAsset.copy(
@@ -135,7 +184,10 @@ trait TransactionBuilderInterpreterSpecBase extends munit.FunSuite with MockHelp
 
   val mockTxos: Seq[Txo] = mockValues.map(valToTxo(_))
 
-  val mockChange: Seq[Value] = mockValues
+  def mockChange: Seq[Value] = mockChange(mockTxos)
+
+  def mockChange(txos: Seq[Txo]): Seq[Value] = txos
+    .map(_.transactionOutput.value)
     .map(_.value)
     .groupBy(_.typeIdentifier)
     .view
@@ -151,6 +203,111 @@ trait TransactionBuilderInterpreterSpecBase extends munit.FunSuite with MockHelp
  * Helpers for the TransactionBuilder test cases
  */
 object TransactionBuilderInterpreterSpecBase {
+
+  case class BuildGroupConstructorMintingTransaction[F[_]](
+    txBuilder:         TransactionBuilderApi[F],
+    txos:              Seq[Txo],
+    lockPredicateFrom: Lock.Predicate,
+    groupPolicy:       GroupPolicy,
+    quantityToMint:    Long,
+    mintedAddress:     LockAddress,
+    changeAddress:     LockAddress,
+    fee:               Long
+  ) {
+
+    def addTxo(txo: Txo): BuildGroupConstructorMintingTransaction[F] = this.copy(txos = txos :+ txo)
+
+    def withPolicy(groupPolicy: GroupPolicy): BuildGroupConstructorMintingTransaction[F] =
+      this.copy(groupPolicy = groupPolicy)
+
+    def withMintAmount(quantityToMint: Long): BuildGroupConstructorMintingTransaction[F] =
+      this.copy(quantityToMint = quantityToMint)
+
+    def withFee(fee: Long): BuildGroupConstructorMintingTransaction[F] = this.copy(fee = fee)
+
+    def run: F[Either[BuilderError, IoTransaction]] = txBuilder
+      .buildGroupMintingTransaction(
+        txos,
+        lockPredicateFrom,
+        groupPolicy,
+        quantityToMint,
+        mintedAddress,
+        changeAddress,
+        fee
+      )
+  }
+
+  case class BuildSeriesConstructorMintingTransaction[F[_]](
+    txBuilder:         TransactionBuilderApi[F],
+    txos:              Seq[Txo],
+    lockPredicateFrom: Lock.Predicate,
+    seriesPolicy:      SeriesPolicy,
+    quantityToMint:    Long,
+    mintedAddress:     LockAddress,
+    changeAddress:     LockAddress,
+    fee:               Long
+  ) {
+
+    def addTxo(txo: Txo): BuildSeriesConstructorMintingTransaction[F] = this.copy(txos = txos :+ txo)
+
+    def withPolicy(seriesPolicy: SeriesPolicy): BuildSeriesConstructorMintingTransaction[F] =
+      this.copy(seriesPolicy = seriesPolicy)
+
+    def withMintAmount(quantityToMint: Long): BuildSeriesConstructorMintingTransaction[F] =
+      this.copy(quantityToMint = quantityToMint)
+
+    def withFee(fee: Long): BuildSeriesConstructorMintingTransaction[F] = this.copy(fee = fee)
+
+    def run: F[Either[BuilderError, IoTransaction]] = txBuilder
+      .buildSeriesMintingTransaction(
+        txos,
+        lockPredicateFrom,
+        seriesPolicy,
+        quantityToMint,
+        mintedAddress,
+        changeAddress,
+        fee
+      )
+  }
+
+  case class BuildAssetMintingTransaction[F[_]](
+    txBuilder:              TransactionBuilderApi[F],
+    mintingStatement:       AssetMintingStatement,
+    txos:                   Seq[Txo],
+    locks:                  Map[LockAddress, Lock.Predicate],
+    fee:                    Long,
+    mintedAssetLockAddress: LockAddress,
+    changeAddress:          LockAddress
+  ) {
+
+    def addTxo(txo: Txo): BuildAssetMintingTransaction[F] = this.copy(txos = txos :+ txo)
+
+    def addLock(lock: (LockAddress, Lock.Predicate)): BuildAssetMintingTransaction[F] =
+      this.copy(locks = locks + lock)
+
+    def updateAmsQuantity(quantityToMint: Long): BuildAssetMintingTransaction[F] =
+      this.copy(mintingStatement = mintingStatement.copy(quantity = quantityToMint))
+
+    def updateAmsGroupUtxo(groupUtxo: TransactionOutputAddress): BuildAssetMintingTransaction[F] =
+      this.copy(mintingStatement = mintingStatement.copy(groupTokenUtxo = groupUtxo))
+
+    def updateAmsSeriesUtxo(seriesUtxo: TransactionOutputAddress): BuildAssetMintingTransaction[F] =
+      this.copy(mintingStatement = mintingStatement.copy(seriesTokenUtxo = seriesUtxo))
+
+    def withFee(fee: Long): BuildAssetMintingTransaction[F] = this.copy(fee = fee)
+
+    def run: F[Either[BuilderError, IoTransaction]] = txBuilder
+      .buildAssetMintingTransaction(
+        mintingStatement,
+        txos,
+        locks,
+        fee,
+        mintedAssetLockAddress,
+        changeAddress,
+        None,
+        None
+      )
+  }
 
   case class BuildTransferAllTransaction[F[_]](
     txBuilder:         TransactionBuilderApi[F],

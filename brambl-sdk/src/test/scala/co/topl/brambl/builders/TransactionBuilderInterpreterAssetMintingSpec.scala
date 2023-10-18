@@ -1,6 +1,9 @@
 package co.topl.brambl.builders
 
 import cats.implicits.catsSyntaxOptionId
+import co.topl.brambl.common.ContainsEvidence.Ops
+import co.topl.brambl.common.ContainsImmutable.instances.lockImmutable
+import co.topl.brambl.models.{LockAddress, LockId}
 import co.topl.brambl.models.box.FungibilityType.{GROUP, SERIES}
 import co.topl.brambl.models.box.QuantityDescriptorType.{ACCUMULATOR, FRACTIONABLE, IMMUTABLE}
 import co.topl.brambl.models.box.AssetMintingStatement
@@ -9,760 +12,562 @@ import co.topl.brambl.syntax.{
   assetAsBoxVal,
   bigIntAsInt128,
   groupAsBoxVal,
+  groupPolicyAsGroupPolicySyntaxOps,
+  int128AsBigInt,
   ioTransactionAsTransactionSyntaxOps,
   seriesAsBoxVal,
-  seriesPolicyAsSeriesPolicySyntaxOps
+  seriesPolicyAsSeriesPolicySyntaxOps,
+  valueToQuantitySyntaxOps,
+  valueToTypeIdentifierSyntaxOps,
+  LvlType
 }
 import quivr.models.Int128
 
 class TransactionBuilderInterpreterAssetMintingSpec extends TransactionBuilderInterpreterSpecBase {
 
-  test("buildSimpleAssetMintingTransaction > success, token supply unlimited (full series in output)") {
-    val seriesAddr = dummyTxoAddress.copy(index = 1)
-    val seriesTxo = valToTxo(seriesValue).copy(outputAddress = seriesAddr)
-
-    val groupAddr = dummyTxoAddress.copy(index = 2)
-    val groupTxo = valToTxo(groupValue).copy(outputAddress = groupAddr)
-
-    val statement: AssetMintingStatement = AssetMintingStatement(groupAddr, seriesAddr, quantity)
-
-    val expectedTx = IoTransaction.defaultInstance
-      .withDatum(txDatum)
-      .withMintingStatements(Seq(statement))
-      .withInputs(buildStxos(List(groupTxo, seriesTxo)))
-      .withOutputs(
-        List(
-          UnspentTransactionOutput(inLockFullAddress, seriesValue),
-          UnspentTransactionOutput(trivialLockAddress, assetGroupSeries),
-          UnspentTransactionOutput(inLockFullAddress, groupValue)
+  test("a Txo's lock not in the lock map") {
+    val testTx = buildMintAssetTransaction
+      .addTxo(valToTxo(lvlValue, trivialLockAddress))
+      .run
+    assertEquals(
+      testTx,
+      Left(
+        UserInputErrors(
+          Seq(UserInputError("every lock in the txos must correspond to a lock in the lock map"))
         )
       )
-    val txRes = txBuilder
-      .buildSimpleAssetMintingTransaction(
-        statement,
-        groupTxo,
-        seriesTxo,
-        inPredicateLockFull,
-        inPredicateLockFull,
-        trivialLockAddress,
-        None,
-        None
-      )
-    assert(txRes.isRight && txRes.toOption.get.computeId == expectedTx.computeId)
+    )
   }
 
-  test("buildSimpleAssetMintingTransaction > success, mint token supply quantity (series in output)") {
+  test("a lock from the lock map not in the txos") {
+    val testTx = buildMintAssetTransaction
+      .addLock(trivialLockAddress -> trivialOutLock.getPredicate)
+      .run
+    assertEquals(
+      testTx,
+      Left(
+        UserInputErrors(
+          Seq(UserInputError("every lock in the lock map must correspond to a lock in the txos"))
+        )
+      )
+    )
+  }
+
+  test("groupTokenUtxo is missing") {
+    val testTx = buildMintAssetTransaction
+      .updateAmsGroupUtxo(dummyTxoAddress.copy(index = 100))
+      .run
+    assertEquals(
+      testTx,
+      Left(
+        UserInputErrors(
+          Seq(UserInputError("Input TXOs need to contain exactly one txo matching the groupTokenUtxo"))
+        )
+      )
+    )
+  }
+
+  test("groupTokenUtxo is not a group value") {
+    val newAddr = dummyTxoAddress.copy(index = 100)
+    val testTx = buildMintAssetTransaction
+      .updateAmsGroupUtxo(newAddr)
+      .addTxo(valToTxo(lvlValue, txAddr = newAddr))
+      .run
+    assertEquals(
+      testTx,
+      Left(
+        UserInputErrors(
+          Seq(UserInputError("groupTokenUtxo does not contain Group Constructor Tokens"))
+        )
+      )
+    )
+  }
+
+  test("seriesTokenUtxo is missing") {
+    val testTx = buildMintAssetTransaction
+      .updateAmsSeriesUtxo(dummyTxoAddress.copy(index = 100))
+      .run
+    assertEquals(
+      testTx,
+      Left(
+        UserInputErrors(
+          Seq(UserInputError("Input TXOs need to contain exactly one txo matching the seriesTokenUtxo"))
+        )
+      )
+    )
+  }
+
+  test("seriesTokenUtxo is not a series value") {
+    val newAddr = dummyTxoAddress.copy(index = 100)
+    val testTx = buildMintAssetTransaction
+      .updateAmsSeriesUtxo(newAddr)
+      .addTxo(valToTxo(lvlValue, txAddr = newAddr))
+      .run
+    assertEquals(
+      testTx,
+      Left(
+        UserInputErrors(
+          Seq(UserInputError("seriesTokenUtxo does not contain Series Constructor Tokens"))
+        )
+      )
+    )
+  }
+
+  test("invalid minting supply; mint quantity is non positive") {
+    val testTx = buildMintAssetTransaction
+      .updateAmsQuantity(0)
+      .run
+    assertEquals(
+      testTx,
+      Left(
+        UserInputErrors(
+          Seq(UserInputError("quantity to mint must be positive"))
+        )
+      )
+    )
+  }
+
+  test("invalid minting supply; token supply limited & mint quantity is not a multiple") {
+    val newAddr = dummyTxoAddress.copy(index = 100)
+    val newSeries = seriesValue.copy(seriesValue.getSeries.copy(tokenSupply = 5.some))
+    val testTx = buildMintAssetTransaction
+      .updateAmsQuantity(1)
+      .updateAmsSeriesUtxo(newAddr)
+      .addTxo(valToTxo(newSeries, txAddr = newAddr))
+      .run
+    assertEquals(
+      testTx,
+      Left(
+        UserInputErrors(
+          Seq(UserInputError("quantity to mint must be a multiple of token supply"))
+        )
+      )
+    )
+  }
+
+  test("invalid minting supply; token supply limited & mint quantity exceeds supply") {
+    val newAddr = dummyTxoAddress.copy(index = 100)
+    val newSeries = seriesValue.copy(seriesValue.getSeries.copy(quantity = BigInt(2), tokenSupply = 5.some))
+    val testTx = buildMintAssetTransaction
+      .updateAmsQuantity(20)
+      .updateAmsSeriesUtxo(newAddr)
+      .addTxo(valToTxo(newSeries, txAddr = newAddr))
+      .run
+    assertEquals(
+      testTx,
+      Left(
+        UserInputErrors(
+          Seq(UserInputError("quantity to mint must be less than total token supply available."))
+        )
+      )
+    )
+  }
+
+  test("invalid fixedSeries") {
+    val newAddr = dummyTxoAddress.copy(index = 100)
+    val newGroup = groupValue.copy(groupValue.getGroup.copy(fixedSeries = mockSeriesPolicyAlt.computeId.some))
+    val testTx = buildMintAssetTransaction
+      .updateAmsGroupUtxo(newAddr)
+      .addTxo(valToTxo(newGroup, txAddr = newAddr))
+      .run
+    assertEquals(
+      testTx,
+      Left(
+        UserInputErrors(
+          Seq(UserInputError("fixedSeries does not match provided Series ID"))
+        )
+      )
+    )
+  }
+
+  test("insufficient funds for fee") {
+    val testTx = buildMintAssetTransaction
+      .withFee(3)
+      .run
+    assertEquals(
+      testTx,
+      Left(
+        UserInputErrors(
+          Seq(UserInputError("Not enough LVLs in input to satisfy fee"))
+        )
+      )
+    )
+  }
+
+  test("TXOS are encumbered by different Lock Addresses") {
+    val seriesLock = LockAddress(1, 1, LockId(inLockFull.sizedEvidence.digest.value))
+    val newSeries = valToTxo(seriesValue, seriesLock)
+    val groupLock = LockAddress(2, 2, LockId(inLockFull.sizedEvidence.digest.value))
+    val newGroup = valToTxo(groupValue, groupLock)
+    val lvlLock = LockAddress(3, 3, LockId(inLockFull.sizedEvidence.digest.value))
+    val newLvl = valToTxo(lvlValue, lvlLock)
+    val txRes = buildMintAssetTransaction
+      .addTxo(newSeries)
+      .addTxo(newGroup)
+      .addTxo(newLvl)
+      .addLock(seriesLock -> inLockFull.getPredicate)
+      .addLock(groupLock -> inLockFull.getPredicate)
+      .addLock(lvlLock -> inLockFull.getPredicate)
+      .withFee(2)
+      .run
+    val allTxos = mockTxos :+
+      valToTxo(groupValue, txAddr = mockGroupPolicyAlt.registrationUtxo) :+
+      valToTxo(seriesValue, txAddr = mockSeriesPolicyAlt.registrationUtxo) :+
+      newSeries :+ newGroup :+ newLvl
+    val expectedTx = IoTransaction.defaultInstance
+      .withDatum(txDatum)
+      .withMintingStatements(Seq(mockAssetMintingStatement))
+      .withInputs(buildStxos(allTxos))
+      .withOutputs(
+        // minted output
+        buildRecipientUtxos(List(assetGroupSeries))
+        ++
+        // fee change
+        buildChangeUtxos(List(lvlValue))
+        ++
+        // non-lvl change (i.e, unaffected by fee)
+        buildChangeUtxos(mockChange(allTxos).filterNot(_.value.typeIdentifier == LvlType))
+      )
+    assert(txRes.isRight && sortedTx(txRes.toOption.get).computeId == sortedTx(expectedTx).computeId)
+
+  }
+
+  test("token supply unlimited (full series in output)") {
+    val txRes = buildMintAssetTransaction.run
+    val allTxos = mockTxos :+
+      valToTxo(groupValue, txAddr = mockGroupPolicyAlt.registrationUtxo) :+
+      valToTxo(seriesValue, txAddr = mockSeriesPolicyAlt.registrationUtxo)
+    val expectedTx = IoTransaction.defaultInstance
+      .withDatum(txDatum)
+      .withMintingStatements(Seq(mockAssetMintingStatement))
+      .withInputs(buildStxos(allTxos))
+      .withOutputs(
+        // minted output
+        buildRecipientUtxos(List(assetGroupSeries))
+        ++
+        // fee change
+        buildChangeUtxos(List(lvlValue))
+        ++
+        // non-lvl change (i.e, unaffected by fee)
+        buildChangeUtxos(mockChange(allTxos).filterNot(_.value.typeIdentifier == LvlType))
+      )
+    assert(txRes.isRight && sortedTx(txRes.toOption.get).computeId == sortedTx(expectedTx).computeId)
+  }
+
+  test("mint token supply quantity (series in output)") {
     val outQuantity: Int128 = BigInt(9)
     val fullQuantity: Int128 = BigInt(10)
     val mintedQuantity: Int128 = BigInt(5)
-
-    val seriesAddr = dummyTxoAddress.copy(index = 1)
-    val seriesVal = seriesValue.copy(seriesValue.getSeries.copy(quantity = fullQuantity, tokenSupply = 5.some))
-    val seriesTxo = valToTxo(seriesVal).copy(outputAddress = seriesAddr)
-
-    val groupAddr = dummyTxoAddress.copy(index = 2)
-    val groupTxo = valToTxo(groupValue).copy(outputAddress = groupAddr)
-
-    val statement: AssetMintingStatement = AssetMintingStatement(groupAddr, seriesAddr, mintedQuantity)
-    val mintedValue = assetGroupSeries.copy(assetGroupSeries.getAsset.copy(quantity = mintedQuantity))
-
+    val newAddr = dummyTxoAddress.copy(index = 100)
+    val newPolicyId = mockSeriesPolicy.copy(tokenSupply = 5.some).computeId
+    val seriesIn = seriesValue.copy(
+      seriesValue.getSeries.copy(seriesId = newPolicyId, quantity = fullQuantity, tokenSupply = 5.some)
+    )
+    val seriesTxo = valToTxo(seriesIn, txAddr = newAddr)
+    val txRes = buildMintAssetTransaction
+      .addTxo(seriesTxo)
+      .updateAmsSeriesUtxo(newAddr)
+      .updateAmsQuantity((mintedQuantity: BigInt).longValue)
+      .run
+    val allTxos = mockTxos :+
+      valToTxo(groupValue, txAddr = mockGroupPolicyAlt.registrationUtxo) :+
+      valToTxo(seriesValue, txAddr = mockSeriesPolicyAlt.registrationUtxo) :+
+      seriesTxo
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
-      .withMintingStatements(Seq(statement))
-      .withInputs(buildStxos(List(groupTxo, seriesTxo)))
+      .withMintingStatements(Seq(mockAssetMintingStatement))
+      .withInputs(buildStxos(allTxos))
       .withOutputs(
-        List(
-          UnspentTransactionOutput(inLockFullAddress, seriesVal.copy(seriesVal.getSeries.copy(quantity = outQuantity))),
-          UnspentTransactionOutput(trivialLockAddress, mintedValue),
-          UnspentTransactionOutput(inLockFullAddress, groupValue)
+        // minted output
+        buildRecipientUtxos(
+          List(assetGroupSeries.copy(assetGroupSeries.getAsset.withQuantity(mintedQuantity).withSeriesId(newPolicyId)))
+        )
+        ++
+        // fee change and series change
+        buildChangeUtxos(List(lvlValue, seriesIn.copy(seriesIn.getSeries.copy(quantity = outQuantity))))
+        ++
+        // non-lvl or series change (i.e, unaffected by fee or minting)
+        buildChangeUtxos(
+          mockChange(allTxos).filterNot(txo =>
+            txo.value.typeIdentifier == LvlType || txo.value.typeIdentifier == seriesIn.value.typeIdentifier
+          )
         )
       )
-    val txRes = txBuilder
-      .buildSimpleAssetMintingTransaction(
-        statement,
-        groupTxo,
-        seriesTxo,
-        inPredicateLockFull,
-        inPredicateLockFull,
-        trivialLockAddress,
-        None,
-        None
-      )
-    assert(txRes.isRight && txRes.toOption.get.computeId == expectedTx.computeId)
+    assert(txRes.isRight && sortedTx(txRes.toOption.get).computeId == sortedTx(expectedTx).computeId)
   }
 
-  test("buildSimpleAssetMintingTransaction > success, mint multiple token supply quantity (series in output)") {
+  test("mint multiple token supply quantity (series in output)") {
     val outQuantity: Int128 = BigInt(5)
     val fullQuantity: Int128 = BigInt(10)
     val mintedQuantity: Int128 = BigInt(25)
 
-    val seriesAddr = dummyTxoAddress.copy(index = 1)
-    val seriesVal = seriesValue.copy(seriesValue.getSeries.copy(quantity = fullQuantity, tokenSupply = 5.some))
-    val seriesTxo = valToTxo(seriesVal).copy(outputAddress = seriesAddr)
-
-    val groupAddr = dummyTxoAddress.copy(index = 2)
-    val groupTxo = valToTxo(groupValue).copy(outputAddress = groupAddr)
-
-    val statement: AssetMintingStatement = AssetMintingStatement(groupAddr, seriesAddr, mintedQuantity)
-    val mintedValue = assetGroupSeries.copy(assetGroupSeries.getAsset.copy(quantity = mintedQuantity))
-
+    val newAddr = dummyTxoAddress.copy(index = 100)
+    val newPolicyId = mockSeriesPolicy.copy(tokenSupply = 5.some).computeId
+    val seriesIn = seriesValue.copy(
+      seriesValue.getSeries.copy(seriesId = newPolicyId, quantity = fullQuantity, tokenSupply = 5.some)
+    )
+    val seriesTxo = valToTxo(seriesIn, txAddr = newAddr)
+    val txRes = buildMintAssetTransaction
+      .addTxo(seriesTxo)
+      .updateAmsSeriesUtxo(newAddr)
+      .updateAmsQuantity((mintedQuantity: BigInt).longValue)
+      .run
+    val allTxos = mockTxos :+
+      valToTxo(groupValue, txAddr = mockGroupPolicyAlt.registrationUtxo) :+
+      valToTxo(seriesValue, txAddr = mockSeriesPolicyAlt.registrationUtxo) :+
+      seriesTxo
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
-      .withMintingStatements(Seq(statement))
-      .withInputs(buildStxos(List(groupTxo, seriesTxo)))
+      .withMintingStatements(Seq(mockAssetMintingStatement))
+      .withInputs(buildStxos(allTxos))
       .withOutputs(
-        List(
-          UnspentTransactionOutput(inLockFullAddress, seriesVal.copy(seriesVal.getSeries.copy(quantity = outQuantity))),
-          UnspentTransactionOutput(trivialLockAddress, mintedValue),
-          UnspentTransactionOutput(inLockFullAddress, groupValue)
+        // minted output
+        buildRecipientUtxos(
+          List(assetGroupSeries.copy(assetGroupSeries.getAsset.withQuantity(mintedQuantity).withSeriesId(newPolicyId)))
         )
-      )
-    val txRes = txBuilder
-      .buildSimpleAssetMintingTransaction(
-        statement,
-        groupTxo,
-        seriesTxo,
-        inPredicateLockFull,
-        inPredicateLockFull,
-        trivialLockAddress,
-        None,
-        None
-      )
-    assert(txRes.isRight && txRes.toOption.get.computeId == expectedTx.computeId)
-  }
-
-  test("buildSimpleAssetMintingTransaction > success, mint ALL token supply quantity (series not in output)") {
-    val fullQuantity: Int128 = BigInt(10)
-    val mintedQuantity: Int128 = BigInt(50)
-
-    val seriesAddr = dummyTxoAddress.copy(index = 1)
-    val seriesVal = seriesValue.copy(seriesValue.getSeries.copy(quantity = fullQuantity, tokenSupply = 5.some))
-    val seriesTxo = valToTxo(seriesVal).copy(outputAddress = seriesAddr)
-
-    val groupAddr = dummyTxoAddress.copy(index = 2)
-    val groupTxo = valToTxo(groupValue).copy(outputAddress = groupAddr)
-
-    val statement: AssetMintingStatement = AssetMintingStatement(groupAddr, seriesAddr, mintedQuantity)
-    val mintedValue = assetGroupSeries.copy(assetGroupSeries.getAsset.copy(quantity = mintedQuantity))
-
-    val expectedTx = IoTransaction.defaultInstance
-      .withDatum(txDatum)
-      .withMintingStatements(Seq(statement))
-      .withInputs(buildStxos(List(groupTxo, seriesTxo)))
-      .withOutputs(
-        List(
-          UnspentTransactionOutput(trivialLockAddress, mintedValue),
-          UnspentTransactionOutput(inLockFullAddress, groupValue)
-        )
-      )
-    val txRes = txBuilder
-      .buildSimpleAssetMintingTransaction(
-        statement,
-        groupTxo,
-        seriesTxo,
-        inPredicateLockFull,
-        inPredicateLockFull,
-        trivialLockAddress,
-        None,
-        None
-      )
-    assert(txRes.isRight && txRes.toOption.get.computeId == expectedTx.computeId)
-  }
-
-  test("buildSimpleAssetMintingTransaction > success, group and series fungible") {
-    val seriesAddr = dummyTxoAddress.copy(index = 1)
-    val seriesTxo = valToTxo(seriesValue).copy(outputAddress = seriesAddr)
-
-    val groupAddr = dummyTxoAddress.copy(index = 2)
-    val groupTxo = valToTxo(groupValue).copy(outputAddress = groupAddr)
-
-    val statement: AssetMintingStatement = AssetMintingStatement(groupAddr, seriesAddr, quantity)
-
-    val testTx = txBuilder
-      .buildSimpleAssetMintingTransaction(
-        statement,
-        groupTxo,
-        seriesTxo,
-        inPredicateLockFull,
-        inPredicateLockFull,
-        trivialLockAddress,
-        None,
-        None
-      )
-
-    val expectedTx = IoTransaction.defaultInstance
-      .withDatum(txDatum)
-      .withMintingStatements(Seq(statement))
-      .withInputs(buildStxos(List(groupTxo, seriesTxo)))
-      .withOutputs(
-        List(
-          UnspentTransactionOutput(inLockFullAddress, seriesValue),
-          UnspentTransactionOutput(trivialLockAddress, assetGroupSeries),
-          UnspentTransactionOutput(inLockFullAddress, groupValue)
-        )
-      )
-    assert(testTx.isRight && testTx.toOption.get.computeId == expectedTx.computeId)
-  }
-
-  test("buildSimpleAssetMintingTransaction > success, group fungible") {
-    val seriesAddr = dummyTxoAddress.copy(index = 1)
-    val seriesVal = seriesValue.copy(seriesValue.getSeries.copy(fungibility = GROUP))
-    val seriesTxo = valToTxo(seriesVal).copy(outputAddress = seriesAddr)
-
-    val groupAddr = dummyTxoAddress.copy(index = 2)
-    val groupTxo = valToTxo(groupValue).copy(outputAddress = groupAddr)
-
-    val statement: AssetMintingStatement = AssetMintingStatement(groupAddr, seriesAddr, quantity)
-
-    val testTx = txBuilder
-      .buildSimpleAssetMintingTransaction(
-        statement,
-        groupTxo,
-        seriesTxo,
-        inPredicateLockFull,
-        inPredicateLockFull,
-        trivialLockAddress,
-        None,
-        None
-      )
-
-    val expectedTx = IoTransaction.defaultInstance
-      .withDatum(txDatum)
-      .withMintingStatements(Seq(statement))
-      .withInputs(buildStxos(List(groupTxo, seriesTxo)))
-      .withOutputs(
-        List(
-          UnspentTransactionOutput(inLockFullAddress, seriesVal),
-          UnspentTransactionOutput(trivialLockAddress, assetGroup),
-          UnspentTransactionOutput(inLockFullAddress, groupValue)
-        )
-      )
-    assert(testTx.isRight && testTx.toOption.get.computeId == expectedTx.computeId)
-  }
-
-  test("buildSimpleAssetMintingTransaction > success, series fungible") {
-    val seriesAddr = dummyTxoAddress.copy(index = 1)
-    val seriesVal = seriesValue.copy(seriesValue.getSeries.copy(fungibility = SERIES))
-    val seriesTxo = valToTxo(seriesVal).copy(outputAddress = seriesAddr)
-
-    val groupAddr = dummyTxoAddress.copy(index = 2)
-    val groupTxo = valToTxo(groupValue).copy(outputAddress = groupAddr)
-
-    val statement: AssetMintingStatement = AssetMintingStatement(groupAddr, seriesAddr, quantity)
-
-    val testTx = txBuilder
-      .buildSimpleAssetMintingTransaction(
-        statement,
-        groupTxo,
-        seriesTxo,
-        inPredicateLockFull,
-        inPredicateLockFull,
-        trivialLockAddress,
-        None,
-        None
-      )
-
-    val expectedTx = IoTransaction.defaultInstance
-      .withDatum(txDatum)
-      .withMintingStatements(Seq(statement))
-      .withInputs(buildStxos(List(groupTxo, seriesTxo)))
-      .withOutputs(
-        List(
-          UnspentTransactionOutput(inLockFullAddress, seriesVal),
-          UnspentTransactionOutput(trivialLockAddress, assetSeries),
-          UnspentTransactionOutput(inLockFullAddress, groupValue)
-        )
-      )
-    assert(testTx.isRight && testTx.toOption.get.computeId == expectedTx.computeId)
-  }
-
-  test("buildSimpleAssetMintingTransaction > success, fixedSeries provided") {
-    val seriesAddr = dummyTxoAddress.copy(index = 1)
-    val seriesTxo = valToTxo(seriesValue).copy(outputAddress = seriesAddr)
-
-    val groupAddr = dummyTxoAddress.copy(index = 2)
-    val groupVal = groupValue.copy(groupValue.getGroup.copy(fixedSeries = mockSeriesPolicy.computeId.some))
-    val groupTxo = valToTxo(groupVal).copy(outputAddress = groupAddr)
-
-    val statement: AssetMintingStatement = AssetMintingStatement(groupAddr, seriesAddr, quantity)
-
-    val testTx = txBuilder
-      .buildSimpleAssetMintingTransaction(
-        statement,
-        groupTxo,
-        seriesTxo,
-        inPredicateLockFull,
-        inPredicateLockFull,
-        trivialLockAddress,
-        None,
-        None
-      )
-
-    val expectedTx = IoTransaction.defaultInstance
-      .withDatum(txDatum)
-      .withMintingStatements(Seq(statement))
-      .withInputs(buildStxos(List(groupTxo, seriesTxo)))
-      .withOutputs(
-        List(
-          UnspentTransactionOutput(inLockFullAddress, seriesValue),
-          UnspentTransactionOutput(trivialLockAddress, assetGroupSeries),
-          UnspentTransactionOutput(inLockFullAddress, groupVal)
-        )
-      )
-    assert(testTx.isRight && testTx.toOption.get.computeId == expectedTx.computeId)
-  }
-
-  test("buildSimpleAssetMintingTransaction > invalid groupTxo") {
-    val seriesAddr = dummyTxoAddress.copy(index = 1)
-    val seriesTxo = valToTxo(seriesValue).copy(outputAddress = seriesAddr)
-
-    val groupAddr = dummyTxoAddress.copy(index = 2)
-    val groupTxo = valToTxo(groupValue)
-
-    val statement: AssetMintingStatement = AssetMintingStatement(groupAddr, seriesAddr, quantity)
-
-    val testTx = txBuilder
-      .buildSimpleAssetMintingTransaction(
-        statement,
-        groupTxo,
-        seriesTxo,
-        inPredicateLockFull,
-        inPredicateLockFull,
-        trivialLockAddress,
-        None,
-        None
-      )
-    assertEquals(
-      testTx,
-      Left(
-        UserInputErrors(
-          Seq(UserInputError(s"groupTxo does not match groupTokenUtxo"))
-        )
-      )
-    )
-  }
-
-  test("buildSimpleAssetMintingTransaction > invalid seriesTxo") {
-    val seriesAddr = dummyTxoAddress.copy(index = 1)
-    val seriesTxo = valToTxo(seriesValue)
-
-    val groupAddr = dummyTxoAddress.copy(index = 2)
-    val groupTxo = valToTxo(groupValue).copy(outputAddress = groupAddr)
-
-    val statement: AssetMintingStatement = AssetMintingStatement(groupAddr, seriesAddr, quantity)
-
-    val testTx = txBuilder
-      .buildSimpleAssetMintingTransaction(
-        statement,
-        groupTxo,
-        seriesTxo,
-        inPredicateLockFull,
-        inPredicateLockFull,
-        trivialLockAddress,
-        None,
-        None
-      )
-    assertEquals(
-      testTx,
-      Left(
-        UserInputErrors(
-          Seq(UserInputError(s"seriesTxo does not match seriesTokenUtxo"))
-        )
-      )
-    )
-  }
-
-  test("buildSimpleAssetMintingTransaction > invalid groupUtxo") {
-    val seriesAddr = dummyTxoAddress.copy(index = 1)
-    val seriesTxo = valToTxo(seriesValue).copy(outputAddress = seriesAddr)
-
-    val groupAddr = dummyTxoAddress.copy(index = 2)
-    val groupTxo = valToTxo(lvlValue).copy(outputAddress = groupAddr)
-
-    val statement: AssetMintingStatement = AssetMintingStatement(groupAddr, seriesAddr, quantity)
-
-    val testTx = txBuilder
-      .buildSimpleAssetMintingTransaction(
-        statement,
-        groupTxo,
-        seriesTxo,
-        inPredicateLockFull,
-        inPredicateLockFull,
-        trivialLockAddress,
-        None,
-        None
-      )
-    assertEquals(
-      testTx,
-      Left(
-        UserInputErrors(
-          Seq(UserInputError(s"groupTxo does not contain Group Constructor Tokens"))
-        )
-      )
-    )
-  }
-
-  test("buildSimpleAssetMintingTransaction > invalid seriesUtxo") {
-    val seriesAddr = dummyTxoAddress.copy(index = 1)
-    val seriesTxo = valToTxo(lvlValue).copy(outputAddress = seriesAddr)
-
-    val groupAddr = dummyTxoAddress.copy(index = 2)
-    val groupTxo = valToTxo(groupValue).copy(outputAddress = groupAddr)
-
-    val statement: AssetMintingStatement = AssetMintingStatement(groupAddr, seriesAddr, quantity)
-
-    val testTx = txBuilder
-      .buildSimpleAssetMintingTransaction(
-        statement,
-        groupTxo,
-        seriesTxo,
-        inPredicateLockFull,
-        inPredicateLockFull,
-        trivialLockAddress,
-        None,
-        None
-      )
-    assertEquals(
-      testTx,
-      Left(
-        UserInputErrors(
-          Seq(UserInputError(s"seriesTxo does not contain Series Constructor Tokens"))
-        )
-      )
-    )
-  }
-
-  test("buildSimpleAssetMintingTransaction > invalid groupLock") {
-    val seriesAddr = dummyTxoAddress.copy(index = 1)
-    val seriesTxo = valToTxo(seriesValue).copy(outputAddress = seriesAddr)
-
-    val groupAddr = dummyTxoAddress.copy(index = 2)
-    val groupTxo = valToTxo(groupValue).copy(outputAddress = groupAddr)
-
-    val statement: AssetMintingStatement = AssetMintingStatement(groupAddr, seriesAddr, quantity)
-
-    val testTx = txBuilder
-      .buildSimpleAssetMintingTransaction(
-        statement,
-        groupTxo,
-        seriesTxo,
-        trivialOutLock.getPredicate,
-        inPredicateLockFull,
-        trivialLockAddress,
-        None,
-        None
-      )
-    assertEquals(
-      testTx,
-      Left(
-        UserInputErrors(
-          Seq(UserInputError(s"groupLock does not correspond to groupTxo"))
-        )
-      )
-    )
-  }
-
-  test("buildSimpleAssetMintingTransaction > invalid seriesLock") {
-    val seriesAddr = dummyTxoAddress.copy(index = 1)
-    val seriesTxo = valToTxo(seriesValue).copy(outputAddress = seriesAddr)
-
-    val groupAddr = dummyTxoAddress.copy(index = 2)
-    val groupTxo = valToTxo(groupValue).copy(outputAddress = groupAddr)
-
-    val statement: AssetMintingStatement = AssetMintingStatement(groupAddr, seriesAddr, quantity)
-
-    val testTx = txBuilder
-      .buildSimpleAssetMintingTransaction(
-        statement,
-        groupTxo,
-        seriesTxo,
-        inPredicateLockFull,
-        trivialOutLock.getPredicate,
-        trivialLockAddress,
-        None,
-        None
-      )
-    assertEquals(
-      testTx,
-      Left(
-        UserInputErrors(
-          Seq(UserInputError(s"seriesLock does not correspond to seriesTxo"))
-        )
-      )
-    )
-  }
-
-  test("buildSimpleAssetMintingTransaction > invalid quantity to mint (non positive)") {
-    val quantityInvalid: Int128 = BigInt(0)
-
-    val seriesAddr = dummyTxoAddress.copy(index = 1)
-    val seriesTxo = valToTxo(seriesValue).copy(outputAddress = seriesAddr)
-
-    val groupAddr = dummyTxoAddress.copy(index = 2)
-    val groupTxo = valToTxo(groupValue).copy(outputAddress = groupAddr)
-
-    val statement: AssetMintingStatement = AssetMintingStatement(groupAddr, seriesAddr, quantityInvalid)
-
-    val testTx = txBuilder
-      .buildSimpleAssetMintingTransaction(
-        statement,
-        groupTxo,
-        seriesTxo,
-        inPredicateLockFull,
-        inPredicateLockFull,
-        trivialLockAddress,
-        None,
-        None
-      )
-    assertEquals(
-      testTx,
-      Left(
-        UserInputErrors(
-          Seq(UserInputError(s"quantity to mint must be positive"))
-        )
-      )
-    )
-  }
-
-  test("buildSimpleAssetMintingTransaction > invalid quantity to mint (non positive stxo)") {
-    val quantity: Int128 = BigInt(10)
-    val quantityInvalid: Int128 = BigInt(0)
-
-    val seriesAddr = dummyTxoAddress.copy(index = 1)
-    val seriesVal = seriesValue.copy(seriesValue.getSeries.copy(quantity = quantityInvalid, tokenSupply = 5.some))
-    val seriesTxo = valToTxo(seriesVal).copy(outputAddress = seriesAddr)
-
-    val groupAddr = dummyTxoAddress.copy(index = 2)
-    val groupTxo = valToTxo(groupValue).copy(outputAddress = groupAddr)
-
-    val statement: AssetMintingStatement = AssetMintingStatement(groupAddr, seriesAddr, quantity)
-
-    val testTx = txBuilder
-      .buildSimpleAssetMintingTransaction(
-        statement,
-        groupTxo,
-        seriesTxo,
-        inPredicateLockFull,
-        inPredicateLockFull,
-        trivialLockAddress,
-        None,
-        None
-      )
-    assertEquals(
-      testTx,
-      Left(
-        UserInputErrors(
-          Seq(
-            UserInputError(s"quantity of input series constructor tokens must be positive"),
-            UserInputError(s"quantity to mint must be less than total token supply available.")
+        ++
+        // fee change and series change
+        buildChangeUtxos(List(lvlValue, seriesIn.copy(seriesIn.getSeries.copy(quantity = outQuantity))))
+        ++
+        // non-lvl or series change (i.e, unaffected by fee or minting)
+        buildChangeUtxos(
+          mockChange(allTxos).filterNot(txo =>
+            txo.value.typeIdentifier == LvlType || txo.value.typeIdentifier == seriesIn.value.typeIdentifier
           )
         )
       )
-    )
+    assert(txRes.isRight && sortedTx(txRes.toOption.get).computeId == sortedTx(expectedTx).computeId)
   }
 
-  test("buildSimpleAssetMintingTransaction > invalid quantity to mint (not a multiple of token supply)") {
-    val quantity: Int128 = BigInt(10)
-    val quantityInvalid: Int128 = BigInt(7)
+  test("mint ALL token supply quantity (series not in output)") {
+    val fullQuantity: Int128 = BigInt(10)
+    val mintedQuantity: Int128 = BigInt(50)
 
-    val seriesAddr = dummyTxoAddress.copy(index = 1)
-    val seriesVal = seriesValue.copy(seriesValue.getSeries.copy(quantity = quantity, tokenSupply = 5.some))
-    val seriesTxo = valToTxo(seriesVal).copy(outputAddress = seriesAddr)
-
-    val groupAddr = dummyTxoAddress.copy(index = 2)
-    val groupTxo = valToTxo(groupValue).copy(outputAddress = groupAddr)
-
-    val statement: AssetMintingStatement = AssetMintingStatement(groupAddr, seriesAddr, quantityInvalid)
-
-    val testTx = txBuilder
-      .buildSimpleAssetMintingTransaction(
-        statement,
-        groupTxo,
-        seriesTxo,
-        inPredicateLockFull,
-        inPredicateLockFull,
-        trivialLockAddress,
-        None,
-        None
-      )
-    assertEquals(
-      testTx,
-      Left(
-        UserInputErrors(
-          Seq(UserInputError(s"quantity to mint must be a multiple of token supply"))
-        )
-      )
+    val newAddr = dummyTxoAddress.copy(index = 100)
+    val newPolicyId = mockSeriesPolicy.copy(tokenSupply = 5.some).computeId
+    val seriesIn = seriesValue.copy(
+      seriesValue.getSeries.copy(seriesId = newPolicyId, quantity = fullQuantity, tokenSupply = 5.some)
     )
-  }
-
-  test("buildSimpleAssetMintingTransaction > invalid quantity to mint (exceeds available)") {
-    val quantity: Int128 = BigInt(10)
-    val quantityInvalid: Int128 = BigInt(55)
-
-    val seriesAddr = dummyTxoAddress.copy(index = 1)
-    val seriesVal = seriesValue.copy(seriesValue.getSeries.copy(quantity = quantity, tokenSupply = 5.some))
-    val seriesTxo = valToTxo(seriesVal).copy(outputAddress = seriesAddr)
-
-    val groupAddr = dummyTxoAddress.copy(index = 2)
-    val groupTxo = valToTxo(groupValue).copy(outputAddress = groupAddr)
-
-    val statement: AssetMintingStatement = AssetMintingStatement(groupAddr, seriesAddr, quantityInvalid)
-
-    val testTx = txBuilder
-      .buildSimpleAssetMintingTransaction(
-        statement,
-        groupTxo,
-        seriesTxo,
-        inPredicateLockFull,
-        inPredicateLockFull,
-        trivialLockAddress,
-        None,
-        None
-      )
-    assertEquals(
-      testTx,
-      Left(
-        UserInputErrors(
-          Seq(UserInputError(s"quantity to mint must be less than total token supply available."))
-        )
-      )
-    )
-  }
-
-  test("buildSimpleAssetMintingTransaction > invalid seriesId (fixedSeries provided)") {
-    val seriesAddr = dummyTxoAddress.copy(index = 1)
-    val seriesVal = seriesValue.copy(seriesValue.getSeries.copy(quantityDescriptor = IMMUTABLE))
-    val seriesTxo = valToTxo(seriesVal).copy(outputAddress = seriesAddr)
-
-    val groupAddr = dummyTxoAddress.copy(index = 2)
-    val groupVal = groupValue.copy(groupValue.getGroup.copy(fixedSeries = mockSeriesPolicyAlt.computeId.some))
-    val groupTxo = valToTxo(groupVal).copy(outputAddress = groupAddr)
-
-    val statement: AssetMintingStatement = AssetMintingStatement(groupAddr, seriesAddr, quantity)
-
-    val testTx = txBuilder
-      .buildSimpleAssetMintingTransaction(
-        statement,
-        groupTxo,
-        seriesTxo,
-        inPredicateLockFull,
-        inPredicateLockFull,
-        trivialLockAddress,
-        None,
-        None
-      )
-    assertEquals(
-      testTx,
-      Left(
-        UserInputErrors(
-          Seq(UserInputError(s"fixedSeries does not match provided Series ID"))
-        )
-      )
-    )
-  }
-
-  test("buildSimpleAssetMintingTransaction > IMMUTABLE quantity descriptor type") {
-    val seriesAddr = dummyTxoAddress.copy(index = 1)
-    val seriesVal = seriesValue.copy(seriesValue.getSeries.copy(quantityDescriptor = IMMUTABLE))
-    val seriesTxo = valToTxo(seriesVal).copy(outputAddress = seriesAddr)
-
-    val groupAddr = dummyTxoAddress.copy(index = 2)
-    val groupTxo = valToTxo(groupValue).copy(outputAddress = groupAddr)
-
-    val statement: AssetMintingStatement = AssetMintingStatement(groupAddr, seriesAddr, quantity)
-
+    val seriesTxo = valToTxo(seriesIn, txAddr = newAddr)
+    val txRes = buildMintAssetTransaction
+      .addTxo(seriesTxo)
+      .updateAmsSeriesUtxo(newAddr)
+      .updateAmsQuantity((mintedQuantity: BigInt).longValue)
+      .run
+    val allTxos = mockTxos :+
+      valToTxo(groupValue, txAddr = mockGroupPolicyAlt.registrationUtxo) :+
+      valToTxo(seriesValue, txAddr = mockSeriesPolicyAlt.registrationUtxo) :+
+      seriesTxo
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
-      .withMintingStatements(Seq(statement))
-      .withInputs(buildStxos(List(groupTxo, seriesTxo)))
+      .withMintingStatements(Seq(mockAssetMintingStatement))
+      .withInputs(buildStxos(allTxos))
       .withOutputs(
-        List(
-          UnspentTransactionOutput(inLockFullAddress, seriesVal),
-          UnspentTransactionOutput(trivialLockAddress, assetGroupSeriesImmutable),
-          UnspentTransactionOutput(inLockFullAddress, groupValue)
+        // minted output
+        buildRecipientUtxos(
+          List(assetGroupSeries.copy(assetGroupSeries.getAsset.withQuantity(mintedQuantity).withSeriesId(newPolicyId)))
+        )
+        ++
+        // fee change. no series change
+        buildChangeUtxos(List(lvlValue))
+        ++
+        // non-lvl or series change (i.e, unaffected by fee or minting)
+        buildChangeUtxos(
+          mockChange(allTxos).filterNot(txo =>
+            txo.value.typeIdentifier == LvlType || txo.value.typeIdentifier == seriesIn.value.typeIdentifier
+          )
         )
       )
-    val txRes = txBuilder
-      .buildSimpleAssetMintingTransaction(
-        statement,
-        groupTxo,
-        seriesTxo,
-        inPredicateLockFull,
-        inPredicateLockFull,
-        trivialLockAddress,
-        None,
-        None
-      )
-    assert(txRes.isRight && txRes.toOption.get.computeId == expectedTx.computeId)
+    assert(txRes.isRight && sortedTx(txRes.toOption.get).computeId == sortedTx(expectedTx).computeId)
   }
 
-  test("buildSimpleAssetMintingTransaction > FRACTIONABLE quantity descriptor type") {
-    val seriesAddr = dummyTxoAddress.copy(index = 1)
-    val seriesVal = seriesValue.copy(seriesValue.getSeries.copy(quantityDescriptor = FRACTIONABLE))
-    val seriesTxo = valToTxo(seriesVal).copy(outputAddress = seriesAddr)
-
-    val groupAddr = dummyTxoAddress.copy(index = 2)
-    val groupTxo = valToTxo(groupValue).copy(outputAddress = groupAddr)
-
-    val statement: AssetMintingStatement = AssetMintingStatement(groupAddr, seriesAddr, quantity)
-
+  test("group fungible") {
+    val newAddr = dummyTxoAddress.copy(index = 100)
+    val newPolicyId = mockSeriesPolicy.copy(fungibility = GROUP).computeId
+    val seriesIn = seriesValue.copy(seriesValue.getSeries.copy(seriesId = newPolicyId, fungibility = GROUP))
+    val seriesTxo = valToTxo(seriesIn, txAddr = newAddr)
+    val txRes = buildMintAssetTransaction
+      .addTxo(seriesTxo)
+      .updateAmsSeriesUtxo(newAddr)
+      .run
+    val allTxos = mockTxos :+
+      valToTxo(groupValue, txAddr = mockGroupPolicyAlt.registrationUtxo) :+
+      valToTxo(seriesValue, txAddr = mockSeriesPolicyAlt.registrationUtxo) :+
+      seriesTxo
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
-      .withMintingStatements(Seq(statement))
-      .withInputs(buildStxos(List(groupTxo, seriesTxo)))
+      .withMintingStatements(Seq(mockAssetMintingStatement))
+      .withInputs(buildStxos(allTxos))
       .withOutputs(
-        List(
-          UnspentTransactionOutput(inLockFullAddress, seriesVal),
-          UnspentTransactionOutput(trivialLockAddress, assetGroupSeriesFractionable),
-          UnspentTransactionOutput(inLockFullAddress, groupValue)
-        )
+        // minted output
+        buildRecipientUtxos(List(assetGroup.copy(assetGroup.getAsset.withSeriesId(newPolicyId))))
+        ++
+        // fee change
+        buildChangeUtxos(List(lvlValue))
+        ++
+        // non-lvl (i.e, unaffected by fee)
+        buildChangeUtxos(mockChange(allTxos).filterNot(txo => txo.value.typeIdentifier == LvlType))
       )
-    val txRes = txBuilder
-      .buildSimpleAssetMintingTransaction(
-        statement,
-        groupTxo,
-        seriesTxo,
-        inPredicateLockFull,
-        inPredicateLockFull,
-        trivialLockAddress,
-        None,
-        None
-      )
-    assert(txRes.isRight && txRes.toOption.get.computeId == expectedTx.computeId)
+    assert(txRes.isRight && sortedTx(txRes.toOption.get).computeId == sortedTx(expectedTx).computeId)
   }
 
-  test("buildSimpleAssetMintingTransaction > ACCUMULATOR quantity descriptor type") {
-    val seriesAddr = dummyTxoAddress.copy(index = 1)
-    val seriesVal = seriesValue.copy(seriesValue.getSeries.copy(quantityDescriptor = ACCUMULATOR))
-    val seriesTxo = valToTxo(seriesVal).copy(outputAddress = seriesAddr)
-
-    val groupAddr = dummyTxoAddress.copy(index = 2)
-    val groupTxo = valToTxo(groupValue).copy(outputAddress = groupAddr)
-
-    val statement: AssetMintingStatement = AssetMintingStatement(groupAddr, seriesAddr, quantity)
-
+  test("series fungible") {
+    val newAddr = dummyTxoAddress.copy(index = 100)
+    val newPolicyId = mockSeriesPolicy.copy(fungibility = SERIES).computeId
+    val seriesIn = seriesValue.copy(seriesValue.getSeries.copy(seriesId = newPolicyId, fungibility = SERIES))
+    val seriesTxo = valToTxo(seriesIn, txAddr = newAddr)
+    val txRes = buildMintAssetTransaction
+      .addTxo(seriesTxo)
+      .updateAmsSeriesUtxo(newAddr)
+      .run
+    val allTxos = mockTxos :+
+      valToTxo(groupValue, txAddr = mockGroupPolicyAlt.registrationUtxo) :+
+      valToTxo(seriesValue, txAddr = mockSeriesPolicyAlt.registrationUtxo) :+
+      seriesTxo
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
-      .withMintingStatements(Seq(statement))
-      .withInputs(buildStxos(List(groupTxo, seriesTxo)))
+      .withMintingStatements(Seq(mockAssetMintingStatement))
+      .withInputs(buildStxos(allTxos))
       .withOutputs(
-        List(
-          UnspentTransactionOutput(inLockFullAddress, seriesVal),
-          UnspentTransactionOutput(trivialLockAddress, assetGroupSeriesAccumulator),
-          UnspentTransactionOutput(inLockFullAddress, groupValue)
+        // minted output
+        buildRecipientUtxos(List(assetSeries.copy(assetSeries.getAsset.withSeriesId(newPolicyId))))
+        ++
+        // fee change
+        buildChangeUtxos(List(lvlValue))
+        ++
+        // non-lvl (i.e, unaffected by fee)
+        buildChangeUtxos(mockChange(allTxos).filterNot(txo => txo.value.typeIdentifier == LvlType))
+      )
+    assert(txRes.isRight && sortedTx(txRes.toOption.get).computeId == sortedTx(expectedTx).computeId)
+  }
+
+  test("fixedSeries provided") {
+    val newAddr = dummyTxoAddress.copy(index = 100)
+    val newPolicyId = mockGroupPolicy.copy(fixedSeries = seriesValue.getSeries.seriesId.some).computeId
+    val groupIn = groupValue.copy(
+      groupValue.getGroup.copy(groupId = newPolicyId, fixedSeries = seriesValue.getSeries.seriesId.some)
+    )
+    val groupTxo = valToTxo(groupIn, txAddr = newAddr)
+    val txRes = buildMintAssetTransaction
+      .addTxo(groupTxo)
+      .updateAmsGroupUtxo(newAddr)
+      .run
+    val allTxos = mockTxos :+
+      valToTxo(groupValue, txAddr = mockGroupPolicyAlt.registrationUtxo) :+
+      valToTxo(seriesValue, txAddr = mockSeriesPolicyAlt.registrationUtxo) :+
+      groupTxo
+    val expectedTx = IoTransaction.defaultInstance
+      .withDatum(txDatum)
+      .withMintingStatements(Seq(mockAssetMintingStatement))
+      .withInputs(buildStxos(allTxos))
+      .withOutputs(
+        // minted output
+        buildRecipientUtxos(List(assetGroupSeries.copy(assetGroupSeries.getAsset.withGroupId(newPolicyId))))
+        ++
+        // fee change
+        buildChangeUtxos(List(lvlValue))
+        ++
+        // non-lvl (i.e, unaffected by fee)
+        buildChangeUtxos(mockChange(allTxos).filterNot(txo => txo.value.typeIdentifier == LvlType))
+      )
+    assert(txRes.isRight && sortedTx(txRes.toOption.get).computeId == sortedTx(expectedTx).computeId)
+  }
+
+  test("IMMUTABLE quantity descriptor type") {
+    val newAddr = dummyTxoAddress.copy(index = 100)
+    val newPolicyId = mockSeriesPolicy.copy(quantityDescriptor = IMMUTABLE).computeId
+    val seriesIn = seriesValue.copy(seriesValue.getSeries.copy(seriesId = newPolicyId, quantityDescriptor = IMMUTABLE))
+    val seriesTxo = valToTxo(seriesIn, txAddr = newAddr)
+    val txRes = buildMintAssetTransaction
+      .addTxo(seriesTxo)
+      .updateAmsSeriesUtxo(newAddr)
+      .run
+    val allTxos = mockTxos :+
+      valToTxo(groupValue, txAddr = mockGroupPolicyAlt.registrationUtxo) :+
+      valToTxo(seriesValue, txAddr = mockSeriesPolicyAlt.registrationUtxo) :+
+      seriesTxo
+    val expectedTx = IoTransaction.defaultInstance
+      .withDatum(txDatum)
+      .withMintingStatements(Seq(mockAssetMintingStatement))
+      .withInputs(buildStxos(allTxos))
+      .withOutputs(
+        // minted output
+        buildRecipientUtxos(
+          List(assetGroupSeriesImmutable.copy(assetGroupSeriesImmutable.getAsset.withSeriesId(newPolicyId)))
         )
+        ++
+        // fee change
+        buildChangeUtxos(List(lvlValue))
+        ++
+        // non-lvl (i.e, unaffected by fee)
+        buildChangeUtxos(mockChange(allTxos).filterNot(txo => txo.value.typeIdentifier == LvlType))
       )
-    val txRes = txBuilder
-      .buildSimpleAssetMintingTransaction(
-        statement,
-        groupTxo,
-        seriesTxo,
-        inPredicateLockFull,
-        inPredicateLockFull,
-        trivialLockAddress,
-        None,
-        None
+    assert(txRes.isRight && sortedTx(txRes.toOption.get).computeId == sortedTx(expectedTx).computeId)
+  }
+
+  test("FRACTIONABLE quantity descriptor type") {
+    val newAddr = dummyTxoAddress.copy(index = 100)
+    val newPolicyId = mockSeriesPolicy.copy(quantityDescriptor = FRACTIONABLE).computeId
+    val seriesIn =
+      seriesValue.copy(seriesValue.getSeries.copy(seriesId = newPolicyId, quantityDescriptor = FRACTIONABLE))
+    val seriesTxo = valToTxo(seriesIn, txAddr = newAddr)
+    val txRes = buildMintAssetTransaction
+      .addTxo(seriesTxo)
+      .updateAmsSeriesUtxo(newAddr)
+      .run
+    val allTxos = mockTxos :+
+      valToTxo(groupValue, txAddr = mockGroupPolicyAlt.registrationUtxo) :+
+      valToTxo(seriesValue, txAddr = mockSeriesPolicyAlt.registrationUtxo) :+
+      seriesTxo
+    val expectedTx = IoTransaction.defaultInstance
+      .withDatum(txDatum)
+      .withMintingStatements(Seq(mockAssetMintingStatement))
+      .withInputs(buildStxos(allTxos))
+      .withOutputs(
+        // minted output
+        buildRecipientUtxos(
+          List(assetGroupSeriesFractionable.copy(assetGroupSeriesFractionable.getAsset.withSeriesId(newPolicyId)))
+        )
+        ++
+        // fee change
+        buildChangeUtxos(List(lvlValue))
+        ++
+        // non-lvl (i.e, unaffected by fee)
+        buildChangeUtxos(mockChange(allTxos).filterNot(txo => txo.value.typeIdentifier == LvlType))
       )
-    assert(txRes.isRight && txRes.toOption.get.computeId == expectedTx.computeId)
+    assert(txRes.isRight && sortedTx(txRes.toOption.get).computeId == sortedTx(expectedTx).computeId)
+  }
+
+  test("ACCUMULATOR quantity descriptor type") {
+    val newAddr = dummyTxoAddress.copy(index = 100)
+    val newPolicyId = mockSeriesPolicy.copy(quantityDescriptor = ACCUMULATOR).computeId
+    val seriesIn =
+      seriesValue.copy(seriesValue.getSeries.copy(seriesId = newPolicyId, quantityDescriptor = ACCUMULATOR))
+    val seriesTxo = valToTxo(seriesIn, txAddr = newAddr)
+    val txRes = buildMintAssetTransaction
+      .addTxo(seriesTxo)
+      .updateAmsSeriesUtxo(newAddr)
+      .run
+    val allTxos = mockTxos :+
+      valToTxo(groupValue, txAddr = mockGroupPolicyAlt.registrationUtxo) :+
+      valToTxo(seriesValue, txAddr = mockSeriesPolicyAlt.registrationUtxo) :+
+      seriesTxo
+    val expectedTx = IoTransaction.defaultInstance
+      .withDatum(txDatum)
+      .withMintingStatements(Seq(mockAssetMintingStatement))
+      .withInputs(buildStxos(allTxos))
+      .withOutputs(
+        // minted output
+        buildRecipientUtxos(
+          List(assetGroupSeriesAccumulator.copy(assetGroupSeriesAccumulator.getAsset.withSeriesId(newPolicyId)))
+        )
+        ++
+        // fee change
+        buildChangeUtxos(List(lvlValue))
+        ++
+        // non-lvl (i.e, unaffected by fee)
+        buildChangeUtxos(mockChange(allTxos).filterNot(txo => txo.value.typeIdentifier == LvlType))
+      )
+    assert(txRes.isRight && sortedTx(txRes.toOption.get).computeId == sortedTx(expectedTx).computeId)
   }
 }
