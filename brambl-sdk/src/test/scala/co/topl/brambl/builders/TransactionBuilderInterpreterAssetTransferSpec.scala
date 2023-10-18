@@ -49,7 +49,11 @@ class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderI
       testTx,
       Left(
         UserInputErrors(
-          Seq(UserInputError(s"All tokens selected to transfer do not have enough funds to transfer"))
+          Seq(
+            UserInputError(
+              s"All tokens selected to transfer do not have enough funds to transfer. The desired quantity to transfer is 4 but the 2 tokens selected to transfer only have a combined quantity of 2."
+            )
+          )
         )
       )
     )
