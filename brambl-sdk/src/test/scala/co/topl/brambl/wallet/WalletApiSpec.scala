@@ -12,9 +12,8 @@ import io.circe.syntax.EncoderOps
 import co.topl.crypto.encryption.VaultStore.Codecs._
 import co.topl.crypto.generation.mnemonic.EntropyFailures.PhraseToEntropyFailure
 import co.topl.crypto.generation.mnemonic.PhraseFailures.InvalidWordLength
-import munit.CatsEffectAssertions.assertIO
 
-class WalletApiSpec extends munit.FunSuite with MockHelpers {
+class WalletApiSpec extends munit.CatsEffectSuite with MockHelpers {
   implicit val idToId: FunctionK[F, F] = FunctionK.id[F]
   val walletApi: WalletApi[F] = WalletApi.make[F](MockWalletKeyApi)
   val testMsg: Array[Byte] = "test message".getBytes
