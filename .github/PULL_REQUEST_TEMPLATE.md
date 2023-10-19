@@ -1,3 +1,6 @@
+
+> Ensure you have run `sbt preparePR` to format your code and update the Scaladoc
+
 ## Purpose
 
 ## Approach
