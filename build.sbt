@@ -135,7 +135,7 @@ lazy val serviceKit = project
   )
   .dependsOn(bramblSdk)
 
-val DocumentationRoot = file("documentation") / "static"
+val DocumentationRoot = file("documentation") / "static" / "scaladoc" / "current"
 
 lazy val brambl = project
   .in(file("."))
@@ -143,8 +143,9 @@ lazy val brambl = project
     moduleName := "brambl",
     commonSettings,
     publish / skip := true,
-    ScalaUnidoc / unidoc / unidocProjectFilter := inAnyProject -- inProjects(crypto, quivr4s),
-    ScalaUnidoc / unidoc / target := DocumentationRoot / "scaladoc",
+    // Currently excluding crypto since there are issues due to the use of macro annotations
+    ScalaUnidoc / unidoc / unidocProjectFilter := inAnyProject -- inProjects(crypto),
+    ScalaUnidoc / unidoc / target := DocumentationRoot,
   )
   .enablePlugins(ReproducibleBuildsPlugin, ScalaUnidocPlugin)
   .aggregate(

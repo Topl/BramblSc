@@ -38,7 +38,7 @@ const config = {
           versions: {
             current: {
               label: '2.0.0',
-              path: '2.0.0',
+              path: 'current',
               badge: true,
             },
           },
@@ -63,6 +63,11 @@ const config = {
         items: [
           {
             type: 'docSidebar',
+            sidebarId: 'referenceSidebar',
+            label: 'Reference',
+          },
+          {
+            type: 'docSidebar',
             sidebarId: 'tutorialsSidebar',
             label: 'Tutorials',
           },
@@ -70,12 +75,6 @@ const config = {
             type: 'docSidebar',
             sidebarId: 'conceptsSidebar',
             label: 'Concepts',
-          },
-          {
-            type: 'doc',
-            docId: 'scaladoc',
-            label: 'Reference',
-            target: '_blank',
           },
           {
             href: 'https://github.com/Topl/BramblSc',
