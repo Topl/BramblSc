@@ -95,7 +95,7 @@ const config = {
               },
               {
                 label: 'Discord',
-                href: 'https://discord.gg/topl',
+                href: 'https://discord.gg/Gp7fFq6Wck',
               },
               {
                 label: 'Twitter',
