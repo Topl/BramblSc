@@ -63,9 +63,9 @@ object WalletStateApi {
               s"z_state = ${indices.z}"
             )
           )
-          _              <- Sync[F].delay(rs.next())
+          _                 <- Sync[F].delay(rs.next())
           someLockPredicate <- Sync[F].delay(rs.getString("lock_predicate"))
-        } yield  Option(someLockPredicate).map(lock_predicate =>
+        } yield Option(someLockPredicate).map(lock_predicate =>
           Lock.Predicate.parseFrom(
             Encoding.decodeFromBase58Check(lock_predicate).toOption.get
           )
