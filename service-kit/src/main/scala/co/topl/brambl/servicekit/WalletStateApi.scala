@@ -64,8 +64,8 @@ object WalletStateApi {
             )
           )
           _              <- Sync[F].delay(rs.next())
-          lock_predicate <- Sync[F].delay(rs.getString("lock_predicate"))
-        } yield Some(
+          someLockPredicate <- Sync[F].delay(rs.getString("lock_predicate"))
+        } yield  Option(someLockPredicate).map(lock_predicate =>
           Lock.Predicate.parseFrom(
             Encoding.decodeFromBase58Check(lock_predicate).toOption.get
           )
@@ -411,7 +411,7 @@ object WalletStateApi {
                     genesisHeightLock.getPredicate.toByteArray
                   ) +
                 "', '" +
-                heightLockAddress.toBase58 + "')"
+                heightLockAddress.toBase58() + "')"
               )
             )
             _ <- Sync[F].delay(stmnt.close())
