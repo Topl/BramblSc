@@ -1,0 +1,22 @@
+The following guide requires access to a Transaction Builder Api instance. You can initialize one as follows using the
+following snippet:
+
+```
+import co.topl.brambl.constants.NetworkConstants.{MAIN_NETWORK_ID, MAIN_LEDGER_ID}
+
+val transactionBuilderApi = TransactionBuilderApi.make[F](MAIN_NETWORK_ID, MAIN_LEDGER_ID)
+```
+
+Notes:
+
+-
+- Where `F` is a Type Class .
+
+
+:::info
+
+The `MAIN_NETWORK_ID` and `MAIN_LEDGER_ID` refer to the IDs of Topl's main network and ledger, respectfully. If you
+wish to use a different network or ledger, you can find the IDs of all available networks and ledgers in the `NetworkConstants`
+object.
+
+:::
