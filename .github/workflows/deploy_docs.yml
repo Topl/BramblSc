@@ -2,7 +2,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches: [*]
 
 
 jobs:
@@ -11,6 +11,39 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: ${{ matrix.java }}
+      - name: Setup SBT
+        run: |
+          mkdir -p $HOME/bin/sbt
+          set -eux && curl --fail --silent --location --retry 3 https://github.com/sbt/sbt/releases/download/v1.7.1/sbt-1.7.1.tgz | gunzip | tar x -C $HOME/bin/sbt
+          echo "$HOME/bin/sbt" >> $GITHUB_PATH
+      - name: Cache sbt
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.sbt
+            ~/.ivy2/cache
+            ~/.coursier/cache/v1
+            ~/.cache/coursier/v1
+            ~/AppData/Local/Coursier/Cache/v1
+            ~/Library/Caches/Coursier/v1
+          key: ${{ runner.os }}-sbt-cache-v2-${{ hashFiles('**/*.sbt') }}-${{ hashFiles('project/build.properties') }}
+
+      - name: Cache project
+        uses: actions/cache@v3
+        with:
+          path: |
+            **/target/**
+            !**/test-results/**
+          key: ${{ format('{0}-project-{1}-{2}', runner.os, github.base_ref, github.run_number) }}
+          restore-keys: ${{ inputs.preserve-cache-between-runs && format('{0}-project-{1}-', runner.os, github.base_ref) || format('{0}-project-{1}-{2}', runner.os, github.base_ref, github.run_number) }}
+
+      - name: Generate Scaladoc
+        run: sbt unidoc
       - uses: actions/setup-node@v3
         with:
           node-version: 18
