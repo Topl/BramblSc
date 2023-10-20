@@ -11,6 +11,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - name: Setup SBT
+        run: |
+          mkdir -p $HOME/bin/sbt
+          set -eux && curl --fail --silent --location --retry 3 https://github.com/sbt/sbt/releases/download/v1.7.1/sbt-1.7.1.tgz | gunzip | tar x -C $HOME/bin/sbt
+          echo "$HOME/bin/sbt" >> $GITHUB_PATH
+      - name: Generate Scaladoc
+        run: sbt unidoc
       - uses: actions/setup-node@v3
         with:
           node-version: 18

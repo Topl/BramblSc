@@ -6,7 +6,7 @@ import Layout from '@theme/Layout';
 import HomepageFeatures from '@site/src/components/HomepageFeatures';
 
 import styles from './index.module.css';
-import { siteVersion } from '@generated/site-metadata';
+import siteMeta from '@generated/site-metadata';
 
 function HomepageHeader() {
   const {siteConfig} = useDocusaurusContext();
@@ -18,7 +18,7 @@ function HomepageHeader() {
         <div className={styles.buttons}>
           <Link
             className={clsx('button button--primary button--lg', styles.heroButton)}
-            to={`/docs/${siteVersion}/reference/intro`}>
+            to={`/docs/current/reference/getting-started`}>
             Start Building
           </Link>
         </div>

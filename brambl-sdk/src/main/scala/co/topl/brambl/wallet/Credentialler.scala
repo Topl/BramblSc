@@ -13,7 +13,7 @@ trait Credentialler[F[_]] {
   /**
    * Prove a transaction. That is, prove all the inputs within the transaction if possible
    *
-   * Note: If a proposition is unable to be proven, it's proof will be [[Proof.Value.Empty]]
+   * Note: If a proposition is unable to be proven, it's proof will be Proof.Value.Empty
    *
    * @param unprovenTx The unproven transaction to prove
    * @return The proven version of the transaction.

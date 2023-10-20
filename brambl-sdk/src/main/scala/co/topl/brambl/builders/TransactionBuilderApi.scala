@@ -39,7 +39,7 @@ import scala.language.implicitConversions
 import scala.util.{Failure, Success, Try}
 
 /**
- * Defines a builder for [[IoTransaction]]s
+ * Defines a builder for IoTransaction
  */
 trait TransactionBuilderApi[F[_]] {
 

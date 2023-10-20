@@ -134,14 +134,19 @@ lazy val serviceKit = project
   )
   .dependsOn(bramblSdk)
 
+val DocumentationRoot = file("documentation") / "static" / "scaladoc" / "current"
+
 lazy val brambl = project
   .in(file("."))
   .settings(
     moduleName := "brambl",
     commonSettings,
-    publish / skip := true
+    publish / skip := true,
+    // Currently excluding crypto since there are issues due to the use of macro annotations
+    ScalaUnidoc / unidoc / unidocProjectFilter := inAnyProject -- inProjects(crypto),
+    ScalaUnidoc / unidoc / target := DocumentationRoot,
   )
-  .enablePlugins(ReproducibleBuildsPlugin)
+  .enablePlugins(ReproducibleBuildsPlugin, ScalaUnidocPlugin)
   .aggregate(
     crypto,
     bramblSdk,
@@ -150,5 +155,5 @@ lazy val brambl = project
   )
 
 addCommandAlias("checkPR", s"; scalafixAll --check; scalafmtCheckAll; +test")
-addCommandAlias("preparePR", s"; scalafixAll; scalafmtAll; +test")
+addCommandAlias("preparePR", s"; scalafixAll; scalafmtAll; unidoc")
 addCommandAlias("checkPRTestQuick", s"; scalafixAll --check; scalafmtCheckAll; testQuick")
