@@ -4,7 +4,7 @@ import Admonition from '@theme/Admonition';
 The following guide requires access to a Transaction Builder Api instance. You can initialize one as follows using the
 following snippet:
 
-```
+```scala
 import co.topl.brambl.constants.NetworkConstants.{MAIN_NETWORK_ID, MAIN_LEDGER_ID}
 
 val transactionBuilderApi = TransactionBuilderApi.make[F](MAIN_NETWORK_ID, MAIN_LEDGER_ID)
