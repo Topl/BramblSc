@@ -1,15 +1,13 @@
 import ScaladocLink from '@site/src/components/ScaladocLink';
 
-The following guide requires access to a Transaction Builder Api instance. You can initialize one using the following snippet:
+The following requires access to a Transaction Builder Api instance. You can initialize one using the following snippet:
 
 ```scala
-import co.topl.brambl.constants.NetworkConstants.{MAIN_NETWORK_ID, MAIN_LEDGER_ID}
-
 val transactionBuilderApi = TransactionBuilderApi.make[F](MAIN_NETWORK_ID, MAIN_LEDGER_ID)
 ```
 
- Where `F` is a type parameter bound to a context parameter of type `Monad[F]`. See the `make`
- function's <ScaladocLink path="co/topl/brambl/builders/TransactionBuilderApi$.html">signature</ScaladocLink>.
+Where `F` is a type parameter bound to a context parameter of type `Monad[F]`. See the `make`
+function's <ScaladocLink path="co/topl/brambl/builders/TransactionBuilderApi$.html">signature</ScaladocLink>.
 
 
 :::info
