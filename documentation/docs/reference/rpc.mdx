@@ -3,4 +3,37 @@ sidebar_position: 2
 title: RPC
 ---
 
-Coming Soon
+import ScaladocLink from '@site/src/components/ScaladocLink';
+import Link from '@docusaurus/Link';
+
+The SDK provides a set of functions to perform some common RPC calls to interact with the blockchain. To see all the RPC
+functions available on the SDK, see the Scaladoc
+for <ScaladocLink path="co/topl/brambl/dataApi/BifrostQueryAlgebra"><code>BifrostQueryAlgebra</code></ScaladocLink>
+and <ScaladocLink path="co/topl/brambl/dataApi/GenusQueryAlgebra.html"><code>GenusQueryAlgebra</code></ScaladocLink>.
+To see all the RPC functions available on the Bifrost and Genus nodes, see the protocol buffer definitions
+for <Link href="https://github.com/Topl/protobuf-specs/blob/main/proto/node/services/bifrost_rpc.proto">Bifrost</Link>
+and <Link href="https://github.com/Topl/protobuf-specs/blob/main/proto/genus/genus_rpc.proto">Genus</Link>.
+
+## Querying UTXOs
+
+You can query the existing UTXOs on the blockchain using the `queryUtxo` function of a Genus Query instance.
+
+```scala
+def queryUtxo(fromAddress: LockAddress, txoState: TxoState = TxoState.UNSPENT): F[Seq[Txo]]
+```
+
+This function queries a Genus node for all UTXOs that are encumbered by a given address and are of a specified state.
+
+The parameters are as follows:
+- `fromAddress` - The LockAddress of the UTXOs we are querying.
+- `txoState` - The state of the UTXOs we are querying. The default value is `UNSPENT`.
+
+You can initialize an instance of a Genus Query using the following snippet:
+
+```scala
+val genusQuery = GenusQueryAlgebra.make[F](channelResource)
+```
+
+Where `F` is a type parameter bound to a context parameter of type `Sync[F]` and `channelResource` is a resource
+providing the connection with a Genus node. See the `make`
+function's <ScaladocLink path="co/topl/brambl/dataApi/GenusQueryAlgebra$.html">signature</ScaladocLink>.

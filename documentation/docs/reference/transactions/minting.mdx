@@ -47,7 +47,7 @@ must be included in the transaction inputs.
 The parameters are as follows:
 - `txos` - A sequence of TXOs to be the input of the created transaction. The registration UTXO (as specified in the
 `groupPolicy`) must be included in this sequence. All TXOs must be encumbered by the same lock predicate, given by
-`lockPredicateFrom`. You can obtain these TXOs from the [RPC queries](../rpc).
+`lockPredicateFrom`. You can obtain these TXOs from the [RPC queries](../rpc#querying-utxos).
 - `lockPredicateFrom` - The Predicate Lock that encumbers all the TXOs in `txos`.
 - `groupPolicy` - The Group Policy for which to mint new group constructor tokens.
 - `quantityToMint` - The quantity of group constructor tokens to mint.
@@ -84,7 +84,7 @@ and must be included in the transaction inputs.
 The parameters are as follows:
 - `txos` - A sequence of TXOs to be the input of the created transaction. The registration UTXO (as specified in the
 `seriesPolicy`) must be included in this sequence. All TXOs must be encumbered by the same lock predicate, given by
-`lockPredicateFrom`. You can obtain these TXOs from the [RPC queries](../rpc).
+`lockPredicateFrom`. You can obtain these TXOs from the [RPC queries](../rpc#querying-utxos).
 - `lockPredicateFrom` - The Predicate Lock that encumbers all the TXOs in `txos`.
 - `seriesPolicy` - The Series Policy for which to mint new series constructor tokens.
 - `quantityToMint` - The quantity of series constructor tokens to mint.

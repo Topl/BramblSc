@@ -66,16 +66,16 @@ const config = {
             sidebarId: 'referenceSidebar',
             label: 'Reference',
           },
-          {
-            type: 'docSidebar',
-            sidebarId: 'tutorialsSidebar',
-            label: 'Tutorials',
-          },
-          {
-            type: 'docSidebar',
-            sidebarId: 'conceptsSidebar',
-            label: 'Concepts',
-          },
+//          {
+//            type: 'docSidebar',
+//            sidebarId: 'tutorialsSidebar',
+//            label: 'Tutorials',
+//          },
+//          {
+//            type: 'docSidebar',
+//            sidebarId: 'conceptsSidebar',
+//            label: 'Concepts',
+//          },
           {
             href: 'https://github.com/Topl/BramblSc',
             label: 'GitHub',
