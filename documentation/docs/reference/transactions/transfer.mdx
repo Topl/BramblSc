@@ -6,6 +6,8 @@ description: Build a transaction to transfer existing tokens.
 
 import InitTxBuilder from './_init-tx-builder.mdx';
 import RevealedLock from './_revealed-lock.mdx';
+import TxReturn from './_tx-return.mdx';
+import ScaladocLink from '@site/src/components/ScaladocLink';
 
 # Build a Transfer Transaction
 
@@ -21,7 +23,44 @@ and transferring all tokens.
 
 ## Transfer a Certain Amount
 
-TBD
+You can create a transaction to transfer a certain amount of a certain type of token using
+the <ScaladocLink path="co/topl/brambl/builders/TransactionBuilderApi.html#buildTransferAmountTransaction(ValueTypeIdentifier,Seq[Txo],Predicate,Long,LockAddress,LockAddress,Long):F[Either[BuilderError,IoTransaction]]"><code>buildTransferAmountTransaction</code></ScaladocLink>
+function of a Transaction Builder API instance.
+
+:::note
+This function only supports transferring a specific amount of assets if their quantity descriptor type is `LIQUID`.
+:::
+
+```scala
+def buildTransferAmountTransaction(
+  tokenIdentifier:      ValueTypeIdentifier,
+  txos:                 Seq[Txo],
+  lockPredicateFrom:    Lock.Predicate,
+  amount:               Long,
+  recipientLockAddress: LockAddress,
+  changeLockAddress:    LockAddress,
+  fee:                  Long
+): F[Either[BuilderError, IoTransaction]]
+```
+
+This function builds a transaction to transfer a certain amount of a specified token. The transaction will also transfer
+any other tokens that are encumbered by the same predicate to a change address.
+
+The parameters are as follows:
+- `tokenIdentifier` - The Token Identifier denoting the type of token to transfer to the recipient. If this denotes an
+Asset Token, the quantity descriptor type must be `LIQUID`.
+- `txos` - A sequence of TXOs to be the inputs of the created transaction. All TXOs must be encumbered by the same lock
+predicate, given by `lockPredicateFrom`. You can obtain these TXOs from the [RPC queries](../rpc#querying-utxos).
+- `lockPredicateFrom` - The Predicate Lock that encumbers all the TXOs in `txos`.
+- `amount` - The amount of identified Token to transfer to the recipient. The `txos` must contain enough of the
+identified to satisfy this amount.
+- `recipientLockAddress` - The LockAddress for the recipient. The recipient can create a new Lock and
+LockAddress [with the SDK](./locks).
+- `changeLockAddress` - A new LockAddress for which all the change UTXOs from `txos` will be encumbered. You can create a new
+Lock and LockAddress [with the SDK](./locks).
+- `fee` - The transaction fee. The `txos` must contain enough LVLs to satisfy this fee.
+
+<TxReturn tokenType="transferred" />
 
 ## Transfer All Tokens
 
