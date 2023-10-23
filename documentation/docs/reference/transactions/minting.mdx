@@ -61,7 +61,40 @@ Lock and LockAddress [with the SDK](./locks).
 
 ## Mint Series Constructor Tokens
 
-TBD
+You can create a transaction to mint new series constructor tokens using
+the <ScaladocLink path="co/topl/brambl/builders/TransactionBuilderApi.html#buildSeriesMintingTransaction(Seq[Txo],Predicate,SeriesPolicy,Long,LockAddress,LockAddress,Long):F[Either[BuilderError,IoTransaction]]"><code>buildSeriesMintingTransaction</code></ScaladocLink>
+function of a Transaction Builder API instance.
+
+```scala
+def buildSeriesMintingTransaction(
+  txos:              Seq[Txo],
+  lockPredicateFrom: Lock.Predicate,
+  seriesPolicy:      SeriesPolicy,
+  quantityToMint:    Long,
+  mintedAddress:     LockAddress,
+  changeAddress:     LockAddress,
+  fee:               Long
+): F[Either[BuilderError, IoTransaction]]
+```
+
+This function builds a transaction to mint series constructor tokens for a given Series Policy. These minted series
+constructor tokens must be "registered" to an existing LVL UTXO. This registration UTXO is specified in the Series Policy
+and must be included in the transaction inputs.
+
+The parameters are as follows:
+- `txos` - A sequence of TXOs to be the input of the created transaction. The registration UTXO (as specified in the
+`seriesPolicy`) must be included in this sequence. All TXOs must be encumbered by the same lock predicate, given by
+`lockPredicateFrom`. You can obtain these TXOs from the [RPC queries](../rpc).
+- `lockPredicateFrom` - The Predicate Lock that encumbers all the TXOs in `txos`.
+- `seriesPolicy` - The Series Policy for which to mint new series constructor tokens.
+- `quantityToMint` - The quantity of series constructor tokens to mint.
+- `mintedAddress` - A new LockAddress for which the minted series constructor tokens will be encumbered. You can create a
+new Lock and LockAddress [with the SDK](./locks).
+- `changeAddress` - A new LockAddress for which all the change UTXOs from `txos` will be encumbered. You can create a new
+Lock and LockAddress [with the SDK](./locks).
+- `fee` - The transaction fee. The `txos` must contain enough LVLs to satisfy this fee.
+
+<TxReturn tokenType="minted series constructor" />
 
 ## Mint Asset Tokens
 
