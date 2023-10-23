@@ -45,7 +45,7 @@ constructor tokens must be "registered" to an existing LVL UTXO. This registrati
 must be included in the transaction inputs.
 
 The parameters are as follows:
-- `txos` - A sequence of TXOs to be the input of the created transaction. The registration UTXO (as specified in the
+- `txos` - A sequence of TXOs to be the inputs of the created transaction. The registration UTXO (as specified in the
 `groupPolicy`) must be included in this sequence. All TXOs must be encumbered by the same lock predicate, given by
 `lockPredicateFrom`. You can obtain these TXOs from the [RPC queries](../rpc#querying-utxos).
 - `lockPredicateFrom` - The Predicate Lock that encumbers all the TXOs in `txos`.
@@ -82,7 +82,7 @@ constructor tokens must be "registered" to an existing LVL UTXO. This registrati
 and must be included in the transaction inputs.
 
 The parameters are as follows:
-- `txos` - A sequence of TXOs to be the input of the created transaction. The registration UTXO (as specified in the
+- `txos` - A sequence of TXOs to be the inputs of the created transaction. The registration UTXO (as specified in the
 `seriesPolicy`) must be included in this sequence. All TXOs must be encumbered by the same lock predicate, given by
 `lockPredicateFrom`. You can obtain these TXOs from the [RPC queries](../rpc#querying-utxos).
 - `lockPredicateFrom` - The Predicate Lock that encumbers all the TXOs in `txos`.
@@ -98,4 +98,46 @@ Lock and LockAddress [with the SDK](./locks).
 
 ## Mint Asset Tokens
 
-TBD
+You can create a transaction to mint new asset tokens using
+the <ScaladocLink path="co/topl/brambl/builders/TransactionBuilderApi.html#buildAssetMintingTransaction(AssetMintingStatement,Seq[Txo],Map[LockAddress,Predicate],Long,LockAddress,LockAddress,Option[Struct],Option[ByteString]):F[Either[BuilderError,IoTransaction]]"><code>buildAssetMintingTransaction</code></ScaladocLink>
+function of a Transaction Builder API instance.
+
+```scala
+def buildAssetMintingTransaction(
+  mintingStatement:       AssetMintingStatement,
+  txos:                   Seq[Txo],
+  locks:                  Map[LockAddress, Lock.Predicate],
+  fee:                    Long,
+  mintedAssetLockAddress: LockAddress,
+  changeAddress:          LockAddress,
+  ephemeralMetadata:      Option[Struct],
+  commitment:             Option[ByteString]
+): F[Either[BuilderError, IoTransaction]]
+```
+
+This function builds a transaction to mint asset tokens for a given Asset Minting Statement. These minted asset
+tokens must be created from existing group and series constructor tokens. These registration constructor tokens are
+specified in the Asset Minting Statement and must be included in the transaction inputs.
+
+The parameters are as follows:
+- `mintingStatement` - The minting statement that specifies the asset to mint.
+- `txos` - A sequence of TXOs to be the inputs of the created transaction. Both the group and series constructor tokens
+that are specified in the `mintingStatement` must be included in this sequence. All TXOs must be encumbered by a lock
+from `locks`. You can obtain these TXOs from the [RPC queries](../rpc#querying-utxos).
+- `locks` - A mapping of LockAddress to their Predicate Lock. Each entry must represent a lock that encumbers some TXOs
+in `txos`.
+- `fee` - The transaction fee. The `txos` must contain enough LVLs to satisfy this fee.
+- `mintedAssetLockAddress` - A new LockAddress for which the minted asset tokens will be encumbered. You can create a
+new Lock and LockAddress [with the SDK](./locks).
+- `changeAddress` - A new LockAddress for which all the change UTXOs from `txos` will be encumbered. You can create a new
+Lock and LockAddress [with the SDK](./locks).
+- `ephemeralMetadata` - Optional ephemeral metadata to include in the minted asset tokens.
+- `commitment` - Optional commitment to include in the minted asset tokens.
+
+:::note
+If the `tokenSupply` field is present in the series constructor token used for registration, then the quantity of asset
+tokens to mint (that is defined in the `mintingStatement`) has to be a multiple of this field. In this case, minting
+each multiple of `tokenSupply` quantity of assets will burn a single series constructor token.
+:::
+
+<TxReturn tokenType="minted asset" />
