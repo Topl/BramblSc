@@ -1,0 +1,8 @@
+{
+  "label": "Build a Transaction",
+  "position": 4,
+  "link": {
+    "type": "generated-index",
+    "description": "Learn how to build different types of unproven transactions using the Transaction Builder API. An unproven transaction can be proven and then submitted to the network."
+  }
+}
