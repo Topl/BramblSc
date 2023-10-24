@@ -38,7 +38,7 @@ const config = {
           versions: {
             current: {
               label: '2.0.0',
-              path: '2.0.0',
+              path: 'current',
               badge: true,
             },
           },
@@ -64,21 +64,18 @@ const config = {
           {
             type: 'docSidebar',
             sidebarId: 'referenceSidebar',
-            position: 'left',
             label: 'Reference',
           },
-          {
-            type: 'docSidebar',
-            sidebarId: 'tutorialsSidebar',
-            position: 'left',
-            label: 'Tutorials',
-          },
-          {
-            type: 'docSidebar',
-            sidebarId: 'conceptsSidebar',
-            position: 'left',
-            label: 'Concepts',
-          },
+//          {
+//            type: 'docSidebar',
+//            sidebarId: 'tutorialsSidebar',
+//            label: 'Tutorials',
+//          },
+//          {
+//            type: 'docSidebar',
+//            sidebarId: 'conceptsSidebar',
+//            label: 'Concepts',
+//          },
           {
             href: 'https://github.com/Topl/BramblSc',
             label: 'GitHub',
@@ -98,7 +95,7 @@ const config = {
               },
               {
                 label: 'Discord',
-                href: 'https://discord.gg/topl',
+                href: 'https://discord.gg/Gp7fFq6Wck',
               },
               {
                 label: 'Twitter',
@@ -121,6 +118,7 @@ const config = {
       prism: {
         theme: lightCodeTheme,
         darkTheme: darkCodeTheme,
+        additionalLanguages: ['java', 'scala']
       },
     }),
 };

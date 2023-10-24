@@ -36,7 +36,7 @@ class TransactionBuilderInterpreterSeriesTransferSpec extends TransactionBuilder
       .run
     assertEquals(
       testTx,
-      Left(UserInputErrors(Seq(UserInputError(s"every lock does not correspond to fromLockAddr"))))
+      Left(UserInputErrors(Seq(UserInputError(s"every lock in the txos must correspond to lockPredicateFrom"))))
     )
   }
 
@@ -49,7 +49,11 @@ class TransactionBuilderInterpreterSeriesTransferSpec extends TransactionBuilder
       testTx,
       Left(
         UserInputErrors(
-          Seq(UserInputError(s"All tokens selected to transfer do not have enough funds to transfer"))
+          Seq(
+            UserInputError(
+              s"All tokens selected to transfer do not have enough funds to transfer. The desired quantity to transfer is 4 but the 2 tokens selected to transfer only have a combined quantity of 2."
+            )
+          )
         )
       )
     )

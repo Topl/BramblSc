@@ -39,7 +39,7 @@ import scala.language.implicitConversions
 import scala.util.{Failure, Success, Try}
 
 /**
- * Defines a builder for [[IoTransaction]]s
+ * Defines a builder for IoTransaction
  */
 trait TransactionBuilderApi[F[_]] {
 
@@ -166,6 +166,10 @@ trait TransactionBuilderApi[F[_]] {
    * all tokens provided in txos will go to the recipient. Any remaining tokens in txos that are not transferred to the
    * recipient will be transferred to the change address.
    *
+   * TODO: Add support for TOPLs and UpdateProposals
+   * @note Currently TOPLs and UpdateProposal values are not supported in the txos. This will be added in TSDK-610
+   * @note Currently TOPLs and UpdateProposal values are not supported in tokenIdentifier. This will be added in TSDK-610
+   *
    * @param txos All the TXOs encumbered by the Lock given by lockPredicateFrom. These TXOs must contain some token
    *             matching tokenIdentifier (if it is provided) and at least the quantity of LVLs to satisfy the fee, else
    *             an error will be returned.
@@ -191,7 +195,13 @@ trait TransactionBuilderApi[F[_]] {
    * Builds a transaction to transfer a certain amount of a specified Token (given by tokenIdentifier). The transaction
    * will also transfer any other tokens (in the txos) that are encumbered by the same predicate to the change address.
    *
-   * We currently only support transferring assets with quantity descriptor type LIQUID.
+   * This function only supports transferring a specific amount of assets (via tokenIdentifier) if their quantity
+   * descriptor type is LIQUID.
+   *
+   * TODO: Add support for TOPLs and UpdateProposals
+   * @note Currently TOPLs and UpdateProposal values are not supported in the txos. This will be added in TSDK-610
+   * @note Currently TOPLs and UpdateProposal values are not supported in tokenIdentifier. This may or may not be added
+   *       in TSDK-610 depending if these values can be aggregated and deaggregated by default. Pending discussion.
    *
    * @param tokenIdentifier The Token Identifier denoting the type of token to transfer to the recipient. If this denotes
    *                        an Asset Token, the quantity descriptor type must be LIQUID, else an error will be returned.
@@ -217,88 +227,92 @@ trait TransactionBuilderApi[F[_]] {
 
   /**
    * Builds a simple transaction to mint Group Constructor tokens.
-   * If successful, the transaction will have a single input (the registrationUtxo) and a single output (the minted
-   * group constructor tokens).
+   * If successful, the transaction will have one or more inputs (at least the registrationUtxo) and one or more
+   * outputs (at least the minted group constructor tokens). There can be more inputs and outputs if the supplied txos
+   * contain more tokens.
    *
-   * @param registrationTxo The TXO that corresponds to the registrationUtxo to use as an input in this transaction.
-   *                        This TXO must contain LVLs, else an error will be returned. The entirety of this TXO will
-   *                        be used as the fee to mint the series constructor token.
-   * @param registrationLock The Predicate Lock that encumbers the funds in the registrationUtxo. This will be used in
-   *                         the attestation of the registrationUtxo input.
+   * @param txos All the TXOs encumbered by the Lock given by lockPredicateFrom. These TXOs must contain some LVLs (as
+   *             specified in the policy), to satisfy the registration fee, else an error will be returned.
+   * @param lockPredicateFrom The Predicate Lock that encumbers the funds in the txos. This will be used in
+   *                         the attestations of the inputs.
    * @param groupPolicy The group policy for which we are minting constructor tokens. This group policy specifies a
    *                    registrationUtxo to be used as an input in this transaction.
    * @param quantityToMint The quantity of constructor tokens to mint
-   * @param mintedConstructorLockAddress The LockAddress to send the minted constructor tokens to.
+   * @param mintedAddress The LockAddress to send the minted constructor tokens to.
+   * @param changeAddress The LockAddress to send the change to.
+   * @param fee              The transaction fee. The txos must contain enough LVLs to satisfy this fee
    * @return An unproven Group Constructor minting transaction if possible. Else, an error
    */
-  def buildSimpleGroupMintingTransaction(
-    registrationTxo:              Txo,
-    registrationLock:             Lock.Predicate,
-    groupPolicy:                  GroupPolicy,
-    quantityToMint:               Int128,
-    mintedConstructorLockAddress: LockAddress
+  def buildGroupMintingTransaction(
+    txos:              Seq[Txo],
+    lockPredicateFrom: Lock.Predicate,
+    groupPolicy:       GroupPolicy,
+    quantityToMint:    Long,
+    mintedAddress:     LockAddress,
+    changeAddress:     LockAddress,
+    fee:               Long
   ): F[Either[BuilderError, IoTransaction]]
 
   /**
    * Builds a simple transaction to mint Series Constructor tokens.
-   * If successful, the transaction will have a single input (the registrationUtxo) and a single output (the minted
-   * series constructor tokens).
+   * If successful, the transaction will have one or more inputs (at least the registrationUtxo) and one or more
+   * outputs (at least the minted series constructor tokens). There can be more inputs and outputs if the supplied txos
+   * contain more tokens.
    *
-   * @param registrationTxo The TXO that corresponds to the registrationUtxo to use as an input in this transaction.
-   *                        This TXO must contain LVLs, else an error will be returned. The entirety of this TXO will
-   *                        be used as the fee to mint the series constructor token.
-   * @param registrationLock The Predicate Lock that encumbers the funds in the registrationUtxo. This will be used in
-   *                         the attestation of the registrationUtxo input.
+   * @param txos              All the TXOs encumbered by the Lock given by lockPredicateFrom. These TXOs must contain
+   *                          some LVLs (as specified in the policy), to satisfy the registration fee, else an error
+   *                          will be returned.
+   * @param lockPredicateFrom The Predicate Lock that encumbers the funds in the txos. This will be used in
+   *                          the attestations of the inputs.
    * @param seriesPolicy The series policy for which we are minting constructor tokens. This series policy specifies a
    *                    registrationUtxo to be used as an input in this transaction.
    * @param quantityToMint The quantity of constructor tokens to mint
-   * @param mintedConstructorLockAddress The LockAddress to send the minted constructor tokens to.
+   * @param mintedAddress The LockAddress to send the minted constructor tokens to.
+   * @param changeAddress The LockAddress to send the change to.
+   * @param fee           The transaction fee. The txos must contain enough LVLs to satisfy this fee
    * @return An unproven Series Constructor minting transaction if possible. Else, an error
    */
-  def buildSimpleSeriesMintingTransaction(
-    registrationTxo:              Txo,
-    registrationLock:             Lock.Predicate,
-    seriesPolicy:                 SeriesPolicy,
-    quantityToMint:               Int128,
-    mintedConstructorLockAddress: LockAddress
+  def buildSeriesMintingTransaction(
+    txos:              Seq[Txo],
+    lockPredicateFrom: Lock.Predicate,
+    seriesPolicy:      SeriesPolicy,
+    quantityToMint:    Long,
+    mintedAddress:     LockAddress,
+    changeAddress:     LockAddress,
+    fee:               Long
   ): F[Either[BuilderError, IoTransaction]]
 
   /**
    * Builds a simple transaction to mint asset tokens.
-   * If successful, the transaction will have two inputs (the group and series constructor token UTXOs) and 2-3 outputs.
-   * The first output will be the minted asset tokens. The second output will be the group constructor tokens (since
-   * they are never burned). The potential third output will be the series constructor tokens that were not burned.
+   * If successful, the transaction will have two or more inputs (at least the group and series registration tokens) and
+   * two or more outputs (at least the minted asset tokens and the input group constructor token). There can be more
+   * inputs and outputs if the supplied txos contain more tokens.
    *
-   * We currently only support assets with quantity descriptor type LIQUID.
-   *
+   * @note If the "tokenSupply" field in the registration series constructor tokens is present, then the quantity of
+   *       asset tokens to mint (defined in the AMS) has to be a multiple of this field, else an error will be returned.
+   *       In this case, minting each multiple of "tokenSupply" quantity of assets will burn a single series constructor token.
    * @param mintingStatement      The minting statement that specifies the asset to mint.
-   * @param groupTxo              The TXO that corresponds to the groupTokenUtxo (in the asset minting statement) to use
-   *                              as an input in this transaction. This TXO must contain group constructor tokens, else
-   *                              an error will be returned. None of this TXO will be burned.
-   * @param seriesTxo             The TXO that corresponds to the seriesTokenUtxo (in the asset minting statement) to
-   *                              use as an input in this transaction. This TXO must contain series constructor tokens,
-   *                              else an error will be returned. If the "tokenSupply" field in the series constructor
-   *                              tokens is present, then the quantity of asset tokens to mint has to be a multiple of
-   *                              this field, else an error will be returned. In this case, minting each multiple of
-   *                              "tokenSupply" quantity of assets will burn a single series constructor token.
-   * @param groupLock             The Predicate Lock that encumbers the funds in the groupTxo. This will be used in the
-   *                              attestation of the groupTxo input.
-   * @param seriesLock            The Predicate Lock that encumbers the funds in the seriesTxo. This will be used in the
-   *                              attestation of the seriesTxo input.
+   * @param txos                  All the TXOs encumbered by the Locks given by locks. These TXOs must contain some
+   *                              group and series constructors (as referenced in the AMS) to satisfy the minting
+   *                              requirements, else an error will be returned.
+   * @param locks             A mapping of Predicate Locks that encumbers the funds in the txos. This will be used in the
+   *                              attestations of the txos' inputs.
+   * @param fee The transaction fee. The txos must contain enough LVLs to satisfy this fee
    * @param mintedAssetLockAddress The LockAddress to send the minted asset tokens to.
+   * @param changeAddress The LockAddress to send the change to.
    * @param ephemeralMetadata     Optional ephemeral metadata to include in the minted asset tokens.
    * @param commitment            Optional commitment to include in the minted asset tokens.
    * @return An unproven asset minting transaction if possible. Else, an error
    */
-  def buildSimpleAssetMintingTransaction(
+  def buildAssetMintingTransaction(
     mintingStatement:       AssetMintingStatement,
-    groupTxo:               Txo,
-    seriesTxo:              Txo,
-    groupLock:              Lock.Predicate,
-    seriesLock:             Lock.Predicate,
+    txos:                   Seq[Txo],
+    locks:                  Map[LockAddress, Lock.Predicate],
+    fee:                    Long,
     mintedAssetLockAddress: LockAddress,
+    changeAddress:          LockAddress,
     ephemeralMetadata:      Option[Struct],
-    commitment:             Option[Array[Byte]]
+    commitment:             Option[ByteString]
   ): F[Either[BuilderError, IoTransaction]]
 }
 
@@ -458,64 +472,71 @@ object TransactionBuilderApi {
         case _ => values
       }
 
-      override def buildSimpleGroupMintingTransaction(
-        registrationTxo:              Txo,
-        registrationLock:             Lock.Predicate,
-        groupPolicy:                  GroupPolicy,
-        quantityToMint:               Int128,
-        mintedConstructorLockAddress: LockAddress
+      override def buildGroupMintingTransaction(
+        txos:              Seq[Txo],
+        lockPredicateFrom: Lock.Predicate,
+        groupPolicy:       GroupPolicy,
+        quantityToMint:    Long,
+        mintedAddress:     LockAddress,
+        changeAddress:     LockAddress,
+        fee:               Long
       ): F[Either[BuilderError, IoTransaction]] = (
         for {
-          registrationLockAddr <- EitherT.right[BuilderError](lockAddress(Lock().withPredicate(registrationLock)))
+          registrationLockAddr <- EitherT.right[BuilderError](lockAddress(Lock().withPredicate(lockPredicateFrom)))
           _ <- EitherT
             .fromEither[F](
               validateConstructorMintingParams(
-                registrationTxo,
+                txos,
                 registrationLockAddr,
                 groupPolicy.registrationUtxo,
-                quantityToMint
+                quantityToMint,
+                fee
               )
             )
             .leftMap(errs => UserInputErrors(errs.toList))
-          stxoAttestation <- EitherT.right[BuilderError](unprovenAttestation(registrationLock))
-          stxos           <- buildStxos(Seq(registrationTxo), stxoAttestation)
+          stxoAttestation <- EitherT.right[BuilderError](unprovenAttestation(lockPredicateFrom))
+          stxos           <- buildStxos(txos, stxoAttestation)
           datum           <- EitherT.right[BuilderError](datum())
           utxoMinted <- EitherT.right[BuilderError](
-            groupOutput(mintedConstructorLockAddress, quantityToMint, groupPolicy.computeId, groupPolicy.fixedSeries)
+            groupOutput(mintedAddress, quantityToMint, groupPolicy.computeId, groupPolicy.fixedSeries)
           )
+          utxoChange <- buildUtxos(txos, None, None, changeAddress, changeAddress, fee)
         } yield IoTransaction(
           inputs = stxos,
-          outputs = Seq(utxoMinted),
+          outputs = utxoChange :+ utxoMinted,
           datum = datum,
           groupPolicies = Seq(Datum.GroupPolicy(groupPolicy))
         )
       ).value
 
-      override def buildSimpleSeriesMintingTransaction(
-        registrationTxo:              Txo,
-        registrationLock:             Lock.Predicate,
-        seriesPolicy:                 SeriesPolicy,
-        quantityToMint:               Int128,
-        mintedConstructorLockAddress: LockAddress
+      override def buildSeriesMintingTransaction(
+        txos:              Seq[Txo],
+        lockPredicateFrom: Lock.Predicate,
+        seriesPolicy:      SeriesPolicy,
+        quantityToMint:    Long,
+        mintedAddress:     LockAddress,
+        changeAddress:     LockAddress,
+        fee:               Long
       ): F[Either[BuilderError, IoTransaction]] = (
         for {
-          registrationLockAddr <- EitherT.right[BuilderError](lockAddress(Lock().withPredicate(registrationLock)))
+          registrationLockAddr <- EitherT.right[BuilderError](lockAddress(Lock().withPredicate(lockPredicateFrom)))
           _ <- EitherT
             .fromEither[F](
               validateConstructorMintingParams(
-                registrationTxo,
+                txos,
                 registrationLockAddr,
                 seriesPolicy.registrationUtxo,
-                quantityToMint
+                quantityToMint,
+                fee
               )
             )
             .leftMap(errs => UserInputErrors(errs.toList))
-          stxoAttestation <- EitherT.right[BuilderError](unprovenAttestation(registrationLock))
-          stxos           <- buildStxos(Seq(registrationTxo), stxoAttestation)
+          stxoAttestation <- EitherT.right[BuilderError](unprovenAttestation(lockPredicateFrom))
+          stxos           <- buildStxos(txos, stxoAttestation)
           datum           <- EitherT.right[BuilderError](datum())
           utxoMinted <- EitherT.right[BuilderError](
             seriesOutput(
-              mintedConstructorLockAddress,
+              mintedAddress,
               quantityToMint,
               seriesPolicy.computeId,
               seriesPolicy.tokenSupply,
@@ -523,43 +544,56 @@ object TransactionBuilderApi {
               seriesPolicy.quantityDescriptor
             )
           )
+          utxoChange <- buildUtxos(txos, None, None, changeAddress, changeAddress, fee)
         } yield IoTransaction(
           inputs = stxos,
-          outputs = Seq(utxoMinted),
+          outputs = utxoChange :+ utxoMinted,
           datum = datum,
           seriesPolicies = Seq(Datum.SeriesPolicy(seriesPolicy))
         )
       ).value
 
-      override def buildSimpleAssetMintingTransaction(
+      private def toAttestationMap(
+        txos:  Seq[Txo],
+        locks: Map[LockAddress, Lock.Predicate]
+      ): EitherT[F, BuilderError, Map[Seq[Txo], Attestation]] = {
+        val txoMap = txos.groupBy(_.transactionOutput.address)
+        // Per validation, we know that all txos have a lock within locks and all locks have a txo corresponding to them
+        EitherT.right[BuilderError](
+          locks.toSeq.map(el => (txoMap(el._1), unprovenAttestation(el._2)).sequence).sequence.map(_.toMap)
+        )
+      }
+
+      override def buildAssetMintingTransaction(
         mintingStatement:       AssetMintingStatement,
-        groupTxo:               Txo,
-        seriesTxo:              Txo,
-        groupLock:              Lock.Predicate,
-        seriesLock:             Lock.Predicate,
+        txos:                   Seq[Txo],
+        locks:                  Map[LockAddress, Lock.Predicate],
+        fee:                    Long,
         mintedAssetLockAddress: LockAddress,
+        changeAddress:          LockAddress,
         ephemeralMetadata:      Option[Struct],
-        commitment:             Option[Array[Byte]]
+        commitment:             Option[ByteString]
       ): F[Either[BuilderError, IoTransaction]] = (
         for {
-          groupLockAddr  <- EitherT.right[BuilderError](lockAddress(Lock().withPredicate(groupLock)))
-          seriesLockAddr <- EitherT.right[BuilderError](lockAddress(Lock().withPredicate(seriesLock)))
           _ <- EitherT
-            .fromEither[F](
-              validateAssetMintingParams(
-                mintingStatement,
-                groupTxo,
-                seriesTxo,
-                groupLockAddr,
-                seriesLockAddr
-              )
-            )
+            .fromEither[F](validateAssetMintingParams(mintingStatement, txos, locks.keySet, fee))
             .leftMap(errs => UserInputErrors(errs.toList))
-          groupAttestation  <- EitherT.right[BuilderError](unprovenAttestation(groupLock))
-          seriesAttestation <- EitherT.right[BuilderError](unprovenAttestation(seriesLock))
-          datum             <- EitherT.right[BuilderError](datum())
-          groupToken = groupTxo.transactionOutput.value.value.group.get
-          seriesToken = seriesTxo.transactionOutput.value.value.series.get
+          datum        <- EitherT.right[BuilderError](datum())
+          attestations <- toAttestationMap(txos, locks)
+          stxos        <- attestations.map(el => buildStxos(el._1, el._2)).toSeq.sequence.map(_.flatten)
+          // Per validation, there is exactly one series token in txos
+          (seriesTxo, nonSeriesTxo) = txos
+            .partition(_.outputAddress == mintingStatement.seriesTokenUtxo)
+            .leftMap(_.head)
+          seriesUtxo = seriesTxo.transactionOutput
+          seriesToken = seriesUtxo.value.getSeries
+          // Per validation, there is exactly one group token in txos
+          groupToken = txos
+            .filter(_.outputAddress == mintingStatement.groupTokenUtxo)
+            .head
+            .transactionOutput
+            .value
+            .getGroup
           utxoMinted <- EitherT.right[BuilderError](
             assetOutput(
               mintedAssetLockAddress,
@@ -569,50 +603,31 @@ object TransactionBuilderApi {
               seriesToken.fungibility,
               seriesToken.quantityDescriptor,
               ephemeralMetadata,
-              commitment.map(ByteString.copyFrom)
+              commitment
             )
           )
-          groupOutput <- EitherT.right[BuilderError](
-            groupOutput(
-              groupTxo.transactionOutput.address,
-              groupToken.quantity,
-              groupToken.groupId,
-              groupToken.fixedSeries
-            )
-          )
-          seriesOutputSeq <- {
+          seriesTxoAdjusted = {
             val inputQuantity = seriesToken.quantity
             val outputQuantity: BigInt =
               if (seriesToken.tokenSupply.isEmpty) inputQuantity
               else inputQuantity - (mintingStatement.quantity / seriesToken.tokenSupply.get)
             if (outputQuantity > 0)
-              EitherT.right[BuilderError](
-                seriesOutput(
-                  seriesTxo.transactionOutput.address,
-                  outputQuantity,
-                  seriesToken.seriesId,
-                  seriesToken.tokenSupply,
-                  seriesToken.fungibility,
-                  seriesToken.quantityDescriptor
-                )
-                  .map(utxo => Seq(utxo))
+              Seq(
+                seriesTxo
+                  .withTransactionOutput(
+                    seriesUtxo
+                      .withValue(
+                        Value.defaultInstance
+                          .withSeries(seriesToken.withQuantity(outputQuantity))
+                      )
+                  ) // Only the quantity changes
               )
-            else EitherT.rightT[F, BuilderError](Seq.empty[UnspentTransactionOutput])
+            else Seq.empty[Txo]
           }
+          changeOutputs <- buildUtxos(nonSeriesTxo ++ seriesTxoAdjusted, None, None, changeAddress, changeAddress, fee)
         } yield IoTransaction(
-          inputs = Seq(
-            SpentTransactionOutput(
-              groupTxo.outputAddress,
-              groupAttestation,
-              groupTxo.transactionOutput.value
-            ),
-            SpentTransactionOutput(
-              seriesTxo.outputAddress,
-              seriesAttestation,
-              seriesTxo.transactionOutput.value
-            )
-          ),
-          outputs = seriesOutputSeq :+ utxoMinted :+ groupOutput,
+          inputs = stxos,
+          outputs = changeOutputs :+ utxoMinted,
           datum = datum,
           mintingStatements = Seq(mintingStatement)
         )

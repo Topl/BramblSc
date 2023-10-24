@@ -1,56 +1,50 @@
 package co.topl.brambl.builders
 
-import co.topl.brambl.models.box.Value
 import co.topl.brambl.models.transaction.IoTransaction
 import co.topl.brambl.models.Datum
-import co.topl.brambl.syntax.{bigIntAsInt128, ioTransactionAsTransactionSyntaxOps}
+import co.topl.brambl.syntax.{ioTransactionAsTransactionSyntaxOps, valueToTypeIdentifierSyntaxOps, LvlType}
 
 class TransactionBuilderInterpreterSeriesMintingSpec extends TransactionBuilderInterpreterSpecBase {
 
-  test("buildSimpleSeriesMintingTransaction > Success") {
+  test("Success") {
+    val txRes = buildMintSeriesTransaction.run
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
-      .withSeriesPolicies(Seq(Datum.SeriesPolicy(mockSeriesPolicy)))
-      .withInputs(buildStxos(List(valToTxo(lvlValue))))
-      .withOutputs(List(valToUtxo(seriesValue)))
-    val txRes = txBuilder.buildSimpleSeriesMintingTransaction(
-      valToTxo(lvlValue),
-      inPredicateLockFull,
-      mockSeriesPolicy,
-      quantity,
-      inLockFullAddress
-    )
-    assert(txRes.isRight && txRes.toOption.get.computeId == expectedTx.computeId)
+      .withSeriesPolicies(Seq(Datum.SeriesPolicy(mockSeriesPolicyAlt)))
+      .withInputs(buildStxos(mockTxos :+ valToTxo(lvlValue, txAddr = mockSeriesPolicyAlt.registrationUtxo)))
+      .withOutputs(
+        // minted output
+        buildRecipientUtxos(List(seriesValueAlt))
+        ++
+        // fee change
+        buildChangeUtxos(List(lvlValue))
+        ++
+        // non-lvl change (i.e, unaffected by fee and registration)
+        buildChangeUtxos(mockChange.filterNot(_.value.typeIdentifier == LvlType))
+      )
+    assert(txRes.isRight && sortedTx(txRes.toOption.get).computeId == sortedTx(expectedTx).computeId)
   }
 
-  test("buildSimpleSeriesMintingTransaction > invalid registrationTxo") {
-    val testTx = txBuilder
-      .buildSimpleSeriesMintingTransaction(
-        valToTxo(lvlValue),
-        inPredicateLockFull,
-        mockSeriesPolicy.copy(registrationUtxo = dummyTxoAddress.copy(network = 10)),
-        quantity,
-        inLockFullAddress
-      )
+  test("input txos do not contain registrationUtxo") {
+    val testTx = buildMintSeriesTransaction
+      .withPolicy(mockSeriesPolicy.copy(registrationUtxo = dummyTxoAddress.copy(network = 10)))
+      .run
     assertEquals(
       testTx,
       Left(
         UserInputErrors(
-          Seq(UserInputError("registrationTxo does not match registrationUtxo"))
+          Seq(UserInputError("Input TXOs need to contain exactly one txo matching the registrationUtxo"))
         )
       )
     )
   }
 
-  test("buildSimpleSeriesMintingTransaction > invalid registrationUtxo") {
-    val testTx = txBuilder
-      .buildSimpleSeriesMintingTransaction(
-        valToTxo(Value.defaultInstance.withTopl(Value.TOPL(quantity))),
-        inPredicateLockFull,
-        mockSeriesPolicy,
-        quantity,
-        inLockFullAddress
-      )
+  test("registrationUtxo does not contain lvls") {
+    val newAddr = dummyTxoAddress.copy(network = 10)
+    val testTx = buildMintSeriesTransaction
+      .addTxo(valToTxo(groupValue, txAddr = newAddr))
+      .withPolicy(mockSeriesPolicy.copy(registrationUtxo = newAddr))
+      .run
     assertEquals(
       testTx,
       Left(
@@ -61,39 +55,43 @@ class TransactionBuilderInterpreterSeriesMintingSpec extends TransactionBuilderI
     )
   }
 
-  test("buildSimpleSeriesMintingTransaction > invalid registrationLock") {
-    val testTx = txBuilder
-      .buildSimpleSeriesMintingTransaction(
-        valToTxo(lvlValue),
-        trivialOutLock.getPredicate,
-        mockSeriesPolicy,
-        quantity,
-        inLockFullAddress
-      )
+  test("all txos do not have the right lock predicate") {
+    val testTx = buildMintSeriesTransaction
+      .addTxo(valToTxo(groupValue, trivialLockAddress))
+      .run
     assertEquals(
       testTx,
       Left(
         UserInputErrors(
-          Seq(UserInputError("registrationLock does not correspond to registrationTxo"))
+          Seq(UserInputError("every lock in the txos must correspond to lockPredicateFrom"))
         )
       )
     )
   }
 
-  test("buildSimpleSeriesMintingTransaction > invalid quantityToMint") {
-    val testTx = txBuilder
-      .buildSimpleSeriesMintingTransaction(
-        valToTxo(lvlValue),
-        inPredicateLockFull,
-        mockSeriesPolicy,
-        BigInt(0),
-        inLockFullAddress
-      )
+  test("quantity to mint is non-positive") {
+    val testTx = buildMintSeriesTransaction
+      .withMintAmount(0)
+      .run
     assertEquals(
       testTx,
       Left(
         UserInputErrors(
           Seq(UserInputError("quantityToMint must be positive"))
+        )
+      )
+    )
+  }
+
+  test("not enough lvls for fee") {
+    val testTx = buildMintSeriesTransaction
+      .withFee(4)
+      .run
+    assertEquals(
+      testTx,
+      Left(
+        UserInputErrors(
+          Seq(UserInputError("Not enough LVLs in input to satisfy fee"))
         )
       )
     )

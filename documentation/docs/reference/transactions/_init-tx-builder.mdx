@@ -1,0 +1,24 @@
+import ScaladocLink from '@site/src/components/ScaladocLink';
+
+The following requires access to a Transaction Builder Api instance. You can initialize one using the following snippet:
+
+```scala
+val transactionBuilderApi = TransactionBuilderApi.make[F](MAIN_NETWORK_ID, MAIN_LEDGER_ID)
+```
+
+Where `F` is a type parameter bound to a context parameter of type `Monad[F]`. See the `make`
+function's <ScaladocLink path="co/topl/brambl/builders/TransactionBuilderApi$.html">signature</ScaladocLink>. For example,
+if you are using Cats Effect `IO`, you can initialize the Transaction Builder Api as follows:
+
+```scala
+import cats.effect.IO
+
+val transactionBuilderApi = TransactionBuilderApi.make[IO](MAIN_NETWORK_ID, MAIN_LEDGER_ID)
+```
+
+
+:::info
+The `MAIN_NETWORK_ID` and `MAIN_LEDGER_ID` refer to the IDs of Topl's main network and ledger, respectfully. If you
+wish to use a different network or ledger, you can find the IDs of all available networks and ledgers in
+the <ScaladocLink path="co/topl/brambl/constants/NetworkConstants$.html"><code>NetworkConstants</code></ScaladocLink> object.
+:::
