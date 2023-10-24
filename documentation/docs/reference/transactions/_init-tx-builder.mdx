@@ -7,7 +7,14 @@ val transactionBuilderApi = TransactionBuilderApi.make[F](MAIN_NETWORK_ID, MAIN_
 ```
 
 Where `F` is a type parameter bound to a context parameter of type `Monad[F]`. See the `make`
-function's <ScaladocLink path="co/topl/brambl/builders/TransactionBuilderApi$.html">signature</ScaladocLink>.
+function's <ScaladocLink path="co/topl/brambl/builders/TransactionBuilderApi$.html">signature</ScaladocLink>. For example,
+if you are using Cats Effect `IO`, you can initialize the Transaction Builder Api as follows:
+
+```scala
+import cats.effect.IO
+
+val transactionBuilderApi = TransactionBuilderApi.make[IO](MAIN_NETWORK_ID, MAIN_LEDGER_ID)
+```
 
 
 :::info
