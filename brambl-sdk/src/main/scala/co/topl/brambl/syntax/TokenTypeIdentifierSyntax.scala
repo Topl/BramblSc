@@ -22,7 +22,7 @@ class ValueToTypeIdentifierSyntaxOps(val value: Value) extends AnyVal {
         // If seriesAlloy is provided, the seriesId is ignored. In this case, groupAlloy should not exist
         case (Some(gId), _, None, Some(sAlloy)) => AssetType(gId.value, sAlloy)
         // If groupAlloy is provided, the groupId is ignored. In this case, seriesAlloy should not exist
-        case (_, Some(sId), Some(gAlloy), None) => AssetType(sId.value, gAlloy)
+        case (_, Some(sId), Some(gAlloy), None) => AssetType(gAlloy, sId.value)
         // if neither groupAlloy or seriesAlloy is provided, the groupId and seriesId are used to identify instead
         case (Some(gId), Some(sId), None, None) => AssetType(gId.value, sId.value)
         // invalid cases

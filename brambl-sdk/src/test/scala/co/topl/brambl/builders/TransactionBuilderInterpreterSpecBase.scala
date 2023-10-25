@@ -100,7 +100,7 @@ trait TransactionBuilderInterpreterSpecBase extends munit.FunSuite with MockHelp
   def toAltAsset(asset: Value): Value = asset.copy(
     asset.getAsset.copy(
       groupId = mockGroupPolicyAlt.computeId.some,
-      seriesId = mockSeriesPolicyAlt.computeId.some
+      seriesId = mockSeriesPolicyAlt.copy(quantityDescriptor = asset.getAsset.quantityDescriptor, fungibility = asset.getAsset.fungibility).computeId.some
     )
   )
 

@@ -1,6 +1,7 @@
 package co.topl.brambl.builders
 
 import cats.implicits.catsSyntaxOptionId
+import co.topl.brambl.models.box.Value
 import co.topl.brambl.syntax.{bigIntAsInt128, valueToQuantitySyntaxOps, valueToTypeIdentifierSyntaxOps}
 
 class AggregationOpsSpec extends TransactionBuilderInterpreterSpecBase {

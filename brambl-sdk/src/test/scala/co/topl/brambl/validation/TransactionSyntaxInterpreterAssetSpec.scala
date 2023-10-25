@@ -686,7 +686,7 @@ class TransactionSyntaxInterpreterAssetSpec extends munit.FunSuite with MockHelp
       Value.defaultInstance.withAsset(
         Value.Asset(
           groupId = Some(groupPolicy.computeId),
-          seriesId = Some(seriesPolicy.computeId),
+          seriesId = Some(seriesPolicy.copy(fungibility = FungibilityType.GROUP).computeId),
           quantity = BigInt(1),
           fungibility = FungibilityType.GROUP // check here
         )
@@ -745,5 +745,10 @@ class TransactionSyntaxInterpreterAssetSpec extends munit.FunSuite with MockHelp
     assertEquals(result.map(_.toList.size).getOrElse(0), 1)
 
   }
+
+  // TODO:
+  // output came from no where.. (not in input, not in minted).. It succeeds when it should fail
+  // For example: groupG1, seriesS1 in input. assetG1S1 and assetG1S2 in output. AMS for G1S1. It should fail
+  // Another case, minted is invalid. For example: groupG1, seriesS1 in input. assetG1S1 in output. AMS for G1S1. however, assetG1S1 has the wrong internal fields
 
 }
