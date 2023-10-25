@@ -2,7 +2,7 @@ package co.topl.brambl.builders
 
 import co.topl.brambl.models.box.QuantityDescriptorType.LIQUID
 import co.topl.brambl.models.box.Value._
-import co.topl.brambl.syntax.{bigIntAsInt128, int128AsBigInt, valueToQuantitySyntaxOps, valueToTypeIdentifierSyntaxOps}
+import co.topl.brambl.syntax.{bigIntAsInt128, int128AsBigInt, valueToQuantityDescriptorSyntaxOps, valueToQuantitySyntaxOps, valueToTypeIdentifierSyntaxOps}
 
 import scala.language.implicitConversions
 import scala.util.{Failure, Success, Try}
@@ -53,7 +53,7 @@ object DefaultAggregationOps extends AggregationOps {
    */
   private def handleAggregation(value: Value, other: Value): Value =
     if (value.typeIdentifier == other.typeIdentifier)
-      if (value.typeIdentifier.getQuantityDescriptor.forall(_ == LIQUID))
+      if (value.getQuantityDescriptor.forall(_ == LIQUID))
         value.setQuantity(value.quantity + other.quantity)
       else throw new Exception("Aggregation of IMMUTABLE, FRACTIONABLE, or ACCUMULATOR assets is not allowed")
     else throw new Exception("Aggregation of different types is not allowed")

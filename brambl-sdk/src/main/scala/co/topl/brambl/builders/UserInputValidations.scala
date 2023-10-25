@@ -6,14 +6,7 @@ import co.topl.brambl.models.box.{AssetMintingStatement, FungibilityType, Lock, 
 import co.topl.brambl.models.{LockAddress, SeriesId, TransactionOutputAddress}
 import co.topl.brambl.models.box.Value._
 import quivr.models.Int128
-import co.topl.brambl.syntax.{
-  int128AsBigInt,
-  longAsInt128,
-  valueToQuantitySyntaxOps,
-  valueToTypeIdentifierSyntaxOps,
-  LvlType,
-  ValueTypeIdentifier
-}
+import co.topl.brambl.syntax.{LvlType, ValueTypeIdentifier, int128AsBigInt, longAsInt128, valueToQuantityDescriptorSyntaxOps, valueToQuantitySyntaxOps, valueToTypeIdentifierSyntaxOps}
 import co.topl.genus.services.Txo
 
 import scala.util.{Failure, Success, Try}
@@ -137,13 +130,18 @@ object UserInputValidations {
       UserInputError(s"Not enough LVLs in input to satisfy fee")
     )
 
-  def identifierQuantityDescriptorLiquidOrNone(testType: ValueTypeIdentifier): ValidatedNec[UserInputError, Unit] = {
-    val qd = testType.getQuantityDescriptor
-    Validated.condNec(
-      qd.isEmpty || qd.get == QuantityDescriptorType.LIQUID,
-      (),
-      UserInputError(s"Invalid asset quantity descriptor type. If identifier is an asset, it must be liquid.")
-    )
+  def identifierQuantityDescriptorLiquidOrNone(values: Seq[Value], testType: ValueTypeIdentifier): ValidatedNec[UserInputError, Unit] = {
+    val transferQds = values.filter(_.typeIdentifier == testType).map(_.getQuantityDescriptor).distinct
+    if(transferQds.length > 1) {
+      UserInputError(s"All values identified by the ValueTypeIdentifier must have the same quantity descriptor").invalidNec[Unit]
+    } else {
+      val qd = transferQds.headOption.flatten
+      Validated.condNec(
+        qd.isEmpty || qd.get == QuantityDescriptorType.LIQUID,
+        (),
+        UserInputError(s"Invalid asset quantity descriptor type. If identifier is an asset, it must be liquid.")
+      )
+    }
   }
 
   object TransactionBuilder {
@@ -195,7 +193,7 @@ object UserInputValidations {
           "lockPredicateFrom"
         ),
         validTransferSupplyAmount(amount, allValues, transferIdentifier),
-        identifierQuantityDescriptorLiquidOrNone(transferIdentifier),
+        identifierQuantityDescriptorLiquidOrNone(allValues, transferIdentifier),
         validFee(fee, allValues, if (transferIdentifier == LvlType) amount else 0)
       ).fold.toEither
     } match {
