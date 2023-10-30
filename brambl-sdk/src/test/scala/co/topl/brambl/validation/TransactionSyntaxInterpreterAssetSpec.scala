@@ -3,7 +3,7 @@ package co.topl.brambl.validation
 import cats.Id
 import cats.implicits._
 import co.topl.brambl.MockHelpers
-import co.topl.brambl.models.box.QuantityDescriptorType.IMMUTABLE
+import co.topl.brambl.models.box.QuantityDescriptorType.{IMMUTABLE, LIQUID}
 import co.topl.brambl.models.box.{AssetMintingStatement, FungibilityType, Value}
 import co.topl.brambl.models.transaction.{SpentTransactionOutput, UnspentTransactionOutput}
 import co.topl.brambl.models.{Event, TransactionOutputAddress}
@@ -960,7 +960,6 @@ class TransactionSyntaxInterpreterAssetSpec extends munit.FunSuite with MockHelp
       )
 
     // Both the following outputs match the minted asset's group and series ID but only the first has valid fields
-    // AMS is satisfied via the first output
     val minted_out: Value =
       Value.defaultInstance.withAsset(
         Value.Asset(
@@ -1004,6 +1003,76 @@ class TransactionSyntaxInterpreterAssetSpec extends munit.FunSuite with MockHelp
     )
 
     val testTx = txFull.copy(inputs = inputs, outputs = outputs, mintingStatements = List(mintingStatement))
+
+    val validator = TransactionSyntaxInterpreter.make[Id]()
+    val result = validator.validate(testTx).swap
+
+    val assertError = result.exists(
+      _.toList.contains(
+        TransactionSyntaxError.InsufficientInputFunds(
+          testTx.inputs.map(_.value.value).toList,
+          testTx.outputs.map(_.value.value).toList
+        )
+      )
+    )
+
+    assertEquals(assertError, true)
+    assertEquals(result.map(_.toList.size).getOrElse(0), 1)
+
+  }
+
+  /**
+   * Reasons:
+   * - input Assets = 2
+   * - minted Assets = 0
+   * - asset output = 2
+   *
+   * Asset outputs has invalid fields (compared to its input).
+   */
+  test("Invalid data-input case, invalid fields in transferred assets") {
+    val groupPolicy = Event.GroupPolicy(label = "groupLabelA", registrationUtxo = txoAddress_1)
+    val seriesPolicy = Event.SeriesPolicy(label = "seriesLabelB", registrationUtxo = txoAddress_2)
+
+    val asset_in: Value =
+      Value.defaultInstance.withAsset(
+        Value.Asset(
+          groupId = Some(groupPolicy.computeId),
+          seriesId = Some(seriesPolicy.computeId),
+          quantity = BigInt(2),
+          fungibility = FungibilityType.GROUP_AND_SERIES,
+          quantityDescriptor = LIQUID
+        )
+      )
+    val asset_out_invalidFungibility: Value =
+      Value.defaultInstance.withAsset(
+        Value.Asset(
+          groupId = Some(groupPolicy.computeId),
+          seriesId = Some(seriesPolicy.computeId),
+          quantity = BigInt(1),
+          fungibility = FungibilityType.GROUP,
+          quantityDescriptor = LIQUID
+        )
+      )
+    val asset_out_invalidQuantityDescriptor: Value =
+      Value.defaultInstance.withAsset(
+        Value.Asset(
+          groupId = Some(groupPolicy.computeId),
+          seriesId = Some(seriesPolicy.computeId),
+          quantity = BigInt(1),
+          fungibility = FungibilityType.GROUP_AND_SERIES,
+          quantityDescriptor = IMMUTABLE
+        )
+      )
+
+    val inputs = List(
+      SpentTransactionOutput(txoAddress_1, attFull, asset_in)
+    )
+    val outputs = List(
+      UnspentTransactionOutput(trivialLockAddress, asset_out_invalidFungibility),
+      UnspentTransactionOutput(trivialLockAddress, asset_out_invalidQuantityDescriptor)
+    )
+
+    val testTx = txFull.copy(inputs = inputs, outputs = outputs, mintingStatements = Seq.empty)
 
     val validator = TransactionSyntaxInterpreter.make[Id]()
     val result = validator.validate(testTx).swap
