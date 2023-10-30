@@ -898,7 +898,7 @@ class TransactionSyntaxInterpreterAssetSpec extends munit.FunSuite with MockHelp
     val mintingStatement = AssetMintingStatement(
       groupTokenUtxo = txoAddress_1,
       seriesTokenUtxo = txoAddress_2,
-      quantity = BigInt(2)
+      quantity = BigInt(1)
     )
 
     val inputs = List(
@@ -988,7 +988,7 @@ class TransactionSyntaxInterpreterAssetSpec extends munit.FunSuite with MockHelp
     val mintingStatement = AssetMintingStatement(
       groupTokenUtxo = txoAddress_1,
       seriesTokenUtxo = txoAddress_2,
-      quantity = BigInt(2)
+      quantity = BigInt(1)
     )
 
     val inputs = List(
