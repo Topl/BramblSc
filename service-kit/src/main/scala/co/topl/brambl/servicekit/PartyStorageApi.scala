@@ -1,41 +1,41 @@
 package co.topl.brambl.servicekit
 
 import cats.effect.kernel.{Resource, Sync}
-import co.topl.brambl.dataApi.{PartyStorageAlgebra, WalletEntity}
+import co.topl.brambl.dataApi.{FellowshipStorageAlgebra, WalletFellowship}
 
-object PartyStorageApi {
+object FellowshipStorageApi {
 
   def make[F[_]: Sync](
     connection: Resource[F, java.sql.Connection]
-  ): PartyStorageAlgebra[F] = new PartyStorageAlgebra[F] {
+  ): FellowshipStorageAlgebra[F] = new FellowshipStorageAlgebra[F] {
 
-    override def addParty(walletEntity: WalletEntity): F[Int] =
+    override def addFellowship(walletEntity: WalletFellowship): F[Int] =
       connection.use { conn =>
         import cats.implicits._
         for {
           stmnt <- Sync[F].blocking(conn.createStatement())
           inserted <- Sync[F].blocking(
             stmnt.executeUpdate(
-              s"INSERT INTO parties (party) VALUES ('${walletEntity.name}')"
+              s"INSERT INTO fellowships (fellowship) VALUES ('${walletEntity.name}')"
             )
           )
         } yield inserted
       }
 
-    override def findParties(): F[Seq[WalletEntity]] =
+    override def findFellowships(): F[Seq[WalletFellowship]] =
       connection.use { conn =>
         import cats.implicits._
         for {
           stmnt <- Sync[F].blocking(conn.createStatement())
-          rs    <- Sync[F].blocking(stmnt.executeQuery("SELECT * FROM parties"))
+          rs    <- Sync[F].blocking(stmnt.executeQuery("SELECT * FROM fellowships"))
         } yield LazyList
           .unfold(rs) { rs =>
             if (rs.next()) {
               Some(
                 (
-                  WalletEntity(
-                    rs.getInt("x_party"),
-                    rs.getString("party")
+                  WalletFellowship(
+                    rs.getInt("x_fellowship"),
+                    rs.getString("fellowship")
                   ),
                   rs
                 )

@@ -24,11 +24,11 @@ class WalletStateApiSpec extends CatsEffectSuite with BaseSpec {
           NetworkConstants.MAIN_NETWORK_ID,
           mockMainKeyPair.vk
         )
-        partyCount <- dbConnection.use { conn =>
+        fellowshipCount <- dbConnection.use { conn =>
           for {
             stmt <- IO.delay(conn.createStatement())
             rs <- IO.blocking(
-              stmt.executeQuery("SELECT COUNT(*) as res FROM parties WHERE party IN ('noparty', 'self')")
+              stmt.executeQuery("SELECT COUNT(*) as res FROM fellowships WHERE fellowship IN ('nofellowship', 'self')")
             )
             count <- IO.delay(rs.getInt("res"))
           } yield count
@@ -37,7 +37,7 @@ class WalletStateApiSpec extends CatsEffectSuite with BaseSpec {
           for {
             stmt <- IO.delay(conn.createStatement())
             rs <- IO.blocking(
-              stmt.executeQuery("SELECT COUNT(*) as res FROM contracts WHERE contract IN ('default', 'genesis')")
+              stmt.executeQuery("SELECT COUNT(*) as res FROM templates WHERE contract IN ('default', 'genesis')")
             )
             count <- IO.delay(rs.getInt("res"))
           } yield count
@@ -56,7 +56,7 @@ class WalletStateApiSpec extends CatsEffectSuite with BaseSpec {
             count <- IO.delay(rs.getInt("res"))
           } yield count
         }
-      } yield partyCount == 2 && contractCount == 2 && vkCount == 2 && cartesianCount == 2,
+      } yield fellowshipCount == 2 && contractCount == 2 && vkCount == 2 && cartesianCount == 2,
       true
     )
   }
@@ -90,7 +90,7 @@ class WalletStateApiSpec extends CatsEffectSuite with BaseSpec {
           for {
             stmt <- IO.delay(conn.createStatement())
             rs <- IO.blocking(
-              stmt.executeQuery("SELECT * FROM cartesian WHERE x_party = 9 AND y_contract = 9 AND z_state = 9")
+              stmt.executeQuery("SELECT * FROM cartesian WHERE x_fellowship = 9 AND y_contract = 9 AND z_state = 9")
             )
             predicate <- IO.delay(rs.getString("lock_predicate"))
             address   <- IO.delay(rs.getString("address"))

@@ -1,40 +1,40 @@
 package co.topl.brambl.servicekit
 
 import cats.effect.kernel.{Resource, Sync}
-import co.topl.brambl.dataApi.{ContractStorageAlgebra, WalletContract}
+import co.topl.brambl.dataApi.{TemplateStorageAlgebra, WalletTemplate}
 
-object ContractStorageApi {
+object TemplateStorageApi {
 
   def make[F[_]: Sync](
     connection: Resource[F, java.sql.Connection]
-  ): ContractStorageAlgebra[F] = new ContractStorageAlgebra[F] {
+  ): TemplateStorageAlgebra[F] = new TemplateStorageAlgebra[F] {
 
-    override def addContract(walletContract: WalletContract): F[Int] =
+    override def addTemplate(walletTemplate: WalletTemplate): F[Int] =
       connection.use { conn =>
         import cats.implicits._
         for {
           stmnt <- Sync[F].blocking(conn.createStatement())
           inserted <- Sync[F].blocking(
             stmnt.executeUpdate(
-              s"INSERT INTO contracts (contract, lock) VALUES ('${walletContract.name}', '${walletContract.lockTemplate}')"
+              s"INSERT INTO templates (contract, lock) VALUES ('${walletTemplate.name}', '${walletTemplate.lockTemplate}')"
             )
           )
         } yield inserted
       }
 
-    override def findContracts(): F[Seq[WalletContract]] =
+    override def findTemplates(): F[Seq[WalletTemplate]] =
       connection.use { conn =>
         import cats.implicits._
         import io.circe.parser._
         for {
           stmnt <- Sync[F].blocking(conn.createStatement())
-          rs    <- Sync[F].blocking(stmnt.executeQuery("SELECT * FROM contracts"))
+          rs    <- Sync[F].blocking(stmnt.executeQuery("SELECT * FROM templates"))
         } yield LazyList
           .unfold(rs) { rs =>
             if (rs.next()) {
               Some(
                 (
-                  WalletContract(
+                  WalletTemplate(
                     rs.getInt("y_contract"),
                     rs.getString("contract"),
                     parse(rs.getString("lock")).toOption.get.noSpaces
