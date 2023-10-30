@@ -1,6 +1,6 @@
 package co.topl.brambl.syntax
 
-import co.topl.brambl.models.box.QuantityDescriptorType
+import co.topl.brambl.models.box.{FungibilityType, QuantityDescriptorType}
 import co.topl.brambl.models.box.Value._
 import quivr.models.Int128
 
@@ -13,7 +13,10 @@ trait BoxValueSyntax {
   implicit def assetAsBoxVal(a:  Asset): Value = Value.Asset(a)
 
   implicit def valueToQuantitySyntaxOps(v: Value): ValueToQuantitySyntaxOps = new ValueToQuantitySyntaxOps(v)
-  implicit def valueToQuantityDescriptorSyntaxOps(v: Value): ValueToQuantityDescriptorSyntaxOps = new ValueToQuantityDescriptorSyntaxOps(v)
+
+  implicit def valueToQuantityDescriptorSyntaxOps(v: Value): ValueToQuantityDescriptorSyntaxOps =
+    new ValueToQuantityDescriptorSyntaxOps(v)
+  implicit def valueToFungibilitySyntaxOps(v: Value): ValueToFungibilitySyntaxOps = new ValueToFungibilitySyntaxOps(v)
 }
 
 class ValueToQuantitySyntaxOps(val value: Value) extends AnyVal {
@@ -34,9 +37,19 @@ class ValueToQuantitySyntaxOps(val value: Value) extends AnyVal {
     case _               => throw new Exception("Invalid value type")
   }
 }
+
 class ValueToQuantityDescriptorSyntaxOps(val value: Value) extends AnyVal {
+
   def getQuantityDescriptor: Option[QuantityDescriptorType] = value match {
-    case Value.Asset(a)  => Some(a.quantityDescriptor)
-    case _ => None
+    case Value.Asset(a) => Some(a.quantityDescriptor)
+    case _              => None
+  }
+}
+
+class ValueToFungibilitySyntaxOps(val value: Value) extends AnyVal {
+
+  def getFungibility: Option[FungibilityType] = value match {
+    case Value.Asset(a) => Some(a.fungibility)
+    case _              => None
   }
 }

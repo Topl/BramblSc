@@ -2,7 +2,13 @@ package co.topl.brambl.builders
 
 import co.topl.brambl.models.box.QuantityDescriptorType.LIQUID
 import co.topl.brambl.models.box.Value._
-import co.topl.brambl.syntax.{bigIntAsInt128, int128AsBigInt, valueToQuantityDescriptorSyntaxOps, valueToQuantitySyntaxOps, valueToTypeIdentifierSyntaxOps}
+import co.topl.brambl.syntax.{
+  bigIntAsInt128,
+  int128AsBigInt,
+  valueToQuantityDescriptorSyntaxOps,
+  valueToQuantitySyntaxOps,
+  valueToTypeIdentifierSyntaxOps
+}
 
 import scala.language.implicitConversions
 import scala.util.{Failure, Success, Try}

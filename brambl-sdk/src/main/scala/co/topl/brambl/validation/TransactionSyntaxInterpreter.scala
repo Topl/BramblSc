@@ -447,6 +447,12 @@ object TransactionSyntaxInterpreter {
       ) || transaction.seriesPolicies.exists(_.event.registrationUtxo == stxo.address)))
     }
 
+  private def seriesOnMintedStatements(transaction: IoTransaction): Seq[Value.Series] =
+    transaction.inputs
+      .filter(_.value.value.isSeries)
+      .filter(sto => transaction.mintingStatements.map(_.seriesTokenUtxo).contains(sto.address))
+      .map(_.value.getSeries)
+
   private def mintingOutputsProjection(transaction: IoTransaction): Seq[UnspentTransactionOutput] = {
     val groupIdsOnMintedStatements =
       transaction.inputs
@@ -455,10 +461,7 @@ object TransactionSyntaxInterpreter {
         .map(_.value.getGroup.groupId)
 
     val seriesIdsOnMintedStatements =
-      transaction.inputs
-        .filter(_.value.value.isSeries)
-        .filter(sto => transaction.mintingStatements.map(_.seriesTokenUtxo).contains(sto.address))
-        .map(_.value.getSeries.seriesId)
+      seriesOnMintedStatements(transaction).map(_.seriesId)
 
     transaction.outputs.filter { utxo =>
       !utxo.value.value.isLvl &&
@@ -482,6 +485,7 @@ object TransactionSyntaxInterpreter {
 
     val groups = projectedTransaction.outputs.flatMap(_.value.value.group)
     val series = projectedTransaction.outputs.flatMap(_.value.value.series)
+    val assets = projectedTransaction.outputs.flatMap(_.value.value.asset)
 
     def registrationInPolicyContainsLvls(registrationUtxo: TransactionOutputAddress): Boolean =
       projectedTransaction.inputs.exists { stxo =>
@@ -559,8 +563,16 @@ object TransactionSyntaxInterpreter {
       }
     }
 
+    // Checking if the fields of the actual asset outputs match their series constructors
+    val validAssetFields = assets.forall { asset =>
+      seriesOnMintedStatements(transaction).exists(s =>
+        asset.seriesId.contains(s.seriesId) &&
+        s.fungibility == asset.fungibility && s.quantityDescriptor == asset.quantityDescriptor
+      )
+    }
+
     Validated.condNec(
-      validGroups && validSeries && validAssets,
+      validGroups && validSeries && validAssets && validAssetFields,
       (),
       TransactionSyntaxError.InsufficientInputFunds(
         transaction.inputs.map(_.value.value).toList,

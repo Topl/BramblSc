@@ -6,7 +6,15 @@ import co.topl.brambl.models.box.{AssetMintingStatement, FungibilityType, Lock, 
 import co.topl.brambl.models.{LockAddress, SeriesId, TransactionOutputAddress}
 import co.topl.brambl.models.box.Value._
 import quivr.models.Int128
-import co.topl.brambl.syntax.{LvlType, ValueTypeIdentifier, int128AsBigInt, longAsInt128, valueToQuantityDescriptorSyntaxOps, valueToQuantitySyntaxOps, valueToTypeIdentifierSyntaxOps}
+import co.topl.brambl.syntax.{
+  int128AsBigInt,
+  longAsInt128,
+  valueToQuantityDescriptorSyntaxOps,
+  valueToQuantitySyntaxOps,
+  valueToTypeIdentifierSyntaxOps,
+  LvlType,
+  ValueTypeIdentifier
+}
 import co.topl.genus.services.Txo
 
 import scala.util.{Failure, Success, Try}
@@ -130,10 +138,14 @@ object UserInputValidations {
       UserInputError(s"Not enough LVLs in input to satisfy fee")
     )
 
-  def identifierQuantityDescriptorLiquidOrNone(values: Seq[Value], testType: ValueTypeIdentifier): ValidatedNec[UserInputError, Unit] = {
+  def identifierQuantityDescriptorLiquidOrNone(
+    values:   Seq[Value],
+    testType: ValueTypeIdentifier
+  ): ValidatedNec[UserInputError, Unit] = {
     val transferQds = values.filter(_.typeIdentifier == testType).map(_.getQuantityDescriptor).distinct
-    if(transferQds.length > 1) {
-      UserInputError(s"All values identified by the ValueTypeIdentifier must have the same quantity descriptor").invalidNec[Unit]
+    if (transferQds.length > 1) {
+      UserInputError(s"All values identified by the ValueTypeIdentifier must have the same quantity descriptor")
+        .invalidNec[Unit]
     } else {
       val qd = transferQds.headOption.flatten
       Validated.condNec(

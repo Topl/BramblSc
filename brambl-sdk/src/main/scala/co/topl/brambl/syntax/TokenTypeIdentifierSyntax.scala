@@ -7,6 +7,7 @@ import com.google.protobuf.ByteString
 import scala.language.implicitConversions
 
 trait TokenTypeIdentifierSyntax {
+
   implicit def valueToTypeIdentifierSyntaxOps(v: Value): ValueToTypeIdentifierSyntaxOps =
     new ValueToTypeIdentifierSyntaxOps(v)
 }
@@ -27,9 +28,12 @@ class ValueToTypeIdentifierSyntaxOps(val value: Value) extends AnyVal {
         case (Some(gId), Some(sId), None, None) => AssetType(gId.value, sId.value)
         // invalid cases
         case (_, _, Some(_), Some(_)) => throw new Exception("Both groupAlloy and seriesAlloy cannot exist in an asset")
-        case (_, _, None, None) => throw new Exception("Both groupId and seriesId must be provided for non-alloy assets")
-        case (_, None, Some(_), _) => throw new Exception("seriesId must be provided when groupAlloy is used in an asset")
-        case (None, _, _, Some(_)) => throw new Exception("groupId must be provided when seriesAlloy is used in an asset")
+        case (_, _, None, None) =>
+          throw new Exception("Both groupId and seriesId must be provided for non-alloy assets")
+        case (_, None, Some(_), _) =>
+          throw new Exception("seriesId must be provided when groupAlloy is used in an asset")
+        case (None, _, _, Some(_)) =>
+          throw new Exception("groupId must be provided when seriesAlloy is used in an asset")
       }
     case _ => throw new Exception("Invalid value type")
   }
