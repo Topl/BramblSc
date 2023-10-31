@@ -688,7 +688,7 @@ class CredentiallerInterpreterSpec extends CatsEffectSuite with MockHelpers {
     // To Mock someone else's DataApi
     object NewWalletStateApi extends WalletStateAlgebra[F] {
 
-      override def setCurrentIndices(fellowship: String, template: String, interaction: Int): F[Unit] = ???
+      override def setCurrentIndices(fellowship: String, template: String, interaction: Int): F[Option[Indices]] = ???
 
       // The only relevant call is getIndices
       override def getIndicesBySignature(

@@ -37,7 +37,7 @@ class WalletStateApiSpec extends CatsEffectSuite with BaseSpec {
           for {
             stmt <- IO.delay(conn.createStatement())
             rs <- IO.blocking(
-              stmt.executeQuery("SELECT COUNT(*) as res FROM templates WHERE contract IN ('default', 'genesis')")
+              stmt.executeQuery("SELECT COUNT(*) as res FROM templates WHERE template IN ('default', 'genesis')")
             )
             count <- IO.delay(rs.getInt("res"))
           } yield count
@@ -90,7 +90,7 @@ class WalletStateApiSpec extends CatsEffectSuite with BaseSpec {
           for {
             stmt <- IO.delay(conn.createStatement())
             rs <- IO.blocking(
-              stmt.executeQuery("SELECT * FROM cartesian WHERE x_fellowship = 9 AND y_contract = 9 AND z_state = 9")
+              stmt.executeQuery("SELECT * FROM cartesian WHERE x_fellowship = 9 AND y_template = 9 AND z_interaction = 9")
             )
             predicate <- IO.delay(rs.getString("lock_predicate"))
             address   <- IO.delay(rs.getString("address"))

@@ -16,7 +16,7 @@ object TemplateStorageApi {
           stmnt <- Sync[F].blocking(conn.createStatement())
           inserted <- Sync[F].blocking(
             stmnt.executeUpdate(
-              s"INSERT INTO templates (contract, lock) VALUES ('${walletTemplate.name}', '${walletTemplate.lockTemplate}')"
+              s"INSERT INTO templates (template, lock) VALUES ('${walletTemplate.name}', '${walletTemplate.lockTemplate}')"
             )
           )
         } yield inserted
@@ -35,8 +35,8 @@ object TemplateStorageApi {
               Some(
                 (
                   WalletTemplate(
-                    rs.getInt("y_contract"),
-                    rs.getString("contract"),
+                    rs.getInt("y_template"),
+                    rs.getString("template"),
                     parse(rs.getString("lock")).toOption.get.noSpaces
                   ),
                   rs

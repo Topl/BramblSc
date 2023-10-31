@@ -40,15 +40,15 @@ object WalletStateApi {
             stmnt <- Sync[F].blocking(conn.createStatement())
             rs <- Sync[F].blocking(
               stmnt.executeQuery(
-                s"SELECT x_fellowship, y_contract, z_state, routine, vk FROM " +
+                s"SELECT x_fellowship, y_template, z_interaction, routine, vk FROM " +
                 s"cartesian WHERE routine = '${signatureProposition.routine}' AND " +
                 s"vk = '${Encoding.encodeToBase58(signatureProposition.verificationKey.toByteArray)}'"
               )
             )
             hasNext <- Sync[F].delay(rs.next())
             x       <- Sync[F].delay(rs.getInt("x_fellowship"))
-            y       <- Sync[F].delay(rs.getInt("y_contract"))
-            z       <- Sync[F].delay(rs.getInt("z_state"))
+            y       <- Sync[F].delay(rs.getInt("y_template"))
+            z       <- Sync[F].delay(rs.getInt("z_interaction"))
           } yield if (hasNext) Some(Indices(x, y, z)) else None
         }
 
@@ -57,10 +57,10 @@ object WalletStateApi {
           stmnt <- Sync[F].blocking(conn.createStatement())
           rs <- Sync[F].blocking(
             stmnt.executeQuery(
-              s"SELECT x_fellowship, y_contract, z_state, lock_predicate FROM " +
+              s"SELECT x_fellowship, y_template, z_interaction, lock_predicate FROM " +
               s"cartesian WHERE x_fellowship = ${indices.x} AND " +
-              s"y_contract = ${indices.y} AND " +
-              s"z_state = ${indices.z}"
+              s"y_template = ${indices.y} AND " +
+              s"z_interaction = ${indices.z}"
             )
           )
           _                 <- Sync[F].delay(rs.next())
@@ -72,7 +72,33 @@ object WalletStateApi {
         )
       }
 
-      def setCurrentIndices(fellowship: String, template: String, interaction: Int): F[Unit] = ???
+      def setCurrentIndices(fellowship: String, template: String, interaction: Int): F[Option[Indices]] = connection.use { conn =>
+        for {
+          stmnt <- Sync[F].blocking(conn.createStatement())
+          rs <- Sync[F].blocking(
+            stmnt.executeQuery(
+              s"SELECT x_fellowship, fellowship FROM fellowships WHERE fellowship = '${fellowship}'"
+            )
+          )
+          x <- Sync[F].delay(rs.getInt("x_fellowship"))
+          query =
+            s"SELECT y_template, template FROM templates WHERE template = '${template}'"
+          rs <- Sync[F].blocking(
+            stmnt.executeQuery(
+              query
+            )
+          )
+          y <- Sync[F].delay(rs.getInt("y_template"))
+          res <- Sync[F].blocking(
+            stmnt.executeUpdate(
+              s"DELETE FROM " +
+              s"cartesian WHERE x_fellowship = ${x} AND " +
+              s"y_template = ${y} AND " +
+              s"z_interaction > ${interaction}"	
+            )
+          )
+        } yield if (res > 0) Some(Indices(x, y, interaction)) else None
+      }
 
       def getLockByAddress(lockAddress: String): F[Option[Lock.Predicate]] = connection.use { conn =>
         for {
@@ -105,7 +131,7 @@ object WalletStateApi {
         for {
           stmnt <- Sync[F].blocking(conn.createStatement())
           statement =
-            s"INSERT INTO cartesian (x_fellowship, y_contract, z_state, lock_predicate, address, routine, vk) VALUES (${indices.x}, ${indices.y}, ${indices.z}, '${lockPredicate}', '" +
+            s"INSERT INTO cartesian (x_fellowship, y_template, z_interaction, lock_predicate, address, routine, vk) VALUES (${indices.x}, ${indices.y}, ${indices.z}, '${lockPredicate}', '" +
               lockAddress + "', " + routine
                 .map(x => s"'$x'")
                 .getOrElse("NULL") + ", " + vk
@@ -117,7 +143,7 @@ object WalletStateApi {
         } yield ()
       }
 
-      override def getNextIndicesForFunds(fellowship: String, contract: String): F[Option[Indices]] = connection.use {
+      override def getNextIndicesForFunds(fellowship: String, template: String): F[Option[Indices]] = connection.use {
         conn =>
           for {
             stmnt <- Sync[F].blocking(conn.createStatement())
@@ -129,13 +155,13 @@ object WalletStateApi {
             x <- Sync[F].delay(rs.getInt("x_fellowship"))
             rs <- Sync[F].blocking(
               stmnt.executeQuery(
-                s"SELECT y_contract, contract FROM templates WHERE contract = '${contract}'"
+                s"SELECT y_template, template FROM templates WHERE template = '${template}'"
               )
             )
-            y <- Sync[F].delay(rs.getInt("y_contract"))
+            y <- Sync[F].delay(rs.getInt("y_template"))
             rs <- Sync[F].blocking(
               stmnt.executeQuery(
-                s"SELECT x_fellowship, y_contract, MAX(z_state) as z_index FROM cartesian WHERE x_fellowship = ${x} AND y_contract = ${y}"
+                s"SELECT x_fellowship, y_template, MAX(z_interaction) as z_index FROM cartesian WHERE x_fellowship = ${x} AND y_template = ${y}"
               )
             )
             z <- Sync[F].delay(rs.getInt("z_index"))
@@ -159,29 +185,29 @@ object WalletStateApi {
         }
 
       private def validateTemplate(
-        contract: String
+        template: String
       ): F[ValidatedNel[String, String]] =
         connection.use { conn =>
           for {
             stmnt <- Sync[F].blocking(conn.createStatement())
             rs <- Sync[F].blocking(
               stmnt.executeQuery(
-                s"SELECT y_contract, contract FROM templates WHERE contract = '${contract}'"
+                s"SELECT y_template, template FROM templates WHERE template = '${template}'"
               )
             )
           } yield
-            if (rs.next()) Validated.validNel(contract)
+            if (rs.next()) Validated.validNel(template)
             else Validated.invalidNel("Template not found")
         }
 
       def validateCurrentIndicesForFunds(
         fellowship:           String,
-        contract:        String,
+        template:        String,
         someInteraction: Option[Int]
       ): F[ValidatedNel[String, Indices]] = for {
         validatedFellowship    <- validateFellowship(fellowship)
-        validatedTemplate <- validateTemplate(contract)
-        indices           <- getCurrentIndicesForFunds(fellowship, contract, someInteraction)
+        validatedTemplate <- validateTemplate(template)
+        indices           <- getCurrentIndicesForFunds(fellowship, template, someInteraction)
       } yield (
         validatedFellowship,
         validatedTemplate,
@@ -190,7 +216,7 @@ object WalletStateApi {
 
       override def getAddress(
         fellowship:           String,
-        contract:        String,
+        template:        String,
         someInteraction: Option[Int]
       ): F[Option[String]] = connection.use { conn =>
         for {
@@ -202,19 +228,19 @@ object WalletStateApi {
           )
           x <- Sync[F].delay(rs.getInt("x_fellowship"))
           query =
-            s"SELECT y_contract, contract FROM templates WHERE contract = '${contract}'"
+            s"SELECT y_template, template FROM templates WHERE template = '${template}'"
           rs <- Sync[F].blocking(
             stmnt.executeQuery(
               query
             )
           )
-          y <- Sync[F].delay(rs.getInt("y_contract"))
-          query = s"SELECT address, x_fellowship, y_contract, " + someInteraction
-            .map(_ => "z_state as z_index")
+          y <- Sync[F].delay(rs.getInt("y_template"))
+          query = s"SELECT address, x_fellowship, y_template, " + someInteraction
+            .map(_ => "z_interaction as z_index")
             .getOrElse(
-              "MAX(z_state) as z_index"
-            ) + s" FROM cartesian WHERE x_fellowship = ${x} AND y_contract = ${y}" + someInteraction
-            .map(x => s" AND z_state = ${x}")
+              "MAX(z_interaction) as z_index"
+            ) + s" FROM cartesian WHERE x_fellowship = ${x} AND y_template = ${y}" + someInteraction
+            .map(x => s" AND z_interaction = ${x}")
             .getOrElse("")
           rs <- Sync[F].blocking(
             stmnt.executeQuery(
@@ -227,7 +253,7 @@ object WalletStateApi {
 
       override def getCurrentIndicesForFunds(
         fellowship:           String,
-        contract:        String,
+        template:        String,
         someInteraction: Option[Int]
       ): F[Option[Indices]] = connection.use { conn =>
         for {
@@ -239,21 +265,21 @@ object WalletStateApi {
           )
           x <- Sync[F].delay(rs.getInt("x_fellowship"))
           query =
-            s"SELECT y_contract, contract FROM templates WHERE contract = '${contract}'"
+            s"SELECT y_template, template FROM templates WHERE template = '${template}'"
           rs <- Sync[F].blocking(
             stmnt.executeQuery(
               query
             )
           )
-          y <- Sync[F].delay(rs.getInt("y_contract"))
+          y <- Sync[F].delay(rs.getInt("y_template"))
           rs <- Sync[F].blocking(
             stmnt.executeQuery(
-              s"SELECT x_fellowship, y_contract, " + someInteraction
-                .map(_ => "z_state as z_index")
+              s"SELECT x_fellowship, y_template, " + someInteraction
+                .map(_ => "z_interaction as z_index")
                 .getOrElse(
-                  "MAX(z_state) as z_index"
-                ) + s" FROM cartesian WHERE x_fellowship = ${x} AND y_contract = ${y}" + someInteraction
-                .map(x => s" AND z_state = ${x}")
+                  "MAX(z_interaction) as z_index"
+                ) + s" FROM cartesian WHERE x_fellowship = ${x} AND y_template = ${y}" + someInteraction
+                .map(x => s" AND z_interaction = ${x}")
                 .getOrElse("")
             )
           )
@@ -268,7 +294,7 @@ object WalletStateApi {
           stmnt <- Sync[F].blocking(conn.createStatement())
           rs <- Sync[F].blocking(
             stmnt.executeQuery(
-              "SELECT address, MAX(z_state) FROM cartesian WHERE x_fellowship = 1 AND y_contract = 1  group by x_fellowship, y_contract"
+              "SELECT address, MAX(z_interaction) FROM cartesian WHERE x_fellowship = 1 AND y_template = 1  group by x_fellowship, y_template"
             )
           )
           lockAddress <- Sync[F].delay(rs.getString("address"))
@@ -290,7 +316,7 @@ object WalletStateApi {
             _ <- Sync[F].delay(
               stmnt.execute(
                 "CREATE TABLE IF NOT EXISTS cartesian (id INTEGER PRIMARY KEY," +
-                " x_fellowship INTEGER NOT NULL, y_contract INTEGER NOT NULL, z_state INTEGER NOT NULL, " +
+                " x_fellowship INTEGER NOT NULL, y_template INTEGER NOT NULL, z_interaction INTEGER NOT NULL, " +
                 "lock_predicate TEXT NOT NULL, address TEXT NOT NULL, routine TEXT, vk TEXT)"
               )
             )
@@ -302,19 +328,19 @@ object WalletStateApi {
             )
             _ <- Sync[F].delay(
               stmnt.execute(
-                "CREATE TABLE IF NOT EXISTS templates (contract TEXT NOT NULL," +
-                " y_contract INTEGER PRIMARY KEY ASC,  lock TEXT NOT NULL)"
+                "CREATE TABLE IF NOT EXISTS templates (template TEXT NOT NULL," +
+                " y_template INTEGER PRIMARY KEY ASC,  lock TEXT NOT NULL)"
               )
             )
             _ <- Sync[F].delay(
               stmnt.execute(
                 "CREATE TABLE IF NOT EXISTS verification_keys (x_fellowship INTEGER NOT NULL," +
-                " y_contract INTEGER NOT NULL, vks TEXT NOT NULL, PRIMARY KEY (x_fellowship, y_contract))"
+                " y_template INTEGER NOT NULL, vks TEXT NOT NULL, PRIMARY KEY (x_fellowship, y_template))"
               )
             )
             _ <- Sync[F].delay(
               stmnt.execute(
-                "CREATE UNIQUE INDEX IF NOT EXISTS contract_names_idx ON templates (contract)"
+                "CREATE UNIQUE INDEX IF NOT EXISTS template_names_idx ON templates (template)"
               )
             )
             _ <- Sync[F].delay(
@@ -324,7 +350,7 @@ object WalletStateApi {
             )
             _ <- Sync[F].delay(
               stmnt.execute(
-                "CREATE UNIQUE INDEX IF NOT EXISTS cartesian_coordinates ON cartesian (x_fellowship, y_contract, z_state)"
+                "CREATE UNIQUE INDEX IF NOT EXISTS cartesian_coordinates ON cartesian (x_fellowship, y_template, z_interaction)"
               )
             )
             _ <- Sync[F].delay(
@@ -361,22 +387,22 @@ object WalletStateApi {
             )
             _ <- Sync[F].delay(
               stmnt.executeUpdate(
-                s"INSERT INTO templates (contract, y_contract, lock) VALUES ('default', 1, '${encodeLockTemplate(defaultTemplate).toString}')"
+                s"INSERT INTO templates (template, y_template, lock) VALUES ('default', 1, '${encodeLockTemplate(defaultTemplate).toString}')"
               )
             )
             _ <- Sync[F].delay(
               stmnt.executeUpdate(
-                s"INSERT INTO templates (contract, y_contract, lock) VALUES ('genesis', 2, '${encodeLockTemplate(genesisTemplate).toString}')"
+                s"INSERT INTO templates (template, y_template, lock) VALUES ('genesis', 2, '${encodeLockTemplate(genesisTemplate).toString}')"
               )
             )
             _ <- Sync[F].delay(
               stmnt.executeUpdate(
-                s"INSERT INTO verification_keys (x_fellowship, y_contract, vks) VALUES (1, 1, '${List(Encoding.encodeToBase58(vk.toByteArray)).asJson.toString}')"
+                s"INSERT INTO verification_keys (x_fellowship, y_template, vks) VALUES (1, 1, '${List(Encoding.encodeToBase58(vk.toByteArray)).asJson.toString}')"
               )
             )
             _ <- Sync[F].delay(
               stmnt.executeUpdate(
-                s"INSERT INTO verification_keys (x_fellowship, y_contract, vks) VALUES (0, 2, '${List[String]().asJson.toString}')"
+                s"INSERT INTO verification_keys (x_fellowship, y_template, vks) VALUES (0, 2, '${List[String]().asJson.toString}')"
               )
             )
             defaultSignatureLock <- getLock("self", "default", 1).map(_.get)
@@ -394,7 +420,7 @@ object WalletStateApi {
             )
             _ <- Sync[F].delay(
               stmnt.executeUpdate(
-                "INSERT INTO cartesian (x_fellowship, y_contract, z_state, lock_predicate, address, routine, vk) VALUES (1, 1, 1, '" +
+                "INSERT INTO cartesian (x_fellowship, y_template, z_interaction, lock_predicate, address, routine, vk) VALUES (1, 1, 1, '" +
                 Encoding
                   .encodeToBase58Check(
                     defaultSignatureLock.getPredicate.toByteArray
@@ -407,7 +433,7 @@ object WalletStateApi {
             )
             _ <- Sync[F].delay(
               stmnt.executeUpdate(
-                "INSERT INTO cartesian (x_fellowship, y_contract, z_state, lock_predicate, address) VALUES (0, 2, 1, '" +
+                "INSERT INTO cartesian (x_fellowship, y_template, z_interaction, lock_predicate, address) VALUES (0, 2, 1, '" +
                 Encoding
                   .encodeToBase58Check(
                     genesisHeightLock.getPredicate.toByteArray
@@ -430,7 +456,7 @@ object WalletStateApi {
 
       override def addEntityVks(
         fellowship:    String,
-        contract: String,
+        template: String,
         fellows:  List[String]
       ): F[Unit] = connection.use { conn =>
         for {
@@ -443,12 +469,12 @@ object WalletStateApi {
           x <- Sync[F].delay(rs.getInt("x_fellowship"))
           rs <- Sync[F].blocking(
             stmnt.executeQuery(
-              s"SELECT y_contract FROM templates WHERE contract = '${contract}'"
+              s"SELECT y_template FROM templates WHERE template = '${template}'"
             )
           )
-          y <- Sync[F].delay(rs.getInt("y_contract"))
+          y <- Sync[F].delay(rs.getInt("y_template"))
           statement =
-            s"INSERT INTO verification_keys (x_fellowship, y_contract, vks) VALUES (${x}, ${y}, " +
+            s"INSERT INTO verification_keys (x_fellowship, y_template, vks) VALUES (${x}, ${y}, " +
               s"'${fellows.asJson.toString}')"
           _ <- Sync[F].blocking(
             stmnt.executeUpdate(statement)
@@ -458,7 +484,7 @@ object WalletStateApi {
 
       override def getEntityVks(
         fellowship:    String,
-        contract: String
+        template: String
       ): F[Option[List[String]]] = connection.use { conn =>
         for {
           stmnt <- Sync[F].blocking(conn.createStatement())
@@ -470,13 +496,13 @@ object WalletStateApi {
           x <- Sync[F].delay(rs.getInt("x_fellowship"))
           rs <- Sync[F].blocking(
             stmnt.executeQuery(
-              s"SELECT y_contract FROM templates WHERE contract = '${contract}'"
+              s"SELECT y_template FROM templates WHERE template = '${template}'"
             )
           )
-          y <- Sync[F].delay(rs.getInt("y_contract"))
+          y <- Sync[F].delay(rs.getInt("y_template"))
           rs <- Sync[F].blocking(
             stmnt.executeQuery(
-              s"SELECT vks FROM verification_keys WHERE x_fellowship = ${x} AND y_contract = ${y}"
+              s"SELECT vks FROM verification_keys WHERE x_fellowship = ${x} AND y_template = ${y}"
             )
           )
           vks <- Sync[F].delay(rs.getString("vks"))
@@ -486,7 +512,7 @@ object WalletStateApi {
       }
 
       override def addNewLockTemplate(
-        contract:     String,
+        template:     String,
         lockTemplate: LockTemplate[F]
       ): F[Unit] = connection.use { conn =>
         for {
@@ -494,12 +520,12 @@ object WalletStateApi {
           // FIXME: do not use max, use autoincrement
           rs <- Sync[F].blocking(
             stmnt.executeQuery(
-              s"SELECT MAX(y_contract) as y_index FROM templates"
+              s"SELECT MAX(y_template) as y_index FROM templates"
             )
           )
           y <- Sync[F].delay(rs.getInt("y_index"))
           statement =
-            s"INSERT INTO templates (contract, y_contract, lock) VALUES ('${contract}', ${y + 1}, '${encodeLockTemplate(lockTemplate).toString}')"
+            s"INSERT INTO templates (template, y_template, lock) VALUES ('${template}', ${y + 1}, '${encodeLockTemplate(lockTemplate).toString}')"
           _ <- Sync[F].blocking(
             stmnt.executeUpdate(statement)
           )
@@ -507,13 +533,13 @@ object WalletStateApi {
       }
 
       override def getLockTemplate(
-        contract: String
+        template: String
       ): F[Option[LockTemplate[F]]] = connection.use { conn =>
         for {
           stmnt <- Sync[F].blocking(conn.createStatement())
           rs <- Sync[F].blocking(
             stmnt.executeQuery(
-              s"SELECT lock FROM templates WHERE contract = '${contract}'"
+              s"SELECT lock FROM templates WHERE template = '${template}'"
             )
           )
           lockStr <- Sync[F].delay(rs.getString("lock"))
@@ -525,11 +551,11 @@ object WalletStateApi {
 
       override def getLock(
         fellowship:           String,
-        contract:        String,
+        template:        String,
         nextInteraction: Int
       ): F[Option[Lock]] = for {
-        changeTemplate <- getLockTemplate(contract)
-        entityVks <- getEntityVks(fellowship, contract)
+        changeTemplate <- getLockTemplate(template)
+        entityVks <- getEntityVks(fellowship, template)
           .map(
             _.map(
               _.map(vk =>

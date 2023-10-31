@@ -17,7 +17,7 @@ import quivr.models._
  */
 object MockWalletStateApi extends WalletStateAlgebra[IO] with MockHelpers {
 
-  override def setCurrentIndices(fellowship: String, template: String, interaction: Int): IO[Unit] = ???
+  override def setCurrentIndices(fellowship: String, template: String, interaction: Int): IO[Option[Indices]] = ???
 
 
   val propEvidenceToIdx: Map[Evidence, Indices] = Map(
