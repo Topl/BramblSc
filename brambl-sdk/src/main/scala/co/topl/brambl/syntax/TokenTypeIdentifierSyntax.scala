@@ -2,6 +2,7 @@ package co.topl.brambl.syntax
 
 import co.topl.brambl.models.{GroupId, SeriesId}
 import co.topl.brambl.models.box.Value._
+import co.topl.consensus.models.StakingRegistration
 import com.google.protobuf.ByteString
 
 import scala.language.implicitConversions
@@ -16,6 +17,7 @@ class ValueToTypeIdentifierSyntaxOps(val value: Value) extends AnyVal {
 
   def typeIdentifier: ValueTypeIdentifier = value match {
     case Value.Lvl(_)    => LvlType
+    case Value.Topl(t)   => ToplType(t.registration)
     case Value.Group(g)  => GroupType(g.groupId)
     case Value.Series(s) => SeriesType(s.seriesId)
     case Value.Asset(a) =>
@@ -35,7 +37,7 @@ class ValueToTypeIdentifierSyntaxOps(val value: Value) extends AnyVal {
         case (None, _, _, Some(_)) =>
           throw new Exception("groupId must be provided when seriesAlloy is used in an asset")
       }
-    case _ => throw new Exception("Invalid value type")
+    case _ => UnknownType
   }
 }
 
@@ -48,6 +50,11 @@ trait ValueTypeIdentifier
  * A LVL value type
  */
 case object LvlType extends ValueTypeIdentifier
+
+/**
+ * A TOPL value type
+ */
+case class ToplType(registration: Option[StakingRegistration]) extends ValueTypeIdentifier
 
 /**
  * A Group Constructor Token value type, identified by a GroupId
@@ -74,3 +81,8 @@ case class SeriesType(seriesId: SeriesId) extends ValueTypeIdentifier
  * @param seriesIdOrAlloy The SeriesId or Series Alloy of the asset
  */
 case class AssetType(groupIdOrAlloy: ByteString, seriesIdOrAlloy: ByteString) extends ValueTypeIdentifier
+
+/**
+ * An unknown value type. This is useful for when new types are added to the ecosystem and the SDK is not updated yet.
+ */
+case object UnknownType extends ValueTypeIdentifier

@@ -7,7 +7,8 @@ import co.topl.brambl.syntax.{
   int128AsBigInt,
   valueToQuantityDescriptorSyntaxOps,
   valueToQuantitySyntaxOps,
-  valueToTypeIdentifierSyntaxOps
+  valueToTypeIdentifierSyntaxOps,
+  UnknownType
 }
 
 import scala.language.implicitConversions
@@ -58,7 +59,9 @@ object DefaultAggregationOps extends AggregationOps {
    * Aggregate 2 values into 1 if allowable. Throw an exception otherwise.
    */
   private def handleAggregation(value: Value, other: Value): Value =
-    if (value.typeIdentifier == other.typeIdentifier)
+    if (value.typeIdentifier == UnknownType)
+      throw new Exception("Aggregation of UnknownType is not allowed")
+    else if (value.typeIdentifier == other.typeIdentifier)
       if (value.getQuantityDescriptor.forall(_ == LIQUID))
         value.setQuantity(value.quantity + other.quantity)
       else throw new Exception("Aggregation of IMMUTABLE, FRACTIONABLE, or ACCUMULATOR assets is not allowed")
