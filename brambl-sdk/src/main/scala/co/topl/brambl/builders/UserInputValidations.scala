@@ -138,7 +138,7 @@ object UserInputValidations {
       UserInputError(s"Not enough LVLs in input to satisfy fee")
     )
 
-  def identifierQuantityDescriptorLiquidOrNone(
+  def distinctIdentifierQuantityDescriptorLiquid(
     values:   Seq[Value],
     testType: ValueTypeIdentifier
   ): ValidatedNec[UserInputError, Unit] = {
@@ -205,7 +205,7 @@ object UserInputValidations {
           "lockPredicateFrom"
         ),
         validTransferSupplyAmount(amount, allValues, transferIdentifier),
-        identifierQuantityDescriptorLiquidOrNone(allValues, transferIdentifier),
+        distinctIdentifierQuantityDescriptorLiquid(allValues, transferIdentifier),
         validFee(fee, allValues, if (transferIdentifier == LvlType) amount else 0)
       ).fold.toEither
     } match {
