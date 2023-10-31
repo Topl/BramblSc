@@ -11,22 +11,23 @@ class TokenTypeIdentifierSyntaxSpec extends munit.FunSuite with MockHelpers {
   test("typeIdentifier") {
     val gId = mockGroupPolicy.computeId
     val sId = mockSeriesPolicy.computeId
-    val qd = mockSeriesPolicy.quantityDescriptor
+    val sIdSeries = assetSeries.getAsset.seriesId.get
+    val sIdGroup = assetGroup.getAsset.seriesId.get
     assertEquals(lvlValue.value.typeIdentifier, LvlType)
     assertEquals(groupValue.value.typeIdentifier, GroupType(gId))
     assertEquals(seriesValue.value.typeIdentifier, SeriesType(sId))
-    assertEquals(assetGroupSeries.value.typeIdentifier, GroupAndSeriesFungible(gId, sId, qd))
-    assertEquals(assetGroup.value.typeIdentifier, GroupFungible(gId, sId.value, qd))
-    assertEquals(assetSeries.value.typeIdentifier, SeriesFungible(sId, gId.value, qd))
+    assertEquals(assetGroupSeries.value.typeIdentifier, AssetType(gId.value, sId.value))
+    assertEquals(assetGroup.value.typeIdentifier, AssetType(gId.value, sIdGroup.value))
+    assertEquals(assetSeries.value.typeIdentifier, AssetType(gId.value, sIdSeries.value))
     val mockAlloy = ByteString.copyFrom(Array.fill(32)(0.toByte))
     val testAlloy = ByteString.copyFrom(Array.fill(32)(0.toByte))
     assertEquals(
       assetGroup.copy(assetGroup.getAsset.copy(seriesAlloy = mockAlloy.some)).value.typeIdentifier,
-      GroupFungible(gId, testAlloy, qd)
+      AssetType(gId.value, testAlloy)
     )
     assertEquals(
       assetSeries.copy(assetSeries.getAsset.copy(groupAlloy = mockAlloy.some)).value.typeIdentifier,
-      SeriesFungible(sId, testAlloy, qd)
+      AssetType(testAlloy, sIdSeries.value)
     )
     intercept[Exception](BoxValue.Topl(Value.TOPL(quantity)).typeIdentifier)
   }

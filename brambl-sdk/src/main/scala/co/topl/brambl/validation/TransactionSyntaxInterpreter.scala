@@ -279,9 +279,12 @@ object TransactionSyntaxInterpreter {
         .value
     }
 
-    def tupleAndGroup(s: Seq[Value.Value]): Try[Map[ValueTypeIdentifier, BigInt]] =
+    def tupleAndGroup(s: Seq[Value.Value]) =
       Try {
-        s.map(value => (value.typeIdentifier, value.quantity: BigInt))
+        s.map(v => ((v.typeIdentifier, v.getFungibility, v.getQuantityDescriptor), v.quantity: BigInt))
+          // Grouping includes fungibility and quantity descriptor to account for invalid asset configurations
+          // I.e, we validate that the fungibility and quantity descriptor does not differ from their
+          // corresponding asset input (transfer) or series constructor (minting)
           .groupBy(_._1)
           .view
           .mapValues(_.map(_._2).sum)

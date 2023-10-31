@@ -1,10 +1,7 @@
 package co.topl.brambl.syntax
 
-import co.topl.brambl.models.box.FungibilityType.{GROUP, GROUP_AND_SERIES, SERIES}
-import co.topl.brambl.models.box.QuantityDescriptorType
-import co.topl.brambl.models.{GroupId, SeriesId}
+import co.topl.brambl.models.box.{FungibilityType, QuantityDescriptorType}
 import co.topl.brambl.models.box.Value._
-import com.google.protobuf.ByteString
 import quivr.models.Int128
 
 import scala.language.implicitConversions
@@ -16,6 +13,10 @@ trait BoxValueSyntax {
   implicit def assetAsBoxVal(a:  Asset): Value = Value.Asset(a)
 
   implicit def valueToQuantitySyntaxOps(v: Value): ValueToQuantitySyntaxOps = new ValueToQuantitySyntaxOps(v)
+
+  implicit def valueToQuantityDescriptorSyntaxOps(v: Value): ValueToQuantityDescriptorSyntaxOps =
+    new ValueToQuantityDescriptorSyntaxOps(v)
+  implicit def valueToFungibilitySyntaxOps(v: Value): ValueToFungibilitySyntaxOps = new ValueToFungibilitySyntaxOps(v)
 }
 
 class ValueToQuantitySyntaxOps(val value: Value) extends AnyVal {
@@ -34,5 +35,21 @@ class ValueToQuantitySyntaxOps(val value: Value) extends AnyVal {
     case Value.Series(s) => s.withQuantity(quantity)
     case Value.Asset(a)  => a.withQuantity(quantity)
     case _               => throw new Exception("Invalid value type")
+  }
+}
+
+class ValueToQuantityDescriptorSyntaxOps(val value: Value) extends AnyVal {
+
+  def getQuantityDescriptor: Option[QuantityDescriptorType] = value match {
+    case Value.Asset(a) => Some(a.quantityDescriptor)
+    case _              => None
+  }
+}
+
+class ValueToFungibilitySyntaxOps(val value: Value) extends AnyVal {
+
+  def getFungibility: Option[FungibilityType] = value match {
+    case Value.Asset(a) => Some(a.fungibility)
+    case _              => None
   }
 }
