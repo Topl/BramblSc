@@ -687,6 +687,9 @@ class CredentiallerInterpreterSpec extends CatsEffectSuite with MockHelpers {
     val bobSignatureProposition = Proposer.signatureProposer[F].propose(("ExtendedEd25519", bobChildKey.vk))
     // To Mock someone else's DataApi
     object NewWalletStateApi extends WalletStateAlgebra[F] {
+
+      override def setCurrentIndices(fellowship: String, template: String, interaction: Int): F[Option[Indices]] = ???
+
       // The only relevant call is getIndices
       override def getIndicesBySignature(
         signatureProposition: Proposition.DigitalSignature
@@ -706,23 +709,23 @@ class CredentiallerInterpreterSpec extends CatsEffectSuite with MockHelpers {
         indices:       Indices
       ): F[Unit] = ???
       override def getCurrentIndicesForFunds(
-        party:     String,
-        contract:  String,
-        someState: Option[Int]
+        fellowship: String,
+        contract:   String,
+        someState:  Option[Int]
       ): F[Option[Indices]] = ???
       override def validateCurrentIndicesForFunds(
-        party:     String,
-        contract:  String,
-        someState: Option[Int]
+        fellowship: String,
+        contract:   String,
+        someState:  Option[Int]
       ): F[ValidatedNel[String, Indices]] = ???
-      override def getNextIndicesForFunds(party: String, contract: String): F[Option[Indices]] = ???
-      override def getLockByIndex(indices:       Indices): F[Option[Lock.Predicate]] = ???
-      override def getAddress(party:   String, contract: String, someState: Option[Int]): F[Option[String]] = ???
-      override def addEntityVks(party: String, contract: String, entities:  List[String]): F[Unit] = ???
-      override def getEntityVks(party: String, contract: String): F[Option[List[String]]] = ???
+      override def getNextIndicesForFunds(fellowship: String, contract: String): F[Option[Indices]] = ???
+      override def getLockByIndex(indices:            Indices): F[Option[Lock.Predicate]] = ???
+      override def getAddress(fellowship:   String, contract: String, someState: Option[Int]): F[Option[String]] = ???
+      override def addEntityVks(fellowship: String, contract: String, entities:  List[String]): F[Unit] = ???
+      override def getEntityVks(fellowship: String, contract: String): F[Option[List[String]]] = ???
       override def addNewLockTemplate(contract: String, lockTemplate: LockTemplate[F]): F[Unit] = ???
       override def getLockTemplate(contract:    String): F[Option[LockTemplate[F]]] = ???
-      override def getLock(party:               String, contract:     String, nextState: Int): F[Option[Lock]] = ???
+      override def getLock(fellowship:          String, contract:     String, nextState: Int): F[Option[Lock]] = ???
 
       override def getLockByAddress(lockAddress: String): F[Option[Lock.Predicate]] = ???
     }

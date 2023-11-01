@@ -171,14 +171,14 @@ trait WalletApi[F[_]] {
    * Derive a child key pair from a Main Key Pair from a partial path (x and y).
    *
    * @param keyPair The Main Key Pair to derive the child key pair from
-   * @param xParty  The first path index of the child key pair to derive. Represents the party index
-   * @param yContract The second path index of the child key pair to derive. Represents the contract index
+   * @param xFellowship  The first path index of the child key pair to derive. Represents the fellowship index
+   * @param yTemplate The second path index of the child key pair to derive. Represents the contract index
    * @return        The protobuf encoded keys of the child key pair
    */
   def deriveChildKeysPartial(
-    keyPair:   KeyPair,
-    xParty:    Int,
-    yContract: Int
+    keyPair:     KeyPair,
+    xFellowship: Int,
+    yTemplate:   Int
   ): F[KeyPair]
 
   /**
@@ -336,15 +336,15 @@ object WalletApi {
     }
 
     override def deriveChildKeysPartial(
-      keyPair:   KeyPair,
-      xParty:    Int,
-      yContract: Int
+      keyPair:     KeyPair,
+      xFellowship: Int,
+      yTemplate:   Int
     ): F[KeyPair] = {
       require(keyPair.vk.vk.isExtendedEd25519, "keyPair must be an extended Ed25519 key")
       require(keyPair.sk.sk.isExtendedEd25519, "keyPair must be an extended Ed25519 key")
       for {
-        xCoordinate             <- Monad[F].pure(Bip32Indexes.HardenedIndex(xParty))
-        yCoordinate             <- Monad[F].pure(Bip32Indexes.SoftIndex(yContract))
+        xCoordinate             <- Monad[F].pure(Bip32Indexes.HardenedIndex(xFellowship))
+        yCoordinate             <- Monad[F].pure(Bip32Indexes.SoftIndex(yTemplate))
         extendedEd25519Instance <- extendedEd25519Resource
         res <- extendedEd25519Instance.use(instance =>
           Monad[F].pure(

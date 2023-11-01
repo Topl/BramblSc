@@ -7,16 +7,16 @@ import co.topl.brambl.models.box.Lock
 import quivr.models.{Preimage, Proposition, VerificationKey}
 
 /**
- * Defines a data API for storing and retrieving wallet state.
+ * Defines a data API for storing and retrieving wallet interaction.
  */
 trait WalletStateAlgebra[F[_]] {
 
   /**
-   * Initialize the wallet state with the given verification key
+   * Initialize the wallet interaction with the given verification key
    *
-   * @param networkId The network id to initialize the wallet state with
-   * @param ledgerId The ledger id to initialize the wallet state with
-   * @param vk The verification key to initialize the wallet state with
+   * @param networkId The network id to initialize the wallet interaction with
+   * @param ledgerId The ledger id to initialize the wallet interaction with
+   * @param vk The verification key to initialize the wallet interaction with
    */
   def initWalletState(networkId: Int, ledgerId: Int, vk: VerificationKey): F[Unit]
 
@@ -37,20 +37,20 @@ trait WalletStateAlgebra[F[_]] {
   def getPreimage(digestProposition: Proposition.Digest): F[Option[Preimage]]
 
   /**
-   * Get the current address for the wallet state
+   * Get the current address for the wallet interaction
    *
-   * @return The current address of the wallet state as a string in base58 encoding
+   * @return The current address of the wallet interaction as a string in base58 encoding
    */
   def getCurrentAddress: F[String]
 
   /**
-   * Update the wallet state with a new set of Predicate Lock, Lock Address, and their associated Indices
+   * Update the wallet interaction with a new set of Predicate Lock, Lock Address, and their associated Indices
    *
-   * @param lockPredicate The lock predicate to add to the wallet state
-   * @param lockAddress    The lock address to add to the wallet state
-   * @param routine        The routine to add to the wallet state
-   * @param vk             The verification key to add to the wallet state
-   * @param indices        The indices to add to the wallet state
+   * @param lockPredicate The lock predicate to add to the wallet interaction
+   * @param lockAddress    The lock address to add to the wallet interaction
+   * @param routine        The routine to add to the wallet interaction
+   * @param vk             The verification key to add to the wallet interaction
+   * @param indices        The indices to add to the wallet interaction
    */
   def updateWalletState(
     lockPredicate: String,
@@ -61,40 +61,53 @@ trait WalletStateAlgebra[F[_]] {
   ): F[Unit]
 
   /**
-   * Get the current indices for the given party, contract and optional state
+   * Get the current indices for the given fellowship, template and optional interaction
    *
-   * @param party   A String label of the party to get the indices for
-   * @param contract A String label of the contract to get the indices for
-   * @param someState The optional state index of the indices. If not provided, the next state index for the given party
-   *                  and contract pair will be used
-   * @return The indices for the given party, contract and optional state if possible. Else None
+   * @param fellowship   A String label of the fellowship to get the indices for
+   * @param template A String label of the template to get the indices for
+   * @param someInteraction The optional interaction index of the indices. If not provided, the next interaction index for the given fellowship
+   *                  and template pair will be used
+   * @return The indices for the given fellowship, template and optional interaction if possible. Else None
    */
-  def getCurrentIndicesForFunds(party: String, contract: String, someState: Option[Int]): F[Option[Indices]]
+  def getCurrentIndicesForFunds(fellowship: String, template: String, someInteraction: Option[Int]): F[Option[Indices]]
 
   /**
-   * Validate that the supplied party, contract and optional state exist and are associated with each other in the
-   * current wallet state
+   * Set the current interaction for the given fellowship and template.
+   * In practice, this will remove all interactions after the given interaction index
+   * from the database, as the current interaction is the latest interaction.
+   * The interaction needs to be smaller or equal than the current interaction.
    *
-   * @param party   A String label of the party to validate with
-   * @param contract A String label of the contract to validate with
-   * @param someState The optional state index to validate with. If not provided, the next state for the given party
-   *                  and contract pair will be used
-   * @return The indices for the given party, contract and optional state if valid. If not, the relevant errors
+   * @param fellowship  A String label of the fellowship to set the current interaction for
+   * @param template A String label of the template to set the current interaction for
+   * @param interaction The interaction index to set the current interaction to
+   * @return The indices for the given fellowship, template and interaction. If the interaction is not valid, None.
+   */
+  def setCurrentIndices(fellowship: String, template: String, interaction: Int): F[Option[Indices]]
+
+  /**
+   * Validate that the supplied fellowship, template and optional interaction exist and are associated with each other in the
+   * current wallet interaction
+   *
+   * @param fellowship   A String label of the fellowship to validate with
+   * @param template A String label of the template to validate with
+   * @param someInteraction The optional interaction index to validate with. If not provided, the next interaction for the given fellowship
+   *                  and template pair will be used
+   * @return The indices for the given fellowship, template and optional interaction if valid. If not, the relevant errors
    */
   def validateCurrentIndicesForFunds(
-    party:     String,
-    contract:  String,
-    someState: Option[Int]
+    fellowship:      String,
+    template:        String,
+    someInteraction: Option[Int]
   ): F[ValidatedNel[String, Indices]]
 
   /**
-   * Get the next available indices for the given party and contract
+   * Get the next available indices for the given fellowship and template
    *
-   * @param party   A String label of the party to get the next indices for
-   * @param contract A String label of the contract to get the next indices for
-   * @return The next indices for the given party and contract if possible. Else None
+   * @param fellowship   A String label of the fellowship to get the next indices for
+   * @param template A String label of the template to get the next indices for
+   * @return The next indices for the given fellowship and template if possible. Else None
    */
-  def getNextIndicesForFunds(party: String, contract: String): F[Option[Indices]]
+  def getNextIndicesForFunds(fellowship: String, template: String): F[Option[Indices]]
 
   /**
    * Get the lock predicate associated to the given indices
@@ -113,62 +126,62 @@ trait WalletStateAlgebra[F[_]] {
   def getLockByAddress(lockAddress: String): F[Option[Lock.Predicate]]
 
   /**
-   * Get the lock address associated to the given party, contract and optional state
+   * Get the lock address associated to the given fellowship, template and optional interaction
    *
-   * @param party   A String label of the party to get the lock address for
-   * @param contract A String label of the contract to get the lock address for
-   * @param someState The optional state index to get the lock address for. If not provided, the next state for the
-   *                  given party and contract pair will be used
+   * @param fellowship   A String label of the fellowship to get the lock address for
+   * @param template A String label of the template to get the lock address for
+   * @param someInteraction The optional interaction index to get the lock address for. If not provided, the next interaction for the
+   *                  given fellowship and template pair will be used
    * @return The lock address for the given indices if possible. Else None
    */
-  def getAddress(party: String, contract: String, someState: Option[Int]): F[Option[String]]
+  def getAddress(fellowship: String, template: String, someInteraction: Option[Int]): F[Option[String]]
 
   /**
-   * Add a new entry of entity verification keys to the wallet state's cartesian indexing. Entities are at a pair of
-   * x (party) and y (contract) layers and thus represent a Child verification key at a participants own x/y path.
-   * The respective x and y indices of the specified party and contract labels must already exist.
+   * Add a new entry of fellow verification keys to the wallet interaction's cartesian indexing. Entities are at a pair of
+   * x (fellowship) and y (template) layers and thus represent a Child verification key at a participants own x/y path.
+   * The respective x and y indices of the specified fellowship and template labels must already exist.
    *
-   * @param party   A String label of the party to associate the new verification keys with
-   * @param contract A String label of the contract to associate the new verification keys with
-   * @param entities The list of Verification Keys in base58 format to add
+   * @param fellowship   A String label of the fellowship to associate the new verification keys with
+   * @param template A String label of the template to associate the new verification keys with
+   * @param fellows The list of Verification Keys in base58 format to add
    */
-  def addEntityVks(party: String, contract: String, entities: List[String]): F[Unit]
+  def addEntityVks(fellowship: String, template: String, fellows: List[String]): F[Unit]
 
   /**
-   * Get the list of verification keys associated to the given pair of party and contract
+   * Get the list of verification keys associated to the given pair of fellowship and template
    *
-   * @param party   A String label of the party to get the verification keys for
-   * @return The list of verification keys in base58 format associated to the given party and contract if possible.
-   *         Else None. It is possible that the list of entities is empty.
+   * @param fellowship   A String label of the fellowship to get the verification keys for
+   * @return The list of verification keys in base58 format associated to the given fellowship and template if possible.
+   *         Else None. It is possible that the list of fellows is empty.
    */
-  def getEntityVks(party: String, contract: String): F[Option[List[String]]]
+  def getEntityVks(fellowship: String, template: String): F[Option[List[String]]]
 
   /**
-   * Add a new lock template entry to the wallet state's cartesian indexing. Lock templates are at the y (contract)
-   * layer. This new entry will be associated to the label given by contract. The index of the new entry (and thus
-   * associated with the contract label) will be automatically derived by the next available y-index.
+   * Add a new lock template entry to the wallet interaction's cartesian indexing. Lock templates are at the y (template)
+   * layer. This new entry will be associated to the label given by template. The index of the new entry (and thus
+   * associated with the template label) will be automatically derived by the next available y-index.
    *
-   * @param contract   A String label of the contract to associate the new lockTemplate entry with
+   * @param template   A String label of the template to associate the new lockTemplate entry with
    * @param lockTemplate The list of Lock Templates of the lock templates to add to the new Entries entry
    */
-  def addNewLockTemplate(contract: String, lockTemplate: LockTemplate[F]): F[Unit]
+  def addNewLockTemplate(template: String, lockTemplate: LockTemplate[F]): F[Unit]
 
   /**
-   * Get the lock template associated to the given contract
+   * Get the lock template associated to the given template
    *
-   * @param contract A String label of the contract to get the lock template for
-   * @return The lock template associated to the given contract if possible. Else None.
+   * @param template A String label of the template to get the lock template for
+   * @return The lock template associated to the given template if possible. Else None.
    */
-  def getLockTemplate(contract: String): F[Option[LockTemplate[F]]]
+  def getLockTemplate(template: String): F[Option[LockTemplate[F]]]
 
   /**
-   * Using the template associated the given contract, the verification keys associated to the party and contract pair,
-   * and the z state given by nextState, build a Lock
+   * Using the template associated the given template, the verification keys associated to the fellowship and template pair,
+   * and the z interaction given by nextInteraction, build a Lock
    *
-   * @param party A String label of the party to get the Lock verification keys for
-   * @param contract A String label of the contract to get the verification keys and template for
-   * @param nextState The z index state to build the lock for
+   * @param fellowship A String label of the fellowship to get the Lock verification keys for
+   * @param template A String label of the template to get the verification keys and template for
+   * @param nextInteraction The z index interaction to build the lock for
    * @return A built lock, if possible. Else none
    */
-  def getLock(party: String, contract: String, nextState: Int): F[Option[Lock]]
+  def getLock(fellowship: String, template: String, nextInteraction: Int): F[Option[Lock]]
 }
