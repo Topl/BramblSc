@@ -166,6 +166,9 @@ trait MockHelpers {
   )
 
   val mockSeriesPolicy: SeriesPolicy = SeriesPolicy("Mock Series Policy", None, dummyTxoAddress)
+  val mockSeriesPolicyImmutable: SeriesPolicy = mockSeriesPolicy.copy(quantityDescriptor = IMMUTABLE)
+  val mockSeriesPolicyFractionable: SeriesPolicy = mockSeriesPolicy.copy(quantityDescriptor = FRACTIONABLE)
+  val mockSeriesPolicyAccumulator: SeriesPolicy = mockSeriesPolicy.copy(quantityDescriptor = ACCUMULATOR)
   val mockGroupPolicy: GroupPolicy = GroupPolicy("Mock Group Policy", dummyTxoAddress)
 
   val seriesValue: Value = Value.defaultInstance.withSeries(Value.Series(mockSeriesPolicy.computeId, quantity, None))
@@ -176,23 +179,72 @@ trait MockHelpers {
   )
 
   val assetGroupSeriesImmutable: Value =
-    assetGroupSeries.copy(assetGroupSeries.getAsset.copy(quantityDescriptor = IMMUTABLE))
+    assetGroupSeries.copy(
+      assetGroupSeries.getAsset
+        .copy(quantityDescriptor = IMMUTABLE, seriesId = mockSeriesPolicyImmutable.computeId.some)
+    )
 
   val assetGroupSeriesFractionable: Value =
-    assetGroupSeries.copy(assetGroupSeries.getAsset.copy(quantityDescriptor = FRACTIONABLE))
+    assetGroupSeries.copy(
+      assetGroupSeries.getAsset
+        .copy(quantityDescriptor = FRACTIONABLE, seriesId = mockSeriesPolicyFractionable.computeId.some)
+    )
 
   val assetGroupSeriesAccumulator: Value =
-    assetGroupSeries.copy(assetGroupSeries.getAsset.copy(quantityDescriptor = ACCUMULATOR))
+    assetGroupSeries.copy(
+      assetGroupSeries.getAsset
+        .copy(quantityDescriptor = ACCUMULATOR, seriesId = mockSeriesPolicyAccumulator.computeId.some)
+    )
 
-  val assetGroup: Value = assetGroupSeries.copy(assetGroupSeries.getAsset.copy(fungibility = GROUP))
+  val assetGroup: Value = assetGroupSeries.copy(
+    assetGroupSeries.getAsset
+      .copy(fungibility = GROUP, seriesId = mockSeriesPolicy.copy(fungibility = GROUP).computeId.some)
+  )
 
-  val assetGroupImmutable: Value = assetGroup.copy(assetGroup.getAsset.copy(quantityDescriptor = IMMUTABLE))
-  val assetGroupFractionable: Value = assetGroup.copy(assetGroup.getAsset.copy(quantityDescriptor = FRACTIONABLE))
-  val assetGroupAccumulator: Value = assetGroup.copy(assetGroup.getAsset.copy(quantityDescriptor = ACCUMULATOR))
+  val assetGroupImmutable: Value = assetGroup.copy(
+    assetGroup.getAsset.copy(
+      quantityDescriptor = IMMUTABLE,
+      seriesId = mockSeriesPolicyImmutable.copy(fungibility = GROUP).computeId.some
+    )
+  )
 
-  val assetSeries: Value = assetGroupSeries.copy(assetGroupSeries.getAsset.copy(fungibility = SERIES))
+  val assetGroupFractionable: Value = assetGroup.copy(
+    assetGroup.getAsset.copy(
+      quantityDescriptor = FRACTIONABLE,
+      seriesId = mockSeriesPolicyFractionable.copy(fungibility = GROUP).computeId.some
+    )
+  )
 
-  val assetSeriesImmutable: Value = assetSeries.copy(assetSeries.getAsset.copy(quantityDescriptor = IMMUTABLE))
-  val assetSeriesFractionable: Value = assetSeries.copy(assetSeries.getAsset.copy(quantityDescriptor = FRACTIONABLE))
-  val assetSeriesAccumulator: Value = assetSeries.copy(assetSeries.getAsset.copy(quantityDescriptor = ACCUMULATOR))
+  val assetGroupAccumulator: Value = assetGroup.copy(
+    assetGroup.getAsset.copy(
+      quantityDescriptor = ACCUMULATOR,
+      seriesId = mockSeriesPolicyAccumulator.copy(fungibility = GROUP).computeId.some
+    )
+  )
+
+  val assetSeries: Value = assetGroupSeries.copy(
+    assetGroupSeries.getAsset
+      .copy(fungibility = SERIES, seriesId = mockSeriesPolicy.copy(fungibility = SERIES).computeId.some)
+  )
+
+  val assetSeriesImmutable: Value = assetSeries.copy(
+    assetSeries.getAsset.copy(
+      quantityDescriptor = IMMUTABLE,
+      seriesId = mockSeriesPolicyImmutable.copy(fungibility = SERIES).computeId.some
+    )
+  )
+
+  val assetSeriesFractionable: Value = assetSeries.copy(
+    assetSeries.getAsset.copy(
+      quantityDescriptor = FRACTIONABLE,
+      seriesId = mockSeriesPolicyFractionable.copy(fungibility = SERIES).computeId.some
+    )
+  )
+
+  val assetSeriesAccumulator: Value = assetSeries.copy(
+    assetSeries.getAsset.copy(
+      quantityDescriptor = ACCUMULATOR,
+      seriesId = mockSeriesPolicyAccumulator.copy(fungibility = SERIES).computeId.some
+    )
+  )
 }

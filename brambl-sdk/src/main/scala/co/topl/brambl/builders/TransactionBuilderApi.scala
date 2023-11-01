@@ -204,7 +204,8 @@ trait TransactionBuilderApi[F[_]] {
    *       in TSDK-610 depending if these values can be aggregated and deaggregated by default. Pending discussion.
    *
    * @param tokenIdentifier The Token Identifier denoting the type of token to transfer to the recipient. If this denotes
-   *                        an Asset Token, the quantity descriptor type must be LIQUID, else an error will be returned.
+   *                        an Asset Token, the referenced asset's quantity descriptor type must be LIQUID, else an error
+   *                        will be returned.
    * @param txos All the TXOs encumbered by the Lock given by lockPredicateFrom. These TXOs must contain at least the
    *             necessary quantity (given by amount) of the identified Token and at least the quantity of LVLs to
    *             satisfy the fee, else an error will be returned.

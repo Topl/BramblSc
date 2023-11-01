@@ -1,7 +1,5 @@
 package co.topl.brambl.syntax
 
-import co.topl.brambl.models.box.FungibilityType.{GROUP, GROUP_AND_SERIES, SERIES}
-import co.topl.brambl.models.box.QuantityDescriptorType
 import co.topl.brambl.models.{GroupId, SeriesId}
 import co.topl.brambl.models.box.Value._
 import com.google.protobuf.ByteString
@@ -12,12 +10,6 @@ trait TokenTypeIdentifierSyntax {
 
   implicit def valueToTypeIdentifierSyntaxOps(v: Value): ValueToTypeIdentifierSyntaxOps =
     new ValueToTypeIdentifierSyntaxOps(v)
-
-  implicit def typeIdentifierToQuantityDescriptorSyntaxOps(
-    t: ValueTypeIdentifier
-  ): TypeIdentifierToQuantityDescriptorSyntaxOps =
-    new TypeIdentifierToQuantityDescriptorSyntaxOps(t)
-
 }
 
 class ValueToTypeIdentifierSyntaxOps(val value: Value) extends AnyVal {
@@ -27,29 +19,23 @@ class ValueToTypeIdentifierSyntaxOps(val value: Value) extends AnyVal {
     case Value.Group(g)  => GroupType(g.groupId)
     case Value.Series(s) => SeriesType(s.seriesId)
     case Value.Asset(a) =>
-      (a.fungibility, a.quantityDescriptor, a.groupId, a.seriesId, a.groupAlloy, a.seriesAlloy) match {
-        case (GROUP_AND_SERIES, qd, Some(gId), Some(sId), _, _) => GroupAndSeriesFungible(gId, sId, qd)
-        // If seriesAlloy is provided, the seriesId is ignored
-        case (GROUP, qd, Some(gId), _, _, Some(sAlloy)) => GroupFungible(gId, sAlloy, qd)
-        // If groupAlloy is provided, the groupId is ignored
-        case (SERIES, qd, _, Some(sId), Some(gAlloy), _) => SeriesFungible(sId, gAlloy, qd)
-        // If seriesAlloy is not provided, the seriesId is used to identify instead
-        case (GROUP, qd, Some(gId), Some(sId), _, None) => GroupFungible(gId, sId.value, qd)
-        // If groupAlloy is not provided, the groupId is used to identify instead
-        case (SERIES, qd, Some(gId), Some(sId), None, _) => SeriesFungible(sId, gId.value, qd)
-        case _                                           => throw new Exception("Invalid asset")
+      (a.groupId, a.seriesId, a.groupAlloy, a.seriesAlloy) match {
+        // If seriesAlloy is provided, the seriesId is ignored. In this case, groupAlloy should not exist
+        case (Some(gId), _, None, Some(sAlloy)) => AssetType(gId.value, sAlloy)
+        // If groupAlloy is provided, the groupId is ignored. In this case, seriesAlloy should not exist
+        case (_, Some(sId), Some(gAlloy), None) => AssetType(gAlloy, sId.value)
+        // if neither groupAlloy or seriesAlloy is provided, the groupId and seriesId are used to identify instead
+        case (Some(gId), Some(sId), None, None) => AssetType(gId.value, sId.value)
+        // invalid cases
+        case (_, _, Some(_), Some(_)) => throw new Exception("Both groupAlloy and seriesAlloy cannot exist in an asset")
+        case (_, _, None, None) =>
+          throw new Exception("Both groupId and seriesId must be provided for non-alloy assets")
+        case (_, None, Some(_), _) =>
+          throw new Exception("seriesId must be provided when groupAlloy is used in an asset")
+        case (None, _, _, Some(_)) =>
+          throw new Exception("groupId must be provided when seriesAlloy is used in an asset")
       }
     case _ => throw new Exception("Invalid value type")
-  }
-}
-
-class TypeIdentifierToQuantityDescriptorSyntaxOps(val typeIdentifier: ValueTypeIdentifier) extends AnyVal {
-
-  def getQuantityDescriptor: Option[QuantityDescriptorType] = typeIdentifier match {
-    case GroupAndSeriesFungible(_, _, qd) => Some(qd)
-    case GroupFungible(_, _, qd)          => Some(qd)
-    case SeriesFungible(_, _, qd)         => Some(qd)
-    case _                                => None
   }
 }
 
@@ -76,36 +62,15 @@ case class GroupType(groupId: GroupId) extends ValueTypeIdentifier
  */
 case class SeriesType(seriesId: SeriesId) extends ValueTypeIdentifier
 
-sealed trait AssetType extends ValueTypeIdentifier
-
 /**
- * A Group and Series fungible asset type, identified by a GroupId, a SeriesId, and a QuantityDescriptorType.
+ * An Asset Token value type, identified by a Group Id (or Group Alloy) and a Series Id (or Series Alloy).
  *
- * @param groupId The GroupId of the asset
- * @param seriesId The SeriesId of the asset
- * @param qdType The QuantityDescriptorType of the asset
- */
-case class GroupAndSeriesFungible(groupId: GroupId, seriesId: SeriesId, qdType: QuantityDescriptorType)
-    extends AssetType
-
-/**
- * A Group fungible asset type, identified by a GroupId, a Series alloy, and a QuantityDescriptorType. If the asset is
- * not an alloy, the series "alloy" is given by the seriesId.
+ * If the asset is not an alloy (i.e, is not the result of a merge), then the GroupId and SeriesId of the asset are used.
+ * Assets with a fungibility of GROUP_AND_SERIES can never be an alloy thus will always use GroupId and SeriesId.
+ * If the asset is an alloy and it's fungibility is GROUP, then the GroupId and the Series Alloy of the asset are used.
+ * If the asset is an alloy and it's fungibility is SERIES, then the Group Alloy and the SeriesId of the asset are used.
  *
- * @param groupId  The GroupId of the asset
- * @param seriesAlloyOrId If the asset is an alloy, the Series alloy. Else the SeriesId of the asset
- * @param qdType The QuantityDescriptorType of the asset
+ * @param groupIdOrAlloy The GroupId or Group Alloy of the asset
+ * @param seriesIdOrAlloy The SeriesId or Series Alloy of the asset
  */
-case class GroupFungible(groupId: GroupId, seriesAlloyOrId: ByteString, qdType: QuantityDescriptorType)
-    extends AssetType
-
-/**
- * A Series fungible asset type, identified by a SeriesId, a Group alloy, and a QuantityDescriptorType. If the asset is
- * not an alloy, the group "alloy" is given by the groupId.
- *
- * @param seriesId The SeriesId of the asset
- * @param groupAlloyOrId If the asset is an alloy, the Group alloy. Else the GroupId of the asset
- * @param qdType The QuantityDescriptorType of the asset
- */
-case class SeriesFungible(seriesId: SeriesId, groupAlloyOrId: ByteString, qdType: QuantityDescriptorType)
-    extends AssetType
+case class AssetType(groupIdOrAlloy: ByteString, seriesIdOrAlloy: ByteString) extends ValueTypeIdentifier

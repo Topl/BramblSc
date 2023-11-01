@@ -9,6 +9,7 @@ import quivr.models.Int128
 import co.topl.brambl.syntax.{
   int128AsBigInt,
   longAsInt128,
+  valueToQuantityDescriptorSyntaxOps,
   valueToQuantitySyntaxOps,
   valueToTypeIdentifierSyntaxOps,
   LvlType,
@@ -137,13 +138,22 @@ object UserInputValidations {
       UserInputError(s"Not enough LVLs in input to satisfy fee")
     )
 
-  def identifierQuantityDescriptorLiquidOrNone(testType: ValueTypeIdentifier): ValidatedNec[UserInputError, Unit] = {
-    val qd = testType.getQuantityDescriptor
-    Validated.condNec(
-      qd.isEmpty || qd.get == QuantityDescriptorType.LIQUID,
-      (),
-      UserInputError(s"Invalid asset quantity descriptor type. If identifier is an asset, it must be liquid.")
-    )
+  def distinctIdentifierQuantityDescriptorLiquid(
+    values:   Seq[Value],
+    testType: ValueTypeIdentifier
+  ): ValidatedNec[UserInputError, Unit] = {
+    val transferQds = values.filter(_.typeIdentifier == testType).map(_.getQuantityDescriptor).distinct
+    if (transferQds.length > 1) {
+      UserInputError(s"All values identified by the ValueTypeIdentifier must have the same quantity descriptor")
+        .invalidNec[Unit]
+    } else {
+      val qd = transferQds.headOption.flatten
+      Validated.condNec(
+        qd.isEmpty || qd.get == QuantityDescriptorType.LIQUID,
+        (),
+        UserInputError(s"Invalid asset quantity descriptor type. If identifier is an asset, it must be liquid.")
+      )
+    }
   }
 
   object TransactionBuilder {
@@ -195,7 +205,7 @@ object UserInputValidations {
           "lockPredicateFrom"
         ),
         validTransferSupplyAmount(amount, allValues, transferIdentifier),
-        identifierQuantityDescriptorLiquidOrNone(transferIdentifier),
+        distinctIdentifierQuantityDescriptorLiquid(allValues, transferIdentifier),
         validFee(fee, allValues, if (transferIdentifier == LvlType) amount else 0)
       ).fold.toEither
     } match {
