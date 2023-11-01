@@ -176,9 +176,9 @@ trait WalletApi[F[_]] {
    * @return        The protobuf encoded keys of the child key pair
    */
   def deriveChildKeysPartial(
-    keyPair:   KeyPair,
-    xFellowship:    Int,
-    yTemplate: Int
+    keyPair:     KeyPair,
+    xFellowship: Int,
+    yTemplate:   Int
   ): F[KeyPair]
 
   /**
@@ -336,9 +336,9 @@ object WalletApi {
     }
 
     override def deriveChildKeysPartial(
-      keyPair:   KeyPair,
-      xFellowship:    Int,
-      yTemplate: Int
+      keyPair:     KeyPair,
+      xFellowship: Int,
+      yTemplate:   Int
     ): F[KeyPair] = {
       require(keyPair.vk.vk.isExtendedEd25519, "keyPair must be an extended Ed25519 key")
       require(keyPair.sk.sk.isExtendedEd25519, "keyPair must be an extended Ed25519 key")

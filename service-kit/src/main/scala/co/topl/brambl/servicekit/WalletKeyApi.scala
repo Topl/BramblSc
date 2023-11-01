@@ -110,7 +110,9 @@ object WalletKeyApi {
       ): F[Either[WalletKeyException, Unit]] =
         if (!Paths.get(mnemonicName).toFile.exists())
           Resource
-            .make(Sync[F].delay(new PrintWriter(mnemonicName)))(file => Sync[F].delay(file.flush()) >> Sync[F].delay(file.close()))
+            .make(Sync[F].delay(new PrintWriter(mnemonicName)))(file =>
+              Sync[F].delay(file.flush()) >> Sync[F].delay(file.close())
+            )
             .use { file =>
               for {
                 res <- Sync[F].blocking(file.write(mnemonic.mkString(",")))

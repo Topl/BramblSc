@@ -72,33 +72,34 @@ object WalletStateApi {
         )
       }
 
-      def setCurrentIndices(fellowship: String, template: String, interaction: Int): F[Option[Indices]] = connection.use { conn =>
-        for {
-          stmnt <- Sync[F].blocking(conn.createStatement())
-          rs <- Sync[F].blocking(
-            stmnt.executeQuery(
-              s"SELECT x_fellowship, fellowship FROM fellowships WHERE fellowship = '${fellowship}'"
+      def setCurrentIndices(fellowship: String, template: String, interaction: Int): F[Option[Indices]] =
+        connection.use { conn =>
+          for {
+            stmnt <- Sync[F].blocking(conn.createStatement())
+            rs <- Sync[F].blocking(
+              stmnt.executeQuery(
+                s"SELECT x_fellowship, fellowship FROM fellowships WHERE fellowship = '${fellowship}'"
+              )
             )
-          )
-          x <- Sync[F].delay(rs.getInt("x_fellowship"))
-          query =
-            s"SELECT y_template, template FROM templates WHERE template = '${template}'"
-          rs <- Sync[F].blocking(
-            stmnt.executeQuery(
-              query
+            x <- Sync[F].delay(rs.getInt("x_fellowship"))
+            query =
+              s"SELECT y_template, template FROM templates WHERE template = '${template}'"
+            rs <- Sync[F].blocking(
+              stmnt.executeQuery(
+                query
+              )
             )
-          )
-          y <- Sync[F].delay(rs.getInt("y_template"))
-          res <- Sync[F].blocking(
-            stmnt.executeUpdate(
-              s"DELETE FROM " +
-              s"cartesian WHERE x_fellowship = ${x} AND " +
-              s"y_template = ${y} AND " +
-              s"z_interaction > ${interaction}"	
+            y <- Sync[F].delay(rs.getInt("y_template"))
+            res <- Sync[F].blocking(
+              stmnt.executeUpdate(
+                s"DELETE FROM " +
+                s"cartesian WHERE x_fellowship = ${x} AND " +
+                s"y_template = ${y} AND " +
+                s"z_interaction > ${interaction}"
+              )
             )
-          )
-        } yield if (res > 0) Some(Indices(x, y, interaction)) else None
-      }
+          } yield if (res > 0) Some(Indices(x, y, interaction)) else None
+        }
 
       def getLockByAddress(lockAddress: String): F[Option[Lock.Predicate]] = connection.use { conn =>
         for {
@@ -201,13 +202,13 @@ object WalletStateApi {
         }
 
       def validateCurrentIndicesForFunds(
-        fellowship:           String,
+        fellowship:      String,
         template:        String,
         someInteraction: Option[Int]
       ): F[ValidatedNel[String, Indices]] = for {
-        validatedFellowship    <- validateFellowship(fellowship)
-        validatedTemplate <- validateTemplate(template)
-        indices           <- getCurrentIndicesForFunds(fellowship, template, someInteraction)
+        validatedFellowship <- validateFellowship(fellowship)
+        validatedTemplate   <- validateTemplate(template)
+        indices             <- getCurrentIndicesForFunds(fellowship, template, someInteraction)
       } yield (
         validatedFellowship,
         validatedTemplate,
@@ -215,7 +216,7 @@ object WalletStateApi {
       ).mapN((_, _, index) => index)
 
       override def getAddress(
-        fellowship:           String,
+        fellowship:      String,
         template:        String,
         someInteraction: Option[Int]
       ): F[Option[String]] = connection.use { conn =>
@@ -252,7 +253,7 @@ object WalletStateApi {
       }
 
       override def getCurrentIndicesForFunds(
-        fellowship:           String,
+        fellowship:      String,
         template:        String,
         someInteraction: Option[Int]
       ): F[Option[Indices]] = connection.use { conn =>
@@ -455,9 +456,9 @@ object WalletStateApi {
       )
 
       override def addEntityVks(
-        fellowship:    String,
-        template: String,
-        fellows:  List[String]
+        fellowship: String,
+        template:   String,
+        fellows:    List[String]
       ): F[Unit] = connection.use { conn =>
         for {
           stmnt <- Sync[F].blocking(conn.createStatement())
@@ -483,8 +484,8 @@ object WalletStateApi {
       }
 
       override def getEntityVks(
-        fellowship:    String,
-        template: String
+        fellowship: String,
+        template:   String
       ): F[Option[List[String]]] = connection.use { conn =>
         for {
           stmnt <- Sync[F].blocking(conn.createStatement())
@@ -550,7 +551,7 @@ object WalletStateApi {
       }
 
       override def getLock(
-        fellowship:           String,
+        fellowship:      String,
         template:        String,
         nextInteraction: Int
       ): F[Option[Lock]] = for {

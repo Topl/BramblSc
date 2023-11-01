@@ -19,7 +19,6 @@ object MockWalletStateApi extends WalletStateAlgebra[IO] with MockHelpers {
 
   override def setCurrentIndices(fellowship: String, template: String, interaction: Int): IO[Option[Indices]] = ???
 
-
   val propEvidenceToIdx: Map[Evidence, Indices] = Map(
     MockSignatureProposition.value.digitalSignature.get.sizedEvidence -> MockIndices
   )
@@ -47,13 +46,17 @@ object MockWalletStateApi extends WalletStateAlgebra[IO] with MockHelpers {
     indices:       Indices
   ): F[Unit] = ???
 
-  override def getCurrentIndicesForFunds(fellowship: String, contract: String, someState: Option[Int]): F[Option[Indices]] =
+  override def getCurrentIndicesForFunds(
+    fellowship: String,
+    contract:   String,
+    someState:  Option[Int]
+  ): F[Option[Indices]] =
     ???
 
   override def validateCurrentIndicesForFunds(
-    fellowship:     String,
-    contract:  String,
-    someState: Option[Int]
+    fellowship: String,
+    contract:   String,
+    someState:  Option[Int]
   ): F[ValidatedNel[String, Indices]] = ???
 
   override def getNextIndicesForFunds(fellowship: String, contract: String): F[Option[Indices]] = ???
