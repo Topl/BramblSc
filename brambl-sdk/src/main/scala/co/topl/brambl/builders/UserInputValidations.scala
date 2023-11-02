@@ -254,6 +254,7 @@ object UserInputValidations {
           "lockPredicateFrom"
         ),
         positiveQuantity(quantityToMint, "quantityToMint"),
+        noUnknownType(txos.map(_.transactionOutput.value.value.typeIdentifier)),
         validFee(fee, txos.map(_.transactionOutput.value.value))
       ).fold.toEither
     } match {
@@ -285,6 +286,7 @@ object UserInputValidations {
             .andThen(s => validMintingSupply(mintingStatement.quantity, s).map(_ => s))
         ).andThen(res => fixedSeriesMatch(res._1.fixedSeries, res._2.seriesId)),
         positiveQuantity(mintingStatement.quantity, "quantity to mint"),
+        noUnknownType(txos.map(_.transactionOutput.value.value.typeIdentifier)),
         validFee(fee, txos.map(_.transactionOutput.value.value))
       ).fold.toEither
     } match {

@@ -6,7 +6,7 @@ import co.topl.brambl.common.ContainsImmutable.instances.lockImmutable
 import co.topl.brambl.models.{LockAddress, LockId}
 import co.topl.brambl.models.box.FungibilityType.{GROUP, SERIES}
 import co.topl.brambl.models.box.QuantityDescriptorType.{ACCUMULATOR, FRACTIONABLE, IMMUTABLE}
-import co.topl.brambl.models.box.AssetMintingStatement
+import co.topl.brambl.models.box.{AssetMintingStatement, Value}
 import co.topl.brambl.models.transaction.{IoTransaction, UnspentTransactionOutput}
 import co.topl.brambl.syntax.{
   assetAsBoxVal,
@@ -37,6 +37,13 @@ class TransactionBuilderInterpreterAssetMintingSpec extends TransactionBuilderIn
         )
       )
     )
+  }
+
+  test("unsupported token type in txos") {
+    val testTx = buildMintAssetTransaction
+      .addTxo(valToTxo(Value.defaultInstance)) // Value.empty
+      .run
+    assertEquals(testTx, Left(UserInputErrors(Seq(UserInputError(s"UnknownType tokens are not supported.")))))
   }
 
   test("a lock from the lock map not in the txos") {
