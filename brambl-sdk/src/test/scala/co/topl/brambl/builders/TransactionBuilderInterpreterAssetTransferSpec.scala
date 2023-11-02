@@ -14,6 +14,14 @@ import co.topl.brambl.syntax.{
 
 class TransactionBuilderInterpreterAssetTransferSpec extends TransactionBuilderInterpreterSpecBase {
 
+  test("buildTransferAmountTransaction > unsupported token type (txos)") {
+    val testTx = buildTransferAmountTransaction
+      .withTokenIdentifier(assetGroupSeries.value.typeIdentifier)
+      .withTxos(mockTxos :+ valToTxo(Value.defaultInstance)) // Value.empty
+      .run
+    assertEquals(testTx, Left(UserInputErrors(Seq(UserInputError(s"UnknownType tokens are not supported.")))))
+  }
+
   test("buildTransferAmountTransaction > quantity to transfer is non positive") {
     val testTx = buildTransferAmountTransaction
       .withTokenIdentifier(assetGroupSeries.value.typeIdentifier)

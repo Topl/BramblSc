@@ -2,20 +2,13 @@ package co.topl.brambl.builders
 
 import co.topl.brambl.models.box.Value
 import co.topl.brambl.models.transaction.IoTransaction
-import co.topl.brambl.syntax.{
-  bigIntAsInt128,
-  int128AsBigInt,
-  ioTransactionAsTransactionSyntaxOps,
-  valueToQuantitySyntaxOps,
-  valueToTypeIdentifierSyntaxOps,
-  LvlType
-}
+import co.topl.brambl.syntax.{ioTransactionAsTransactionSyntaxOps, valueToTypeIdentifierSyntaxOps, LvlType}
 
-class TransactionBuilderInterpreterSeriesTransferSpec extends TransactionBuilderInterpreterSpecBase {
+class TransactionBuilderInterpreterToplTransferSpec extends TransactionBuilderInterpreterSpecBase {
 
   test("buildTransferAmountTransaction > unsupported token type (txos)") {
     val testTx = buildTransferAmountTransaction
-      .withTokenIdentifier(seriesValue.value.typeIdentifier)
+      .withTokenIdentifier(toplValue.value.typeIdentifier)
       .withTxos(mockTxos :+ valToTxo(Value.defaultInstance)) // Value.empty
       .run
     assertEquals(testTx, Left(UserInputErrors(Seq(UserInputError(s"UnknownType tokens are not supported.")))))
@@ -23,7 +16,7 @@ class TransactionBuilderInterpreterSeriesTransferSpec extends TransactionBuilder
 
   test("buildTransferAmountTransaction > quantity to transfer is non positive") {
     val testTx = buildTransferAmountTransaction
-      .withTokenIdentifier(seriesValue.value.typeIdentifier)
+      .withTokenIdentifier(toplValue.value.typeIdentifier)
       .withAmount(0)
       .run
     assertEquals(testTx, Left(UserInputErrors(Seq(UserInputError(s"quantity to transfer must be positive")))))
@@ -31,7 +24,7 @@ class TransactionBuilderInterpreterSeriesTransferSpec extends TransactionBuilder
 
   test("buildTransferAmountTransaction > a txo isnt tied to lockPredicateFrom") {
     val testTx = buildTransferAmountTransaction
-      .withTokenIdentifier(seriesValue.value.typeIdentifier)
+      .withTokenIdentifier(toplValue.value.typeIdentifier)
       .withTxos(mockTxos :+ valToTxo(lvlValue, trivialLockAddress))
       .run
     assertEquals(
@@ -42,7 +35,7 @@ class TransactionBuilderInterpreterSeriesTransferSpec extends TransactionBuilder
 
   test("buildTransferAmountTransaction > non sufficient funds") {
     val testTx = buildTransferAmountTransaction
-      .withTokenIdentifier(seriesValue.value.typeIdentifier)
+      .withTokenIdentifier(toplValue.value.typeIdentifier)
       .withAmount(4)
       .run
     assertEquals(
@@ -61,7 +54,7 @@ class TransactionBuilderInterpreterSeriesTransferSpec extends TransactionBuilder
 
   test("buildTransferAmountTransaction > fee not satisfied") {
     val testTx = buildTransferAmountTransaction
-      .withTokenIdentifier(seriesValue.value.typeIdentifier)
+      .withTokenIdentifier(toplValue.value.typeIdentifier)
       .withFee(3)
       .run
     assertEquals(
@@ -76,21 +69,21 @@ class TransactionBuilderInterpreterSeriesTransferSpec extends TransactionBuilder
 
   test("buildTransferAmountTransaction > [complex] duplicate inputs are merged and split correctly") {
     val testTx = buildTransferAmountTransaction
-      .withTokenIdentifier(seriesValue.value.typeIdentifier)
+      .withTokenIdentifier(toplValue.value.typeIdentifier)
       .run
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
       .withInputs(buildStxos())
       .withOutputs(
         // to recipient
-        buildRecipientUtxos(List(seriesValue))
+        buildRecipientUtxos(List(toplValue))
         ++
         // change due to excess fee and transfer input
-        buildChangeUtxos(List(lvlValue, seriesValue))
+        buildChangeUtxos(List(lvlValue, toplValue))
         ++
         // change values unaffected by recipient transfer and fee
         buildChangeUtxos(
-          mockChange.filterNot(v => List(LvlType, seriesValue.value.typeIdentifier).contains(v.value.typeIdentifier))
+          mockChange.filterNot(v => List(LvlType, toplValue.value.typeIdentifier).contains(v.value.typeIdentifier))
         )
       )
     assertEquals(
@@ -100,16 +93,16 @@ class TransactionBuilderInterpreterSeriesTransferSpec extends TransactionBuilder
   }
 
   test("buildTransferAmountTransaction > [simplest case] no change, only 1 output") {
-    val txos = Seq(valToTxo(seriesValue))
+    val txos = Seq(valToTxo(toplValue))
     val testTx = buildTransferAmountTransaction
-      .withTokenIdentifier(seriesValue.value.typeIdentifier)
+      .withTokenIdentifier(toplValue.value.typeIdentifier)
       .withTxos(txos)
       .withFee(0)
       .run
     val expectedTx = IoTransaction.defaultInstance
       .withDatum(txDatum)
       .withInputs(buildStxos(txos))
-      .withOutputs(buildRecipientUtxos(List(seriesValue)))
+      .withOutputs(buildRecipientUtxos(List(toplValue)))
     assertEquals(testTx.toOption.get.computeId, expectedTx.computeId)
   }
 }

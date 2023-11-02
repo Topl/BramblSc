@@ -8,6 +8,8 @@ import co.topl.brambl.syntax.{
   valueToQuantityDescriptorSyntaxOps,
   valueToQuantitySyntaxOps,
   valueToTypeIdentifierSyntaxOps,
+  AssetType,
+  ToplType,
   UnknownType
 }
 
@@ -48,10 +50,16 @@ trait AggregationOps {
  *
  * Values are allowed to be aggregated together under the following conditions:
  * - All are the same type
- * - The type is either GROUP, SERIES, liquid ASSET, or LVL
+ * - The type is either GROUP, SERIES, liquid ASSET, TOPL without staking registration, or LVL
  *
  * Liquid ASSET denotes an ASSET with a quantity descriptor of LIQUID. Other quantity types (IMMUTABLE, FRACTIONABLE,
  * and ACCUMULATOR) are not allowed to be aggregated with this default implementation.
+ *
+ * TOPL without staking registration denotes a TOPL with the staking registration field set to "None". TOPLs with this
+ * field set are not allowed to be de-aggregated with this default implementation. In-use, this only affects the
+ * "aggregateWithChange" function since it deals with de-aggregation to compute change. Aggregation is not an issue for
+ * TOPLs with this field set since this field is expected to be unique among all TOPLs (i.e, there should not be multiple
+ * TOPLs to aggregate together).
  */
 object DefaultAggregationOps extends AggregationOps {
 
@@ -59,12 +67,13 @@ object DefaultAggregationOps extends AggregationOps {
    * Aggregate 2 values into 1 if allowable. Throw an exception otherwise.
    */
   private def handleAggregation(value: Value, other: Value): Value =
-    if (value.typeIdentifier == UnknownType)
-      throw new Exception("Aggregation of UnknownType is not allowed")
-    else if (value.typeIdentifier == other.typeIdentifier)
-      if (value.getQuantityDescriptor.forall(_ == LIQUID))
-        value.setQuantity(value.quantity + other.quantity)
-      else throw new Exception("Aggregation of IMMUTABLE, FRACTIONABLE, or ACCUMULATOR assets is not allowed")
+    if (value.typeIdentifier == other.typeIdentifier) value.typeIdentifier match {
+      case UnknownType => throw new Exception("Aggregation of UnknownType is not allowed")
+      case AssetType(_, _) if value.asset.get.quantityDescriptor != LIQUID =>
+        throw new Exception("Aggregation of IMMUTABLE, FRACTIONABLE, or ACCUMULATOR assets is not allowed")
+      case ToplType(Some(_)) => throw new Exception("Aggregation of TOPL with staking registration is not allowed")
+      case _                 => value.setQuantity(value.quantity + other.quantity)
+    }
     else throw new Exception("Aggregation of different types is not allowed")
 
   override def aggregate(values: Seq[Value]): Seq[Value] = Try {
