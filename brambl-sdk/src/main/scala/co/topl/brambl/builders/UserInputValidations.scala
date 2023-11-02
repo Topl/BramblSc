@@ -13,6 +13,7 @@ import co.topl.brambl.syntax.{
   valueToQuantitySyntaxOps,
   valueToTypeIdentifierSyntaxOps,
   LvlType,
+  ToplType,
   UnknownType,
   ValueTypeIdentifier
 }
@@ -133,6 +134,15 @@ object UserInputValidations {
   ): ValidatedNec[UserInputError, Unit] =
     Validated.condNec(!testValues.contains(UnknownType), (), UserInputError(s"UnknownType tokens are not supported."))
 
+  def toplNoStakingReg(
+    testValue: ValueTypeIdentifier,
+    testLabel: String
+  ): ValidatedNec[UserInputError, Unit] = testValue match {
+    case ToplType(Some(_)) =>
+      UserInputError(s"If ${testLabel} is a Topl type, staking registration must be None").invalidNec[Unit]
+    case _ => ().validNec[UserInputError]
+  }
+
   def validFee(
     fee:                  Long,
     testValues:           Seq[Value],
@@ -183,6 +193,7 @@ object UserInputValidations {
           "lockPredicateFrom"
         ),
         validTransferSupplyAll(tokenIdentifier, allValues.map(_.typeIdentifier)),
+        noUnknownType(allValues.map(_.typeIdentifier) ++ tokenIdentifier.toSeq),
         validFee(fee, allValues)
       ).fold.toEither
     } match {
@@ -213,6 +224,7 @@ object UserInputValidations {
         noUnknownType(allValues.map(_.typeIdentifier) :+ transferIdentifier).andThen(_ =>
           validTransferSupplyAmount(amount, allValues, transferIdentifier)
         ),
+        toplNoStakingReg(transferIdentifier, "tokenIdentifier"),
         distinctIdentifierQuantityDescriptorLiquid(allValues, transferIdentifier),
         validFee(fee, allValues, if (transferIdentifier == LvlType) amount else 0)
       ).fold.toEither

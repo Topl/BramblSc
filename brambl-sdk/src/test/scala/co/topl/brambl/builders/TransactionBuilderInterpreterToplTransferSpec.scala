@@ -14,6 +14,18 @@ class TransactionBuilderInterpreterToplTransferSpec extends TransactionBuilderIn
     assertEquals(testTx, Left(UserInputErrors(Seq(UserInputError(s"UnknownType tokens are not supported.")))))
   }
 
+  test("buildTransferAmountTransaction > Topl with staking registration") {
+    val testTx = buildTransferAmountTransaction
+      .withTokenIdentifier(toplReg1.value.typeIdentifier)
+      .run
+    assertEquals(
+      testTx,
+      Left(
+        UserInputErrors(Seq(UserInputError(s"If tokenIdentifier is a Topl type, staking registration must be None")))
+      )
+    )
+  }
+
   test("buildTransferAmountTransaction > quantity to transfer is non positive") {
     val testTx = buildTransferAmountTransaction
       .withTokenIdentifier(toplValue.value.typeIdentifier)
