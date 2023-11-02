@@ -31,7 +31,8 @@ class BoxValueSyntaxSpec extends munit.FunSuite with MockHelpers {
     assertEquals(groupValue.value.quantity, quantity)
     assertEquals(seriesValue.value.quantity, quantity)
     assertEquals(assetGroupSeries.value.quantity, quantity)
-    intercept[Exception](BoxValue.Topl(Value.TOPL(mockNewQuantity)).quantity)
+    assertEquals(toplValue.value.quantity, quantity)
+    intercept[Exception](Value.defaultInstance.value.quantity)
   }
 
   test("setQuantity") {
@@ -39,6 +40,7 @@ class BoxValueSyntaxSpec extends munit.FunSuite with MockHelpers {
     assertEquals(groupValue.value.setQuantity(mockNewQuantity).quantity, mockNewQuantity)
     assertEquals(seriesValue.value.setQuantity(mockNewQuantity).quantity, mockNewQuantity)
     assertEquals(assetGroupSeries.value.setQuantity(mockNewQuantity).quantity, mockNewQuantity)
-    intercept[Exception](BoxValue.Topl(Value.TOPL(mockNewQuantity)).setQuantity(mockNewQuantity))
+    assertEquals(toplValue.value.setQuantity(mockNewQuantity).quantity, mockNewQuantity)
+    intercept[Exception](Value.defaultInstance.value.setQuantity(mockNewQuantity))
   }
 }

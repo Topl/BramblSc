@@ -29,6 +29,7 @@ class TokenTypeIdentifierSyntaxSpec extends munit.FunSuite with MockHelpers {
       assetSeries.copy(assetSeries.getAsset.copy(groupAlloy = mockAlloy.some)).value.typeIdentifier,
       AssetType(testAlloy, sIdSeries.value)
     )
-    intercept[Exception](BoxValue.Topl(Value.TOPL(quantity)).typeIdentifier)
+    assertEquals(toplValue.value.typeIdentifier, ToplType(None))
+    assertEquals(Value.defaultInstance.value.typeIdentifier, UnknownType)
   }
 }

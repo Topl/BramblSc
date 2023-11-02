@@ -171,6 +171,7 @@ trait MockHelpers {
   val mockSeriesPolicyAccumulator: SeriesPolicy = mockSeriesPolicy.copy(quantityDescriptor = ACCUMULATOR)
   val mockGroupPolicy: GroupPolicy = GroupPolicy("Mock Group Policy", dummyTxoAddress)
 
+  val toplValue: Value = Value.defaultInstance.withTopl(Value.TOPL(quantity, None))
   val seriesValue: Value = Value.defaultInstance.withSeries(Value.Series(mockSeriesPolicy.computeId, quantity, None))
   val groupValue: Value = Value.defaultInstance.withGroup(Value.Group(mockGroupPolicy.computeId, quantity))
 

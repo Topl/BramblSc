@@ -13,6 +13,7 @@ import co.topl.brambl.syntax.{
   valueToQuantitySyntaxOps,
   valueToTypeIdentifierSyntaxOps,
   LvlType,
+  UnknownType,
   ValueTypeIdentifier
 }
 import co.topl.genus.services.Txo
@@ -127,6 +128,11 @@ object UserInputValidations {
       Validated.condNec(testValues.nonEmpty, (), UserInputError(s"There must be at least one Txo to transfer."))
   }
 
+  def noUnknownType(
+    testValues: Seq[ValueTypeIdentifier]
+  ): ValidatedNec[UserInputError, Unit] =
+    Validated.condNec(!testValues.contains(UnknownType), (), UserInputError(s"UnknownType tokens are not supported."))
+
   def validFee(
     fee:                  Long,
     testValues:           Seq[Value],
@@ -204,7 +210,9 @@ object UserInputValidations {
           "the txos",
           "lockPredicateFrom"
         ),
-        validTransferSupplyAmount(amount, allValues, transferIdentifier),
+        noUnknownType(allValues.map(_.typeIdentifier) :+ transferIdentifier).andThen(_ =>
+          validTransferSupplyAmount(amount, allValues, transferIdentifier)
+        ),
         distinctIdentifierQuantityDescriptorLiquid(allValues, transferIdentifier),
         validFee(fee, allValues, if (transferIdentifier == LvlType) amount else 0)
       ).fold.toEither
