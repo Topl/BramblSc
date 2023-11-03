@@ -307,7 +307,56 @@ The resulting `PredicateTemplate` can be used to generate a Lock.
 
 ## Sharing Templates
 
-Coming Soon
+The SDK provides an easy way to share templates with other users using JSON.
+
+### Encoding into JSON
+
+You can encode a Lock Template into JSON using
+the <ScaladocLink path="co/topl/brambl/codecs/LockTemplateCodecs$.html#encodeLockTemplate[F[_]](LockTemplate[F])(Monad[F]):Json"><code>encodeLockTemplate</code></ScaladocLink>
+function in the LockTemplateCodecs object:
+
+```scala
+def encodeLockTemplate[F[_]: Monad](template: LockTemplate[F]): Json
+```
+
+This function takes in a Lock template and returns a JSON representation of the template.
+
+The parameters are as follows:
+- `template`: The Lock Template to encode.
+
+Type parameters:
+- `F`: The context, bound to a context parameter of type `Monad[F]`, in which the template will be encoded. For example, if you
+are using Cats Effect `IO`:
+  ```scala
+  import cats.effect.IO
+
+  val jsonTemplate = encodeLockTemplate[IO](template)
+  ```
+
+### Decoding from JSON
+
+You can decode a JSON representation of a Lock Template back into the Lock Template instance using
+the <ScaladocLink path="co/topl/brambl/codecs/LockTemplateCodecs$.html#decodeLockTemplate[F[_]](Json)(Monad[F]):Either[DecodingFailure,LockTemplate[F]]"><code>decodeLockTemplate</code></ScaladocLink>
+function in the LockTemplateCodecs object:
+
+```scala
+def decodeLockTemplate[F[_]: Monad](template: Json): Either[DecodingFailure, LockTemplate[F]]
+```
+
+This function takes in a JSON representation of a Lock template and returns the Lock template if possible. If it is not
+possible to decode the JSON into a Lock template, an error will be returned.
+
+The parameters are as follows:
+- `template`: The JSON to decode into a Lock Template.
+
+Type parameters:
+- `F`: The context, bound to a context parameter of type `Monad[F]`, in which the template will be decoded. For example, if you
+are using Cats Effect `IO`:
+  ```scala
+  import cats.effect.IO
+
+  val lockTemplate = decodeLockTemplate[IO](template)
+  ```
 
 ## Build Lock
 
