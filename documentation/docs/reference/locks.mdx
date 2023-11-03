@@ -1,10 +1,311 @@
 ---
 sidebar_position: 3
-title: Create a Lock
+title: Locks
 description: Build new locks to be used in transactions.
 ---
 
-## Create Lock Template
+import InitTxBuilder from './transactions/_init-tx-builder.mdx';
+import Link from '@docusaurus/Link';
+import ScaladocLink from '@site/src/components/ScaladocLink';
+
+
+The first step to creating a new LockAddress to receive funds is to create a Lock Template. The SDK offers a way to create a
+Lock Template, build a Lock from a Lock Template, and generate a Lock Address from a Lock.
+
+:::note
+The only type of Lock currently supported in our ecosystem is
+a <Link href="https://github.com/Topl/protobuf-specs/blob/main/proto/brambl/models/box/lock.proto#L21">Predicate Lock</Link>.
+The only type
+of <Link href="https://github.com/Topl/protobuf-specs/blob/main/proto/brambl/models/box/challenge.proto">Challenge</Link>
+currently supported in our ecosystem is a
+revealed <Link href="https://github.com/Topl/protobuf-specs/blob/main/proto/quivr/models/proposition.proto">proposition</Link>.
+:::
+
+## Creating Templates
+
+To build a Lock, you must first create a Lock Template.
+
+### Create a Proposition Template
+
+The first step in creating a Lock Template is to create the inner  Proposition Templates. You can create a proposition
+template using the various proposition template functions in
+the <ScaladocLink path="co/topl/brambl/builders/locks/PropositionTemplate$.html"><code>PropositionTemplate object</code></ScaladocLink>.
+Once created, the resulting PropositionTemplates can be used to create a Predicate Lock Template.
+
+We provide the following Proposition Templates:
+
+#### LockedTemplate
+
+Once built, a LockedTemplate refers to
+a <Link href="https://github.com/Topl/protobuf-specs/blob/main/proto/quivr/models/proposition.proto#L30">Locked proposition</Link>.
+You can create a LockedTemplate using
+the <ScaladocLink path="co/topl/brambl/builders/locks/PropositionTemplate$$LockedTemplate.html"><code>LockedTemplate</code></ScaladocLink>
+case class:
+
+```scala
+case class LockedTemplate[F[_]: Monad](
+  data: Option[Data]
+) extends PropositionTemplate[F]
+```
+
+The parameters are the same as a Locked proposition.
+
+Type parameters:
+- `F`: The context, bound to a context parameter of type `Monad[F]`, in which the template will be created. For example, if you
+are using Cats Effect `IO`:
+  ```scala
+  import cats.effect.IO
+
+  val lockedTemplate = LockedTemplate[IO](data)
+  ```
+
+#### HeightTemplate
+
+Once built, a HeightTemplate refers to
+a <Link href="https://github.com/Topl/protobuf-specs/blob/main/proto/quivr/models/proposition.proto#L48">HeightRange proposition</Link>.
+You can create a HeightTemplate using
+the <ScaladocLink path="co/topl/brambl/builders/locks/PropositionTemplate$$HeightTemplate.html"><code>HeightTemplate</code></ScaladocLink>
+case class:
+
+```scala
+case class HeightTemplate[F[_]: Monad](
+  chain: String,
+  min: Long,
+  max: Long
+) extends PropositionTemplate[F]
+```
+
+The parameters are the same as a HeightRange proposition.
+
+Type parameters:
+- `F`: The context, bound to a context parameter of type `Monad[F]`, in which the template will be created. For example, if you
+are using Cats Effect `IO`:
+  ```scala
+  import cats.effect.IO
+
+  val heightTemplate = HeightTemplate[IO](chain, min, max)
+  ```
+
+#### TickTemplate
+
+Once built, a TickTemplate refers to
+a <Link href="https://github.com/Topl/protobuf-specs/blob/main/proto/quivr/models/proposition.proto#L55">TickRange proposition</Link>.
+You can create a TickTemplate using
+the <ScaladocLink path="co/topl/brambl/builders/locks/PropositionTemplate$$TickTemplate.html"><code>TickTemplate</code></ScaladocLink>
+case class:
+
+```scala
+case class TickTemplate[F[_]: Monad](
+  min: Long,
+  max: Long
+) extends PropositionTemplate[F]
+```
+
+The parameters are the same as a TickRange proposition.
+
+Type parameters:
+- `F`: The context, bound to a context parameter of type `Monad[F]`, in which the template will be created. For example, if you
+are using Cats Effect `IO`:
+  ```scala
+  import cats.effect.IO
+
+  val tickTemplate = TickTemplate[IO](min, max)
+  ```
+
+#### DigestTemplate
+
+Once built, a DigestTemplate refers to
+a <Link href="https://github.com/Topl/protobuf-specs/blob/main/proto/quivr/models/proposition.proto#L36">Digest proposition</Link>.
+You can create a DigestTemplate using
+the <ScaladocLink path="co/topl/brambl/builders/locks/PropositionTemplate$$DigestTemplate.html"><code>DigestTemplate</code></ScaladocLink>
+case class:
+
+```scala
+case class DigestTemplate[F[_]: Monad](
+  routine: String,
+  digest: Digest
+) extends PropositionTemplate[F]
+```
+
+The parameters are the same as a Digest proposition.
+
+Type parameters:
+- `F`: The context, bound to a context parameter of type `Monad[F]`, in which the template will be created. For example, if you
+are using Cats Effect `IO`:
+  ```scala
+  import cats.effect.IO
+
+  val digestTemplate = DigestTemplate[IO](min, max)
+  ```
+
+#### SignatureTemplate
+
+Once built, a SignatureTemplate refers to
+a <Link href="https://github.com/Topl/protobuf-specs/blob/main/proto/quivr/models/proposition.proto#L42">DigitalSignature proposition</Link>.
+You can create a SignatureTemplate using
+the <ScaladocLink path="co/topl/brambl/builders/locks/PropositionTemplate$$SignatureTemplate.html"><code>SignatureTemplate</code></ScaladocLink>
+case class:
+
+```scala
+case class SignatureTemplate[F[_]: Monad](
+  routine: String,
+  entityIdx: Int
+) extends PropositionTemplate[F]
+```
+
+The parameters are similar to a DigitalSignature proposition. The key difference being that, instead of specifying the
+`verificationKey` field, we specify an `entityIdx`. This `entityIdx` represents the index of an entity's VerificationKey
+in a list of verification keys. `entityIdx` in conjunction with this list of verification keys (which is provided when building
+the lock), will be used to populate the `verificationKey` field in the built DigitalSignature proposition.
+See [Build Lock](#build-lock) for more information.
+
+Type parameters:
+- `F`: The context, bound to a context parameter of type `Monad[F]`, in which the template will be created. For example, if you
+are using Cats Effect `IO`:
+  ```scala
+  import cats.effect.IO
+
+  val signatureTemplate = SignatureTemplate[IO](routine, entityIdx)
+  ```
+
+#### AndTemplate
+
+Once built, an AndTemplate refers to
+an <Link href="https://github.com/Topl/protobuf-specs/blob/main/proto/quivr/models/proposition.proto#L96">And proposition</Link>.
+You can create an AndTemplate using
+the <ScaladocLink path="co/topl/brambl/builders/locks/PropositionTemplate$$AndTemplate.html"><code>AndTemplate</code></ScaladocLink>
+case class:
+
+```scala
+case class AndTemplate[F[_]: Monad](
+  leftTemplate: PropositionTemplate[F],
+  rightTemplate: PropositionTemplate[F]
+) extends PropositionTemplate[F]
+```
+
+The parameters are similar to an And proposition. The key difference being that, instead of specifying the `left` and
+`right` fields as propositions directly, we specify them as Proposition Templates.
+
+Type parameters:
+- `F`: The context, bound to a context parameter of type `Monad[F]`, in which the template will be created. For example, if you
+are using Cats Effect `IO`:
+  ```scala
+  import cats.effect.IO
+
+  val andTemplate = AndTemplate[IO](leftTemplate, rightTemplate)
+  ```
+
+#### OrTemplate
+
+Once built, an OrTemplate refers to
+an <Link href="https://github.com/Topl/protobuf-specs/blob/main/proto/quivr/models/proposition.proto#L102">Or proposition</Link>.
+You can create an OrTemplate using
+the <ScaladocLink path="co/topl/brambl/builders/locks/PropositionTemplate$$OrTemplate.html"><code>OrTemplate</code></ScaladocLink>
+case class:
+
+```scala
+case class OrTemplate[F[_]: Monad](
+  leftTemplate: PropositionTemplate[F],
+  rightTemplate: PropositionTemplate[F]
+) extends PropositionTemplate[F]
+```
+
+The parameters are similar to an Or proposition. The key difference being that, instead of specifying the `left` and
+`right` fields as propositions directly, we specify them as Proposition Templates.
+
+Type parameters:
+- `F`: The context, bound to a context parameter of type `Monad[F]`, in which the template will be created. For example, if you
+are using Cats Effect `IO`:
+  ```scala
+  import cats.effect.IO
+
+  val orTemplate = OrTemplate[IO](leftTemplate, rightTemplate)
+  ```
+
+#### NotTemplate
+
+Once built, a NotTemplate refers to
+a <Link href="https://github.com/Topl/protobuf-specs/blob/main/proto/quivr/models/proposition.proto#L91">Not proposition</Link>.
+You can create an NotTemplate using
+the <ScaladocLink path="co/topl/brambl/builders/locks/PropositionTemplate$$NotTemplate.html"><code>NotTemplate</code></ScaladocLink>
+case class:
+
+```scala
+case class NotTemplate[F[_]: Monad](
+  innerTemplate: PropositionTemplate[F]
+) extends PropositionTemplate[F]
+```
+
+The parameters are similar to a Not proposition. The key difference being that, instead of specifying the `proposition`
+field as a proposition directly, we specify it as Proposition Templates.
+
+Type parameters:
+- `F`: The context, bound to a context parameter of type `Monad[F]`, in which the template will be created. For example, if you
+are using Cats Effect `IO`:
+  ```scala
+  import cats.effect.IO
+
+  val notTemplate = NotTemplate[IO](innerTemplate)
+  ```
+
+#### ThresholdTemplate
+
+Once built, a ThresholdTemplate refers to
+a <Link href="https://github.com/Topl/protobuf-specs/blob/main/proto/quivr/models/proposition.proto#L85">Threshold proposition</Link>.
+You can create an ThresholdTemplate using
+the <ScaladocLink path="co/topl/brambl/builders/locks/PropositionTemplate$$NotTemplate.html"><code>ThresholdTemplate</code></ScaladocLink>
+case class:
+
+```scala
+case class ThresholdTemplate[F[_]: Monad](
+  innerTemplates: Seq[]PropositionTemplate[F]],
+  threshold: Int
+) extends PropositionTemplate[F]
+```
+
+The parameters are similar to a Threshold proposition. The key difference being that, instead of specifying the `challenges`
+field as propositions directly, we specify it as Proposition Templates.
+
+Type parameters:
+- `F`: The context, bound to a context parameter of type `Monad[F]`, in which the template will be created. For example, if you
+are using Cats Effect `IO`:
+  ```scala
+  import cats.effect.IO
+
+  val thresholdTemplate = ThresholdTemplate[IO](innerTemplates, threshold)
+  ```
+
+### Create a Predicate Lock Template
+
+Once you have your Proposition Templates you can create your Predicate Lock template using
+the <ScaladocLink path="co/topl/brambl/builders/locks/LockTemplate$$PredicateTemplate.html"><code>PredicateTemplate</code></ScaladocLink>
+case class:
+
+```scala
+case class PredicateTemplate[F[_]: Monad](
+  innerTemplates: Seq[PropositionTemplate[F]],
+  threshold: Int
+) extends LockTemplate[F]
+```
+
+The parameters are as follows:
+- `innerTemplates`: A sequence of [Proposition Templates](#create-a-proposition-template) that will be used to create the inner propositions (Challenges)
+of the Predicate Lock.
+- `threshold`: The number of inner propositions that must be satisfied in order to satisfy the Predicate Lock.
+
+Type parameters:
+- `F`: The context, bound to a context parameter of type `Monad[F]`, in which the template will be created. For example, if you
+are using Cats Effect `IO`:
+  ```scala
+  import cats.effect.IO
+
+  val predicateTemplate = PredicateTemplate[IO](innerTemplates, threshold)
+  ```
+
+The resulting `PredicateTemplate` can be used to generate a Lock.
+
+
+## Sharing Templates
 
 Coming Soon
 
@@ -13,5 +314,9 @@ Coming Soon
 Coming Soon
 
 ## Generate Lock Address
+
+<InitTxBuilder/>
+
+## Sharing Lock Addresses
 
 Coming Soon
