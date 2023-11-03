@@ -388,6 +388,21 @@ an `entityIdx` is greater than or equal to the length of `entityVks` or if it's 
 
 <InitTxBuilder/>
 
+You can generate a lock address for a given lock using
+the <ScaladocLink path="lockAddress(Lock):F[LockAddress]"><code>lockAddress</code></ScaladocLink>
+function of a Transaction Builder API instance.
+
+```scala
+def lockAddress(
+  lock: Lock
+): F[LockAddress]
+```
+
+The parameters are as follows:
+- `lock`: The Lock for which to generate an address for.
+
+The resulting Lock Address can be used in a transaction.
+
 ## Sharing Lock Addresses
 
 Coming Soon
