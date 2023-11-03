@@ -23,12 +23,15 @@ import co.topl.brambl.syntax.{
   longAsInt128,
   seriesAsBoxVal,
   seriesPolicyAsSeriesPolicySyntaxOps,
+  toplAsBoxVal,
   valueToTypeIdentifierSyntaxOps,
   LvlType,
   ValueTypeIdentifier
 }
+import co.topl.consensus.models.{SignatureKesProduct, SignatureKesSum, StakingAddress, StakingRegistration}
 import co.topl.genus.services.Txo
 import co.topl.genus.services.TxoState.UNSPENT
+import com.google.protobuf.ByteString
 
 trait TransactionBuilderInterpreterSpecBase extends munit.FunSuite with MockHelpers {
   val txBuilder: TransactionBuilderApi[Id] = TransactionBuilderApi.make[Id](0, 0)
@@ -138,6 +141,32 @@ trait TransactionBuilderInterpreterSpecBase extends munit.FunSuite with MockHelp
   val assetGroupImmutableAlt: Value = toAltAsset(assetGroupImmutable)
   val assetSeriesImmutableAlt: Value = toAltAsset(assetSeriesImmutable)
 
+  private val trivialByte32 = ByteString.copyFrom(Array.fill(32)(0: Byte))
+
+  private val trivialSignatureKesSum =
+    SignatureKesSum(trivialByte32, trivialByte32 concat trivialByte32, Seq(trivialByte32))
+
+  private val trivialSignatureKesProduct =
+    SignatureKesProduct(trivialSignatureKesSum, trivialSignatureKesSum, trivialByte32)
+
+  val toplReg1: Value = toplValue.copy(
+    toplValue.getTopl.copy(registration =
+      StakingRegistration(
+        StakingAddress(MockMainKeyPair.vk.getExtendedEd25519.vk.value),
+        trivialSignatureKesProduct
+      ).some
+    )
+  )
+
+  val toplReg2: Value = toplValue.copy(
+    toplValue.getTopl.copy(registration =
+      StakingRegistration(
+        StakingAddress(MockChildKeyPair.vk.getExtendedEd25519.vk.value),
+        trivialSignatureKesProduct
+      ).some
+    )
+  )
+
   val mockValues: Seq[Value] = Seq(
     lvlValue,
     lvlValue.copy(), // exact duplicate
@@ -182,7 +211,11 @@ trait TransactionBuilderInterpreterSpecBase extends munit.FunSuite with MockHelp
     assetGroupImmutableAlt, // diff group and series
     assetSeriesImmutable,
     assetSeriesImmutable.copy(),
-    assetSeriesImmutableAlt // diff group and series
+    assetSeriesImmutableAlt, // diff group and series
+    toplValue,
+    toplValue.copy(), // exact duplicate
+    toplReg1,
+    toplReg2
   )
 
   val mockTxos: Seq[Txo] = mockValues.map(valToTxo(_))

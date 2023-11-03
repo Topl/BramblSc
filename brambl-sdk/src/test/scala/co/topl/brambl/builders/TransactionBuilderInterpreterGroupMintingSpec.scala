@@ -2,6 +2,7 @@ package co.topl.brambl.builders
 
 import co.topl.brambl.models.transaction.IoTransaction
 import co.topl.brambl.models.Datum
+import co.topl.brambl.models.box.Value
 import co.topl.brambl.syntax.{ioTransactionAsTransactionSyntaxOps, valueToTypeIdentifierSyntaxOps, LvlType}
 
 class TransactionBuilderInterpreterGroupMintingSpec extends TransactionBuilderInterpreterSpecBase {
@@ -37,6 +38,13 @@ class TransactionBuilderInterpreterGroupMintingSpec extends TransactionBuilderIn
         )
       )
     )
+  }
+
+  test("unsupported token type in txos") {
+    val testTx = buildMintGroupTransaction
+      .addTxo(valToTxo(Value.defaultInstance)) // Value.empty
+      .run
+    assertEquals(testTx, Left(UserInputErrors(Seq(UserInputError(s"UnknownType tokens are not supported.")))))
   }
 
   test("registrationUtxo does not contain lvls") {

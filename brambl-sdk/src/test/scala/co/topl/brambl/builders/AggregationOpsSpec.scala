@@ -2,7 +2,7 @@ package co.topl.brambl.builders
 
 import cats.implicits.catsSyntaxOptionId
 import co.topl.brambl.models.box.Value
-import co.topl.brambl.syntax.{bigIntAsInt128, valueToQuantitySyntaxOps, valueToTypeIdentifierSyntaxOps}
+import co.topl.brambl.syntax.{bigIntAsInt128, valueToQuantitySyntaxOps, valueToTypeIdentifierSyntaxOps, UnknownType}
 
 class AggregationOpsSpec extends TransactionBuilderInterpreterSpecBase {
 
@@ -64,7 +64,10 @@ class AggregationOpsSpec extends TransactionBuilderInterpreterSpecBase {
         assetSeriesImmutable,
         assetSeriesImmutable.copy()
       ),
-      assetSeriesImmutableAlt.value.typeIdentifier -> Seq(assetSeriesImmutableAlt)
+      assetSeriesImmutableAlt.value.typeIdentifier -> Seq(assetSeriesImmutableAlt),
+      toplValue.value.typeIdentifier               -> Seq(toplValue, toplValue.copy()),
+      toplReg1.value.typeIdentifier                -> Seq(toplReg1),
+      toplReg2.value.typeIdentifier                -> Seq(toplReg2)
     )
     assertEquals(testMap, expectedMap)
   }
@@ -91,6 +94,18 @@ class AggregationOpsSpec extends TransactionBuilderInterpreterSpecBase {
     val input = Seq(groupValue, groupValue, groupValue).map(_.value)
     val testValues = DefaultAggregationOps.aggregate(input)
     assertEquals(testValues, Seq(groupValue.value.setQuantity(3: BigInt)))
+  }
+
+  test("DefaultAggregationOps.aggregate > topl tokens (no staking reg)") {
+    val input = Seq(toplValue, toplValue).map(_.value)
+    val testValues = DefaultAggregationOps.aggregate(input)
+    assertEquals(testValues, Seq(toplValue.value.setQuantity(2: BigInt)))
+  }
+
+  test("DefaultAggregationOps.aggregate > topl tokens (with staking reg)") {
+    val input = Seq(toplReg1, toplReg1).map(_.value)
+    val testValues = DefaultAggregationOps.aggregate(input)
+    assertEquals(testValues, input)
   }
 
   test("DefaultAggregationOps.aggregateWithChange > amount unspecified, liquid assets") {
@@ -123,6 +138,24 @@ class AggregationOpsSpec extends TransactionBuilderInterpreterSpecBase {
     assertEquals(
       testValues,
       (Seq(assetGroupSeries.value.setQuantity(2: BigInt)), Seq(assetGroupSeries.value.setQuantity(1: BigInt)))
+    )
+  }
+
+  test("DefaultAggregationOps.aggregateWithChange > amount specified, Topls (no staking reg), amount < quantity") {
+    val input = Seq(toplValue, toplValue, toplValue).map(_.value)
+    val testValues = DefaultAggregationOps.aggregateWithChange(input, BigInt(2).some)
+    assertEquals(
+      testValues,
+      (Seq(toplValue.value.setQuantity(2: BigInt)), Seq(toplValue.value.setQuantity(1: BigInt)))
+    )
+  }
+
+  test("DefaultAggregationOps.aggregateWithChange > amount specified, Topls (with staking reg), amount < quantity") {
+    val input = Seq(toplReg1, toplReg1, toplReg1).map(_.value)
+    val testValues = DefaultAggregationOps.aggregateWithChange(input, BigInt(2).some)
+    assertEquals(
+      testValues,
+      (input, Seq.empty)
     )
   }
 }

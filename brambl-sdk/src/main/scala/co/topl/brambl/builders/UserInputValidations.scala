@@ -13,6 +13,8 @@ import co.topl.brambl.syntax.{
   valueToQuantitySyntaxOps,
   valueToTypeIdentifierSyntaxOps,
   LvlType,
+  ToplType,
+  UnknownType,
   ValueTypeIdentifier
 }
 import co.topl.genus.services.Txo
@@ -127,6 +129,20 @@ object UserInputValidations {
       Validated.condNec(testValues.nonEmpty, (), UserInputError(s"There must be at least one Txo to transfer."))
   }
 
+  def noUnknownType(
+    testValues: Seq[ValueTypeIdentifier]
+  ): ValidatedNec[UserInputError, Unit] =
+    Validated.condNec(!testValues.contains(UnknownType), (), UserInputError(s"UnknownType tokens are not supported."))
+
+  def toplNoStakingReg(
+    testValue: ValueTypeIdentifier,
+    testLabel: String
+  ): ValidatedNec[UserInputError, Unit] = testValue match {
+    case ToplType(Some(_)) =>
+      UserInputError(s"If ${testLabel} is a Topl type, staking registration must be None").invalidNec[Unit]
+    case _ => ().validNec[UserInputError]
+  }
+
   def validFee(
     fee:                  Long,
     testValues:           Seq[Value],
@@ -177,6 +193,7 @@ object UserInputValidations {
           "lockPredicateFrom"
         ),
         validTransferSupplyAll(tokenIdentifier, allValues.map(_.typeIdentifier)),
+        noUnknownType(allValues.map(_.typeIdentifier) ++ tokenIdentifier.toSeq),
         validFee(fee, allValues)
       ).fold.toEither
     } match {
@@ -204,7 +221,10 @@ object UserInputValidations {
           "the txos",
           "lockPredicateFrom"
         ),
-        validTransferSupplyAmount(amount, allValues, transferIdentifier),
+        noUnknownType(allValues.map(_.typeIdentifier) :+ transferIdentifier).andThen(_ =>
+          validTransferSupplyAmount(amount, allValues, transferIdentifier)
+        ),
+        toplNoStakingReg(transferIdentifier, "tokenIdentifier"),
         distinctIdentifierQuantityDescriptorLiquid(allValues, transferIdentifier),
         validFee(fee, allValues, if (transferIdentifier == LvlType) amount else 0)
       ).fold.toEither
@@ -234,6 +254,7 @@ object UserInputValidations {
           "lockPredicateFrom"
         ),
         positiveQuantity(quantityToMint, "quantityToMint"),
+        noUnknownType(txos.map(_.transactionOutput.value.value.typeIdentifier)),
         validFee(fee, txos.map(_.transactionOutput.value.value))
       ).fold.toEither
     } match {
@@ -265,6 +286,7 @@ object UserInputValidations {
             .andThen(s => validMintingSupply(mintingStatement.quantity, s).map(_ => s))
         ).andThen(res => fixedSeriesMatch(res._1.fixedSeries, res._2.seriesId)),
         positiveQuantity(mintingStatement.quantity, "quantity to mint"),
+        noUnknownType(txos.map(_.transactionOutput.value.value.typeIdentifier)),
         validFee(fee, txos.map(_.transactionOutput.value.value))
       ).fold.toEither
     } match {

@@ -166,20 +166,16 @@ trait TransactionBuilderApi[F[_]] {
    * all tokens provided in txos will go to the recipient. Any remaining tokens in txos that are not transferred to the
    * recipient will be transferred to the change address.
    *
-   * TODO: Add support for TOPLs and UpdateProposals
-   * @note Currently TOPLs and UpdateProposal values are not supported in the txos. This will be added in TSDK-610
-   * @note Currently TOPLs and UpdateProposal values are not supported in tokenIdentifier. This will be added in TSDK-610
-   *
    * @param txos All the TXOs encumbered by the Lock given by lockPredicateFrom. These TXOs must contain some token
-   *             matching tokenIdentifier (if it is provided) and at least the quantity of LVLs to satisfy the fee, else
-   *             an error will be returned.
+   *             matching tokenIdentifier (if it is provided) and at least the quantity of LVLs to satisfy the fee. All
+   *             TXOs must contain values of valid type. Else an error will be returned.
    * @param lockPredicateFrom The Lock Predicate encumbering the txos
    * @param recipientLockAddress The LockAddress of the recipient
    * @param changeLockAddress A LockAddress to send the tokens that are not going to the recipient
    * @param fee The fee to pay for the transaction. The txos must contain enough LVLs to satisfy this fee
    * @param tokenIdentifier An optional token identifier to denote the type of token to transfer to the recipient. If
    *                        None, all tokens in txos will be transferred to the recipient and changeLockAddress will be
-   *                        ignored.
+   *                        ignored. This must not be UnknownType.
    * @return An unproven transaction
    */
   def buildTransferAllTransaction(
@@ -195,20 +191,17 @@ trait TransactionBuilderApi[F[_]] {
    * Builds a transaction to transfer a certain amount of a specified Token (given by tokenIdentifier). The transaction
    * will also transfer any other tokens (in the txos) that are encumbered by the same predicate to the change address.
    *
-   * This function only supports transferring a specific amount of assets (via tokenIdentifier) if their quantity
-   * descriptor type is LIQUID.
-   *
-   * TODO: Add support for TOPLs and UpdateProposals
-   * @note Currently TOPLs and UpdateProposal values are not supported in the txos. This will be added in TSDK-610
-   * @note Currently TOPLs and UpdateProposal values are not supported in tokenIdentifier. This may or may not be added
-   *       in TSDK-610 depending if these values can be aggregated and deaggregated by default. Pending discussion.
+   * @note This function only supports transferring a specific amount of assets (via tokenIdentifier) if their quantity
+   *       descriptor type is LIQUID.
+   * @note This function only support transferring a specific amount of TOPLs (via tokenIdentifier) if their staking
+   *       registration is None.
    *
    * @param tokenIdentifier The Token Identifier denoting the type of token to transfer to the recipient. If this denotes
    *                        an Asset Token, the referenced asset's quantity descriptor type must be LIQUID, else an error
-   *                        will be returned.
+   *                        will be returned. This must not be UnknownType.
    * @param txos All the TXOs encumbered by the Lock given by lockPredicateFrom. These TXOs must contain at least the
    *             necessary quantity (given by amount) of the identified Token and at least the quantity of LVLs to
-   *             satisfy the fee, else an error will be returned.
+   *             satisfy the fee. All TXOs must contain values of valid type. Else an error will be returned.
    * @param lockPredicateFrom The Lock Predicate encumbering the txos
    * @param amount The amount of identified Token to transfer to the recipient
    * @param recipientLockAddress The LockAddress of the recipient
@@ -233,7 +226,8 @@ trait TransactionBuilderApi[F[_]] {
    * contain more tokens.
    *
    * @param txos All the TXOs encumbered by the Lock given by lockPredicateFrom. These TXOs must contain some LVLs (as
-   *             specified in the policy), to satisfy the registration fee, else an error will be returned.
+   *             specified in the policy), to satisfy the registration fee. All TXOs must contain values of valid type.
+   *             Else an error will be returned.
    * @param lockPredicateFrom The Predicate Lock that encumbers the funds in the txos. This will be used in
    *                         the attestations of the inputs.
    * @param groupPolicy The group policy for which we are minting constructor tokens. This group policy specifies a
@@ -261,8 +255,8 @@ trait TransactionBuilderApi[F[_]] {
    * contain more tokens.
    *
    * @param txos              All the TXOs encumbered by the Lock given by lockPredicateFrom. These TXOs must contain
-   *                          some LVLs (as specified in the policy), to satisfy the registration fee, else an error
-   *                          will be returned.
+   *                          some LVLs (as specified in the policy), to satisfy the registration fee. All TXOs must
+   *                          contain values of valid type. Else an error will be returned.
    * @param lockPredicateFrom The Predicate Lock that encumbers the funds in the txos. This will be used in
    *                          the attestations of the inputs.
    * @param seriesPolicy The series policy for which we are minting constructor tokens. This series policy specifies a
@@ -295,7 +289,7 @@ trait TransactionBuilderApi[F[_]] {
    * @param mintingStatement      The minting statement that specifies the asset to mint.
    * @param txos                  All the TXOs encumbered by the Locks given by locks. These TXOs must contain some
    *                              group and series constructors (as referenced in the AMS) to satisfy the minting
-   *                              requirements, else an error will be returned.
+   *                              requirements. All TXOs must contain values of valid type. Else an error will be returned.
    * @param locks             A mapping of Predicate Locks that encumbers the funds in the txos. This will be used in the
    *                              attestations of the txos' inputs.
    * @param fee The transaction fee. The txos must contain enough LVLs to satisfy this fee

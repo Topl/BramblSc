@@ -8,6 +8,7 @@ import scala.language.implicitConversions
 
 trait BoxValueSyntax {
   implicit def lvlAsBoxVal(lvl:  LVL): Value = Value.Lvl(lvl)
+  implicit def toplAsBoxVal(tpl: TOPL): Value = Value.Topl(tpl)
   implicit def groupAsBoxVal(g:  Group): Value = Value.Group(g)
   implicit def seriesAsBoxVal(s: Series): Value = Value.Series(s)
   implicit def assetAsBoxVal(a:  Asset): Value = Value.Asset(a)
@@ -23,6 +24,7 @@ class ValueToQuantitySyntaxOps(val value: Value) extends AnyVal {
 
   def quantity: Int128 = value match {
     case Value.Lvl(l)    => l.quantity
+    case Value.Topl(t)   => t.quantity
     case Value.Group(g)  => g.quantity
     case Value.Series(s) => s.quantity
     case Value.Asset(a)  => a.quantity
@@ -31,6 +33,7 @@ class ValueToQuantitySyntaxOps(val value: Value) extends AnyVal {
 
   def setQuantity(quantity: Int128): Value = value match {
     case Value.Lvl(l)    => l.withQuantity(quantity)
+    case Value.Topl(t)   => t.withQuantity(quantity)
     case Value.Group(g)  => g.withQuantity(quantity)
     case Value.Series(s) => s.withQuantity(quantity)
     case Value.Asset(a)  => a.withQuantity(quantity)

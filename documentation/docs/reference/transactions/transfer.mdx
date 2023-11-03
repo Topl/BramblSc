@@ -28,7 +28,9 @@ the <ScaladocLink path="co/topl/brambl/builders/TransactionBuilderApi.html#build
 function of a Transaction Builder API instance.
 
 :::note
-This function only supports transferring a specific amount of assets if their quantity descriptor type is `LIQUID`.
+Transferring a specific amount of tokens using this function is not supported for some token types:
+- Asset type if their quantity descriptor type is NOT `LIQUID`
+- TOPL type if their registration is NOT `None`
 :::
 
 ```scala
@@ -49,7 +51,8 @@ aggregated into a single output to reduce the number of UTXOs.
 
 The parameters are as follows:
 - `tokenIdentifier` - The Token Identifier denoting the type of token to transfer to the recipient. If this denotes an
-Asset Token, the quantity descriptor type of the asset must be `LIQUID`.
+Asset Token, the quantity descriptor type of the asset must be `LIQUID`. If this denotes a TOPL, the registration field
+must be `None`.
 - `txos` - A sequence of TXOs to be the inputs of the created transaction. All TXOs must be encumbered by the same lock
 predicate, given by `lockPredicateFrom`. You can obtain these TXOs from the [RPC queries](../rpc#querying-utxos).
 - `lockPredicateFrom` - The Predicate Lock that encumbers all the TXOs in `txos`.

@@ -1,5 +1,6 @@
 package co.topl.brambl.builders
 
+import co.topl.brambl.models.box.Value
 import co.topl.brambl.models.transaction.IoTransaction
 import co.topl.brambl.syntax.{
   bigIntAsInt128,
@@ -7,10 +8,37 @@ import co.topl.brambl.syntax.{
   ioTransactionAsTransactionSyntaxOps,
   valueToQuantitySyntaxOps,
   valueToTypeIdentifierSyntaxOps,
-  LvlType
+  LvlType,
+  UnknownType
 }
 
 class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInterpreterSpecBase {
+
+  test("buildTransferAllTransaction > unsupported token type (tokenIdentifier)") {
+    val testTx = buildTransferAllTransaction
+      .withTokenIdentifier(UnknownType)
+      .run
+    assertEquals(
+      testTx,
+      Left(
+        UserInputErrors(
+          Seq(
+            UserInputError(
+              s"When tokenIdentifier is provided, there must be some Txos that match the tokenIdentifier."
+            ),
+            UserInputError(s"UnknownType tokens are not supported.")
+          )
+        )
+      )
+    )
+  }
+
+  test("buildTransferAllTransaction > unsupported token type (txos)") {
+    val testTx = buildTransferAmountTransaction
+      .withTxos(mockTxos :+ valToTxo(Value.defaultInstance)) // Value.empty
+      .run
+    assertEquals(testTx, Left(UserInputErrors(Seq(UserInputError(s"UnknownType tokens are not supported.")))))
+  }
 
   test("buildTransferAllTransaction > All locks don't match") {
     val testTx = buildTransferAllTransaction
@@ -575,6 +603,58 @@ class TransactionBuilderInterpreterTransferAllSpec extends TransactionBuilderInt
         buildChangeUtxos(
           mockChange
             .filterNot(v => List(LvlType, assetSeriesImmutable.value.typeIdentifier).contains(v.value.typeIdentifier))
+        )
+      )
+    assertEquals(
+      sortedTx(testTx.toOption.get).computeId,
+      sortedTx(expectedTx).computeId
+    )
+  }
+
+  test("buildTransferAllTransaction > Transfer all TOPLs (with no staking reg)") {
+    val testTx = buildTransferAllTransaction
+      .withTokenIdentifier(toplValue.value.typeIdentifier)
+      .run
+    val expectedTx = IoTransaction.defaultInstance
+      .withDatum(txDatum)
+      .withInputs(buildStxos())
+      .withOutputs(
+        // to recipient
+        buildRecipientUtxos(List(toplValue.copy(toplValue.value.setQuantity(BigInt(2)))))
+        ++
+        // change due to excess fee
+        buildChangeUtxos(List(lvlValue))
+        ++
+        // change values unaffected by recipient transfer and fee
+        buildChangeUtxos(
+          mockChange
+            .filterNot(v => List(LvlType, toplValue.value.typeIdentifier).contains(v.value.typeIdentifier))
+        )
+      )
+    assertEquals(
+      sortedTx(testTx.toOption.get).computeId,
+      sortedTx(expectedTx).computeId
+    )
+  }
+
+  test("buildTransferAllTransaction > Transfer all TOPLs (staking reg specified)") {
+    val testTx = buildTransferAllTransaction
+      .withTokenIdentifier(toplReg1.value.typeIdentifier)
+      .run
+    val expectedTx = IoTransaction.defaultInstance
+      .withDatum(txDatum)
+      .withInputs(buildStxos())
+      .withOutputs(
+        // to recipient
+        buildRecipientUtxos(List(toplReg1))
+        ++
+        // change due to excess fee
+        buildChangeUtxos(List(lvlValue))
+        ++
+        // change values unaffected by recipient transfer and fee
+        buildChangeUtxos(
+          mockChange
+            .filterNot(v => List(LvlType, toplReg1.value.typeIdentifier).contains(v.value.typeIdentifier))
         )
       )
     assertEquals(
