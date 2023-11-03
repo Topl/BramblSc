@@ -3,8 +3,18 @@ package co.topl.brambl.servicekit
 import cats.effect.kernel.{Resource, Sync}
 import co.topl.brambl.dataApi.{FellowshipStorageAlgebra, WalletFellowship}
 
+/**
+  * Implementation of the FellowshipStorageAlgebra using a JDBC connection.
+  */
 object FellowshipStorageApi {
 
+  /**
+    * Creates an instance of the FellowshipStorageAlgebra using a JDBC connection.
+    *
+    * @param connection the JDBC connection.
+    * @tparam F the effect type.
+    * @return an instance of the FellowshipStorageAlgebra using a JDBC connection.
+    */
   def make[F[_]: Sync](
     connection: Resource[F, java.sql.Connection]
   ): FellowshipStorageAlgebra[F] = new FellowshipStorageAlgebra[F] {

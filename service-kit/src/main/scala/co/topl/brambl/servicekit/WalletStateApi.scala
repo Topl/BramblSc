@@ -28,6 +28,13 @@ import quivr.models.VerificationKey
  */
 object WalletStateApi {
 
+  /**
+    * Creates an instance of the WalletStateAlgebra that uses a database to store state information.
+    *
+    * @param connection the JDBC connection.
+    * @param walletApi the wallet api.
+    * @return an instance of the WalletStateAlgebra that uses a database to store state information.
+    */
   def make[F[_]: Sync](
     connection: Resource[F, java.sql.Connection],
     walletApi:  WalletApi[F]

@@ -10,6 +10,12 @@ import java.sql.{Connection, DriverManager}
  */
 trait WalletStateResource {
 
+  /**
+    * Creates a resource that provides a connection to a wallet state database.
+    *
+    * @param name the name of the file containing the wallet state database. It might be a path if needed.
+    * @return a resource that provides a connection to a wallet state database.
+    */
   def walletResource(name: String): Resource[IO, Connection] = Resource
     .make(
       IO.delay(
