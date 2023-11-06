@@ -1,0 +1,48 @@
+---
+sidebar_position: 1
+title: Getting Started
+description: Get started with the Scala Brambl SDK.
+---
+
+import ScaladocLink from '@site/src/components/ScaladocLink';
+
+## Installation
+
+### Quick Start
+
+The Scala Brambl SDK is published to [Maven Central](https://search.maven.org/artifact/co.topl/brambl-sdk_2.13) and is
+built for Scala 2.13. To use it in your project, add the following to your `build.sbt`:
+
+```scala title="build.sbt"
+val bramblVersion = "2.0.0" // replace with the latest version
+
+libraryDependencies += "co.topl" %% "brambl-sdk" % bramblVersion
+```
+
+### Service Kit
+
+Wallet functionality in the Brambl SDK requires an implementation of a `ServiceKit` which is responsible for implementing
+any un-implemented, application-specific, traits in
+the <ScaladocLink path="co/topl/brambl/dataApi/index.html"><code>DataApi</code></ScaladocLink>
+package. Specifically, handling data persistence. The SDK provides a default implementation of
+the <ScaladocLink path="co/topl/brambl/servicekit/index.html"><code>ServiceKit</code></ScaladocLink>
+that is published to [Maven Central](https://search.maven.org/artifact/co.topl/service-kit_2.13) for your convenience.
+This default implementation uses local storage and SQLite. To use it in your project, add the following to your `build.sbt`:
+
+```scala title="build.sbt"
+val bramblVersion = "2.0.0" // replace with the latest version
+
+libraryDependencies += "co.topl" %% "service-kit" % bramblVersion
+```
+
+### Other Libraries
+
+There are 2 other libraries provided by the SDK; [`crypto`](https://search.maven.org/artifact/co.topl/crypto_2.13)
+and [`quivr4s`](https://search.maven.org/artifact/co.topl/quivr4s_2.13). These libraries are not required to be added
+to a project since they are mainly meant to be used internally by the SDK. However, advanced users may find them useful
+to use to implement their own custom functionality in their application.
+
+## Contributing
+
+The Brambl SDK is completely open source and we welcome contributions. To get started, check out
+the [GitHub repository](https://github.com/Topl/BramblSc).
