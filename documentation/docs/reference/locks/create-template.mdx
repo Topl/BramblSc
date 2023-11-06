@@ -144,7 +144,7 @@ The parameters are similar to a DigitalSignature proposition. The key difference
 `verificationKey` field, we specify an `entityIdx`. This `entityIdx` represents the index of an entity's VerificationKey
 in a list of verification keys. `entityIdx` in conjunction with this list of verification keys (which is provided when building
 the lock), will be used to populate the `verificationKey` field in the built DigitalSignature proposition.
-See [Build Lock](./build-lock) for more information.
+See [Generate a Lock](./build-lock) for more information.
 
 ### AndTemplate
 
@@ -204,7 +204,7 @@ field as a proposition directly, we specify it as Proposition Templates.
 Once built, a ThresholdTemplate refers to
 a <Link href="https://github.com/Topl/protobuf-specs/blob/main/proto/quivr/models/proposition.proto#L85">Threshold proposition</Link>.
 You can create an ThresholdTemplate using
-the <ScaladocLink path="co/topl/brambl/builders/locks/PropositionTemplate$$NotTemplate.html"><code>ThresholdTemplate</code></ScaladocLink>
+the <ScaladocLink path="co/topl/brambl/builders/locks/PropositionTemplate$$ThresholdTemplate.html"><code>ThresholdTemplate</code></ScaladocLink>
 case class:
 
 ```scala

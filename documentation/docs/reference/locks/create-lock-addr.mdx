@@ -31,7 +31,6 @@ successfully we can generate the LockAddress using the Transaction Builder.
 
 ```scala
 import cats.effect.IO
-import cats.data.EitherT
 
 val transactionBuilderApi = TransactionBuilderApi.make[IO](MAIN_NETWORK_ID, MAIN_LEDGER_ID)
 val lockAddrResult: IO[LockAddress] = for {
