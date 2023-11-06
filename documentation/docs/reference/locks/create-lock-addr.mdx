@@ -1,0 +1,42 @@
+---
+sidebar_position: 3
+title: Generate a LockAddress
+description: Create a Lock Address to encumber new UTXOs.
+---
+
+import ScaladocLink from '@site/src/components/ScaladocLink';
+
+
+
+You can generate a lock address for a given lock using
+the <ScaladocLink path="lockAddress(Lock):F[LockAddress]"><code>lockAddress</code></ScaladocLink>
+function of a Transaction Builder API instance. To obtain an instance of the Transaction Builder API, read about
+[transaction building prerequisites](../transactions#prerequisites). To obtain a Lock instance, [learn how to generate a lock](./build-lock).
+
+```scala
+def lockAddress(
+  lock: Lock
+): F[LockAddress]
+```
+
+The parameters are as follows:
+- `lock`: The Lock for which to generate an address for.
+
+The resulting Lock Address can be used in a transaction.
+
+## Example
+
+Using the `lockResult` from the [Lock example](./build-lock#example), and assuming the lock was built
+successfully we can generate the LockAddress using the Transaction Builder.
+
+```scala
+import cats.effect.IO
+import cats.data.EitherT
+
+val transactionBuilderApi = TransactionBuilderApi.make[IO](MAIN_NETWORK_ID, MAIN_LEDGER_ID)
+val lockAddrResult: IO[LockAddress] = for {
+  // Assuming lockResult contains an Either.Right[Lock]
+  lock <- lockResult.map(_.toOption.get)
+  lockAddr <- transactionBuilderApi.lockAddress(lock)
+} yield lockAddr
+```

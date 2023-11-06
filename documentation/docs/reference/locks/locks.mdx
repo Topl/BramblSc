@@ -1,0 +1,25 @@
+---
+sidebar_position: 3
+title: Locks
+description: Locks and LockAddresses are used to encumber UTXOs on the TOPL blockchain. Learn how to create, use, and share them using the SDK.
+---
+
+import Link from '@docusaurus/Link';
+import ScaladocLink from '@site/src/components/ScaladocLink';
+import DocCardList from '@theme/DocCardList';
+
+
+Locks and LockAddresses are used to encumber UTXOs on the TOPL blockchain. The first step to creating a new LockAddress
+to receive funds is to create a Lock Template. The SDK offers a way to create a Lock Template, build a Lock from a Lock
+Template, and generate a Lock Address from a Lock.
+
+:::info
+The only type of Lock currently supported in our ecosystem is
+a <Link href="https://github.com/Topl/protobuf-specs/blob/main/proto/brambl/models/box/lock.proto#L21">Predicate Lock</Link>.
+The only type
+of <Link href="https://github.com/Topl/protobuf-specs/blob/main/proto/brambl/models/box/challenge.proto">Challenge</Link>
+currently supported in our ecosystem is a
+revealed <Link href="https://github.com/Topl/protobuf-specs/blob/main/proto/quivr/models/proposition.proto">proposition</Link>.
+:::
+
+<DocCardList />

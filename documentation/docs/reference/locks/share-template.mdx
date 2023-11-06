@@ -1,0 +1,61 @@
+---
+sidebar_position: 5
+title: Share a Lock Template
+description: Share a Lock Template as JSON.
+---
+
+import ScaladocLink from '@site/src/components/ScaladocLink';
+
+The SDK provides an easy way to share templates with other users using JSON. This is useful for initiating multi-participant
+conversations (advanced usage).
+
+## Encoding into JSON
+
+You can encode a Lock Template into JSON using
+the <ScaladocLink path="co/topl/brambl/codecs/LockTemplateCodecs$.html#encodeLockTemplate[F[_]](LockTemplate[F])(Monad[F]):Json"><code>encodeLockTemplate</code></ScaladocLink>
+function in the LockTemplateCodecs object:
+
+```scala
+def encodeLockTemplate[F[_]: Monad](
+  template: LockTemplate[F]
+): Json
+```
+
+This function takes in a Lock template and returns a JSON representation of the template.
+
+The parameters are as follows:
+- `template`: The Lock Template to encode.
+
+Type parameters:
+- `F`: The context, bound to a context parameter of type `Monad[F]`, in which the template will be encoded.
+
+## Decoding from JSON
+
+You can decode a JSON representation of a Lock Template back into the Lock Template instance using
+the <ScaladocLink path="co/topl/brambl/codecs/LockTemplateCodecs$.html#decodeLockTemplate[F[_]](Json)(Monad[F]):Either[DecodingFailure,LockTemplate[F]]"><code>decodeLockTemplate</code></ScaladocLink>
+function in the LockTemplateCodecs object:
+
+```scala
+def decodeLockTemplate[F[_]: Monad](
+  template: Json
+): Either[DecodingFailure, LockTemplate[F]]
+```
+
+This function takes in a JSON representation of a Lock template and returns the Lock template if possible. If it is not
+possible to decode the JSON into a Lock template, an error will be returned.
+
+The parameters are as follows:
+- `template`: The JSON to decode into a Lock Template.
+
+Type parameters:
+- `F`: The context, bound to a context parameter of type `Monad[F]`, in which the template will be decoded.
+
+## Example
+
+Using the `predicateTemplate` and the context `IO` from the [Lock Template example](./create-template#example) we can encode
+and decode to-and-from JSON.
+
+```scala
+val jsonTemplate: Json = encodeLockTemplate(predicateTemplate)
+val decodedTemplate: Either[DecodingFailure, LockTemplate[IO]] = decodeLockTemplate(jsonTemplate)
+```

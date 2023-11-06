@@ -1,0 +1,218 @@
+---
+sidebar_position: 1
+title: Create a Lock Template
+description: Create a template used for building complex Locks.
+---
+
+import Link from '@docusaurus/Link';
+import ScaladocLink from '@site/src/components/ScaladocLink';
+
+
+Creating Lock Templates is the first step to creating a new Lock and it's corresponding LockAddress.
+
+## Create a Predicate Lock Template
+
+You can create a Predicate Lock template using
+the <ScaladocLink path="co/topl/brambl/builders/locks/LockTemplate$$PredicateTemplate.html"><code>PredicateTemplate</code></ScaladocLink>
+case class:
+
+```scala
+case class PredicateTemplate[F[_]: Monad](
+  innerTemplates: Seq[PropositionTemplate[F]],
+  threshold: Int
+) extends LockTemplate[F]
+```
+
+The parameters are as follows:
+- `innerTemplates`: A sequence of [Proposition Templates](#create-a-proposition-template) that will be used to create the inner propositions (Challenges)
+of the Predicate Lock.
+- `threshold`: The number of inner propositions that must be satisfied in order to satisfy the Predicate Lock.
+
+Type parameters:
+- `F`: The context, bound to a context parameter of type `Monad[F]`, in which the template will be created.
+
+The resulting `PredicateTemplate` can be used to generate a Lock.
+
+### Example
+
+The following example shows how to create a Template for a 1-of-1 Signature Lock with a Cats Effect `IO` context.
+
+```scala
+import cats.effect.IO
+
+val signatureTemplate: PropositionTemplate[IO] = SignatureTemplate[IO]("ExtendedEd25519", 0)
+val predicateTemplate: LockTemplate[IO] = PredicateTemplate[IO](Seq(signatureTemplate), 1)
+```
+
+## Create a Proposition Template
+
+Creating a Lock Template requires the inner Proposition Templates to be created first. You can create proposition
+templates using the various proposition template case classes in
+the <ScaladocLink path="co/topl/brambl/builders/locks/PropositionTemplate$.html"><code>PropositionTemplate object</code></ScaladocLink>.
+Once created, the resulting PropositionTemplates can be used to create a Predicate Lock Template ([as the `innerTemplates`
+parameter](#create-a-predicate-lock-template)).
+
+All Proposition Template case classes have a type parameter `F`, bound to a context parameter of type `Monad[F]`, in which
+the template will be created. This should be the same as the type parameter used for the `PredicateTemplate`.
+
+We provide the following Proposition Templates:
+
+### LockedTemplate
+
+Once built, a LockedTemplate refers to
+a <Link href="https://github.com/Topl/protobuf-specs/blob/main/proto/quivr/models/proposition.proto#L30">Locked proposition</Link>.
+You can create a LockedTemplate using
+the <ScaladocLink path="co/topl/brambl/builders/locks/PropositionTemplate$$LockedTemplate.html"><code>LockedTemplate</code></ScaladocLink>
+case class:
+
+```scala
+case class LockedTemplate[F[_]: Monad](
+  data: Option[Data]
+) extends PropositionTemplate[F]
+```
+
+The parameters are the same as a Locked proposition.
+
+### HeightTemplate
+
+Once built, a HeightTemplate refers to
+a <Link href="https://github.com/Topl/protobuf-specs/blob/main/proto/quivr/models/proposition.proto#L48">HeightRange proposition</Link>.
+You can create a HeightTemplate using
+the <ScaladocLink path="co/topl/brambl/builders/locks/PropositionTemplate$$HeightTemplate.html"><code>HeightTemplate</code></ScaladocLink>
+case class:
+
+```scala
+case class HeightTemplate[F[_]: Monad](
+  chain: String,
+  min: Long,
+  max: Long
+) extends PropositionTemplate[F]
+```
+
+The parameters are the same as a HeightRange proposition.
+
+### TickTemplate
+
+Once built, a TickTemplate refers to
+a <Link href="https://github.com/Topl/protobuf-specs/blob/main/proto/quivr/models/proposition.proto#L55">TickRange proposition</Link>.
+You can create a TickTemplate using
+the <ScaladocLink path="co/topl/brambl/builders/locks/PropositionTemplate$$TickTemplate.html"><code>TickTemplate</code></ScaladocLink>
+case class:
+
+```scala
+case class TickTemplate[F[_]: Monad](
+  min: Long,
+  max: Long
+) extends PropositionTemplate[F]
+```
+
+The parameters are the same as a TickRange proposition.
+
+### DigestTemplate
+
+Once built, a DigestTemplate refers to
+a <Link href="https://github.com/Topl/protobuf-specs/blob/main/proto/quivr/models/proposition.proto#L36">Digest proposition</Link>.
+You can create a DigestTemplate using
+the <ScaladocLink path="co/topl/brambl/builders/locks/PropositionTemplate$$DigestTemplate.html"><code>DigestTemplate</code></ScaladocLink>
+case class:
+
+```scala
+case class DigestTemplate[F[_]: Monad](
+  routine: String,
+  digest: Digest
+) extends PropositionTemplate[F]
+```
+
+The parameters are the same as a Digest proposition.
+
+### SignatureTemplate
+
+Once built, a SignatureTemplate refers to
+a <Link href="https://github.com/Topl/protobuf-specs/blob/main/proto/quivr/models/proposition.proto#L42">DigitalSignature proposition</Link>.
+You can create a SignatureTemplate using
+the <ScaladocLink path="co/topl/brambl/builders/locks/PropositionTemplate$$SignatureTemplate.html"><code>SignatureTemplate</code></ScaladocLink>
+case class:
+
+```scala
+case class SignatureTemplate[F[_]: Monad](
+  routine: String,
+  entityIdx: Int
+) extends PropositionTemplate[F]
+```
+
+The parameters are similar to a DigitalSignature proposition. The key difference being that, instead of specifying the
+`verificationKey` field, we specify an `entityIdx`. This `entityIdx` represents the index of an entity's VerificationKey
+in a list of verification keys. `entityIdx` in conjunction with this list of verification keys (which is provided when building
+the lock), will be used to populate the `verificationKey` field in the built DigitalSignature proposition.
+See [Build Lock](./build-lock) for more information.
+
+### AndTemplate
+
+Once built, an AndTemplate refers to
+an <Link href="https://github.com/Topl/protobuf-specs/blob/main/proto/quivr/models/proposition.proto#L96">And proposition</Link>.
+You can create an AndTemplate using
+the <ScaladocLink path="co/topl/brambl/builders/locks/PropositionTemplate$$AndTemplate.html"><code>AndTemplate</code></ScaladocLink>
+case class:
+
+```scala
+case class AndTemplate[F[_]: Monad](
+  leftTemplate: PropositionTemplate[F],
+  rightTemplate: PropositionTemplate[F]
+) extends PropositionTemplate[F]
+```
+
+The parameters are similar to an And proposition. The key difference being that, instead of specifying the `left` and
+`right` fields as propositions directly, we specify them as Proposition Templates.
+
+### OrTemplate
+
+Once built, an OrTemplate refers to
+an <Link href="https://github.com/Topl/protobuf-specs/blob/main/proto/quivr/models/proposition.proto#L102">Or proposition</Link>.
+You can create an OrTemplate using
+the <ScaladocLink path="co/topl/brambl/builders/locks/PropositionTemplate$$OrTemplate.html"><code>OrTemplate</code></ScaladocLink>
+case class:
+
+```scala
+case class OrTemplate[F[_]: Monad](
+  leftTemplate: PropositionTemplate[F],
+  rightTemplate: PropositionTemplate[F]
+) extends PropositionTemplate[F]
+```
+
+The parameters are similar to an Or proposition. The key difference being that, instead of specifying the `left` and
+`right` fields as propositions directly, we specify them as Proposition Templates.
+
+### NotTemplate
+
+Once built, a NotTemplate refers to
+a <Link href="https://github.com/Topl/protobuf-specs/blob/main/proto/quivr/models/proposition.proto#L91">Not proposition</Link>.
+You can create an NotTemplate using
+the <ScaladocLink path="co/topl/brambl/builders/locks/PropositionTemplate$$NotTemplate.html"><code>NotTemplate</code></ScaladocLink>
+case class:
+
+```scala
+case class NotTemplate[F[_]: Monad](
+  innerTemplate: PropositionTemplate[F]
+) extends PropositionTemplate[F]
+```
+
+The parameters are similar to a Not proposition. The key difference being that, instead of specifying the `proposition`
+field as a proposition directly, we specify it as Proposition Templates.
+
+### ThresholdTemplate
+
+Once built, a ThresholdTemplate refers to
+a <Link href="https://github.com/Topl/protobuf-specs/blob/main/proto/quivr/models/proposition.proto#L85">Threshold proposition</Link>.
+You can create an ThresholdTemplate using
+the <ScaladocLink path="co/topl/brambl/builders/locks/PropositionTemplate$$NotTemplate.html"><code>ThresholdTemplate</code></ScaladocLink>
+case class:
+
+```scala
+case class ThresholdTemplate[F[_]: Monad](
+  innerTemplates: Seq[]PropositionTemplate[F]],
+  threshold: Int
+) extends PropositionTemplate[F]
+```
+
+The parameters are similar to a Threshold proposition. The key difference being that, instead of specifying the `challenges`
+field as propositions directly, we specify it as Proposition Templates.

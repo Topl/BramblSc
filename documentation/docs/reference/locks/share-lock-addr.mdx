@@ -1,0 +1,55 @@
+---
+sidebar_position: 4
+title: Share a LockAddress
+description: Share a LockAddress as a Base58 encoded string.
+---
+
+import ScaladocLink from '@site/src/components/ScaladocLink';
+
+The SDK provides an easy way to share Lock Addresses with other users using a Base58 encoding scheme. This is useful
+when you want to share a new address to receive funds.
+
+## Encoding into Base58
+
+You can encode a Lock Address into Base58 using
+the <ScaladocLink path="co/topl/brambl/codecs/AddressCodecs$.html#encodeAddress(LockAddress):String"><code>encodeAddress</code></ScaladocLink>
+function in the AddressCodecs object:
+
+```scala
+def encodeAddress(
+  lockAddress: LockAddress
+): String
+```
+
+This function takes in a Lock Address and returns it's Base58 string representation.
+
+The parameters are as follows:
+- `lockAddress`: The Lock Address to encode into Base58.
+
+## Decoding from Base58
+
+You can decode a Lock Address from Base58 using
+the <ScaladocLink path="co/topl/brambl/codecs/AddressCodecs$.html#decodeAddress(String):Either[EncodingError,LockAddress]"><code>decodeAddress</code></ScaladocLink>
+function in the AddressCodecs object:
+
+```scala
+def decodeAddress(
+  address: String
+): Either[EncodingError, LockAddress]
+```
+
+This function takes in a Base58 encoded String and returns the corresponding Lock Address if possible. If it is not
+possible to decode the string into a Lock Address, an error will be returned.
+
+The parameters are as follows:
+- `address`: The Base58 string to decode into a Lock Address.
+
+## Example
+
+Using the `lockAddrResult` and the context `IO` from the [LockAddress example](./create-lock-addr#example) we can encode
+and decode to-and-from Base58.
+
+```scala
+val base58Addr: IO[String] = lockAddrResult.map(encodeAddress)
+val decodedAddr: IO[Either[EncodingError, LockAddress]] = base58Addr.map(decodeAddress)
+```
