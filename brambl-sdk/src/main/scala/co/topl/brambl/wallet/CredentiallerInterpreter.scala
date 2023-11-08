@@ -17,6 +17,7 @@ import co.topl.brambl.dataApi.WalletStateAlgebra
 import co.topl.brambl.models.box.Attestation
 import co.topl.crypto.signing.ExtendedEd25519
 import com.google.protobuf.ByteString
+import co.topl.brambl.syntax.pbKeyPairToCryptoKeyPair
 
 object CredentiallerInterpreter {
 
@@ -211,7 +212,7 @@ object CredentiallerInterpreter {
         case "ExtendedEd25519" =>
           walletApi
             .deriveChildKeys(mainKey, idx)
-            .map(WalletApi.pbKeyPairToCryotoKeyPair)
+            .map(pbKeyPairToCryptoKeyPair)
             .flatMap(kp =>
               Prover
                 .signatureProver[F]

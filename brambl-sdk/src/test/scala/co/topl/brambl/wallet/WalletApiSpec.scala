@@ -12,6 +12,7 @@ import io.circe.syntax.EncoderOps
 import co.topl.crypto.encryption.VaultStore.Codecs._
 import co.topl.crypto.generation.mnemonic.EntropyFailures.PhraseToEntropyFailure
 import co.topl.crypto.generation.mnemonic.PhraseFailures.InvalidWordLength
+import co.topl.brambl.syntax.{cryptoToPbKeyPair, cryptoVkToPbVk, pbKeyPairToCryptoKeyPair, pbVkToCryptoVk}
 
 class WalletApiSpec extends munit.CatsEffectSuite with MockHelpers {
   implicit val idToId: FunctionK[F, F] = FunctionK.id[F]
@@ -94,9 +95,9 @@ class WalletApiSpec extends munit.CatsEffectSuite with MockHelpers {
         val validKey = (mainKey.vk.vk.extendedEd25519.isDefined) && (mainKey.sk.sk.extendedEd25519.isDefined)
         val testMsg = "test message".getBytes
         val signingInstance = new ExtendedEd25519
-        val signature = signingInstance.sign(WalletApi.pbKeyPairToCryotoKeyPair(mainKey).signingKey, testMsg)
+        val signature = signingInstance.sign(pbKeyPairToCryptoKeyPair(mainKey).signingKey, testMsg)
         val validSignature =
-          signingInstance.verify(signature, testMsg, WalletApi.pbKeyPairToCryotoKeyPair(mainKey).verificationKey)
+          signingInstance.verify(signature, testMsg, pbKeyPairToCryptoKeyPair(mainKey).verificationKey)
         validKey && validSignature
       },
       true
@@ -119,21 +120,21 @@ class WalletApiSpec extends munit.CatsEffectSuite with MockHelpers {
         val kp2 = kp2Either.toOption.get
         val validKeyPairs =
           (kp1.vk.vk.extendedEd25519.isDefined && kp1.sk.sk.extendedEd25519.isDefined) && (kp2.vk.vk.extendedEd25519.isDefined && kp2.sk.sk.extendedEd25519.isDefined)
-        val signature1 = signingInstance.sign(WalletApi.pbKeyPairToCryotoKeyPair(kp1).signingKey, testMsg)
-        val signature2 = signingInstance.sign(WalletApi.pbKeyPairToCryotoKeyPair(kp2).signingKey, testMsg)
+        val signature1 = signingInstance.sign(pbKeyPairToCryptoKeyPair(kp1).signingKey, testMsg)
+        val signature2 = signingInstance.sign(pbKeyPairToCryptoKeyPair(kp2).signingKey, testMsg)
         val validSignatures = (signingInstance.verify(
           signature1,
           testMsg,
-          WalletApi.pbKeyPairToCryotoKeyPair(kp1).verificationKey
+          pbKeyPairToCryptoKeyPair(kp1).verificationKey
         )) && (signingInstance.verify(
           signature2,
           testMsg,
-          WalletApi.pbKeyPairToCryotoKeyPair(kp2).verificationKey
+          pbKeyPairToCryptoKeyPair(kp2).verificationKey
         )) && (!signingInstance.verify(
           signature1,
           testMsg,
-          WalletApi.pbKeyPairToCryotoKeyPair(kp2).verificationKey
-        )) && (!signingInstance.verify(signature2, testMsg, WalletApi.pbKeyPairToCryotoKeyPair(kp1).verificationKey))
+          pbKeyPairToCryptoKeyPair(kp2).verificationKey
+        )) && (!signingInstance.verify(signature2, testMsg, pbKeyPairToCryptoKeyPair(kp1).verificationKey))
         validKeyPairs && validSignatures
       },
       true
@@ -162,8 +163,8 @@ class WalletApiSpec extends munit.CatsEffectSuite with MockHelpers {
         mainKey    <- walletApi.extractMainKey(vaultStore, password).map(_.toOption.get)
         childKey   <- walletApi.deriveChildKeys(mainKey, idx)
       } yield {
-        val signature = signingInstance.sign(WalletApi.pbKeyPairToCryotoKeyPair(childKey).signingKey, testMsg)
-        signingInstance.verify(signature, testMsg, WalletApi.pbKeyPairToCryotoKeyPair(childKey).verificationKey)
+        val signature = signingInstance.sign(pbKeyPairToCryptoKeyPair(childKey).signingKey, testMsg)
+        signingInstance.verify(signature, testMsg, pbKeyPairToCryptoKeyPair(childKey).verificationKey)
       },
       true
     )
@@ -178,8 +179,8 @@ class WalletApiSpec extends munit.CatsEffectSuite with MockHelpers {
         mainKey    <- walletApi.extractMainKey(vaultStore, password).map(_.toOption.get)
         childKey   <- walletApi.deriveChildKeysPartial(mainKey, 4, 4)
       } yield {
-        val signature = signingInstance.sign(WalletApi.pbKeyPairToCryotoKeyPair(childKey).signingKey, testMsg)
-        signingInstance.verify(signature, testMsg, WalletApi.pbKeyPairToCryotoKeyPair(childKey).verificationKey)
+        val signature = signingInstance.sign(pbKeyPairToCryptoKeyPair(childKey).signingKey, testMsg)
+        signingInstance.verify(signature, testMsg, pbKeyPairToCryptoKeyPair(childKey).verificationKey)
       },
       true
     )
@@ -198,9 +199,9 @@ class WalletApiSpec extends munit.CatsEffectSuite with MockHelpers {
         childVerificationKeyTest <- walletApi.deriveChildVerificationKey(childKeyPartial.vk, 4)
       } yield {
         val validVk = childVerificationKeyTest == childKeyExpected.vk
-        val signature = signingInstance.sign(WalletApi.pbKeyPairToCryotoKeyPair(childKeyExpected).signingKey, testMsg)
+        val signature = signingInstance.sign(pbKeyPairToCryptoKeyPair(childKeyExpected).signingKey, testMsg)
         validVk && signingInstance
-          .verify(signature, testMsg, WalletApi.pbVkToCryptoVk(childVerificationKeyTest.getExtendedEd25519))
+          .verify(signature, testMsg, pbVkToCryptoVk(childVerificationKeyTest.getExtendedEd25519))
       },
       true
     )
@@ -367,13 +368,13 @@ class WalletApiSpec extends munit.CatsEffectSuite with MockHelpers {
         val testMainKey = importedMainKey.toOption.get
         // Verify the main key is the same
         val validMainKey = (importedMainKey.isRight) && (mainKey == testMainKey)
-        val signature = signingInstance.sign(WalletApi.pbKeyPairToCryotoKeyPair(mainKey).signingKey, testMsg)
-        val testSignature = signingInstance.sign(WalletApi.pbKeyPairToCryotoKeyPair(testMainKey).signingKey, testMsg)
+        val signature = signingInstance.sign(pbKeyPairToCryptoKeyPair(mainKey).signingKey, testMsg)
+        val testSignature = signingInstance.sign(pbKeyPairToCryptoKeyPair(testMainKey).signingKey, testMsg)
         val validSignature = (java.util.Arrays.equals(signature, testSignature)) && signingInstance.verify(
           signature,
           testMsg,
-          WalletApi.pbKeyPairToCryotoKeyPair(testMainKey).verificationKey
-        ) && signingInstance.verify(testSignature, testMsg, WalletApi.pbKeyPairToCryotoKeyPair(mainKey).verificationKey)
+          pbKeyPairToCryptoKeyPair(testMainKey).verificationKey
+        ) && signingInstance.verify(testSignature, testMsg, pbKeyPairToCryptoKeyPair(mainKey).verificationKey)
         validImportedWallet && validMainKey && validSignature
       },
       true

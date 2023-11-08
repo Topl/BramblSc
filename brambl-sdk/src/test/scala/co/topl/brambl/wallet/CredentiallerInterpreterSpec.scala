@@ -25,7 +25,7 @@ import co.topl.quivr.runtime.QuivrRuntimeErrors.ValidationError.{
 }
 import com.google.protobuf.ByteString
 import quivr.models.{Int128, KeyPair, Preimage, Proof, Proposition, VerificationKey}
-import co.topl.brambl.wallet.WalletApi.{cryptoToPbKeyPair, pbKeyPairToCryotoKeyPair}
+import co.topl.brambl.syntax.{cryptoToPbKeyPair, pbKeyPairToCryptoKeyPair}
 import co.topl.crypto.encryption.VaultStore
 import munit.CatsEffectAssertions.assertIO
 import munit.CatsEffectSuite
@@ -677,7 +677,7 @@ class CredentiallerInterpreterSpec extends CatsEffectSuite with MockHelpers {
     val bobMainKey: KeyPair = edInstance.deriveKeyPairFromSeed(Random.nextBytes(96))
     val bobIndices = Indices(8, 9, 10)
     val bobChildKey: KeyPair = edInstance.deriveKeyPairFromChildPath(
-      pbKeyPairToCryotoKeyPair(bobMainKey).signingKey,
+      pbKeyPairToCryptoKeyPair(bobMainKey).signingKey,
       List(
         Bip32Indexes.HardenedIndex(bobIndices.x),
         Bip32Indexes.SoftIndex(bobIndices.y),
