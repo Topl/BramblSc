@@ -2,6 +2,7 @@ package co.topl.brambl
 
 package object syntax
     extends LockSyntax
+    with KeyPairSyntax
     with TransactionIdSyntax
     with TransactionSyntax
     with GroupPolicySyntax

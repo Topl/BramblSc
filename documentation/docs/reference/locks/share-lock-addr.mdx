@@ -1,0 +1,85 @@
+---
+sidebar_position: 4
+title: Share a LockAddress
+description: Share a LockAddress as a Base58 encoded string.
+---
+
+import ScaladocLink from '@site/src/components/ScaladocLink';
+
+The SDK provides an easy way to share Lock Addresses with other users using a Base58 encoding scheme. This is useful
+when you want to share a new address to receive funds.
+
+## Encoding into Base58
+
+You can encode a Lock Address into Base58 using
+the <ScaladocLink path="co/topl/brambl/codecs/AddressCodecs$.html#encodeAddress(LockAddress):String"><code>encodeAddress</code></ScaladocLink>
+function in the AddressCodecs object:
+
+```scala
+def encodeAddress(
+  lockAddress: LockAddress
+): String
+```
+
+This function takes in a Lock Address and returns it's Base58 string representation.
+
+The parameters are as follows:
+- `lockAddress`: The Lock Address to encode into Base58.
+
+## Decoding from Base58
+
+You can decode a Lock Address from Base58 using
+the <ScaladocLink path="co/topl/brambl/codecs/AddressCodecs$.html#decodeAddress(String):Either[EncodingError,LockAddress]"><code>decodeAddress</code></ScaladocLink>
+function in the AddressCodecs object:
+
+```scala
+def decodeAddress(
+  address: String
+): Either[EncodingError, LockAddress]
+```
+
+This function takes in a Base58 encoded String and returns the corresponding Lock Address if possible. If it is not
+possible to decode the string into a Lock Address, an error will be returned.
+
+The parameters are as follows:
+- `address`: The Base58 string to decode into a Lock Address.
+
+## Example
+
+Using the `lockAddrResult` and the context `IO` from the [LockAddress example](./create-lock-addr#example) we can encode
+and decode to-and-from Base58.
+
+```scala
+import cats.effect.IO
+import co.topl.brambl.builders.{BuilderError, TransactionBuilderApi}
+import co.topl.brambl.builders.locks.{LockTemplate, PropositionTemplate}
+import co.topl.brambl.builders.locks.PropositionTemplate.SignatureTemplate
+import co.topl.brambl.builders.locks.LockTemplate.PredicateTemplate
+import co.topl.brambl.codecs.AddressCodecs.{decodeAddress, encodeAddress}
+import co.topl.brambl.constants.NetworkConstants.{MAIN_LEDGER_ID, MAIN_NETWORK_ID}
+import co.topl.brambl.models.LockAddress
+import co.topl.brambl.models.box.Lock
+import co.topl.brambl.syntax.cryptoToPbKeyPair
+import co.topl.brambl.utils.EncodingError
+import co.topl.crypto.signing.ExtendedEd25519
+import quivr.models.KeyPair
+
+
+val signatureTemplate: PropositionTemplate[IO] = SignatureTemplate[IO]("ExtendedEd25519", 0)
+val predicateTemplate: LockTemplate[IO] = PredicateTemplate[IO](Seq(signatureTemplate), 1)
+
+// Some mock key pair. Replace with your own.
+val someKeyPair: KeyPair = (new ExtendedEd25519).deriveKeyPairFromSeed(Array.fill(96)(0: Byte))
+val lockResult: IO[Either[BuilderError, Lock]] = predicateTemplate.build(List(someKeyPair.vk))
+
+val transactionBuilderApi = TransactionBuilderApi.make[IO](MAIN_NETWORK_ID, MAIN_LEDGER_ID)
+val lockAddrResult: IO[LockAddress] = for {
+  // Assuming lockResult contains an Either.Right[Lock]
+  lock <- lockResult.map(_.toOption.get)
+  lockAddr <- transactionBuilderApi.lockAddress(lock)
+} yield lockAddr
+
+// Encode and decode starts here:
+val base58Addr: IO[String] = lockAddrResult.map(encodeAddress)
+val decodedAddr: IO[Either[EncodingError, LockAddress]] = base58Addr.map(decodeAddress)
+```

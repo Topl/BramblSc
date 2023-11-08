@@ -12,7 +12,7 @@ import java.nio.file.{Files, Path, Paths}
 import co.topl.brambl.builders.TransactionBuilderApi
 import co.topl.brambl.constants.NetworkConstants._
 import co.topl.brambl.dataApi.WalletStateAlgebra
-import co.topl.brambl.wallet.WalletApi.cryptoToPbKeyPair
+import co.topl.brambl.syntax.cryptoToPbKeyPair
 import co.topl.crypto.generation.KeyInitializer.Instances.extendedEd25519Initializer
 import co.topl.crypto.signing.{ExtendedEd25519, KeyPair}
 import quivr.models

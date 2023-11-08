@@ -34,7 +34,7 @@ import quivr.models.{
   VerificationKey,
   Witness
 }
-import co.topl.brambl.wallet.WalletApi.{cryptoToPbKeyPair, pbKeyPairToCryotoKeyPair}
+import co.topl.brambl.syntax.{cryptoToPbKeyPair, pbKeyPairToCryptoKeyPair}
 import co.topl.crypto.generation.Bip32Indexes
 import co.topl.crypto.signing.ExtendedEd25519
 
@@ -48,7 +48,7 @@ trait MockHelpers {
   val MockMainKeyPair: KeyPair = (new ExtendedEd25519).deriveKeyPairFromSeed(Array.fill(96)(0: Byte))
 
   val MockChildKeyPair: KeyPair = (new ExtendedEd25519).deriveKeyPairFromChildPath(
-    pbKeyPairToCryotoKeyPair(MockMainKeyPair).signingKey,
+    pbKeyPairToCryptoKeyPair(MockMainKeyPair).signingKey,
     List(
       Bip32Indexes.HardenedIndex(MockIndices.x),
       Bip32Indexes.SoftIndex(MockIndices.y),

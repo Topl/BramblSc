@@ -1,0 +1,54 @@
+---
+sidebar_position: 2
+title: Generate a Lock
+description: Build a Lock from a Lock Template.
+---
+
+import ScaladocLink from '@site/src/components/ScaladocLink';
+
+You can build a lock using
+the <ScaladocLink path="co/topl/brambl/builders/locks/LockTemplate.html#build(List[VerificationKey]):F[Either[BuilderError,Lock]]"><code>build</code></ScaladocLink>
+function of a Lock Template instance. To obtain a Lock Template instance, [learn how to create a lock template](./create-template).
+
+```scala
+def build(
+  entityVks: List[VerificationKey]
+): F[Either[BuilderError, Lock]]
+```
+
+This function builds a Lock instance from a Lock Template.
+
+The parameters are as follows:
+- `entityVks`: A list of Verification Keys that will be used to build the Lock. These will be referenced by any
+[SignatureTemplate](./create-template#signaturetemplate) contained in the Lock Template.
+
+On success, this function returns a Predicate Lock instance. On failure, it returns a BuilderError. This function can fail
+any SignatureTemplates contained in the Lock Template have an invalid `entityIdx` given the `entityVks`. For example, if
+an `entityIdx` is greater than or equal to the length of `entityVks` or if it's negative.
+
+## Example
+
+Using the template `predicateTemplate` and context `IO` from the [Lock Predicate example](./create-template#example), we
+can build an instance of the 1-of-1 Signature Lock by providing the verification key for which the signature will be valid.
+
+```scala
+import cats.effect.IO
+import co.topl.brambl.builders.BuilderError
+import co.topl.brambl.builders.locks.{LockTemplate, PropositionTemplate}
+import co.topl.brambl.builders.locks.PropositionTemplate.SignatureTemplate
+import co.topl.brambl.builders.locks.LockTemplate.PredicateTemplate
+import co.topl.brambl.models.box.Lock
+import co.topl.brambl.syntax.cryptoToPbKeyPair
+import co.topl.crypto.signing.ExtendedEd25519
+import quivr.models.KeyPair
+
+
+val signatureTemplate: PropositionTemplate[IO] = SignatureTemplate[IO]("ExtendedEd25519", 0)
+val predicateTemplate: LockTemplate[IO] = PredicateTemplate[IO](Seq(signatureTemplate), 1)
+
+// Some mock key pair. Replace with your own.
+val someKeyPair: KeyPair = (new ExtendedEd25519).deriveKeyPairFromSeed(Array.fill(96)(0: Byte))
+
+// Building the lock starts here:
+val lockResult: IO[Either[BuilderError, Lock]] = predicateTemplate.build(List(someKeyPair.vk))
+```
