@@ -19,10 +19,10 @@ import scala.io.Source
 object WalletKeyApi {
 
   /**
-    * Creates an instance of the WalletKeyApiAlgebra that stores the keyfile to disk.
-    *
-    * @return an instance of the WalletKeyApiAlgebra that stores the keyfile to disk.
-    */
+   * Creates an instance of the WalletKeyApiAlgebra that stores the keyfile to disk.
+   *
+   * @return an instance of the WalletKeyApiAlgebra that stores the keyfile to disk.
+   */
   def make[F[_]: Sync](): WalletKeyApiAlgebra[F] =
     new WalletKeyApiAlgebra[F] {
 
@@ -42,6 +42,7 @@ object WalletKeyApi {
           saveMainKeyVaultStore(mainKeyVaultStore, name) // overwrite keyfile
         else
           Either.left[WalletKeyException, Unit](VaultStoreDoesNotExistException(name)).pure[F]
+
       override def deleteMainKeyVaultStore(
         name: String
       ): F[Either[WalletKeyException, Unit]] =
@@ -79,7 +80,6 @@ object WalletKeyApi {
               } yield res
             }
         else Either.left[WalletKeyException, VaultStore[F]](VaultStoreDoesNotExistException(name)).pure[F]
-
 
       override def saveMnemonic(
         mnemonic:     IndexedSeq[String],
