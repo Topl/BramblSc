@@ -29,6 +29,7 @@ the Wallet Api as follows:
 ```scala
 import cats.effect.IO
 import co.topl.brambl.servicekit.WalletKeyApi
+import co.topl.brambl.wallet.WalletApi
 
 val walletApi = WalletApi.make[IO](WalletKeyApi.make())
 ```
