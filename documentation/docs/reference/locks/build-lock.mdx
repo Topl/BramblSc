@@ -32,5 +32,23 @@ Using the template `predicateTemplate` and context `IO` from the [Lock Predicate
 can build an instance of the 1-of-1 Signature Lock by providing the verification key for which the signature will be valid.
 
 ```scala
-val lockResult: IO[Either[BuilderError, Lock]] = predicateTemplate.build(List(someVerificationKey))
+import cats.effect.IO
+import co.topl.brambl.builders.BuilderError
+import co.topl.brambl.builders.locks.{LockTemplate, PropositionTemplate}
+import co.topl.brambl.builders.locks.PropositionTemplate.SignatureTemplate
+import co.topl.brambl.builders.locks.LockTemplate.PredicateTemplate
+import co.topl.brambl.models.box.Lock
+import co.topl.brambl.syntax.cryptoToPbKeyPair
+import co.topl.crypto.signing.ExtendedEd25519
+import quivr.models.KeyPair
+
+
+val signatureTemplate: PropositionTemplate[IO] = SignatureTemplate[IO]("ExtendedEd25519", 0)
+val predicateTemplate: LockTemplate[IO] = PredicateTemplate[IO](Seq(signatureTemplate), 1)
+
+// Some mock key pair. Replace with your own.
+val someKeyPair: KeyPair = (new ExtendedEd25519).deriveKeyPairFromSeed(Array.fill(96)(0: Byte))
+
+// Building the lock starts here:
+val lockResult: IO[Either[BuilderError, Lock]] = predicateTemplate.build(List(someKeyPair.vk))
 ```

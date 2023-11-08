@@ -23,6 +23,8 @@ if you are using Cats Effect `IO`, you can initialize the Transaction Builder Ap
 
 ```scala
 import cats.effect.IO
+import co.topl.brambl.builders.TransactionBuilderApi
+import co.topl.brambl.constants.NetworkConstants.{MAIN_LEDGER_ID, MAIN_NETWORK_ID}
 
 val transactionBuilderApi = TransactionBuilderApi.make[IO](MAIN_NETWORK_ID, MAIN_LEDGER_ID)
 ```

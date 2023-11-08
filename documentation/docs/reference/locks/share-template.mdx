@@ -56,6 +56,19 @@ Using the `predicateTemplate` and the context `IO` from the [Lock Template examp
 and decode to-and-from JSON.
 
 ```scala
+import cats.effect.IO
+import co.topl.brambl.builders.locks.{LockTemplate, PropositionTemplate}
+import co.topl.brambl.builders.locks.PropositionTemplate.SignatureTemplate
+import co.topl.brambl.builders.locks.LockTemplate.PredicateTemplate
+import co.topl.brambl.codecs.LockTemplateCodecs.{decodeLockTemplate, encodeLockTemplate}
+import io.circe.{DecodingFailure, Json}
+
+
+val signatureTemplate: PropositionTemplate[IO] = SignatureTemplate[IO]("ExtendedEd25519", 0)
+val predicateTemplate: LockTemplate[IO] = PredicateTemplate[IO](Seq(signatureTemplate), 1)
+
+
+// Encode and decode starts here:
 val jsonTemplate: Json = encodeLockTemplate(predicateTemplate)
 val decodedTemplate: Either[DecodingFailure, LockTemplate[IO]] = decodeLockTemplate(jsonTemplate)
 ```

@@ -50,6 +50,36 @@ Using the `lockAddrResult` and the context `IO` from the [LockAddress example](.
 and decode to-and-from Base58.
 
 ```scala
+import cats.effect.IO
+import co.topl.brambl.builders.{BuilderError, TransactionBuilderApi}
+import co.topl.brambl.builders.locks.{LockTemplate, PropositionTemplate}
+import co.topl.brambl.builders.locks.PropositionTemplate.SignatureTemplate
+import co.topl.brambl.builders.locks.LockTemplate.PredicateTemplate
+import co.topl.brambl.codecs.AddressCodecs.{decodeAddress, encodeAddress}
+import co.topl.brambl.constants.NetworkConstants.{MAIN_LEDGER_ID, MAIN_NETWORK_ID}
+import co.topl.brambl.models.LockAddress
+import co.topl.brambl.models.box.Lock
+import co.topl.brambl.syntax.cryptoToPbKeyPair
+import co.topl.brambl.utils.EncodingError
+import co.topl.crypto.signing.ExtendedEd25519
+import quivr.models.KeyPair
+
+
+val signatureTemplate: PropositionTemplate[IO] = SignatureTemplate[IO]("ExtendedEd25519", 0)
+val predicateTemplate: LockTemplate[IO] = PredicateTemplate[IO](Seq(signatureTemplate), 1)
+
+// Some mock key pair. Replace with your own.
+val someKeyPair: KeyPair = (new ExtendedEd25519).deriveKeyPairFromSeed(Array.fill(96)(0: Byte))
+val lockResult: IO[Either[BuilderError, Lock]] = predicateTemplate.build(List(someKeyPair.vk))
+
+val transactionBuilderApi = TransactionBuilderApi.make[IO](MAIN_NETWORK_ID, MAIN_LEDGER_ID)
+val lockAddrResult: IO[LockAddress] = for {
+  // Assuming lockResult contains an Either.Right[Lock]
+  lock <- lockResult.map(_.toOption.get)
+  lockAddr <- transactionBuilderApi.lockAddress(lock)
+} yield lockAddr
+
+// Encode and decode starts here:
 val base58Addr: IO[String] = lockAddrResult.map(encodeAddress)
 val decodedAddr: IO[Either[EncodingError, LockAddress]] = base58Addr.map(decodeAddress)
 ```
