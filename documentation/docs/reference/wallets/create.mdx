@@ -6,12 +6,49 @@ description: Create a new Wallet from scratch
 
 import ScaladocLink from '@site/src/components/ScaladocLink';
 
-Coming soon
+Creating a wallet involves generating your Topl main key pair. This main key pair is used to derive all keys that a user would
+use to create and prove transactions. You can create a new wallet using
+the <ScaladocLink path="co/topl/brambl/wallet/WalletApi.html#createNewWallet(Array[Byte],Option[String],MnemonicSize):F[Either[WalletApiFailure,NewWalletResult[F]]]"><code>createNewWallet</code></ScaladocLink>
+function of a Wallet API instance.
 
-## Create
+```scala
+def createNewWallet(
+  password:   Array[Byte],
+  passphrase: Option[String] = None,
+  mLen:       MnemonicSize = MnemonicSizes.words12
+): F[Either[WalletApi.WalletApiFailure, WalletApi.NewWalletResult[F]]]
+```
 
-## Create and Save
+This function generates a Topl main key pair and encrypts it with the provided password.
 
-Saving per the WalletKeyApi (service kit)
+The parameters are as follows:
+- `password`: The password to encrypt the main key pair with
+- `passphrase`: An optional passphrase used to generate the main key pair. The default is no passphrase.
+- `mLen`: The length of the mnemonic to generate. The default is 12 words.
+
+On success, this function returns
+a <ScaladocLink path="co/topl/brambl/wallet/WalletApi$$NewWalletResult.html"><code>NewWalletResult</code></ScaladocLink>
+which contains the Topl main key pair encrypted into a `VaultStore` instance, as well as the mnemonic which can be used
+to later import the derived Topl main key pair. On failure, this
+function returns
+a <ScaladocLink path="co/topl/brambl/wallet/WalletApi$$WalletApiFailure.html"><code>WalletApiFailure</code></ScaladocLink>
+which specifies the reason for failure.
+
+:::caution
+If you lose your *password*, you can use your *passphrase* and the generated mnemonic to recover your wallet (using import).
+It is critical to store the used passphrase and the generated mnemonic in a safe place. If you lose either of these,
+you will not be able to recover your wallet.
+:::
 
 ## Example
+
+The following example shows how to create a new wallet using the default of no passphrase and a mnemonic length of 12 words.
+
+```scala
+import cats.effect.IO
+import co.topl.brambl.wallet.WalletApi
+import co.topl.brambl.servicekit.WalletKeyApi
+
+val walletApi = WalletApi.make[IO](WalletKeyApi.make())
+val newWalletResult = walletApi.createNewWallet("password".getBytes)
+```
