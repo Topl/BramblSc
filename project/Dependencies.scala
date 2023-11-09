@@ -62,7 +62,7 @@ object Dependencies {
   )
 
   val sqlite: Seq[ModuleID] = Seq(
-    "org.xerial" % "sqlite-jdbc" % "3.43.2.1"
+    "org.xerial" % "sqlite-jdbc" % "3.43.2.2"
   )
 
   object Crypto {
