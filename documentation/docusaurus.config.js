@@ -63,13 +63,13 @@ const config = {
         items: [
           {
             type: 'docSidebar',
-            sidebarId: 'serviceKitSidebar',
-            label: 'Service Kit',
+            sidebarId: 'referenceSidebar',
+            label: 'Reference',
           },
           {
             type: 'docSidebar',
-            sidebarId: 'referenceSidebar',
-            label: 'Reference',
+            sidebarId: 'serviceKitSidebar',
+            label: 'Service Kit',
           },
 //          {
 //            type: 'docSidebar',

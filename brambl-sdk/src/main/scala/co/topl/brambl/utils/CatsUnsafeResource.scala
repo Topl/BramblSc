@@ -19,7 +19,7 @@ object CatsUnsafeResource {
       _     <- Async[F].raiseWhen(maxParallelism < 1)(new IllegalArgumentException("Invalid maxParallelism"))
       queue <- Queue.unbounded[F, Option[T]]
       // Launch with several uninitialized resources
-      _ <- 0.iterateUntilM(i => queue.offer(None).as(i + 1))(_ >= maxParallelism)
+      _ <- catsSyntaxMonadIdOps(0).iterateUntilM((i: Int) => queue.offer(None).as(i + 1))(_ >= maxParallelism)
       res = Resource.make(
         Sync[F].defer(
           OptionT(queue.take)
