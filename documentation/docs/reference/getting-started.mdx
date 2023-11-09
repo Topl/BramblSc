@@ -24,10 +24,11 @@ libraryDependencies += "co.topl" %% "brambl-sdk" % bramblVersion
 Wallet functionality in the Brambl SDK requires an implementation of a `ServiceKit` which is responsible for implementing
 any un-implemented, application-specific, traits in
 the <ScaladocLink path="co/topl/brambl/dataApi/index.html"><code>DataApi</code></ScaladocLink>
-package. Specifically, handling data persistence. The SDK provides a default implementation of
+package. Specifically, it handles data persistence. The SDK provides a default implementation of
 the <ScaladocLink path="co/topl/brambl/servicekit/index.html"><code>ServiceKit</code></ScaladocLink>
 that is published to [Maven Central](https://search.maven.org/artifact/co.topl/service-kit_2.13) for your convenience.
-This default implementation uses local storage and SQLite. To use it in your project, add the following to your `build.sbt`:
+This default implementation uses local storage and SQLite. To learn more, see [Overview of Service Kit](../service-kit/big-picture).
+To use it in your project, add the following to your `build.sbt`:
 
 ```scala title="build.sbt"
 val bramblVersion = "2.0.0" // replace with the latest version
