@@ -66,6 +66,11 @@ const config = {
             sidebarId: 'referenceSidebar',
             label: 'Reference',
           },
+          {
+            type: 'docSidebar',
+            sidebarId: 'serviceKitSidebar',
+            label: 'Service Kit',
+          },
 //          {
 //            type: 'docSidebar',
 //            sidebarId: 'tutorialsSidebar',

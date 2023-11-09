@@ -18,6 +18,11 @@ import scala.io.Source
  */
 object WalletKeyApi {
 
+  /**
+   * Creates an instance of the WalletKeyApiAlgebra that stores the keyfile to disk.
+   *
+   * @return an instance of the WalletKeyApiAlgebra that stores the keyfile to disk.
+   */
   def make[F[_]: Sync](): WalletKeyApiAlgebra[F] =
     new WalletKeyApiAlgebra[F] {
 
@@ -29,12 +34,6 @@ object WalletKeyApi {
       case class MnemonicDoesNotExistException(name: String)
           extends WalletKeyException(s"Mnemonic file at $name does not exist")
 
-      /**
-       * Updates the main key vault store.
-       * @param mainKeyVaultStore The new VaultStore to update to.
-       * @param name              The filepath of the VaultStore to update.
-       * @return nothing if successful. An exception if the VaultStore does not exist.
-       */
       override def updateMainKeyVaultStore(
         mainKeyVaultStore: VaultStore[F],
         name:              String
@@ -44,11 +43,6 @@ object WalletKeyApi {
         else
           Either.left[WalletKeyException, Unit](VaultStoreDoesNotExistException(name)).pure[F]
 
-      /**
-       * Deletes the main key vault store.
-       * @param name The filepath of the VaultStore to delete.
-       * @return nothing if successful. An exception if the VaultStore does not exist.
-       */
       override def deleteMainKeyVaultStore(
         name: String
       ): F[Either[WalletKeyException, Unit]] =
@@ -57,12 +51,6 @@ object WalletKeyApi {
         else
           Either.left[WalletKeyException, Unit](VaultStoreDoesNotExistException(name)).pure[F]
 
-      /**
-       * Persists the main key vault store to disk.
-       * @param mainKeyVaultStore The VaultStore to persist
-       * @param name              The filepath to persist the VaultStore to.
-       *  @return nothing if successful. If persisting fails due to an underlying cause, return a WalletKeyException
-       */
       override def saveMainKeyVaultStore(
         mainKeyVaultStore: VaultStore[F],
         name:              String
@@ -74,12 +62,6 @@ object WalletKeyApi {
           } yield res.asRight[WalletKeyException]
         }
 
-      /**
-       * Retrieves the main key vault store from disk.
-       * @param name The filepath of the VaultStore to retrieve.
-       *  @return The VaultStore for the Topl Main Secret Key if it exists.
-       *          If retrieving fails due to an underlying cause, return a WalletKeyException
-       */
       override def getMainKeyVaultStore(
         name: String
       ): F[Either[WalletKeyException, VaultStore[F]]] =
@@ -99,11 +81,6 @@ object WalletKeyApi {
             }
         else Either.left[WalletKeyException, VaultStore[F]](VaultStoreDoesNotExistException(name)).pure[F]
 
-      /**
-       * @param mnemonic          The mnemonic to persist
-       * @param mnemonicName      The filepath to persist the mnemonic to.
-       *  @return nothing if successful. If persisting fails due to an underlying cause, return a WalletKeyException
-       */
       override def saveMnemonic(
         mnemonic:     IndexedSeq[String],
         mnemonicName: String
