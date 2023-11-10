@@ -65,6 +65,13 @@ object Dependencies {
     "org.xerial" % "sqlite-jdbc" % "3.43.2.1"
   )
 
+  val grpcNetty =
+    "io.grpc" % "grpc-netty" % scalapb.compiler.Version.grpcJavaVersion
+
+  val grpcRuntime =
+    "com.thesamet.scalapb" %% "scalapb-runtime-grpc" % scalapb.compiler.Version.scalapbVersion
+
+
   object Crypto {
 
     lazy val sources: Seq[ModuleID] =
@@ -85,7 +92,7 @@ object Dependencies {
 
   object BramblSdk {
 
-    lazy val sources: Seq[ModuleID] = Dependencies.protobufSpecs
+    lazy val sources: Seq[ModuleID] = Dependencies.protobufSpecs ++ Seq(grpcNetty, grpcRuntime)
 
     lazy val tests: Seq[ModuleID] =
       (
