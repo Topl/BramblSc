@@ -61,6 +61,45 @@ Lock and LockAddress [with the SDK](../locks).
 
 <TxReturn tokenType="transferred" />
 
+### Example
+
+```scala
+import cats.effect.IO
+import cats.effect.unsafe.implicits.global
+import co.topl.brambl.builders.TransactionBuilderApi
+import co.topl.brambl.constants.NetworkConstants.{MAIN_LEDGER_ID, PRIVATE_NETWORK_ID}
+import co.topl.brambl.builders.locks.LockTemplate
+import co.topl.brambl.builders.locks.PropositionTemplate.HeightTemplate
+import co.topl.brambl.builders.locks.LockTemplate.PredicateTemplate
+import co.topl.crypto.signing.ExtendedEd25519
+import quivr.models.KeyPair
+import co.topl.brambl.codecs.AddressCodecs.decodeAddress
+import co.topl.brambl.syntax.{LvlType, UnknownType, cryptoToPbKeyPair, valueToTypeIdentifierSyntaxOps}
+import co.topl.brambl.dataApi.{GenusQueryAlgebra, RpcChannelResource}
+
+val predicateTemplate: LockTemplate[IO] = PredicateTemplate[IO](Seq(HeightTemplate("header", 1, Long.MaxValue)), 1)
+
+// Some mock key pair. Replace with your own.
+val someKeyPair: KeyPair = (new ExtendedEd25519).deriveKeyPairFromSeed(Array.fill(96)(0: Byte))
+// Mock address. Replace with recipient address.
+val toAddr = decodeAddress("ptetP7jshHTuV9bmPmtVLm6PtUzBMZ8iYRvAxvbGTJ5VgiEPHqCCnZ8MLLdi").toOption.get
+
+val transactionBuilderApi = TransactionBuilderApi.make[IO](PRIVATE_NETWORK_ID, MAIN_LEDGER_ID)
+val channelResource = RpcChannelResource.channelResource[IO]("localhost", 9084, secureConnection = false)
+val genusQuery = GenusQueryAlgebra.make[IO](channelResource)
+
+// Transaction building starts here:
+val tx = for {
+  fromLock <- predicateTemplate.build(List.empty).map(_.toOption.get)
+  fromAddr <- transactionBuilderApi.lockAddress(fromLock)
+  txos <- genusQuery.queryUtxo(fromAddr)
+  fromTxos = txos.filter(_.transactionOutput.value.value.typeIdentifier != UnknownType)
+  res <- transactionBuilderApi.buildTransferAmountTransaction(LvlType, fromTxos, fromLock.getPredicate, 1L, toAddr, toAddr, 1L)
+} yield res
+
+tx.unsafeRunSync()
+```
+
 ## Transfer All Tokens
 
 You can create a transaction to transfer all tokens of a certain type or all tokens regardless of type using
@@ -96,3 +135,42 @@ If this is `None`, all tokens regardless of type will be transferred to the reci
 some token matching this identifier. The default value is `None`.
 
 <TxReturn tokenType="transferred" />
+
+### Example
+
+```scala
+import cats.effect.IO
+import cats.effect.unsafe.implicits.global
+import co.topl.brambl.builders.TransactionBuilderApi
+import co.topl.brambl.constants.NetworkConstants.{MAIN_LEDGER_ID, PRIVATE_NETWORK_ID}
+import co.topl.brambl.builders.locks.LockTemplate
+import co.topl.brambl.builders.locks.PropositionTemplate.HeightTemplate
+import co.topl.brambl.builders.locks.LockTemplate.PredicateTemplate
+import co.topl.crypto.signing.ExtendedEd25519
+import quivr.models.KeyPair
+import co.topl.brambl.codecs.AddressCodecs.decodeAddress
+import co.topl.brambl.syntax.{UnknownType, cryptoToPbKeyPair, valueToTypeIdentifierSyntaxOps}
+import co.topl.brambl.dataApi.{GenusQueryAlgebra, RpcChannelResource}
+
+val predicateTemplate: LockTemplate[IO] = PredicateTemplate[IO](Seq(HeightTemplate("header", 1, Long.MaxValue)), 1)
+
+// Some mock key pair. Replace with your own.
+val someKeyPair: KeyPair = (new ExtendedEd25519).deriveKeyPairFromSeed(Array.fill(96)(0: Byte))
+// Mock address. Replace with recipient address.
+val toAddr = decodeAddress("ptetP7jshHTuV9bmPmtVLm6PtUzBMZ8iYRvAxvbGTJ5VgiEPHqCCnZ8MLLdi").toOption.get
+
+val transactionBuilderApi = TransactionBuilderApi.make[IO](PRIVATE_NETWORK_ID, MAIN_LEDGER_ID)
+val channelResource = RpcChannelResource.channelResource[IO]("localhost", 9084, secureConnection = false)
+val genusQuery = GenusQueryAlgebra.make[IO](channelResource)
+
+// Transaction building starts here:
+val tx = for {
+  fromLock <- predicateTemplate.build(List.empty).map(_.toOption.get)
+  fromAddr <- transactionBuilderApi.lockAddress(fromLock)
+  txos <- genusQuery.queryUtxo(fromAddr)
+  fromTxos = txos.filter(_.transactionOutput.value.value.typeIdentifier != UnknownType)
+  res <- transactionBuilderApi.buildTransferAllTransaction(fromTxos, fromLock.getPredicate, toAddr, toAddr, 1L)
+} yield res
+
+tx.unsafeRunSync()
+```
