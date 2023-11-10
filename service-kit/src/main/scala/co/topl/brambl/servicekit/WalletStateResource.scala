@@ -25,3 +25,9 @@ trait WalletStateResource {
       )
     )(conn => IO.delay(conn.close()))
 }
+
+/**
+ * A resource that provides a connection to a wallet state database.
+ */
+
+object WalletStateResource extends WalletStateResource

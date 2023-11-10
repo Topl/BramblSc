@@ -1,0 +1,85 @@
+---
+sidebar_position: 6
+title: Prove a Transaction
+description: Prove a transaction.
+---
+
+import ScaladocLink from '@site/src/components/ScaladocLink';
+
+Before you can broadcast a [newly created transaction](./transactions) to the blockchain, you must prove that you have the authority to
+spend the input tokens. You can accomplish this using the SDK's Credentialler.
+
+## Prerequisites
+
+The following requires access to a Credentialler instance. You can initialize one using the following snippet:
+
+```scala
+val credentialler = CredentiallerInterpreter.make[F](walletApi, walletStateApi, mainKey)
+```
+
+Where `F` is a type parameter bound to a context parameter of type `Monad[F]`, `walletApi` is an instance of
+a [Wallet Api](./wallets#prerequisites), `walletStateApi` is an initialized instance of
+the <ScaladocLink path="co/topl/brambl/dataApi/WalletStateAlgebra.html"><code>WalletStateAlgebra</code></ScaladocLink>,
+and `mainKey` is your ExtendedEd25519 Topl main key pair. See the `make`
+function's <ScaladocLink path="co/topl/brambl/wallet/CredentiallerInterpreter$.html#make[F[_]](WalletApi[F],WalletStateAlgebra[F],KeyPair)(Monad[F]):Credentialler[F]"><code>signature</code></ScaladocLink>.
+For example, if you are using Cats Effect `IO` and the default implementation of
+the <ScaladocLink path="co/topl/brambl/servicekit/index.html"><code>ServiceKit</code></ScaladocLink>, you can initialize
+a Credentialler as follows:
+
+```scala
+import cats.effect.IO
+import co.topl.brambl.servicekit.{WalletKeyApi, WalletStateApi}
+import co.topl.brambl.wallet.{CredentiallerInterpreter, WalletApi}
+import co.topl.brambl.servicekit.WalletStateResource
+import co.topl.crypto.signing.ExtendedEd25519
+import co.topl.brambl.syntax.cryptoToPbKeyPair
+
+// Replace with the location of your wallet state file
+val DB_FILE = "wallet.db"
+val walletConnection = WalletStateResource.walletResource(DB_FILE)
+
+val walletApi = WalletApi.make[IO](WalletKeyApi.make())
+val walletStateApi = WalletStateApi.make[IO](walletConnection, walletApi)
+// Some mock key pair. Do not use. Replace with your Topl main key pair.
+val mainKey = (new ExtendedEd25519).deriveKeyPairFromSeed(Array.fill(96)(0: Byte))
+
+// Credentialler initialization starts:
+val credentialler = CredentiallerInterpreter.make[IO](walletApi, walletStateApi, mainKey)
+```
+
+## Prove
+
+You can prove a transaction using
+the <ScaladocLink path="co/topl/brambl/wallet/Credentialler.html#prove(IoTransaction):F[IoTransaction]"><code>prove</code></ScaladocLink>
+function of a Credentialler instance.
+
+```scala
+def prove(
+  unprovenTx: IoTransaction
+): F[IoTransaction]
+```
+
+This function takes in a transaction and proves every input by updating their attestations. Any existing proofs are persisted.
+This is useful for partial proofs. For example, if an input is encumbered by an `And` lock, a partial proof could be that
+only one of the `And` lock's sub-propositions is proven. In this case, calling this function will add the proof for the
+second sub-proposition while leaving the first sub-proposition's proof intact.
+
+The parameters are as follows:
+- `unprovenTx`: The transaction to prove. As mentioned above, this transaction may already have some proofs. To obtain
+a new transaction with no proofs, read [Build a Transaction](./transactions)
+
+On success, this function returns the given transaction with updated proofs which can be broadcasted to the network.
+This returned `IoTransaction` has the same signable bytes as the original transaction. If any of the contained propositions
+are unable to be proven, their proofs will be left unchanged.
+
+:::note
+Proving a transaction does not guarantee that the transaction will be accepted by the network. The transaction may still be
+rejected if it is malformed or if it is not sufficiently proven. For this reason, it is recommended to use
+the [`proveAndValidate`](#prove-and-validate) function instead.
+:::
+
+### Example
+
+## Prove and Validate
+
+### Example
