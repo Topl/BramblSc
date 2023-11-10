@@ -127,19 +127,20 @@ class ExtendedEd25519 extends EllipticCurveSignatureScheme[SecretKey, PublicKey]
     val zRight =
       BigInt(1, z.slice(32, 64).reverse)
 
-    val nextLeft =
-      ByteBuffer
-        .wrap((zLeft * 8 + lNum).toByteArray.reverse)
-        .order(ByteOrder.LITTLE_ENDIAN)
-        .array()
-        .take(32)
+    // serialize a 32 byte BigInt to a 32 byte array according to the standard
+    // in https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki
+    // (see standard conversion functions)
+    // example Java implementation at:
+    // https://github.com/bloxbean/cardano-client-lib/blob/00f69a0c909770b919c4cc4834898cfd099f38e9/crypto/src/main/java/com/bloxbean/cardano/client/crypto/bip32/util/BytesUtil.java#L61
+    def sec_256(p: BigInt) = p.toByteArray.reverse.padTo(32, 0: Byte).reverse.takeRight(32)
 
-    val nextRight =
-      ByteBuffer
-        .wrap(((zRight + rNum) % (BigInt(2).pow(256))).toByteArray.reverse)
-        .order(ByteOrder.LITTLE_ENDIAN)
-        .array()
-        .take(32)
+    // serialize numbers to 32 byte array and transform to little endian
+    // as required
+    val nextLeft = sec_256(zLeft * 8 + lNum).reverse
+
+    // serialize numbers to 32 byte array and transform to little endian
+    // as required
+    val nextRight = sec_256((zRight + rNum) % (BigInt(2).pow(256))).reverse
 
     val chaincodeHmacData = index match {
       case _: Bip32Indexes.SoftIndex =>
