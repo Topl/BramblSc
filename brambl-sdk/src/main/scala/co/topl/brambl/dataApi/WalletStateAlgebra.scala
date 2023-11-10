@@ -76,7 +76,7 @@ trait WalletStateAlgebra[F[_]] {
    *
    * @param fellowship A String label of the fellowship to get the interactions for
    * @param template A String label of the template to get the interactions for
-   * @return The list of interactions for the given fellowship and template if possible. 
+   * @return The list of interactions for the given fellowship and template if possible.
    * If the fellowship or template do not exist it will return None.
    */
   def getInteractionList(fellowship: String, template: String): F[Option[List[(Indices, String)]]]
