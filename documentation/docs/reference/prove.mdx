@@ -78,8 +78,53 @@ rejected if it is malformed or if it is not sufficiently proven. For this reason
 the [`proveAndValidate`](#prove-and-validate) function instead.
 :::
 
-### Example
+## Example
 
-## Prove and Validate
+The following example shows how to prove a transaction.
 
-### Example
+```scala
+import cats.effect.IO
+import cats.effect.unsafe.implicits.global
+import co.topl.brambl.builders.TransactionBuilderApi
+import co.topl.brambl.constants.NetworkConstants.{MAIN_LEDGER_ID, PRIVATE_NETWORK_ID}
+import co.topl.brambl.builders.locks.LockTemplate
+import co.topl.brambl.builders.locks.PropositionTemplate.HeightTemplate
+import co.topl.brambl.builders.locks.LockTemplate.PredicateTemplate
+import co.topl.brambl.codecs.AddressCodecs.decodeAddress
+import co.topl.brambl.syntax.{UnknownType, valueToTypeIdentifierSyntaxOps}
+import co.topl.brambl.dataApi.{GenusQueryAlgebra, RpcChannelResource}
+import co.topl.brambl.servicekit.WalletStateResource
+import co.topl.brambl.servicekit.{WalletKeyApi, WalletStateApi}
+import co.topl.brambl.wallet.{CredentiallerInterpreter, WalletApi}
+import co.topl.crypto.signing.ExtendedEd25519
+import co.topl.brambl.syntax.cryptoToPbKeyPair
+
+// Replace with the location of your wallet state file
+val walletConnection = WalletStateResource.walletResource("wallet.db")
+
+// Some mock key pair. Do not use. Replace with your Topl main key pair.
+val mainKey = (new ExtendedEd25519).deriveKeyPairFromSeed(Array.fill(96)(0: Byte))
+
+// Mock address. Replace with recipient address.
+val toAddr = decodeAddress("ptetP7jshHTuV9bmPmtVLm6PtUzBMZ8iYRvAxvbGTJ5VgiEPHqCCnZ8MLLdi").toOption.get
+
+val transactionBuilderApi = TransactionBuilderApi.make[IO](PRIVATE_NETWORK_ID, MAIN_LEDGER_ID)
+val channelResource = RpcChannelResource.channelResource[IO]("localhost", 9084, secureConnection = false)
+val genusQuery = GenusQueryAlgebra.make[IO](channelResource)
+val predicateTemplate: LockTemplate[IO] = PredicateTemplate[IO](Seq(HeightTemplate("header", 1, Long.MaxValue)), 1)
+val walletApi = WalletApi.make[IO](WalletKeyApi.make())
+val walletStateApi = WalletStateApi.make[IO](walletConnection, walletApi)
+val credentialler = CredentiallerInterpreter.make[IO](walletApi, walletStateApi, mainKey)
+
+val tx = for {
+  fromLock <- predicateTemplate.build(List.empty).map(_.toOption.get)
+  fromAddr <- transactionBuilderApi.lockAddress(fromLock)
+  txos <- genusQuery.queryUtxo(fromAddr)
+  fromTxos = txos.filter(_.transactionOutput.value.value.typeIdentifier != UnknownType)
+  unprovenTx <- transactionBuilderApi.buildTransferAllTransaction(fromTxos, fromLock.getPredicate, toAddr, toAddr, 1L)
+  // Proving begins here:
+  provenTx <- credentialler.prove(unprovenTx.toOption.get)
+} yield provenTx
+
+tx.unsafeRunSync()
+```
