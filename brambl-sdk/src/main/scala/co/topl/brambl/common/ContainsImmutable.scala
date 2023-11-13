@@ -5,7 +5,7 @@ import co.topl.brambl.models.box.{Attestation, Box, Challenge, FungibilityType, 
 import co.topl.brambl.models.common.ImmutableBytes
 import co.topl.brambl.models.transaction._
 import co.topl.consensus.models._
-import co.topl.node.models.Ratio
+import quivr.models.Ratio
 import co.topl.quivr.Tokens
 import com.google.protobuf.ByteString
 import com.google.protobuf.duration.Duration
