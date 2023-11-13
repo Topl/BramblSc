@@ -1,9 +1,7 @@
 package co.topl.brambl
 
-import cats.Id
 import cats.data.ValidatedNel
 import cats.effect.IO
-import co.topl.brambl.builders.TransactionBuilderApi.implicits.lockAddressOps
 import co.topl.brambl.builders.locks.LockTemplate
 import co.topl.brambl.common.ContainsEvidence.Ops
 import co.topl.brambl.common.ContainsImmutable.instances._
@@ -16,6 +14,8 @@ import quivr.models._
  * Mock Implementation of the WalletStateAlgebra for testing
  */
 object MockWalletStateApi extends WalletStateAlgebra[IO] with MockHelpers {
+
+  override def getInteractionList(fellowship: String, template: String): IO[Option[List[(Indices, String)]]] = ???
 
   override def setCurrentIndices(fellowship: String, template: String, interaction: Int): IO[Option[Indices]] = ???
 

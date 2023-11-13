@@ -3,32 +3,42 @@ package co.topl.brambl.wallet
 import cats.data.ValidatedNel
 import cats.effect.IO
 import cats.implicits._
+import co.topl.brambl.Context
+import co.topl.brambl.MockHelpers
+import co.topl.brambl.MockWalletKeyApi
+import co.topl.brambl.MockWalletStateApi
 import co.topl.brambl.builders.locks.LockTemplate
 import co.topl.brambl.common.ContainsEvidence.Ops
 import co.topl.brambl.common.ContainsImmutable.instances._
-import co.topl.brambl.models.transaction.{IoTransaction, UnspentTransactionOutput}
-import co.topl.brambl.{Context, MockHelpers, MockWalletKeyApi, MockWalletStateApi}
-import co.topl.brambl.{Context, MockHelpers, MockWalletKeyApi, MockWalletStateApi}
 import co.topl.brambl.common.ContainsSignable.ContainsSignableTOps
 import co.topl.brambl.common.ContainsSignable.instances._
-import co.topl.brambl.dataApi.{WalletKeyApiAlgebra, WalletStateAlgebra}
-import co.topl.brambl.models.{Datum, Event, Indices, LockAddress, TransactionOutputAddress}
-import co.topl.brambl.models.box.{AssetMintingStatement, Attestation, Challenge, Lock, Value}
+import co.topl.brambl.dataApi.WalletStateAlgebra
+import co.topl.brambl.models.Datum
+import co.topl.brambl.models.Event
+import co.topl.brambl.models.Indices
+import co.topl.brambl.models.box.AssetMintingStatement
+import co.topl.brambl.models.box.Attestation
+import co.topl.brambl.models.box.Challenge
+import co.topl.brambl.models.box.Lock
+import co.topl.brambl.models.box.Value
+import co.topl.brambl.models.transaction.IoTransaction
+import co.topl.brambl.syntax.cryptoToPbKeyPair
+import co.topl.brambl.syntax.pbKeyPairToCryptoKeyPair
 import co.topl.brambl.validation.TransactionAuthorizationError.AuthorizationFailed
 import co.topl.brambl.validation.TransactionSyntaxError
 import co.topl.crypto.generation.Bip32Indexes
 import co.topl.crypto.signing.ExtendedEd25519
 import co.topl.quivr.api.Proposer
-import co.topl.quivr.runtime.QuivrRuntimeErrors.ValidationError.{
-  EvaluationAuthorizationFailed,
-  LockedPropositionIsUnsatisfiable
-}
+import co.topl.quivr.runtime.QuivrRuntimeErrors.ValidationError.EvaluationAuthorizationFailed
+import co.topl.quivr.runtime.QuivrRuntimeErrors.ValidationError.LockedPropositionIsUnsatisfiable
 import com.google.protobuf.ByteString
-import quivr.models.{Int128, KeyPair, Preimage, Proof, Proposition, VerificationKey}
-import co.topl.brambl.syntax.{cryptoToPbKeyPair, pbKeyPairToCryptoKeyPair}
-import co.topl.crypto.encryption.VaultStore
-import munit.CatsEffectAssertions.assertIO
 import munit.CatsEffectSuite
+import quivr.models.Int128
+import quivr.models.KeyPair
+import quivr.models.Preimage
+import quivr.models.Proof
+import quivr.models.Proposition
+import quivr.models.VerificationKey
 
 import scala.util.Random
 
@@ -687,6 +697,8 @@ class CredentiallerInterpreterSpec extends CatsEffectSuite with MockHelpers {
     val bobSignatureProposition = Proposer.signatureProposer[F].propose(("ExtendedEd25519", bobChildKey.vk))
     // To Mock someone else's DataApi
     object NewWalletStateApi extends WalletStateAlgebra[F] {
+
+      override def getInteractionList(fellowship: String, template: String): F[Option[List[(Indices, String)]]] = ???
 
       override def setCurrentIndices(fellowship: String, template: String, interaction: Int): F[Option[Indices]] = ???
 
