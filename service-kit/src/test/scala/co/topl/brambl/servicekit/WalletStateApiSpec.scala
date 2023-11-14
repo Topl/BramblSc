@@ -2,24 +2,27 @@ package co.topl.brambl.servicekit
 
 import cats.effect.IO
 import co.topl.brambl.builders.TransactionBuilderApi.implicits.lockAddressOps
-import co.topl.brambl.builders.locks.{LockTemplate, PropositionTemplate}
+import co.topl.brambl.builders.locks.LockTemplate
+import co.topl.brambl.builders.locks.PropositionTemplate
 import co.topl.brambl.common.ContainsEvidence.Ops
 import co.topl.brambl.common.ContainsImmutable.instances.lockImmutable
-import co.topl.brambl.models.{Indices, LockAddress, LockId}
+import co.topl.brambl.constants.NetworkConstants
+import co.topl.brambl.models.Indices
+import co.topl.brambl.models.LockAddress
+import co.topl.brambl.models.LockId
 import co.topl.brambl.models.box.Lock
 import co.topl.brambl.utils.Encoding
 import com.google.protobuf.ByteString
 import munit.CatsEffectSuite
 import quivr.models.Digest
-import quivr.models.{Proposition, VerificationKey}
-import co.topl.brambl.constants.NetworkConstants
+import quivr.models.Proposition
 
 class WalletStateApiSpec extends CatsEffectSuite with BaseSpec {
 
   testDirectory.test("initWalletState") { _ =>
     assertIO(
       for {
-        init <- walletStateApi.initWalletState(
+        _ <- walletStateApi.initWalletState(
           NetworkConstants.PRIVATE_NETWORK_ID,
           NetworkConstants.MAIN_NETWORK_ID,
           mockMainKeyPair.vk
@@ -65,12 +68,12 @@ class WalletStateApiSpec extends CatsEffectSuite with BaseSpec {
     val testValue = "testValue"
     assertIO(
       for {
-        init <- walletStateApi.initWalletState(
+        _ <- walletStateApi.initWalletState(
           NetworkConstants.PRIVATE_NETWORK_ID,
           NetworkConstants.MAIN_NETWORK_ID,
           mockMainKeyPair.vk
         )
-        update <- walletStateApi.updateWalletState(
+        _ <- walletStateApi.updateWalletState(
           testValue,
           testValue,
           Some(testValue),
@@ -113,9 +116,9 @@ class WalletStateApiSpec extends CatsEffectSuite with BaseSpec {
     val proposition = Proposition.DigitalSignature(testValue, mockMainKeyPair.vk)
     assertIO(
       for {
-        init <- walletStateApi
+        _ <- walletStateApi
           .initWalletState(NetworkConstants.PRIVATE_NETWORK_ID, NetworkConstants.MAIN_NETWORK_ID, mockMainKeyPair.vk)
-        update <- walletStateApi.updateWalletState(
+        _ <- walletStateApi.updateWalletState(
           testValue,
           testValue,
           Some(testValue),
@@ -134,9 +137,9 @@ class WalletStateApiSpec extends CatsEffectSuite with BaseSpec {
     val predicate = Lock.Predicate(Seq(), 1)
     assertIO(
       for {
-        init <- walletStateApi
+        _ <- walletStateApi
           .initWalletState(NetworkConstants.PRIVATE_NETWORK_ID, NetworkConstants.MAIN_NETWORK_ID, mockMainKeyPair.vk)
-        update <- walletStateApi.updateWalletState(
+        _ <- walletStateApi.updateWalletState(
           Encoding.encodeToBase58Check(predicate.toByteArray),
           testValue,
           None,
@@ -154,9 +157,9 @@ class WalletStateApiSpec extends CatsEffectSuite with BaseSpec {
     val lockAddress = LockAddress(0, 0, LockId(Lock().withPredicate(predicate).sizedEvidence.digest.value))
     assertIO(
       for {
-        init <- walletStateApi
+        _ <- walletStateApi
           .initWalletState(NetworkConstants.PRIVATE_NETWORK_ID, NetworkConstants.MAIN_NETWORK_ID, mockMainKeyPair.vk)
-        update <- walletStateApi.updateWalletState(
+        _ <- walletStateApi.updateWalletState(
           Encoding.encodeToBase58Check(predicate.toByteArray),
           lockAddress.toBase58(),
           None,
@@ -174,7 +177,7 @@ class WalletStateApiSpec extends CatsEffectSuite with BaseSpec {
     val lockAddress = LockAddress(0, 0, LockId(Lock().withPredicate(predicate).sizedEvidence.digest.value))
     assertIO(
       for {
-        init <- walletStateApi
+        _ <- walletStateApi
           .initWalletState(NetworkConstants.PRIVATE_NETWORK_ID, NetworkConstants.MAIN_NETWORK_ID, mockMainKeyPair.vk)
         lock <- walletStateApi.getLockByAddress(lockAddress.toBase58())
       } yield lock.isEmpty,
@@ -182,10 +185,60 @@ class WalletStateApiSpec extends CatsEffectSuite with BaseSpec {
     )
   }
 
+  testDirectory.test("getInteractionList successful simple") { _ =>
+    assertIO(
+      for {
+        _ <- walletStateApi
+          .initWalletState(NetworkConstants.PRIVATE_NETWORK_ID, NetworkConstants.MAIN_NETWORK_ID, mockMainKeyPair.vk)
+        someList <- walletStateApi.getInteractionList("self", "default")
+      } yield someList.get.size,
+      1
+    )
+  }
+
+  testDirectory.test("getInteractionList successful more than one result") { _ =>
+    val predicate = Lock.Predicate(Seq(), 1)
+    val lockAddress = LockAddress(0, 0, LockId(Lock().withPredicate(predicate).sizedEvidence.digest.value))
+
+    assertIO(
+      for {
+        _ <- walletStateApi
+          .initWalletState(NetworkConstants.PRIVATE_NETWORK_ID, NetworkConstants.MAIN_NETWORK_ID, mockMainKeyPair.vk)
+        _ <- walletStateApi.updateWalletState(
+          Encoding.encodeToBase58Check(predicate.toByteArray),
+          lockAddress.toBase58(),
+          None,
+          None,
+          Indices(1, 1, 2)
+        )
+        _ <- walletStateApi.updateWalletState(
+          Encoding.encodeToBase58Check(predicate.toByteArray),
+          lockAddress.toBase58(),
+          None,
+          None,
+          Indices(1, 1, 3)
+        )
+        someList <- walletStateApi.getInteractionList("self", "default")
+      } yield someList.get.size,
+      3
+    )
+  }
+
+  testDirectory.test("getInteractionList failure") { _ =>
+    assertIO(
+      for {
+        _ <- walletStateApi
+          .initWalletState(NetworkConstants.PRIVATE_NETWORK_ID, NetworkConstants.MAIN_NETWORK_ID, mockMainKeyPair.vk)
+        someList <- walletStateApi.getInteractionList("self", "default1")
+      } yield someList.isEmpty,
+      true
+    )
+  }
+
   testDirectory.test("getNextIndicesForFunds") { _ =>
     assertIO(
       for {
-        init <- walletStateApi
+        _ <- walletStateApi
           .initWalletState(NetworkConstants.PRIVATE_NETWORK_ID, NetworkConstants.MAIN_NETWORK_ID, mockMainKeyPair.vk)
         idx <- walletStateApi.getNextIndicesForFunds("self", "default")
       } yield idx.isDefined && idx.get == Indices(1, 1, 2),
@@ -196,7 +249,7 @@ class WalletStateApiSpec extends CatsEffectSuite with BaseSpec {
   testDirectory.test("validateCurrentIndicesForFunds") { _ =>
     assertIO(
       for {
-        init <- walletStateApi
+        _ <- walletStateApi
           .initWalletState(NetworkConstants.PRIVATE_NETWORK_ID, NetworkConstants.MAIN_NETWORK_ID, mockMainKeyPair.vk)
         idx <- walletStateApi.validateCurrentIndicesForFunds("self", "default", None)
       } yield idx.isValid && idx.toOption.get == Indices(1, 1, 1),
@@ -208,9 +261,9 @@ class WalletStateApiSpec extends CatsEffectSuite with BaseSpec {
     val testValue = "testValue"
     assertIO(
       for {
-        init <- walletStateApi
+        _ <- walletStateApi
           .initWalletState(NetworkConstants.PRIVATE_NETWORK_ID, NetworkConstants.MAIN_NETWORK_ID, mockMainKeyPair.vk)
-        update <- walletStateApi.updateWalletState(
+        _ <- walletStateApi.updateWalletState(
           testValue,
           testValue,
           Some(testValue),
@@ -224,10 +277,9 @@ class WalletStateApiSpec extends CatsEffectSuite with BaseSpec {
   }
 
   testDirectory.test("getCurrentIndicesForFunds") { _ =>
-    val testValue = "testValue"
     assertIO(
       for {
-        init <- walletStateApi
+        _ <- walletStateApi
           .initWalletState(NetworkConstants.PRIVATE_NETWORK_ID, NetworkConstants.MAIN_NETWORK_ID, mockMainKeyPair.vk)
         idx <- walletStateApi.getCurrentIndicesForFunds("self", "default", None)
       } yield idx.isDefined && idx.get == Indices(1, 1, 1),
@@ -239,9 +291,9 @@ class WalletStateApiSpec extends CatsEffectSuite with BaseSpec {
     val testValue = "testValue"
     assertIO(
       for {
-        init <- walletStateApi
+        _ <- walletStateApi
           .initWalletState(NetworkConstants.PRIVATE_NETWORK_ID, NetworkConstants.MAIN_NETWORK_ID, mockMainKeyPair.vk)
-        update <- walletStateApi.updateWalletState(
+        _ <- walletStateApi.updateWalletState(
           testValue,
           testValue,
           Some(testValue),
@@ -268,7 +320,7 @@ class WalletStateApiSpec extends CatsEffectSuite with BaseSpec {
     val testValues = List("testValue1", "testValue2")
     assertIO(
       for {
-        init <- walletStateApi
+        _ <- walletStateApi
           .initWalletState(NetworkConstants.PRIVATE_NETWORK_ID, NetworkConstants.MAIN_NETWORK_ID, mockMainKeyPair.vk)
         _   <- walletStateApi.addEntityVks("test", "default", testValues)
         vks <- walletStateApi.getEntityVks("test", "default")
@@ -282,7 +334,7 @@ class WalletStateApiSpec extends CatsEffectSuite with BaseSpec {
       LockTemplate.PredicateTemplate[IO](List(PropositionTemplate.HeightTemplate[IO]("chain", 0, 100)), 1)
     assertIO(
       for {
-        init <- walletStateApi
+        _ <- walletStateApi
           .initWalletState(NetworkConstants.PRIVATE_NETWORK_ID, NetworkConstants.MAIN_NETWORK_ID, mockMainKeyPair.vk)
         _        <- walletStateApi.addNewLockTemplate("height", lockTemplate)
         template <- walletStateApi.getLockTemplate("height")
@@ -297,7 +349,7 @@ class WalletStateApiSpec extends CatsEffectSuite with BaseSpec {
     val entityVks = List(mockMainKeyPair.vk)
     assertIO(
       for {
-        init <- walletStateApi
+        _ <- walletStateApi
           .initWalletState(NetworkConstants.PRIVATE_NETWORK_ID, NetworkConstants.MAIN_NETWORK_ID, mockMainKeyPair.vk)
         _ <- walletStateApi.addNewLockTemplate("test", lockTemplate)
         _ <- walletStateApi.addEntityVks("self", "test", entityVks.map(vk => Encoding.encodeToBase58(vk.toByteArray)))

@@ -22,6 +22,8 @@ import io.circe.syntax.EncoderOps
 import quivr.models.Preimage
 import quivr.models.Proposition
 import quivr.models.VerificationKey
+import java.sql.Statement
+import cats.data.OptionT
 
 /**
  * An implementation of the WalletInteractionAlgebra that uses a database to store state information.
@@ -40,6 +42,54 @@ object WalletStateApi {
     walletApi:  WalletApi[F]
   ): WalletStateAlgebra[F] =
     new WalletStateAlgebra[F] {
+
+      private def getFellowshipIdx(fellowship: String, stmnt: Statement) = OptionT(for {
+        rs <- Sync[F].blocking(
+          stmnt.executeQuery(
+            s"SELECT x_fellowship, fellowship FROM fellowships WHERE fellowship = '${fellowship}'"
+          )
+        )
+        x <- Sync[F].delay(rs.getInt("x_fellowship"))
+      } yield if (rs.next()) Some(x) else None)
+
+      private def getTemplateIdx(template: String, stmnt: Statement) = OptionT(for {
+        rs <- Sync[F].blocking(
+          stmnt.executeQuery(
+            s"SELECT y_template, template FROM templates WHERE template = '${template}'"
+          )
+        )
+        y <- Sync[F].delay(rs.getInt("y_template"))
+      } yield if (rs.next()) Some(y) else None)
+
+      private def getList(x: Int, y: Int, stmnt: Statement) = OptionT.liftF(for {
+        rs <- Sync[F].blocking(
+          stmnt.executeQuery(
+            "SELECT x_fellowship, y_template, z_interaction, address FROM cartesian " +
+            s"WHERE x_fellowship = ${x} AND y_template = ${y}"
+          )
+        )
+        hasNext <- Sync[F].delay(rs.next())
+        pair <- Sync[F].iterateWhileM((hasNext, List[(Indices, String)]())) { x =>
+          val (_, list) = x
+          for {
+            x       <- Sync[F].delay(rs.getInt("x_fellowship"))
+            y       <- Sync[F].delay(rs.getInt("y_template"))
+            z       <- Sync[F].delay(rs.getInt("z_interaction"))
+            address <- Sync[F].delay(rs.getString("address"))
+            hasNext <- Sync[F].delay(rs.next())
+          } yield (hasNext, (Indices(x, y, z), address) :: list)
+        }(_._1)
+      } yield pair._2)
+
+      override def getInteractionList(fellowship: String, template: String): F[Option[List[(Indices, String)]]] =
+        connection.use { conn =>
+          (for {
+            stmnt <- OptionT.liftF(Sync[F].blocking(conn.createStatement()))
+            x     <- getFellowshipIdx(fellowship, stmnt)
+            y     <- getTemplateIdx(template, stmnt)
+            list  <- getList(x, y, stmnt)
+          } yield list).value
+        }
 
       override def getIndicesBySignature(signatureProposition: Proposition.DigitalSignature): F[Option[Indices]] =
         connection.use { conn =>
