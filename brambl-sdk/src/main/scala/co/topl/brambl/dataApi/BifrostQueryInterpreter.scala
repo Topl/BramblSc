@@ -3,6 +3,7 @@ package co.topl.brambl.dataApi
 import cats.arrow.FunctionK
 import cats.data.Kleisli
 import cats.effect.kernel.{Resource, Sync}
+import co.topl.brambl.syntax.ioTransactionAsTransactionSyntaxOps
 import co.topl.node.services.{
   BroadcastTransactionReq,
   FetchBlockBodyReq,
@@ -73,7 +74,7 @@ trait BifrostQueryInterpreter {
                         BroadcastTransactionReq(tx)
                       )
                   )
-                  .map(_ => ().asInstanceOf[A])
+                  .map(_ => (tx.computeId).asInstanceOf[A])
               )
           }
         }
