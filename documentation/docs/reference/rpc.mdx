@@ -37,3 +37,23 @@ val genusQuery = GenusQueryAlgebra.make[F](channelResource)
 Where `F` is a type parameter bound to a context parameter of type `Sync[F]` and `channelResource` is a resource
 providing the connection with a Genus node. See the `make`
 function's <ScaladocLink path="co/topl/brambl/dataApi/GenusQueryAlgebra$.html">signature</ScaladocLink>.
+
+### Example
+
+The following examples shows how to query UTXOs of a given lock address with a Cats Effect `IO` context.
+
+```scala
+import cats.effect.IO
+import cats.effect.unsafe.implicits.global
+import co.topl.brambl.codecs.AddressCodecs.decodeAddress
+import co.topl.brambl.dataApi.{GenusQueryAlgebra, RpcChannelResource}
+
+val channelResource = RpcChannelResource.channelResource[IO]("localhost", 9084, false)
+val genusQuery = GenusQueryAlgebra.make[IO](channelResource)
+
+// Mock address. Replace with your address.
+val lockAddr = decodeAddress("mtetmain1y1Rqvj9PiHrsoF4VRHKscLPArgdWe44ogoiKoxwfevERNVgxLLh").toOption.get
+
+// query starts here:
+val txos = genusQuery.queryUtxo(lockAddr).attempt.unsafeRunSync()
+```
