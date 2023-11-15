@@ -1,8 +1,6 @@
 name: Maven Central Release
-on:
-  push:
-    branches: ["*"]
-    tags: ["*"]
+
+on: [workflow_call]
 
 jobs:
   maven_release:

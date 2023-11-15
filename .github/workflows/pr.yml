@@ -1,8 +1,9 @@
-name: commonSc_PR
+name: Check and Deploy
 
 on:
-  pull_request:
-    branches: [main, release-*, rc-*]
+  push:
+    branches: ["*"]
+    tags: ["*"]
 
 jobs:
   sbt-build:
@@ -13,18 +14,11 @@ jobs:
       java-versions: >-
         ["11"]
       preserve-cache-between-runs: true
-
-#  sbt-integration-tests:
-#    uses: ./.github/workflows/_scala_integration_tests.yml
-#    needs: sbt-build
-#    with:
-#      target-os: >-
-#        ["ubuntu-latest"]
-#      java-versions: >-
-#        ["11"]
-#      preserve-cache-between-runs: true
-#
-#  publish-test-results:
-#    uses: ./.github/workflows/_publish_test_results.yml
-#    if: always()
-#    needs: [sbt-integration-tests]
+  maven-release:
+    uses: ./.github/workflows/maven_release.yml
+    needs: sbt-build
+  deploy-docs:
+    uses: ./.github/workflows/deploy_docs.yml
+    needs: sbt-build
+    # Only update Github Pages if this is a push to main
+    if: github.ref_type == "branch" && github.ref_name == "main"
