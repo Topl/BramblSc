@@ -21,4 +21,4 @@ jobs:
     uses: ./.github/workflows/deploy_docs.yml
     needs: sbt-build
     # Only update Github Pages if this is a push to main
-    if: github.ref_type == branch && github.ref_name == main
+    if: github.ref_type == 'branch' && github.ref_name == 'main'
