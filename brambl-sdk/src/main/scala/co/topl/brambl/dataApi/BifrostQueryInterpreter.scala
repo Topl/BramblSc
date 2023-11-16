@@ -3,7 +3,14 @@ package co.topl.brambl.dataApi
 import cats.arrow.FunctionK
 import cats.data.Kleisli
 import cats.effect.kernel.{Resource, Sync}
-import co.topl.node.services.{FetchBlockBodyReq, FetchBlockIdAtHeightReq, FetchTransactionReq, NodeRpcGrpc}
+import co.topl.brambl.syntax.ioTransactionAsTransactionSyntaxOps
+import co.topl.node.services.{
+  BroadcastTransactionReq,
+  FetchBlockBodyReq,
+  FetchBlockIdAtHeightReq,
+  FetchTransactionReq,
+  NodeRpcGrpc
+}
 import io.grpc.ManagedChannel
 
 /**
@@ -57,6 +64,17 @@ trait BifrostQueryInterpreter {
                       )
                   )
                   .map(_.blockId.asInstanceOf[A])
+              )
+            case BifrostQueryAlgebra.BroadcastTransaction(tx) =>
+              Kleisli(blockingStub =>
+                Sync[F]
+                  .blocking(
+                    blockingStub
+                      .broadcastTransaction(
+                        BroadcastTransactionReq(tx)
+                      )
+                  )
+                  .map(_ => (tx.computeId).asInstanceOf[A])
               )
           }
         }
