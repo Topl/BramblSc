@@ -72,6 +72,16 @@ trait WalletStateAlgebra[F[_]] {
   def getCurrentIndicesForFunds(fellowship: String, template: String, someInteraction: Option[Int]): F[Option[Indices]]
 
   /**
+   * Get the list of interactions for the given fellowship and template.
+   *
+   * @param fellowship A String label of the fellowship to get the interactions for
+   * @param template A String label of the template to get the interactions for
+   * @return The list of interactions for the given fellowship and template if possible.
+   * If the fellowship or template do not exist it will return None.
+   */
+  def getInteractionList(fellowship: String, template: String): F[Option[List[(Indices, String)]]]
+
+  /**
    * Set the current interaction for the given fellowship and template.
    * In practice, this will remove all interactions after the given interaction index
    * from the database, as the current interaction is the latest interaction.

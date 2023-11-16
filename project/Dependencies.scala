@@ -7,7 +7,7 @@ object Dependencies {
     val catsCoreVersion = "2.10.0"
     val simulacrumVersion = "1.0.1"
     val circeVersion = "0.14.6"
-    val protobufSpecsVersion = "2.0.0-alpha5"
+    val protobufSpecsVersion = "2.0.0-beta0"
     val mUnitTeVersion = "0.7.29"
   }
 
@@ -65,6 +65,8 @@ object Dependencies {
     "org.xerial" % "sqlite-jdbc" % "3.43.2.2"
   )
 
+  val grpcNetty = "io.grpc" % "grpc-netty" % "1.59.0"
+
   object Crypto {
 
     lazy val sources: Seq[ModuleID] =
@@ -85,7 +87,7 @@ object Dependencies {
 
   object BramblSdk {
 
-    lazy val sources: Seq[ModuleID] = Dependencies.protobufSpecs
+    lazy val sources: Seq[ModuleID] = Dependencies.protobufSpecs :+ grpcNetty
 
     lazy val tests: Seq[ModuleID] =
       (

@@ -41,6 +41,14 @@ trait BifrostQueryAlgebra[F[_]] {
    */
   def fetchTransaction(txId: TransactionId): F[Option[IoTransaction]]
 
+  /**
+   * Broadcasts a transaction to the network.
+   *
+   * @param tx The transaction to broadcast.
+   * @return The Id of the transaction that was broadcasted.
+   */
+  def broadcastTransaction(tx: IoTransaction): F[TransactionId]
+
 }
 
 object BifrostQueryAlgebra extends BifrostQueryInterpreter {
@@ -52,6 +60,7 @@ object BifrostQueryAlgebra extends BifrostQueryInterpreter {
   case class FetchTransaction(txId: TransactionId) extends BifrostQueryADT[Option[IoTransaction]]
 
   case class BlockByHeight(height: Long) extends BifrostQueryADT[Option[BlockId]]
+  case class BroadcastTransaction(tx: IoTransaction) extends BifrostQueryADT[TransactionId]
 
   type BifrostQueryADTMonad[A] = Free[BifrostQueryADT, A]
 
@@ -67,6 +76,9 @@ object BifrostQueryAlgebra extends BifrostQueryInterpreter {
 
   def blockByHeightF(height: Long): BifrostQueryADTMonad[Option[BlockId]] =
     Free.liftF(BlockByHeight(height))
+
+  def broadcastTransactionF(tx: IoTransaction): BifrostQueryADTMonad[TransactionId] =
+    Free.liftF(BroadcastTransaction(tx))
 
   def make[F[_]: Sync](channelResource: Resource[F, ManagedChannel]): BifrostQueryAlgebra[F] =
     new BifrostQueryAlgebra[F] {
@@ -104,5 +116,9 @@ object BifrostQueryAlgebra extends BifrostQueryInterpreter {
           } yield (blockId, blockBody, transactions)).value
         )
       }
+
+      override def broadcastTransaction(tx: IoTransaction): F[TransactionId] =
+        interpretADT(channelResource, broadcastTransactionF(tx))
+
     }
 }

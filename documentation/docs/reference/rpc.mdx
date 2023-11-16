@@ -16,7 +16,9 @@ and <Link href="https://github.com/Topl/protobuf-specs/blob/main/proto/genus/gen
 
 ## Querying UTXOs
 
-You can query the existing UTXOs on the blockchain using the `queryUtxo` function of a Genus Query instance.
+You can query the existing UTXOs on the blockchain using
+the <ScaladocLink path="co/topl/brambl/dataApi/GenusQueryAlgebra.html#queryUtxo(LockAddress,TxoState):F[Seq[Txo]]"><code>queryUtxo</code></ScaladocLink>
+function of a Genus Query instance.
 
 ```scala
 def queryUtxo(fromAddress: LockAddress, txoState: TxoState = TxoState.UNSPENT): F[Seq[Txo]]
@@ -37,3 +39,120 @@ val genusQuery = GenusQueryAlgebra.make[F](channelResource)
 Where `F` is a type parameter bound to a context parameter of type `Sync[F]` and `channelResource` is a resource
 providing the connection with a Genus node. See the `make`
 function's <ScaladocLink path="co/topl/brambl/dataApi/GenusQueryAlgebra$.html">signature</ScaladocLink>.
+
+### Example
+
+The following example shows how to query UTXOs of a given lock address with a Cats Effect `IO` context.
+
+```scala
+import cats.effect.IO
+import cats.effect.unsafe.implicits.global
+import co.topl.brambl.codecs.AddressCodecs.decodeAddress
+import co.topl.brambl.dataApi.{GenusQueryAlgebra, RpcChannelResource}
+
+val channelResource = RpcChannelResource.channelResource[IO]("localhost", 9084, false)
+val genusQuery = GenusQueryAlgebra.make[IO](channelResource)
+
+// Mock address. Replace with your address.
+val lockAddr = decodeAddress("mtetmain1y1Rqvj9PiHrsoF4VRHKscLPArgdWe44ogoiKoxwfevERNVgxLLh").toOption.get
+
+// query starts here:
+val txos = genusQuery.queryUtxo(lockAddr).attempt.unsafeRunSync()
+```
+
+## Broadcast a Transaction
+
+You can broadcast a transaction to the blockchain network using
+the <ScaladocLink path="co/topl/brambl/dataApi/BifrostQueryAlgebra.html#broadcastTransaction(IoTransaction):F[TransactionId]"><code>broadcastTransaction</code></ScaladocLink>
+function of a Bifrost Query instance.
+
+```scala
+def broadcastTransaction(tx: IoTransaction): F[TransactionId]
+```
+
+This function takes in the transaction to be broadcasted (given by `tx`) and submits it to the Bifrost node. The ID of the
+provided transaction is returned.
+
+:::info
+Broadcasting the transaction does not guarantee that the transaction will be included in a block. To verify if the
+transaction was successfully included in a block you must query the Bifrost node using its Transaction ID.
+:::
+
+You can query the Bifrost node for a Transaction using
+the <ScaladocLink path="co/topl/brambl/dataApi/BifrostQueryAlgebra.html#fetchTransaction(TransactionId):F[Option[IoTransaction]]"><code>fetchTransaction</code></ScaladocLink>
+function of a Bifrost Query instance.
+
+```scala
+def fetchTransaction(txId: TransactionId): F[Option[IoTransaction]]
+```
+
+This function takes in the ID of the transaction to be queried (given by `txId`) and returns the transaction if it exists
+on the blockchain.
+
+You can initialize an instance of a Bifrost Query using the following snippet:
+
+```scala
+val bifrostQuery = BifrostQueryAlgebra.make[F](channelResource)
+```
+
+Where `F` is a type parameter bound to a context parameter of type `Sync[F]` and `channelResource` is a resource
+providing the connection with a Bifrost node. See the `make`
+function's <ScaladocLink path="co/topl/brambl/dataApi/BifrostQueryAlgebra$.html#make[F[_]](Resource[F,ManagedChannel])(Sync[F]):BifrostQueryAlgebra[F]">signature</ScaladocLink>.
+
+### Example
+
+The following example shows how to broadcast a proven transaction to the network and then subsequently query it from
+the blockchain, with a Cats Effect `IO` context.
+
+```scala
+import cats.effect.IO
+import cats.effect.unsafe.implicits.global
+import co.topl.brambl.builders.TransactionBuilderApi
+import co.topl.brambl.constants.NetworkConstants.{MAIN_LEDGER_ID, PRIVATE_NETWORK_ID}
+import co.topl.brambl.builders.locks.LockTemplate
+import co.topl.brambl.builders.locks.PropositionTemplate.HeightTemplate
+import co.topl.brambl.builders.locks.LockTemplate.PredicateTemplate
+import co.topl.brambl.codecs.AddressCodecs.decodeAddress
+import co.topl.brambl.syntax.{UnknownType, valueToTypeIdentifierSyntaxOps}
+import co.topl.brambl.dataApi.{BifrostQueryAlgebra, GenusQueryAlgebra, RpcChannelResource}
+import co.topl.brambl.servicekit.WalletStateResource
+import co.topl.brambl.servicekit.{WalletKeyApi, WalletStateApi}
+import co.topl.brambl.wallet.{CredentiallerInterpreter, WalletApi}
+import co.topl.crypto.signing.ExtendedEd25519
+import co.topl.brambl.syntax.cryptoToPbKeyPair
+
+// Replace with the location of your wallet state file
+val walletConnection = WalletStateResource.walletResource("wallet.db")
+
+// Some mock key pair. Do not use. Replace with your Topl main key pair.
+val mainKey = (new ExtendedEd25519).deriveKeyPairFromSeed(Array.fill(96)(0: Byte))
+
+// Mock address. Replace with recipient address.
+val toAddr = decodeAddress("ptetP7jshHTuV9bmPmtVLm6PtUzBMZ8iYRvAxvbGTJ5VgiEPHqCCnZ8MLLdi").toOption.get
+
+val transactionBuilderApi = TransactionBuilderApi.make[IO](PRIVATE_NETWORK_ID, MAIN_LEDGER_ID)
+val channelResource = RpcChannelResource.channelResource[IO]("localhost", 9084, secureConnection = false)
+val predicateTemplate: LockTemplate[IO] = PredicateTemplate[IO](Seq(HeightTemplate("header", 1, Long.MaxValue)), 1)
+val walletApi = WalletApi.make[IO](WalletKeyApi.make())
+val walletStateApi = WalletStateApi.make[IO](walletConnection, walletApi)
+val credentialler = CredentiallerInterpreter.make[IO](walletApi, walletStateApi, mainKey)
+val bifrostQuery = BifrostQueryAlgebra.make[IO](channelResource)
+
+val tx = for {
+  fromLock <- predicateTemplate.build(List.empty).map(_.toOption.get)
+  fromAddr <- transactionBuilderApi.lockAddress(fromLock)
+  txos <- GenusQueryAlgebra.make[IO](channelResource).queryUtxo(fromAddr)
+  fromTxos = txos.filter(_.transactionOutput.value.value.typeIdentifier != UnknownType)
+  unprovenTx <- transactionBuilderApi.buildTransferAllTransaction(fromTxos, fromLock.getPredicate, toAddr, toAddr, 1L)
+  provenTx <- credentialler.prove(unprovenTx.toOption.get)
+  // Broadcast starts here:
+  broadcast <- bifrostQuery.broadcastTransaction(provenTx)
+} yield broadcast
+
+val txId = tx.unsafeRunSync()
+
+// Allow some time to pass before querying the transaction
+Thread.sleep(1000)
+
+val postedTransaction = bifrostQuery.fetchTransaction(txId).unsafeRunSync()
+```

@@ -1,0 +1,241 @@
+---
+sidebar_position: 6
+title: Prove a Transaction
+description: Prove a transaction.
+---
+
+import ScaladocLink from '@site/src/components/ScaladocLink';
+
+Before you can broadcast a [newly created transaction](./transactions) to the blockchain, you must prove that you have the authority to
+spend the input tokens. You can accomplish this using the SDK's Credentialler.
+
+## Prerequisites
+
+The following requires access to a Credentialler instance. You can initialize one using the following snippet:
+
+```scala
+val credentialler = CredentiallerInterpreter.make[F](walletApi, walletStateApi, mainKey)
+```
+
+Where `F` is a type parameter bound to a context parameter of type `Monad[F]`, `walletApi` is an instance of
+a [Wallet Api](./wallets#prerequisites), `walletStateApi` is an initialized instance of
+the <ScaladocLink path="co/topl/brambl/dataApi/WalletStateAlgebra.html"><code>WalletStateAlgebra</code></ScaladocLink>,
+and `mainKey` is your ExtendedEd25519 Topl main key pair. See the `make`
+function's <ScaladocLink path="co/topl/brambl/wallet/CredentiallerInterpreter$.html#make[F[_]](WalletApi[F],WalletStateAlgebra[F],KeyPair)(Monad[F]):Credentialler[F]"><code>signature</code></ScaladocLink>.
+For example, if you are using Cats Effect `IO` and the default implementation of
+the <ScaladocLink path="co/topl/brambl/servicekit/index.html"><code>ServiceKit</code></ScaladocLink>, you can initialize
+a Credentialler as follows:
+
+```scala
+import cats.effect.IO
+import co.topl.brambl.servicekit.{WalletKeyApi, WalletStateApi}
+import co.topl.brambl.wallet.{CredentiallerInterpreter, WalletApi}
+import co.topl.brambl.servicekit.WalletStateResource
+import co.topl.crypto.signing.ExtendedEd25519
+import co.topl.brambl.syntax.cryptoToPbKeyPair
+
+// Replace with the location of your wallet state file
+val DB_FILE = "wallet.db"
+val walletConnection = WalletStateResource.walletResource(DB_FILE)
+
+val walletApi = WalletApi.make[IO](WalletKeyApi.make())
+val walletStateApi = WalletStateApi.make[IO](walletConnection, walletApi)
+// Some mock key pair. Do not use. Replace with your Topl main key pair.
+val mainKey = (new ExtendedEd25519).deriveKeyPairFromSeed(Array.fill(96)(0: Byte))
+
+// Credentialler initialization starts:
+val credentialler = CredentiallerInterpreter.make[IO](walletApi, walletStateApi, mainKey)
+```
+
+## Prove
+
+:::caution
+Proving a transaction does not guarantee that the transaction will be accepted by the network. The transaction may still be
+rejected if it is malformed or if it is not sufficiently proven. For this reason, it is recommended to use
+the [`proveAndValidate`](#prove-and-validate) function instead.
+:::
+
+You can prove a transaction using
+the <ScaladocLink path="co/topl/brambl/wallet/Credentialler.html#prove(IoTransaction):F[IoTransaction]"><code>prove</code></ScaladocLink>
+function of a Credentialler instance.
+
+```scala
+def prove(
+  unprovenTx: IoTransaction
+): F[IoTransaction]
+```
+
+This function takes in a transaction and proves every input by updating their attestations. Any existing proofs are persisted.
+This is useful for partial proofs. For example, if an input is encumbered by an `And` lock, a partial proof could be that
+only one of the `And` lock's sub-propositions is proven. In this case, calling this function will add the proof for the
+second sub-proposition while leaving the first sub-proposition's proof intact.
+
+The parameters are as follows:
+- `unprovenTx`: The transaction to prove. As mentioned above, this transaction may already have some proofs. To obtain
+a new transaction with no proofs, read [Build a Transaction](./transactions)
+
+On success, this function returns the given transaction with updated proofs which can be broadcasted to the network.
+This returned `IoTransaction` has the same signable bytes as the original transaction. If any of the contained propositions
+are unable to be proven, their proofs will be left unchanged.
+
+### Example
+
+The following example shows how to prove a transaction.
+
+```scala
+import cats.effect.IO
+import cats.effect.unsafe.implicits.global
+import co.topl.brambl.builders.TransactionBuilderApi
+import co.topl.brambl.constants.NetworkConstants.{MAIN_LEDGER_ID, PRIVATE_NETWORK_ID}
+import co.topl.brambl.builders.locks.LockTemplate
+import co.topl.brambl.builders.locks.PropositionTemplate.HeightTemplate
+import co.topl.brambl.builders.locks.LockTemplate.PredicateTemplate
+import co.topl.brambl.codecs.AddressCodecs.decodeAddress
+import co.topl.brambl.syntax.{UnknownType, valueToTypeIdentifierSyntaxOps}
+import co.topl.brambl.dataApi.{GenusQueryAlgebra, RpcChannelResource}
+import co.topl.brambl.servicekit.WalletStateResource
+import co.topl.brambl.servicekit.{WalletKeyApi, WalletStateApi}
+import co.topl.brambl.wallet.{CredentiallerInterpreter, WalletApi}
+import co.topl.crypto.signing.ExtendedEd25519
+import co.topl.brambl.syntax.cryptoToPbKeyPair
+
+// Replace with the location of your wallet state file
+val walletConnection = WalletStateResource.walletResource("wallet.db")
+
+// Some mock key pair. Do not use. Replace with your Topl main key pair.
+val mainKey = (new ExtendedEd25519).deriveKeyPairFromSeed(Array.fill(96)(0: Byte))
+
+// Replace with the address and port of your node's gRPC endpoint
+val channelResource = RpcChannelResource.channelResource[IO]("localhost", 9084, secureConnection = false)
+
+// Mock address. Replace with recipient address.
+val toAddr = decodeAddress("ptetP7jshHTuV9bmPmtVLm6PtUzBMZ8iYRvAxvbGTJ5VgiEPHqCCnZ8MLLdi").toOption.get
+
+val transactionBuilderApi = TransactionBuilderApi.make[IO](PRIVATE_NETWORK_ID, MAIN_LEDGER_ID)
+val genusQuery = GenusQueryAlgebra.make[IO](channelResource)
+val walletApi = WalletApi.make[IO](WalletKeyApi.make())
+val walletStateApi = WalletStateApi.make[IO](walletConnection, walletApi)
+val credentialler = CredentiallerInterpreter.make[IO](walletApi, walletStateApi, mainKey)
+
+// The predicate lock of the input to send.
+val predicateTemplate: LockTemplate[IO] = PredicateTemplate[IO](Seq(HeightTemplate("header", 1, Long.MaxValue)), 1)
+
+val tx = for {
+  fromLock <- predicateTemplate.build(List.empty).map(_.toOption.get)
+  fromAddr <- transactionBuilderApi.lockAddress(fromLock)
+  txos <- genusQuery.queryUtxo(fromAddr)
+  fromTxos = txos.filter(_.transactionOutput.value.value.typeIdentifier != UnknownType)
+  unprovenTx <- transactionBuilderApi.buildTransferAllTransaction(fromTxos, fromLock.getPredicate, toAddr, toAddr, 1L)
+  // Proving begins here:
+  provenTx <- credentialler.prove(unprovenTx.toOption.get)
+} yield provenTx
+
+tx.unsafeRunSync()
+```
+
+## Prove and Validate
+
+You can prove **and** validate a transaction using
+the <ScaladocLink path="co/topl/brambl/wallet/Credentialler.html#proveAndValidate(IoTransaction,Context[F]):F[Either[List[ValidationError],IoTransaction]]"><code>proveAndValidate</code></ScaladocLink>
+function of a Credentialler instance.
+
+```scala
+def proveAndValidate(
+  unprovenTx: IoTransaction,
+  ctx:        Context[F]
+): F[Either[List[ValidationError], IoTransaction]]
+```
+
+This function consists of two steps. The first step proves the transaction the same way as the
+[`prove`](#prove) function. The second step validates the transaction by checking that the transaction is well-formed (syntax check)
+and that the transaction is sufficiently proven (authorization check). Any validation failures will need to be addressed
+before the transaction can be broadcasted to the network.
+
+The parameters are as follows:
+- `unprovenTx`: The transaction to prove and validate. Similar to the [`prove`](#prove) function, this transaction may
+already have some proofs. To obtain a new transaction with no proofs, read [Build a Transaction](./transactions).
+- `ctx`: The context to use for validation. This context aims to mock the context used by the bifrost node. It is up to the
+user to provide a context that is appropriate, specifically, providing appropriate values for the current tick and current block
+header height. Since this mock context is not guaranteed to have the same current tick and same current block header height
+as the bifrost node at the time of server-side validation, the results of validating any `TickRange` or `HeightRange` propositions
+may differ from the results of validating the same propositions on the bifrost node.
+
+:::note
+The bifrost node performs an additional semantic validation check that is not performed by this function. For example, the bifrost node
+checks that the transaction is not a double spend, i.e, the transaction inputs actually exist at the current state of the chain.
+Due to this, server-side validation may fail when client-side validation succeeds, even with the same context.
+:::
+
+On success, the function returns the given transaction with updated proofs which can be broadcasted to the network. This returned
+`IoTransaction` has the same signable bytes as the original transaction. If any of the contained propositions are unable to be proven,
+their proofs will be left unchanged. On failure, the function returns a list of the validation errors.
+
+### Example
+
+The following shows examples of how to prove and validate a transaction. The first example illustrates using a context that
+satisfies the height proposition in the transaction. The second example illustrates using a context that does not satisfy the proposition.
+
+```scala
+import cats.effect.IO
+import cats.effect.unsafe.implicits.global
+import co.topl.brambl.Context
+import co.topl.brambl.builders.TransactionBuilderApi
+import co.topl.brambl.constants.NetworkConstants.{MAIN_LEDGER_ID, PRIVATE_NETWORK_ID}
+import co.topl.brambl.builders.locks.LockTemplate
+import co.topl.brambl.builders.locks.PropositionTemplate.HeightTemplate
+import co.topl.brambl.builders.locks.LockTemplate.PredicateTemplate
+import co.topl.brambl.codecs.AddressCodecs.decodeAddress
+import co.topl.brambl.syntax.{UnknownType, valueToTypeIdentifierSyntaxOps}
+import co.topl.brambl.dataApi.{GenusQueryAlgebra, RpcChannelResource}
+import co.topl.brambl.models.{Datum, Event}
+import co.topl.brambl.servicekit.WalletStateResource
+import co.topl.brambl.servicekit.{WalletKeyApi, WalletStateApi}
+import co.topl.brambl.wallet.{CredentiallerInterpreter, WalletApi}
+import co.topl.crypto.signing.ExtendedEd25519
+import co.topl.brambl.syntax.cryptoToPbKeyPair
+
+// Replace with the location of your wallet state file
+val walletConnection = WalletStateResource.walletResource("wallet.db")
+
+// Some mock key pair. Do not use. Replace with your Topl main key pair.
+val mainKey = (new ExtendedEd25519).deriveKeyPairFromSeed(Array.fill(96)(0: Byte))
+
+// Replace with the address and port of your node's gRPC endpoint
+val channelResource = RpcChannelResource.channelResource[IO]("localhost", 9084, secureConnection = false)
+
+// Mock address. Replace with recipient address.
+val toAddr = decodeAddress("ptetP7jshHTuV9bmPmtVLm6PtUzBMZ8iYRvAxvbGTJ5VgiEPHqCCnZ8MLLdi").toOption.get
+
+val transactionBuilderApi = TransactionBuilderApi.make[IO](PRIVATE_NETWORK_ID, MAIN_LEDGER_ID)
+val walletApi = WalletApi.make[IO](WalletKeyApi.make())
+val walletStateApi = WalletStateApi.make[IO](walletConnection, walletApi)
+val credentialler = CredentiallerInterpreter.make[IO](walletApi, walletStateApi, mainKey)
+
+// The predicate lock of the input to send.
+val predicateTemplate: LockTemplate[IO] = PredicateTemplate[IO](Seq(HeightTemplate("header", 1, Long.MaxValue)), 1)
+// Mock current height of the node. validHeight satisfies the predicate, invalidHeight does not.
+val validHeight = "header" -> Datum().withHeader(Datum.Header(Event.Header(50)))
+val invalidHeight = "header" -> Datum().withHeader(Datum.Header(Event.Header(0)))
+
+val unprovenTx = for {
+  fromLock <- predicateTemplate.build(List.empty).map(_.toOption.get)
+  fromAddr <- transactionBuilderApi.lockAddress(fromLock)
+  txos <- GenusQueryAlgebra.make[IO](channelResource).queryUtxo(fromAddr)
+  fromTxos = txos.filter(_.transactionOutput.value.value.typeIdentifier != UnknownType)
+  unprovenTxRes <- transactionBuilderApi.buildTransferAllTransaction(fromTxos, fromLock.getPredicate, toAddr, toAddr, 1L)
+} yield unprovenTxRes.toOption.get
+
+// Prove and Validate begins here:
+
+val validRes = unprovenTx flatMap { tx =>
+  val validCtx = Context[IO](tx, 1, Map(validHeight).lift)
+  credentialler.proveAndValidate(tx, validCtx)
+}
+val provenTx = validRes.unsafeRunSync()
+
+val invalidRes = unprovenTx flatMap { tx =>
+  val invalidCtx = Context[IO](tx, 1, Map(invalidHeight).lift)
+  credentialler.proveAndValidate(tx, invalidCtx)
+}
+val validationErrs = invalidRes.unsafeRunSync()
+```
