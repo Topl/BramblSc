@@ -24,7 +24,7 @@ jobs:
         name: Create GitHub deployment (release)
         id: deployment-release
         # Tag pushes are considered releases
-        if: github.ref_type == "tag"
+        if: github.ref_type == 'tag'
         with:
           token: '${{ github.token }}'
           initial-status: success
@@ -33,7 +33,7 @@ jobs:
         name: Create GitHub deployment (snapshot)
         id: deployment-snap
         # Branch pushes are considered snapshots
-        if: github.ref_type == "branch"
+        if: github.ref_type == 'branch'
         with:
           token: '${{ github.token }}'
           initial-status: success
