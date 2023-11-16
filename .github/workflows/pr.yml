@@ -17,6 +17,7 @@ jobs:
   maven-release:
     uses: ./.github/workflows/maven_release.yml
     needs: sbt-build
+    secrets: inherits
   deploy-docs:
     uses: ./.github/workflows/deploy_docs.yml
     needs: sbt-build
