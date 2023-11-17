@@ -39,11 +39,15 @@ class TransactionBuilderInterpreterAssetMintingSpec extends TransactionBuilderIn
     )
   }
 
-  test("unsupported token type in txos") {
+  test("unsupported token type in txos is filtered out/ignored") {
     val testTx = buildMintAssetTransaction
       .addTxo(valToTxo(Value.defaultInstance)) // Value.empty
       .run
-    assertEquals(testTx, Left(UserInputErrors(Seq(UserInputError(s"UnknownType tokens are not supported.")))))
+    val expectedTx = buildMintAssetTransaction.run // The only difference is the unsupported txo is not present
+    assert(
+      (testTx.isRight && expectedTx.isRight) &&
+      sortedTx(testTx.toOption.get).computeId == sortedTx(expectedTx.toOption.get).computeId
+    )
   }
 
   test("a lock from the lock map not in the txos") {
