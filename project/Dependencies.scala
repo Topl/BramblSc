@@ -70,7 +70,7 @@ object Dependencies {
   object Crypto {
 
     lazy val sources: Seq[ModuleID] =
-      Seq("org.bouncycastle" % "bcprov-jdk18on" % "1.76") ++
+      Seq("org.bouncycastle" % "bcprov-jdk18on" % "1.77") ++
       circe ++
       newType ++
       cats ++
