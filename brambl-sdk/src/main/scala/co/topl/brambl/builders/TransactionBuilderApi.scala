@@ -311,8 +311,8 @@ trait TransactionBuilderApi[F[_]] {
     fee:                    Long,
     mintedAssetLockAddress: LockAddress,
     changeAddress:          LockAddress,
-    ephemeralMetadata:      Option[Struct],
-    commitment:             Option[ByteString]
+    ephemeralMetadata:      Option[Struct] = None,
+    commitment:             Option[ByteString] = None
   ): F[Either[BuilderError, IoTransaction]]
 }
 
@@ -582,8 +582,8 @@ object TransactionBuilderApi {
         fee:                    Long,
         mintedAssetLockAddress: LockAddress,
         changeAddress:          LockAddress,
-        ephemeralMetadata:      Option[Struct],
-        commitment:             Option[ByteString]
+        ephemeralMetadata:      Option[Struct] = None,
+        commitment:             Option[ByteString] = None
       ): F[Either[BuilderError, IoTransaction]] = (
         for {
           datum <- EitherT.right[BuilderError](datum())
