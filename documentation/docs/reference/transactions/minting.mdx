@@ -54,6 +54,44 @@ Lock and LockAddress [with the SDK](../locks).
 
 <TxReturn tokenType="minted group constructor" />
 
+### Example
+
+The following example shows how to build a transaction to mint 1 group constructor token for a given Group Policy.
+
+```scala
+import cats.effect.IO
+import cats.effect.unsafe.implicits.global
+import co.topl.brambl.builders.TransactionBuilderApi
+import co.topl.brambl.constants.NetworkConstants.{MAIN_LEDGER_ID, PRIVATE_NETWORK_ID}
+import co.topl.brambl.builders.locks.LockTemplate
+import co.topl.brambl.builders.locks.PropositionTemplate.HeightTemplate
+import co.topl.brambl.builders.locks.LockTemplate.PredicateTemplate
+import co.topl.brambl.codecs.AddressCodecs.decodeAddress
+import co.topl.brambl.syntax.{LvlType, valueToTypeIdentifierSyntaxOps}
+import co.topl.brambl.dataApi.{GenusQueryAlgebra, RpcChannelResource}
+import co.topl.brambl.models.Event.GroupPolicy
+
+// Mock address. Replace with recipient address.
+val toAddr = decodeAddress("ptetP7jshHTuV9bmPmtVLm6PtUzBMZ8iYRvAxvbGTJ5VgiEPHqCCnZ8MLLdi").toOption.get
+
+// Replace with the address and port of your node's gRPC endpoint
+val channelResource = RpcChannelResource.channelResource[IO]("localhost", 9084, secureConnection = false)
+
+val transactionBuilderApi = TransactionBuilderApi.make[IO](PRIVATE_NETWORK_ID, MAIN_LEDGER_ID)
+val predicateTemplate: LockTemplate[IO] = PredicateTemplate[IO](Seq(HeightTemplate("header", 1, Long.MaxValue)), 1)
+
+// Transaction building starts here:
+val tx = for {
+  fromLock <- predicateTemplate.build(List.empty).map(_.toOption.get)
+  fromAddr <- transactionBuilderApi.lockAddress(fromLock)
+  fromTxos <- GenusQueryAlgebra.make[IO](channelResource).queryUtxo(fromAddr)
+  policy = GroupPolicy("Group Policy Label", fromTxos.filter(_.transactionOutput.value.value.typeIdentifier == LvlType).head.outputAddress)
+  res <- transactionBuilderApi.buildGroupMintingTransaction(fromTxos, fromLock.getPredicate, policy, 1L, toAddr, toAddr, 1L)
+} yield res
+
+tx.unsafeRunSync()
+```
+
 ## Mint Series Constructor Tokens
 
 You can create a transaction to mint new series constructor tokens using
@@ -90,6 +128,44 @@ Lock and LockAddress [with the SDK](../locks).
 - `fee` - The transaction fee. The `txos` must contain enough LVLs to satisfy this fee.
 
 <TxReturn tokenType="minted series constructor" />
+
+### Example
+
+The following example shows how to build a transaction to mint 1 series constructor token for a given Series Policy.
+
+```scala
+import cats.effect.IO
+import cats.effect.unsafe.implicits.global
+import co.topl.brambl.builders.TransactionBuilderApi
+import co.topl.brambl.constants.NetworkConstants.{MAIN_LEDGER_ID, PRIVATE_NETWORK_ID}
+import co.topl.brambl.builders.locks.LockTemplate
+import co.topl.brambl.builders.locks.PropositionTemplate.HeightTemplate
+import co.topl.brambl.builders.locks.LockTemplate.PredicateTemplate
+import co.topl.brambl.codecs.AddressCodecs.decodeAddress
+import co.topl.brambl.syntax.{LvlType, valueToTypeIdentifierSyntaxOps}
+import co.topl.brambl.dataApi.{GenusQueryAlgebra, RpcChannelResource}
+import co.topl.brambl.models.Event.SeriesPolicy
+
+// Mock address. Replace with recipient address.
+val toAddr = decodeAddress("ptetP7jshHTuV9bmPmtVLm6PtUzBMZ8iYRvAxvbGTJ5VgiEPHqCCnZ8MLLdi").toOption.get
+
+// Replace with the address and port of your node's gRPC endpoint
+val channelResource = RpcChannelResource.channelResource[IO]("localhost", 9084, secureConnection = false)
+
+val transactionBuilderApi = TransactionBuilderApi.make[IO](PRIVATE_NETWORK_ID, MAIN_LEDGER_ID)
+val predicateTemplate: LockTemplate[IO] = PredicateTemplate[IO](Seq(HeightTemplate("header", 1, Long.MaxValue)), 1)
+
+// Transaction building starts here:
+val tx = for {
+  fromLock <- predicateTemplate.build(List.empty).map(_.toOption.get)
+  fromAddr <- transactionBuilderApi.lockAddress(fromLock)
+  fromTxos <- GenusQueryAlgebra.make[IO](channelResource).queryUtxo(fromAddr)
+  policy = SeriesPolicy("Series Policy Label", registrationUtxo= fromTxos.filter(_.transactionOutput.value.value.typeIdentifier == LvlType).head.outputAddress)
+  res <- transactionBuilderApi.buildSeriesMintingTransaction(fromTxos, fromLock.getPredicate, policy, 1L, toAddr, toAddr, 1L)
+} yield res
+
+tx.unsafeRunSync()
+```
 
 ## Mint Asset Tokens
 
