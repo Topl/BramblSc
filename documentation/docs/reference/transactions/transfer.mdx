@@ -74,23 +74,23 @@ import co.topl.brambl.builders.locks.LockTemplate
 import co.topl.brambl.builders.locks.PropositionTemplate.HeightTemplate
 import co.topl.brambl.builders.locks.LockTemplate.PredicateTemplate
 import co.topl.brambl.codecs.AddressCodecs.decodeAddress
-import co.topl.brambl.syntax.{LvlType, UnknownType, valueToTypeIdentifierSyntaxOps}
+import co.topl.brambl.syntax.LvlType
 import co.topl.brambl.dataApi.{GenusQueryAlgebra, RpcChannelResource}
 
 // Mock address. Replace with recipient address.
 val toAddr = decodeAddress("ptetP7jshHTuV9bmPmtVLm6PtUzBMZ8iYRvAxvbGTJ5VgiEPHqCCnZ8MLLdi").toOption.get
 
-val transactionBuilderApi = TransactionBuilderApi.make[IO](PRIVATE_NETWORK_ID, MAIN_LEDGER_ID)
+// Replace with the address and port of your node's gRPC endpoint
 val channelResource = RpcChannelResource.channelResource[IO]("localhost", 9084, secureConnection = false)
-val genusQuery = GenusQueryAlgebra.make[IO](channelResource)
+
+val transactionBuilderApi = TransactionBuilderApi.make[IO](PRIVATE_NETWORK_ID, MAIN_LEDGER_ID)
 val predicateTemplate: LockTemplate[IO] = PredicateTemplate[IO](Seq(HeightTemplate("header", 1, Long.MaxValue)), 1)
 
 // Transaction building starts here:
 val tx = for {
   fromLock <- predicateTemplate.build(List.empty).map(_.toOption.get)
   fromAddr <- transactionBuilderApi.lockAddress(fromLock)
-  txos <- genusQuery.queryUtxo(fromAddr)
-  fromTxos = txos.filter(_.transactionOutput.value.value.typeIdentifier != UnknownType)
+  fromTxos <- GenusQueryAlgebra.make[IO](channelResource).queryUtxo(fromAddr)
   res <- transactionBuilderApi.buildTransferAmountTransaction(LvlType, fromTxos, fromLock.getPredicate, 1L, toAddr, toAddr, 1L)
 } yield res
 
@@ -146,23 +146,22 @@ import co.topl.brambl.builders.locks.LockTemplate
 import co.topl.brambl.builders.locks.PropositionTemplate.HeightTemplate
 import co.topl.brambl.builders.locks.LockTemplate.PredicateTemplate
 import co.topl.brambl.codecs.AddressCodecs.decodeAddress
-import co.topl.brambl.syntax.{UnknownType, valueToTypeIdentifierSyntaxOps}
 import co.topl.brambl.dataApi.{GenusQueryAlgebra, RpcChannelResource}
 
 // Mock address. Replace with recipient address.
 val toAddr = decodeAddress("ptetP7jshHTuV9bmPmtVLm6PtUzBMZ8iYRvAxvbGTJ5VgiEPHqCCnZ8MLLdi").toOption.get
 
-val transactionBuilderApi = TransactionBuilderApi.make[IO](PRIVATE_NETWORK_ID, MAIN_LEDGER_ID)
+// Replace with the address and port of your node's gRPC endpoint
 val channelResource = RpcChannelResource.channelResource[IO]("localhost", 9084, secureConnection = false)
-val genusQuery = GenusQueryAlgebra.make[IO](channelResource)
+
+val transactionBuilderApi = TransactionBuilderApi.make[IO](PRIVATE_NETWORK_ID, MAIN_LEDGER_ID)
 val predicateTemplate: LockTemplate[IO] = PredicateTemplate[IO](Seq(HeightTemplate("header", 1, Long.MaxValue)), 1)
 
 // Transaction building starts here:
 val tx = for {
   fromLock <- predicateTemplate.build(List.empty).map(_.toOption.get)
   fromAddr <- transactionBuilderApi.lockAddress(fromLock)
-  txos <- genusQuery.queryUtxo(fromAddr)
-  fromTxos = txos.filter(_.transactionOutput.value.value.typeIdentifier != UnknownType)
+  fromTxos <- GenusQueryAlgebra.make[IO](channelResource).queryUtxo(fromAddr)
   res <- transactionBuilderApi.buildTransferAllTransaction(fromTxos, fromLock.getPredicate, toAddr, toAddr, 1L)
 } yield res
 
