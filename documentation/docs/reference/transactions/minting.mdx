@@ -217,7 +217,7 @@ each multiple of `tokenSupply` quantity of assets will burn a single series cons
 
 The following example shows how to build a transaction to mint 1 asset token for a given Group Policy and a given Series Policy.
 In this example, we first build, prove, and broadcast a transaction to register a group and a transaction to register a series.
-Both of which are needed before we can mint asset tokens. Notice that we wait 10 seconds before re-querying Genus for spendable UTXOs.
+Both of which are needed before we can mint asset tokens. Notice that we wait 15 seconds before re-querying Genus for spendable UTXOs.
 This is because it takes some time for the transactions to be included in Genus. The delay on the Bifrost node, however,
 is much shorter thus we were able to only wait 1 second in the example.
 
@@ -271,7 +271,7 @@ val groupTx = for {
 val groupId = groupTx.unsafeRunSync()._2
 
 // Allow some time to pass before querying the transaction
-Thread.sleep(10000)
+Thread.sleep(15000)
 
 // Build, prove, and broadcast a transaction to mint a Series Constructor Token:
 val seriesTx = for {
@@ -290,7 +290,7 @@ val seriesTx = for {
 val seriedId = seriesTx.unsafeRunSync()._2
 
 // Allow some time to pass before querying the transaction
-Thread.sleep(10000)
+Thread.sleep(15000)
 
 // Build, prove, and broadcast a transaction to mint a Asset Token begins here:
 val assetTx = for {
