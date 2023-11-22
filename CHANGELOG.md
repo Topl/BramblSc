@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added documentation for using a wallet (extract main key, derive child keys) 
+
 ## [v2.0.0-alpha4-SNAPSHOT] - - TODO replace date after release 
 
 ### Added
