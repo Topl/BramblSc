@@ -7,7 +7,11 @@ description: Create a new Wallet from scratch
 import ScaladocLink from '@site/src/components/ScaladocLink';
 
 Creating a wallet involves generating your Topl main key pair. This main key pair is used to derive all keys that a user would
-use to create and prove transactions. You can create a new wallet using
+use to create and prove transactions.
+
+## Create a Wallet
+
+You can create a new wallet using
 the <ScaladocLink path="co/topl/brambl/wallet/WalletApi.html#createNewWallet(Array[Byte],Option[String],MnemonicSize):F[Either[WalletApiFailure,NewWalletResult[F]]]"><code>createNewWallet</code></ScaladocLink>
 function of a Wallet API instance.
 
@@ -40,15 +44,89 @@ It is critical to store the used passphrase and the generated mnemonic in a safe
 you will not be able to recover your wallet.
 :::
 
-## Example
+### Example
 
 The following example shows how to create a new wallet using the default of no passphrase and a mnemonic length of 12 words.
 
 ```scala
 import cats.effect.IO
+import cats.effect.unsafe.implicits.global
 import co.topl.brambl.wallet.WalletApi
 import co.topl.brambl.servicekit.WalletKeyApi
 
 val walletApi = WalletApi.make[IO](WalletKeyApi.make())
 val newWalletResult = walletApi.createNewWallet("password".getBytes)
+newWalletResult.unsafeRunSync()
+```
+
+## Create and Save a Wallet
+
+You can create a new wallet and save it to a specified Wallet Key persistence layer using
+the <ScaladocLink path="co/topl/brambl/wallet/WalletApi.html#createAndSaveNewWallet[G[_]](Array[Byte],Option[String],MnemonicSize,String,String)(Monad[G],ToMonad[G]):G[Either[WalletApiFailure,NewWalletResult[F]]]"><code>createAndSaveNewWallet</code></ScaladocLink>
+function of a Wallet API instance.
+
+```scala
+def createAndSaveNewWallet[G[_]: Monad: FunctionK[F, G]](
+  password:     Array[Byte],
+  passphrase:   Option[String] = None,
+  mLen:         MnemonicSize = MnemonicSizes.words12,
+  name:         String = "default",
+  mnemonicName: String = "mnemonic"
+): G[Either[WalletApi.WalletApiFailure, WalletApi.NewWalletResult[F]]]
+```
+
+This function generates a Topl main key pair, encrypts it with the provided password, and stores it in
+the `WalletKeyApiAlgebra` used to initialize the Wallet API instance.
+
+The parameters are as follows:
+- `password`: The password to encrypt the main key pair with
+- `passphrase`: An optional passphrase used to generate the main key pair. The default is no passphrase.
+- `mLen`: The length of the mnemonic to generate. The default is 12 words.
+- `name`: The name of the wallet to save. The default is "default". Most commonly, only one wallet identity will be used.
+- `mnemonicName`: The name of the mnemonic to save. The default is "mnemonic". Most commonly, only one mnemonic will be used.
+
+Type parameters:
+- `G`: The context, bound to a context parameter of type `Monad[G]` and transformable to `F` (using Cats `FunctionK`),
+where `F` is the type parameter used in the WalletApi instance. Most commonly, `G` will be the same as `F` and will be transformed
+using `FunctionK.id[F]`.
+
+On success, this function returns
+a <ScaladocLink path="co/topl/brambl/wallet/WalletApi$$NewWalletResult.html"><code>NewWalletResult</code></ScaladocLink>
+which contains the Topl main key pair encrypted into a `VaultStore` instance, as well as the mnemonic which can be used
+to later import the derived Topl main key pair. Both this `VaultStore` instance and mnemonic are persisted, and can be accessed
+using `name` and `mnemonicName` respectively. On failure, this function returns
+a <ScaladocLink path="co/topl/brambl/wallet/WalletApi$$WalletApiFailure.html"><code>WalletApiFailure</code></ScaladocLink>
+which specifies the reason for failure.
+
+:::caution
+If you lose your *password*, you can use your *passphrase* and the generated mnemonic to recover your wallet (using import).
+It is critical to store the used passphrase and the generated mnemonic in a safe place. If you lose either of these,
+you will not be able to recover your wallet.
+:::
+
+### Example
+
+The following snippet is an example of creating and saving a new wallet instance using Cats Effect
+`IO` and the default implementation of the `WalletKeyApi` provided by
+the <ScaladocLink path="co/topl/brambl/servicekit/index.html"><code>ServiceKit</code></ScaladocLink>. This default implementation
+of the `WalletKeyApi` uses the local filesystem to persist the wallet and mnemonic.
+
+```scala
+import cats.arrow.FunctionK
+import cats.effect.IO
+import cats.effect.unsafe.implicits.global
+import co.topl.brambl.wallet.WalletApi
+import co.topl.brambl.servicekit.WalletKeyApi
+
+import java.io.File
+
+val walletApi = WalletApi.make[IO](WalletKeyApi.make())
+implicit val transformType: FunctionK[IO, IO] = FunctionK.id[IO]
+val homeDir = System.getProperty("user.home")
+// Replace with the desired location for your key file
+val keyFile = new File(homeDir, "mainkey.json").getCanonicalPath
+// Replace with the desired location of for your mnemonic file
+val mnemonicFile = new File(homeDir, "mnemonic.txt").getCanonicalPath
+val newWalletResult = walletApi.createAndSaveNewWallet[IO]("password".getBytes, name = keyFile, mnemonicName = mnemonicFile)
+newWalletResult.unsafeRunSync()
 ```
