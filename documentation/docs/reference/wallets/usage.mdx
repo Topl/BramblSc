@@ -8,7 +8,7 @@ import ScaladocLink from '@site/src/components/ScaladocLink';
 
 With a wallet, you can generate key pairs for use in the Topl network. Topl uses ExtendedEd25519 for our implementation
 of a hierarchical deterministic (HD) wallet. Using an HD wallet, you can derive many keys for a given "main" key.
-This page will walk you through the process of generating a Topl main key pair as well as deriving child key pairs for a
+This page will walk you through the process of accessing your Topl main key pair as well as deriving child key pairs for a
 3-layer path (x/y/z).
 
 ## Prerequisites
@@ -28,7 +28,7 @@ val walletApi = WalletApi.make[IO](WalletKeyApi.make())
 val newWalletResult = walletApi.createNewWallet(password)
 ```
 
-## Generate a Topl Main Key Pair
+## Decrypt a Topl Main Key Pair
 
 During wallet initialization, a Topl main key pair is generated and encrypted in a `VaultStore`. To use this key pair
 you must first decrypt it by extracting it from the `VaultStore`. This can be achieved by using
@@ -76,6 +76,79 @@ val mainKey = for {
   decryptedKey <- walletApi.extractMainKey(newWallet.toOption.get.mainKeyVaultStore, password)
 } yield decryptedKey.toOption.get
 
+mainKey.unsafeRunSync()
+```
+
+## Load and Decrypt a Topl Main Key Pair
+
+If your wallet was saved to the Wallet Key persistence layer during wallet initialization (for example, by
+using [Create and Save a Wallet](./create#create-and-save-a-wallet) or [Import and Save a Wallet](./import#import-and-save-a-wallet)),
+your Topl main key pair can be loaded and decrypted in a single step. This can be achieved by using
+the <ScaladocLink path="co/topl/brambl/wallet/WalletApi.html#loadAndExtractMainKey[G[_]](Array[Byte],String)(Monad[G],ToMonad[G]):G[Either[WalletApiFailure,KeyPair]]"><code>loadAndExtractMainKey</code></ScaladocLink>
+function of a Wallet API instance.
+
+```scala
+def loadAndExtractMainKey[G[_]: Monad: FunctionK[F, G]](
+  password: Array[Byte],
+  name:     String = "default"
+): G[Either[WalletApi.WalletApiFailure, KeyPair]]
+```
+
+This function loads an encrypted wallet (specified by `name`) from the `WalletKeyApiAlgebra` used to initialize the
+Wallet API, and then extracts and decrypts the Topl main key pair contained within it using the given password.
+
+The parameters are as follows:
+- `password`: The password used to encrypt the `VaultStore`.
+- `name`: The name of the wallet to load. Defaults to "default".
+
+Type parameters:
+- `G`: The context, bound to a context parameter of type `Monad[G]` and transformable to `F` (using Cats `FunctionK`),
+where `F` is the type parameter used in the WalletApi instance. Most commonly, `G` will be the same as `F` and will be transformed
+using `FunctionK.id[F]`.
+
+On success, the function returns the decrypted Topl
+main [key pair](https://github.com/Topl/protobuf-specs/blob/main/proto/quivr/models/shared.proto#L78). On failure, the function returns
+a <ScaladocLink path="co/topl/brambl/wallet/WalletApi$$WalletApiFailure.html"><code>WalletApiFailure</code></ScaladocLink>
+which specifies the reason for failure.
+
+:::caution
+For maximum security, the Topl main key pair should never be used to create and prove transactions. Instead, use a
+child key pair derived from the Topl main key pair.
+:::
+
+### Example
+
+The following example shows how to load a wallet and extract its Topl main key pair after previously persisting it using
+the default implementation of the `WalletKeyApi` provided by
+the <ScaladocLink path="co/topl/brambl/servicekit/index.html"><code>ServiceKit</code></ScaladocLink>. This default implementation
+of the `WalletKeyApi` uses the local filesystem to persist the wallet and mnemonic..
+
+```scala
+import cats.arrow.FunctionK
+import cats.effect.IO
+import cats.effect.unsafe.implicits.global
+import co.topl.brambl.wallet.WalletApi
+import co.topl.brambl.servicekit.WalletKeyApi
+
+import java.io.File
+
+val walletApi = WalletApi.make[IO](WalletKeyApi.make())
+implicit val transformType: FunctionK[IO, IO] = FunctionK.id[IO]
+
+val homeDir = System.getProperty("user.home")
+// Replace with the desired location for your key file
+val keyFile = new File(homeDir, "mainkey.json").getCanonicalPath
+// Replace with the desired location of for your mnemonic file
+val mnemonicFile = new File(homeDir, "mnemonic.txt").getCanonicalPath
+
+val password = "password".getBytes
+
+walletApi.createAndSaveNewWallet[IO](password, name = keyFile, mnemonicName = mnemonicFile).unsafeRunSync()
+
+// Load and extract begins here:
+val mainKey = for {
+  decryptedKey <- walletApi.loadAndExtractMainKey[IO](password, keyFile)
+} yield decryptedKey.toOption.get
 mainKey.unsafeRunSync()
 ```
 
