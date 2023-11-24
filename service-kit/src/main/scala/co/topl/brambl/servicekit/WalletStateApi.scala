@@ -305,8 +305,8 @@ object WalletStateApi {
               query
             )
           )
-          address <- Sync[F].delay(rs.getString("address"))
-        } yield if (rs.next()) Some(address) else None
+          address <- Sync[F].delay(Option(rs.getString("address")))
+        } yield address
       }
 
       override def getCurrentIndicesForFunds(

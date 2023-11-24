@@ -12,6 +12,8 @@ import co.topl.node.services.{
   NodeRpcGrpc
 }
 import io.grpc.ManagedChannel
+import co.topl.node.services.FetchBlockIdAtDepthReq
+import co.topl.node.services.FetchBlockHeaderReq
 
 /**
  * Defines an interpreter for Bifrost Query API.
@@ -32,6 +34,28 @@ trait BifrostQueryInterpreter {
         ): ChannelContextKlesli[A] = {
           import cats.implicits._
           fa match {
+            case BifrostQueryAlgebra.BlockByDepth(depth) =>
+              Kleisli(blockingStub =>
+                Sync[F]
+                  .blocking(
+                    blockingStub
+                      .fetchBlockIdAtDepth(
+                        FetchBlockIdAtDepthReq(depth)
+                      )
+                  )
+                  .map(_.blockId.asInstanceOf[A])
+              )
+            case BifrostQueryAlgebra.FetchBlockHeader(blockId) =>
+              Kleisli(blockingStub =>
+                Sync[F]
+                  .blocking(
+                    blockingStub
+                      .fetchBlockHeader(
+                        FetchBlockHeaderReq(blockId)
+                      )
+                  )
+                  .map(_.header.asInstanceOf[A])
+              )
             case BifrostQueryAlgebra.FetchBlockBody(blockId) =>
               Kleisli(blockingStub =>
                 Sync[F]
