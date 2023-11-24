@@ -98,6 +98,12 @@ using `name` and `mnemonicName` respectively. On failure, this function returns
 a <ScaladocLink path="co/topl/brambl/wallet/WalletApi$$WalletApiFailure.html"><code>WalletApiFailure</code></ScaladocLink>
 which specifies the reason for failure.
 
+:::caution
+If you lose your *password*, you can use your *passphrase* and the generated mnemonic to recover your wallet (using import).
+It is critical to store the used passphrase and the generated mnemonic in a safe place. If you lose either of these,
+you will not be able to recover your wallet.
+:::
+
 ### Example
 
 The following snippet is an example of creating and saving a new wallet instance using Cats Effect
