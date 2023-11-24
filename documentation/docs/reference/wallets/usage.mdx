@@ -1,0 +1,129 @@
+---
+sidebar_position: 3
+title: Usage
+description: Use a Wallet to generate keys
+---
+
+import ScaladocLink from '@site/src/components/ScaladocLink';
+
+With a wallet, you can generate key pairs for use in the Topl network. Topl uses ExtendedEd25519 for our implementation
+of a hierarchical deterministic (HD) wallet. Using an HD wallet, you can derive many keys for a given "main" key.
+This page will walk you through the process of generating a Topl main key pair as well as deriving child key pairs for a
+3-layer path (x/y/z).
+
+## Prerequisites
+
+To use a wallet, a wallet instance must exist. To create a wallet instance, read [Create a Wallet](./create)
+or [Import a Wallet](./import). The following snippet is an example of creating a new wallet instance using Cats Effect
+`IO` and the default implementation of
+the <ScaladocLink path="co/topl/brambl/servicekit/index.html"><code>ServiceKit</code></ScaladocLink>:
+
+```scala
+import cats.effect.IO
+import co.topl.brambl.wallet.WalletApi
+import co.topl.brambl.servicekit.WalletKeyApi
+
+val password = "password".getBytes
+val walletApi = WalletApi.make[IO](WalletKeyApi.make())
+val newWalletResult = walletApi.createNewWallet(password)
+```
+
+## Generate a Topl Main Key Pair
+
+During wallet initialization, a Topl main key pair is generated and encrypted in a `VaultStore`. To use this key pair
+you must first decrypt it by extracting it from the `VaultStore`. This can be achieved by using
+the <ScaladocLink path="co/topl/brambl/wallet/WalletApi.html#extractMainKey(VaultStore[F],Array[Byte]):F[Either[WalletApiFailure,KeyPair]]"><code>extractMainKey</code></ScaladocLink>
+function of a Wallet API instance.
+
+```scala
+def extractMainKey(
+  vaultStore: VaultStore[F],
+  password:   Array[Byte]
+): F[Either[WalletApi.WalletApiFailure, KeyPair]]
+```
+
+This function extracts and decrypts the Topl main key pair from the given encrypted `VaultStore` using the given password.
+
+The parameters are as follows:
+- `vaultStore`: The encrypted `VaultStore` containing the Topl main key pair.
+- `password`: The password used to encrypt the `VaultStore`.
+
+On success, the function returns the decrypted Topl
+main [key pair](https://github.com/Topl/protobuf-specs/blob/main/proto/quivr/models/shared.proto#L78). On failure, the function returns
+a <ScaladocLink path="co/topl/brambl/wallet/WalletApi$$WalletApiFailure.html"><code>WalletApiFailure</code></ScaladocLink>
+which specifies the reason for failure.
+
+:::caution
+For maximum security, the Topl main key pair should never be used to create and prove transactions. Instead, use a
+child key pair derived from the Topl main key pair.
+:::
+
+### Example
+
+The following example shows how to extract the Topl main key pair after initializing a wallet.
+
+```scala
+import cats.effect.IO
+import cats.effect.unsafe.implicits.global
+import co.topl.brambl.wallet.WalletApi
+import co.topl.brambl.servicekit.WalletKeyApi
+
+val password = "password".getBytes
+val walletApi = WalletApi.make[IO](WalletKeyApi.make())
+
+val mainKey = for {
+  newWallet <- walletApi.createNewWallet(password)
+  decryptedKey <- walletApi.extractMainKey(newWallet.toOption.get.mainKeyVaultStore, password)
+} yield decryptedKey.toOption.get
+
+mainKey.unsafeRunSync()
+```
+
+## Derive a Child Key Pair
+
+The Topl main key pair should not be used to create and prove transactions. For this, a child key pair should be used.
+You can derive this child key pair using
+the <ScaladocLink path="co/topl/brambl/wallet/WalletApi.html#deriveChildKeys(KeyPair,Indices):F[KeyPair]"><code>deriveChildKeys</code></ScaladocLink>
+function of a Wallet API instance.
+
+```scala
+def deriveChildKeys(
+  keyPair: KeyPair,
+  idx:     Indices
+): F[KeyPair]
+```
+
+This function derives a child key pair from the given Topl main key pair using the given indices. The indices contain the
+3-layer path (x/y/z) for the child key pair. For a more formal definition of the derivation paths,
+see [TIP-0004](https://github.com/Topl/tips/tree/main/TIP-0004). For the most basic use case, the `x/y` path can be hardcoded
+to a constant value (for ex. `10/10`) and the `z` path can be incremented for each new child key pair needed.
+
+The parameters are as follows:
+- `keyPair`: The Topl main key pair to derive the child key pair from.
+- `idx`: The indices containing the 3-layer path (x/y/z) for the child key pair.
+
+This function returns the derived child [key pair](https://github.com/Topl/protobuf-specs/blob/main/proto/quivr/models/shared.proto#L78).
+
+### Example
+
+The following example shows how to derive 2 different child key pairs from the Topl main key pair.
+
+```scala
+import cats.effect.IO
+import cats.effect.unsafe.implicits.global
+import co.topl.brambl.models.Indices
+import co.topl.brambl.wallet.WalletApi
+import co.topl.brambl.servicekit.WalletKeyApi
+
+val password = "password".getBytes
+val walletApi = WalletApi.make[IO](WalletKeyApi.make())
+
+val mainKey = (for {
+  newWallet <- walletApi.createNewWallet(password)
+  decryptedKey <- walletApi.extractMainKey(newWallet.toOption.get.mainKeyVaultStore, password)
+} yield decryptedKey.toOption.get).unsafeRunSync()
+
+val childKey1 = walletApi.deriveChildKeys(mainKey, Indices(10, 10, 0)).unsafeRunSync()
+val childKey2 = walletApi.deriveChildKeys(mainKey, Indices(10, 10, 1)).unsafeRunSync()
+```
+
