@@ -1,5 +1,5 @@
 ---
-sidebar_position: 6
+sidebar_position: 7
 title: Prove a Transaction
 description: Prove a transaction.
 ---
@@ -124,6 +124,7 @@ val tx = for {
   fromTxos <- GenusQueryAlgebra.make[IO](channelResource).queryUtxo(fromAddr)
   unprovenTx <- transactionBuilderApi.buildTransferAllTransaction(fromTxos, fromLock.getPredicate, toAddr, toAddr, 1L)
   // Proving begins here:
+  // highlight-next-line
   provenTx <- credentialler.prove(unprovenTx.toOption.get)
 } yield provenTx
 
@@ -230,6 +231,7 @@ val provenTx = validRes.unsafeRunSync()
 
 val invalidRes = unprovenTx flatMap { tx =>
   val invalidCtx = Context[IO](tx, 1, Map(invalidHeight).lift)
+  // highlight-next-line
   credentialler.proveAndValidate(tx, invalidCtx)
 }
 val validationErrs = invalidRes.unsafeRunSync()

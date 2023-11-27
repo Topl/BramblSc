@@ -1,0 +1,44 @@
+---
+sidebar_position: 3
+title: Wallet State
+---
+
+import ScaladocLink from '@site/src/components/ScaladocLink';
+
+The wallet state keeps track of the child key pairs that have already been used to generate lock addresses. It also stores
+the necessary information to prove the ownership of the lock addresses. Keeping an up-to-date wallet state is crucial for
+proving your transactions.
+
+## Prerequisites
+
+Managing your Wallet State starts requires creating an instance of the <ScaladocLink path="co/topl/brambl/dataApi/WalletStateAlgebra.html"><code>WalletStateAlgebra</code></ScaladocLink>.
+The SDK provides a default implementation within the [Service Kit](../service-kit/big-picture). This default
+implementation uses SQLite as a database to store the wallet state.
+
+## Initialize Wallet State
+
+TBD
+
+```scala
+
+```
+
+TBD
+
+The parameters are as follows:
+
+### Example
+
+The following example shows how to query UTXOs of a given lock address with a Cats Effect `IO` context.
+
+```scala
+
+```
+
+## Update Wallet State
+
+TBD
+
+### Example
+
+TBD

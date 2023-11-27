@@ -55,6 +55,7 @@ val transactionBuilderApi = TransactionBuilderApi.make[IO](MAIN_NETWORK_ID, MAIN
 val lockAddrResult: IO[LockAddress] = for {
   // Assuming lockResult contains an Either.Right[Lock]
   lock <- lockResult.map(_.toOption.get)
+  // highlight-next-line
   lockAddr <- transactionBuilderApi.lockAddress(lock)
 } yield lockAddr
 ```

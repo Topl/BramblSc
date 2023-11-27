@@ -86,6 +86,7 @@ val tx = for {
   fromAddr <- transactionBuilderApi.lockAddress(fromLock)
   fromTxos <- GenusQueryAlgebra.make[IO](channelResource).queryUtxo(fromAddr)
   policy = GroupPolicy("Group Policy Label", fromTxos.filter(_.transactionOutput.value.value.typeIdentifier == LvlType).head.outputAddress)
+  // highlight-next-line
   res <- transactionBuilderApi.buildGroupMintingTransaction(fromTxos, fromLock.getPredicate, policy, 1L, toAddr, toAddr, 1L)
 } yield res
 
@@ -161,6 +162,7 @@ val tx = for {
   fromAddr <- transactionBuilderApi.lockAddress(fromLock)
   fromTxos <- GenusQueryAlgebra.make[IO](channelResource).queryUtxo(fromAddr)
   policy = SeriesPolicy("Series Policy Label", registrationUtxo= fromTxos.filter(_.transactionOutput.value.value.typeIdentifier == LvlType).head.outputAddress)
+  // highlight-next-line
   res <- transactionBuilderApi.buildSeriesMintingTransaction(fromTxos, fromLock.getPredicate, policy, 1L, toAddr, toAddr, 1L)
 } yield res
 
@@ -305,6 +307,7 @@ val assetTx = for {
     fromTxos.filter(_.transactionOutput.value.value.typeIdentifier == SeriesType(seriedId)).head.outputAddress,
     1
   )
+  // highlight-start
   unprovenTx <- transactionBuilderApi.buildAssetMintingTransaction(
     mintingStatement,
     fromTxos,
@@ -313,6 +316,7 @@ val assetTx = for {
     toAddr,
     toAddr
   )
+  // highlight-end
   provenTx <- credentialler.prove(unprovenTx.toOption.get)
   broadcast <- bifrostQuery.broadcastTransaction(provenTx)
 } yield broadcast

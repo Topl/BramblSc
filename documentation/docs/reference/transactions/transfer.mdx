@@ -91,6 +91,7 @@ val tx = for {
   fromLock <- predicateTemplate.build(List.empty).map(_.toOption.get)
   fromAddr <- transactionBuilderApi.lockAddress(fromLock)
   fromTxos <- GenusQueryAlgebra.make[IO](channelResource).queryUtxo(fromAddr)
+  // highlight-next-line
   res <- transactionBuilderApi.buildTransferAmountTransaction(LvlType, fromTxos, fromLock.getPredicate, 1L, toAddr, toAddr, 1L)
 } yield res
 
@@ -162,6 +163,7 @@ val tx = for {
   fromLock <- predicateTemplate.build(List.empty).map(_.toOption.get)
   fromAddr <- transactionBuilderApi.lockAddress(fromLock)
   fromTxos <- GenusQueryAlgebra.make[IO](channelResource).queryUtxo(fromAddr)
+  // highlight-next-line
   res <- transactionBuilderApi.buildTransferAllTransaction(fromTxos, fromLock.getPredicate, toAddr, toAddr, 1L)
 } yield res
 

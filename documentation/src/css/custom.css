@@ -18,6 +18,10 @@
 
 }
 
+:root[data-theme="light"] {
+  --docusaurus-highlighted-code-line-bg: rgb(200 200 200);
+}
+
 .footer--dark,.navbar--dark {
   background: var(--gradient-bg);
 }

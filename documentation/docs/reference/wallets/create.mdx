@@ -55,6 +55,7 @@ import co.topl.brambl.wallet.WalletApi
 import co.topl.brambl.servicekit.WalletKeyApi
 
 val walletApi = WalletApi.make[IO](WalletKeyApi.make())
+// highlight-next-line
 val newWalletResult = walletApi.createNewWallet("password".getBytes)
 newWalletResult.unsafeRunSync()
 ```
@@ -127,6 +128,7 @@ val homeDir = System.getProperty("user.home")
 val keyFile = new File(homeDir, "mainkey.json").getCanonicalPath
 // Replace with the desired location of for your mnemonic file
 val mnemonicFile = new File(homeDir, "mnemonic.txt").getCanonicalPath
+// highlight-next-line
 val newWalletResult = walletApi.createAndSaveNewWallet[IO]("password".getBytes, name = keyFile, mnemonicName = mnemonicFile)
 newWalletResult.unsafeRunSync()
 ```

@@ -14,56 +14,50 @@ The first step is to create a vault. The vault is where the master key is stored
 ```scala
 // You can run this code using scala-cli. Save it in a file called `create-vault.sc` and run it with `scala-cli create-vault.sc`
 //> using scala 2.13
-//> using repository sonatype-s01:releases
-//> using dep co.topl::service-kit:2.0.0-alpha7
-//> using dep org.typelevel::cats-core:2.10.0
+//> using repository "sonatype-s01:releases"
+//> using dep "co.topl::service-kit:2.0.0-beta0"
+//> using dep "org.typelevel::cats-core:2.10.0"
 
-import cats.effect.kernel.Resource
 import cats.effect.IO
 import co.topl.brambl.wallet.WalletApi
-import co.topl.brambl.servicekit.WalletStateApi
+import co.topl.brambl.servicekit.{WalletKeyApi, WalletStateApi, WalletStateResource}
 import co.topl.brambl.constants.NetworkConstants
-import co.topl.brambl.servicekit.WalletKeyApi
-import java.sql.{Connection, DriverManager}
+
 import cats.effect.std
 import io.circe.syntax._
 import co.topl.crypto.encryption.VaultStore.Codecs._
 import cats.effect.unsafe.implicits.global
+
 import java.io.File
 
 case class CreateWallet(
-  file: String,
-  password: String
-) {
-  def walletResource(name: String): Resource[IO, Connection] = Resource
-    .make(
-      IO.delay(
-        DriverManager.getConnection(
-          s"jdbc:sqlite:${name}"
-        )
-      )
-    )(conn => IO.delay(conn.close()))
+                         file: String,
+                         password: String
+                       ) {
   val walletKeyApi = WalletKeyApi.make[IO]()
   val walletApi = WalletApi.make(walletKeyApi)
-  
   val walletStateApi = WalletStateApi
     .make[IO](
-      walletResource(file),
+      WalletStateResource.walletResource(file),
       walletApi
     )
-  
+
   val createWallet = for {
     wallet <- walletApi
+      // highlight-start
       .createNewWallet(
         password.getBytes(),
         Some("passphrase")
       )
+      // highlight-end
       .map(_.fold(throw _, identity))
     keyPair <- walletApi
+      // highlight-start
       .extractMainKey(
         wallet.mainKeyVaultStore,
         password.getBytes()
       )
+      // highlight-end
       .flatMap(
         _.fold(
           _ =>
@@ -75,12 +69,16 @@ case class CreateWallet(
       )
     _ <- std.Console[IO].println("Wallet: " + new String(wallet.mainKeyVaultStore.asJson.noSpaces))
     _ <- std.Console[IO].println("Mnemonic: "+ wallet.mnemonic.mkString(","))
+    // highlight-next-line
     derivedKey <- walletApi.deriveChildKeysPartial(keyPair, 1, 1)
+    // Initialize the wallet state
+    // highlight-start
     _ <- walletStateApi.initWalletState(
       NetworkConstants.PRIVATE_NETWORK_ID,
       NetworkConstants.MAIN_LEDGER_ID,
       derivedKey.vk
     )
+    // highlight-end
   } yield ()
 
 }
@@ -104,5 +102,5 @@ This code has several parts:
 - first, it creates a wallet in memory (the `walletApi.createNewWallet` function)
 - then, it extracts the main key from the wallet (the `walletApi.extractMainKey` function)
 - then, it derives a child key from the main key (the `walletApi.deriveChildKeysPartial` function),
-this is needed to initialized the wallet database
+this is needed to initialized the wallet database with an initial entry for the "self" and "default" fellowship and template.
 - finally, it initializes the wallet database (the `walletStateApi.initWalletState` function)

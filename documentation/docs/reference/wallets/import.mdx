@@ -58,6 +58,7 @@ val walletApi = WalletApi.make[IO](WalletKeyApi.make())
 // Some mock mnemonic. Replace with your own.
 val someMnemonic = "ozone drill grab fiber curtain grace pudding thank cruise elder eight picnic"
 
+// highlight-next-line
 val recoverWalletResult = walletApi.importWallet(someMnemonic.split(" "), "password".getBytes)
 recoverWalletResult.unsafeRunSync()
 ```
@@ -126,6 +127,7 @@ implicit val transformType: FunctionK[IO, IO] = FunctionK.id[IO]
 val homeDir = System.getProperty("user.home")
 // Replace with the desired location for your key file
 val keyFile = new File(homeDir, "mainkey.json").getCanonicalPath
+// highlight-next-line
 val newWalletResult = walletApi.importWalletAndSave[IO](someMnemonic.split(" "), "password".getBytes, name = keyFile)
 newWalletResult.unsafeRunSync()
 ```

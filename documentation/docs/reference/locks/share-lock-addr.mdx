@@ -81,6 +81,8 @@ val lockAddrResult: IO[LockAddress] = for {
 } yield lockAddr
 
 // Encode and decode starts here:
+// highlight-start
 val base58Addr: IO[String] = lockAddrResult.map(encodeAddress)
 val decodedAddr: IO[Either[EncodingError, LockAddress]] = base58Addr.map(decodeAddress)
+// highlight-end
 ```

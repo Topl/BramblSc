@@ -50,5 +50,6 @@ val predicateTemplate: LockTemplate[IO] = PredicateTemplate[IO](Seq(signatureTem
 val someKeyPair: KeyPair = (new ExtendedEd25519).deriveKeyPairFromSeed(Array.fill(96)(0: Byte))
 
 // Building the lock starts here:
+// highlight-next-line
 val lockResult: IO[Either[BuilderError, Lock]] = predicateTemplate.build(List(someKeyPair.vk))
 ```
