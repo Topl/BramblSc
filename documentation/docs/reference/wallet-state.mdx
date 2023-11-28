@@ -11,34 +11,167 @@ proving your transactions.
 
 ## Prerequisites
 
-Managing your Wallet State starts requires creating an instance of the <ScaladocLink path="co/topl/brambl/dataApi/WalletStateAlgebra.html"><code>WalletStateAlgebra</code></ScaladocLink>.
+Managing your Wallet State starts requires creating an instance of
+the <ScaladocLink path="co/topl/brambl/dataApi/WalletStateAlgebra.html"><code>WalletStateAlgebra</code></ScaladocLink>.
 The SDK provides a default implementation within the [Service Kit](../service-kit/big-picture). This default
-implementation uses SQLite as a database to store the wallet state.
+implementation uses SQLite as a database to store the wallet state. If using the provided default implementation, you can
+initialize an instance as follows:
+
+```scala
+import cats.effect.IO
+import co.topl.brambl.servicekit.{WalletKeyApi, WalletStateApi, WalletStateResource}
+import co.topl.brambl.wallet.WalletApi
+
+import java.io.File
+
+// Replace with the desired location for your wallet database file
+val walletDbFile = new File(System.getProperty("user.home"), "wallet.db").getCanonicalPath
+
+val walletApi = WalletApi.make(WalletKeyApi.make[IO]())
+val walletDbConnection = WalletStateResource.walletResource(walletDbFile)
+// highlight-next-line
+val walletStateApi = WalletStateApi.make[IO](walletDbConnection, walletApi)
+```
+
+In the above example, we are using the provided default implementation of the `WalletApi` and a connection to a file path
+to store the wallet state. If this is your first time using the wallet state, the file will be created. If you already
+have a wallet state, the file path should point to the existing file.
 
 ## Initialize Wallet State
 
-TBD
+When creating a wallet for the first time, you must initialize its state. This can be done by calling the
+function <ScaladocLink path="co/topl/brambl/dataApi/WalletStateAlgebra.html#initWalletState(Int,Int,VerificationKey):F[Unit]"><code>initWalletState</code></ScaladocLink>
+in a Wallet State instance. Read more about state initialization in [Creating a Vault and a Wallet Database](../service-kit/usage#creating-a-vault-and-a-wallet-database).
 
 ```scala
-
+def initWalletState(networkId: Int, ledgerId: Int, vk: VerificationKey): F[Unit]
 ```
 
-TBD
+This function initializes the original state of a newly created wallet. In the provided default implementation, this
+includes creating the database tables and inserting the first fellowships, templates, and child key pair.
 
 The parameters are as follows:
+- `networkId`: The ID of the network that the wallet is being initialized for. This ID is used to generate the
+  initial lock addresses.
+- `ledgerId`: The ID of the ledger that the wallet is being initialized for. This ID is used to generate the initial lock
+  addresses.
+- `vk`: The parent verification key (x, y) associated to the "self" fellowship and "default" template. Most commonly, this
+will be the verification key derived from the (x=1, y=1) path of the wallet's Main Key Pair. This verification key is used
+to initialize the first fellowships, templates, and child key pair in the wallet state.
+
 
 ### Example
 
-The following example shows how to query UTXOs of a given lock address with a Cats Effect `IO` context.
+The following snippet is an example of initializing a wallet state for a new wallet using Cats Effect `IO` and the default
+implementation of the `WalletKeyApi` and `WalletStateApi` provided by
+the <ScaladocLink path="co/topl/brambl/servicekit/index.html"><code>ServiceKit</code></ScaladocLink>.
 
 ```scala
+import cats.effect.IO
+import cats.effect.unsafe.implicits.global
+import co.topl.brambl.constants.NetworkConstants.{MAIN_LEDGER_ID, PRIVATE_NETWORK_ID}
+import co.topl.brambl.servicekit.{WalletKeyApi, WalletStateApi, WalletStateResource}
+import co.topl.brambl.wallet.WalletApi
 
+import java.io.File
+
+// Replace with the desired location for your wallet database file
+val walletDbFile = new File(System.getProperty("user.home"), "wallet.db").getCanonicalPath
+// Replace with the desired password for your wallet Key File
+val password = "password".getBytes
+
+val walletApi = WalletApi.make(WalletKeyApi.make[IO]())
+val walletDbConnection = WalletStateResource.walletResource(walletDbFile)
+val walletStateApi = WalletStateApi.make[IO](walletDbConnection, walletApi)
+
+val initializeWallet = for {
+  wallet <- walletApi.createNewWallet(password).map(_.fold(throw _, identity))
+  mainKey <- walletApi.extractMainKey(wallet.mainKeyVaultStore, password).map(_.fold(throw _, identity))
+  xyKey <- walletApi.deriveChildKeysPartial(mainKey, 1, 1)
+  // highlight-next-line
+  _ <- walletStateApi.initWalletState(PRIVATE_NETWORK_ID, MAIN_LEDGER_ID, xyKey.vk)
+} yield ()
+
+initializeWallet.unsafeRunSync()
 ```
 
 ## Update Wallet State
 
-TBD
+Everytime that you create a new lock that is associated to a new child key pair, it is important to update the wallet state.
+This will ensure that the lock can be proven, allowing the funds to be spent. The wallet state can be updated by calling the
+function <ScaladocLink path="co/topl/brambl/dataApi/WalletStateAlgebra.html#updateWalletState(String,String,Option[String],Option[String],Indices):F[Unit]"><code>updateWalletState</code></ScaladocLink> in a Wallet State instance. Read more about state updating
+in [Updating the Wallet Database](../service-kit/usage#updating-the-wallet-database).
+
+```scala
+def updateWalletState(
+  lockPredicate: String,
+  lockAddress:   String,
+  routine:       Option[String],
+  vk:            Option[String],
+  indices:       Indices
+): F[Unit]
+```
+
+This function updates the state of the wallet with the information for a new 3-layer set of Indices. The indices (x, y, z)
+contain the information for the new child key pair that was used to generate the lock address. This information includes
+the lock predicate and lock address of the lock that was generated, and optionally, the signing routine and child verification
+key if the lock included a Signature Proposition.
+
+The parameters are as follows:
+- `lockPredicate`: The predicate of the lock that was generated.
+- `lockAddress`: The address of the lock that was generated.
+- `routine`: If the lock contains a Signature Proposition for the user's child key derived at `indices`, the signing routine used to generate the signature.
+- `vk`: If the lock contains a Signature Proposition for the user's child key derived at `indices`, the verification key
+  contained within this Signature Proposition. This verification key is also the verification key of the child key pair at `indices`.
+- `indices`: The indices (x, y, z) of the wallet state entry we are updating for.
 
 ### Example
 
-TBD
+The following snippet is an example of updating a wallet state for a new lock associated with Indices using Cats Effect
+`IO` and the default implementation of the `WalletKeyApi` and `WalletStateApi` provided by
+the <ScaladocLink path="co/topl/brambl/servicekit/index.html"><code>ServiceKit</code></ScaladocLink>. In this example, we
+assume that the wallet state has already been initialized to `wallet.db`.
+
+```scala
+import cats.effect.IO
+import cats.effect.unsafe.implicits.global
+import cats.implicits.toTraverseOps
+import co.topl.brambl.builders.TransactionBuilderApi
+import co.topl.brambl.builders.TransactionBuilderApi.implicits.lockAddressOps
+import co.topl.brambl.constants.NetworkConstants.{MAIN_LEDGER_ID, PRIVATE_NETWORK_ID}
+import co.topl.brambl.models.Indices
+import co.topl.brambl.servicekit.{WalletKeyApi, WalletStateApi, WalletStateResource}
+import co.topl.brambl.utils.Encoding
+import co.topl.brambl.wallet.WalletApi
+import quivr.models.VerificationKey
+
+import java.io.File
+
+// Replace with the location of your existing wallet database file
+val walletDbFile = new File(System.getProperty("user.home"), "wallet.db").getCanonicalPath
+
+val walletApi = WalletApi.make(WalletKeyApi.make[IO]())
+val walletDbConnection = WalletStateResource.walletResource(walletDbFile)
+val walletStateApi = WalletStateApi.make[IO](walletDbConnection, walletApi)
+
+val updateWallet = for {
+  // The (x, y, z) indices to update the wallet state at
+  indices <- IO.pure(Indices(1, 1, 2))
+  // The lock at the (x, y, z) indices. "self" and "default" were initialized to be at (x=1,y=1) per initWalletState
+  lock <- walletStateApi.getLock("self", "default", indices.z).map(_.get)
+  // lockAddress of the lock
+  lockAddress <- TransactionBuilderApi.make[IO](PRIVATE_NETWORK_ID, MAIN_LEDGER_ID).lockAddress(lock).map(_.toBase58())
+  // predicate of the lock
+  lockPredicate = Encoding.encodeToBase58Check(lock.getPredicate.toByteArray)
+  // Parent verification key with derivation path (x=1,y=1)
+  parentVk <- walletStateApi.getEntityVks("self", "default")
+    .map(_.sequence.head.map(pVk => VerificationKey.parseFrom(Encoding.decodeFromBase58(pVk).toOption.get)))
+  // child verification key with derivation path (1, 1, 2)
+  vk <- parentVk.map(pVk => walletApi.deriveChildVerificationKey(pVk, indices.z)
+    .map(cVk => Encoding.encodeToBase58(cVk.toByteArray))).sequence
+  // highlight-next-line
+  _ <- walletStateApi.updateWalletState(lockPredicate, lockAddress, Some("ExtendedEd25519"), vk, indices)
+} yield ()
+
+updateWallet.unsafeRunSync()
+```

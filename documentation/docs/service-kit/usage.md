@@ -37,20 +37,16 @@ case class CreateWallet(file: String, password: String) {
 
   val createWallet = for {
     wallet <- walletApi
-      // highlight-start
       .createNewWallet(
         password.getBytes(),
         Some("passphrase")
       )
-      // highlight-end
       .map(_.fold(throw _, identity))
     keyPair <- walletApi
-      // highlight-start
       .extractMainKey(
         wallet.mainKeyVaultStore,
         password.getBytes()
       )
-      // highlight-end
       .flatMap(
         _.fold(
           _ =>
@@ -62,16 +58,12 @@ case class CreateWallet(file: String, password: String) {
       )
     _ <- std.Console[IO].println("Wallet: " + new String(wallet.mainKeyVaultStore.asJson.noSpaces))
     _ <- std.Console[IO].println("Mnemonic: "+ wallet.mnemonic.mkString(","))
-    // highlight-next-line
     derivedKey <- walletApi.deriveChildKeysPartial(keyPair, 1, 1)
-    // Initialize the wallet state:
-    // highlight-start
     _ <- walletStateApi.initWalletState(
       NetworkConstants.PRIVATE_NETWORK_ID,
       NetworkConstants.MAIN_LEDGER_ID,
       derivedKey.vk
     )
-    // highlight-end
   } yield ()
 
 }
@@ -83,7 +75,6 @@ new File(file).delete()
 
 val wallet = CreateWallet(file, password)
 // Create the wallet using:
-// highlight-next-line
 wallet.createWallet.unsafeRunSync()
 ```
 
