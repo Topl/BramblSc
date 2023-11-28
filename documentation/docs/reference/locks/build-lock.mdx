@@ -53,3 +53,10 @@ val someKeyPair: KeyPair = (new ExtendedEd25519).deriveKeyPairFromSeed(Array.fil
 // highlight-next-line
 val lockResult: IO[Either[BuilderError, Lock]] = predicateTemplate.build(List(someKeyPair.vk))
 ```
+
+## Get Verification Key
+
+As explained above, to build a lock from a lock template, you need to provide a list of verification keys. If the
+verification key belongs to you, i.e. generated using [Derive a Child Key Pair](../wallets/usage#derive-a-child-key-pair), it
+is important to save the information (including verification key) to the wallet state so that the lock can be proven and the
+encumbered funds can be spent. See [Update Wallet State](../wallet-state#update-wallet-state) for more information.
