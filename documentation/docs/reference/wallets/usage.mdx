@@ -73,6 +73,7 @@ val walletApi = WalletApi.make[IO](WalletKeyApi.make())
 
 val mainKey = for {
   newWallet <- walletApi.createNewWallet(password)
+  // highlight-next-line
   decryptedKey <- walletApi.extractMainKey(newWallet.toOption.get.mainKeyVaultStore, password)
 } yield decryptedKey.toOption.get
 
@@ -147,6 +148,7 @@ walletApi.createAndSaveNewWallet[IO](password, name = keyFile, mnemonicName = mn
 
 // Load and extract begins here:
 val mainKey = for {
+  // highlight-next-line
   decryptedKey <- walletApi.loadAndExtractMainKey[IO](password, keyFile)
 } yield decryptedKey.toOption.get
 mainKey.unsafeRunSync()
@@ -196,7 +198,9 @@ val mainKey = (for {
   decryptedKey <- walletApi.extractMainKey(newWallet.toOption.get.mainKeyVaultStore, password)
 } yield decryptedKey.toOption.get).unsafeRunSync()
 
+// highlight-start
 val childKey1 = walletApi.deriveChildKeys(mainKey, Indices(10, 10, 0)).unsafeRunSync()
 val childKey2 = walletApi.deriveChildKeys(mainKey, Indices(10, 10, 1)).unsafeRunSync()
+// highlight-end
 ```
 

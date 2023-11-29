@@ -69,6 +69,8 @@ val predicateTemplate: LockTemplate[IO] = PredicateTemplate[IO](Seq(signatureTem
 
 
 // Encode and decode starts here:
+// highlight-start
 val jsonTemplate: Json = encodeLockTemplate(predicateTemplate)
 val decodedTemplate: Either[DecodingFailure, LockTemplate[IO]] = decodeLockTemplate(jsonTemplate)
+// highlight-end
 ```

@@ -45,6 +45,7 @@ import co.topl.brambl.builders.locks.LockTemplate.PredicateTemplate
 
 
 val signatureTemplate: PropositionTemplate[IO] = SignatureTemplate[IO]("ExtendedEd25519", 0)
+// highlight-next-line
 val predicateTemplate: LockTemplate[IO] = PredicateTemplate[IO](Seq(signatureTemplate), 1)
 ```
 
