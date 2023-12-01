@@ -6,10 +6,14 @@ description: Populate a wallet with LVL tokens from your Local Node
 
 ## Use Case
 
-Coming Soon
+To load a new wallet with 100 LVL tokens from your Local Node.
 
-Most of these tutorials require initial funds to be present in a wallet. This tutorial will show you how to load a wallet with LVL tokens from your Local Node.
-The funds come from the Genesis block in you Local Node.
+**Objectives:**
+
+- Create and initialize a wallet
+- Create an unproven transaction to transfer funds from the Genesis block to the wallet
+- Prove the transaction
+- Broascast the transaction to the local node
 
 ## Set-Up
 
@@ -25,7 +29,7 @@ Get started with launching a Local Node:
     docker run --rm -p 9085:9085 -p 9084:9084 -p 9091:9091 docker.io/toplprotocol/bifrost-node:2.0.0-alpha10
    ```
 
-## Step X: Create and Initialize a Wallet
+## Step 1: Create and Initialize a Wallet
 
 Before we can load a wallet with funds, we need to create the wallet. There are 2 steps to this process: creating the wallet's 
 Topl main key and initializing the wallet state.
@@ -112,7 +116,7 @@ initializeWallet.unsafeRunSync()
 
 Running this code would create 3 files in your home directory: `keyfile.json`, `mnemonic.txt`, and `wallet.db`.
 
-## Step X: Create Transaction
+## Step 2: Create Transaction
 
 After you have a wallet initialized, the next step is to build a transaction that will populate your wallet with some funds. 
 This transaction should transfer funds from the Genesis block to your wallet.
@@ -237,16 +241,224 @@ val unprovenTransaction = for {
 unprovenTransaction.unsafeRunSync()
 ```
 
-## Step X: Prove Transaction
+## Step 3: Prove Transaction
 
-TBD
+In order for the funds to be transferred, we need to prove the Lock encumbering the funds in the Genesis block. You can think of this as
+"unlocking" the funds. See [Prove Transaction](../../reference/prove). It is best practice to validate the transaction as well.
 
-## Step X: Broadcast Transaction
+1. Create a Credentialler using your Topl main key.
+    ```scala
+    val credentialler = CredentiallerInterpreter.make[IO](walletApi, walletStateApi, mainKey)
+    ```
+2. Create a context in which we will validate the transaction against. Ideally, this context should represent the current
+context of the node as best as possible. This is more important for validating Locks that contain Height or Tick range 
+propositions. In our case, the Genesis Height Lock will be satisfied by a header height in between `1` and `Long.MaxValue`
+so for our tutorial, we can choose any height and tick.
+   ```scala
+   ctx = Context[IO](unprovenTransaction, 50, Map("header" -> Datum().withHeader(Datum.Header(Event.Header(50)))).lift)
+   ```
+2. Prove and validate the unproven transaction from the previous section. If the transaction is valid, the proven transaction
+will be returned. If the transaction is invalid, the validation errors will be returned.
+   ```scala
+   credentialler.proveAndValidate(tx, validCtx)
+   ```
 
-TBD
+### Breakpoint Check
+
+At this point, your code should look something like this:
+
+```scala
+import cats.arrow.FunctionK
+import cats.effect.IO
+import cats.effect.unsafe.implicits.global
+import co.topl.brambl.Context
+import co.topl.brambl.builders.TransactionBuilderApi
+import co.topl.brambl.constants.NetworkConstants.{MAIN_LEDGER_ID, PRIVATE_NETWORK_ID}
+import co.topl.brambl.dataApi.{GenusQueryAlgebra, RpcChannelResource}
+import co.topl.brambl.models.{Datum, Event}
+import co.topl.brambl.servicekit.{WalletKeyApi, WalletStateApi, WalletStateResource}
+import co.topl.brambl.syntax.LvlType
+import co.topl.brambl.wallet.{CredentiallerInterpreter, WalletApi}
+
+import java.io.File
+
+implicit val transformType: FunctionK[IO, IO] = FunctionK.id[IO]
+
+val tutorialDir = new File(System.getProperty("user.home"), "tutorial")
+// Replace with the desired location for your key file
+val keyFile = new File(tutorialDir, "keyfile.json").getCanonicalPath
+// Replace with the desired location of for your mnemonic file
+val mnemonicFile = new File(tutorialDir, "mnemonic.txt").getCanonicalPath
+// Replace with the desired location of for your wallet state DB file
+val walletDb = new File(tutorialDir, "wallet.db").getCanonicalPath
+
+val walletKeyApi = WalletKeyApi.make[IO]()
+val walletApi = WalletApi.make(walletKeyApi)
+val conn = WalletStateResource.walletResource(walletDb)
+val walletStateApi = WalletStateApi.make[IO](conn, walletApi)
+
+val initializeWallet = for {
+  walletResult <- walletApi.createAndSaveNewWallet[IO]("password".getBytes, name = keyFile, mnemonicName = mnemonicFile)
+  mainKeyPair <- walletApi.extractMainKey(walletResult.toOption.get.mainKeyVaultStore, "password".getBytes())
+  childKeyPair <- walletApi.deriveChildKeysPartial(mainKeyPair.toOption.get, 1, 1)
+  _ <- walletStateApi.initWalletState(PRIVATE_NETWORK_ID, MAIN_LEDGER_ID, childKeyPair.vk)
+} yield mainKeyPair
+
+// Replace with the address and port of your node's gRPC endpoint
+val channelResource = RpcChannelResource.channelResource[IO]("localhost", 9084, secureConnection = false)
+val genusQueryApi = GenusQueryAlgebra.make[IO](channelResource)
+val txBuilder = TransactionBuilderApi.make[IO](PRIVATE_NETWORK_ID, MAIN_LEDGER_ID)
+
+val unprovenTransaction = for {
+    _ <- initializeWallet
+    heightLock <- walletStateApi.getLock("nofellowship", "genesis", 1)
+    heightAddress <- txBuilder.lockAddress(heightLock.get)
+    txos <- genusQueryApi.queryUtxo(heightAddress)
+    sigLock <- walletStateApi.getLock("self", "default", 1)
+    sigAddress <- txBuilder.lockAddress(sigLock.get)
+    tx <- txBuilder.buildTransferAmountTransaction(
+      LvlType,
+      txos,
+      heightLock.get.getPredicate,
+      100L,
+      sigAddress,
+      heightAddress,
+      1L
+    )
+} yield tx.toOption.get
+
+val proveAndValidateResult = for {
+  tx <- unprovenTransaction
+  mainKey <- walletApi.loadAndExtractMainKey[IO]("password".getBytes, keyFile)
+  credentialler = CredentiallerInterpreter.make[IO](walletApi, walletStateApi, mainKey.toOption.get)
+  ctx = Context[IO](tx, 50, Map("header" -> Datum().withHeader(Datum.Header(Event.Header(50)))).lift)
+  res <- credentialler.proveAndValidate(tx, ctx)
+} yield res
+
+proveAndValidateResult.unsafeRunSync()
+```
+
+## Step 4: Broadcast Transaction
+
+The last step is to broadcast the transaction to the network. See [Broadcast a Transaction](../../reference/rpc#broadcast-a-transaction).
+The `channelResource` can be the same as the one used for `genusQueryApi` in a previous section.
+
+```scala
+val bifrostQuery = BifrostQueryAlgebra.make[IO](channelResource)
+
+val broadcastTransaction = for {
+   provenTx <- proveAndValidateResult
+   txId <- bifrostQuery.broadcastTransaction(provenTx.toOption.get)
+} yield txId
+```
 
 ## Optional Step: Check Balance
 
-TBD
+If everything went well, you will soon have the funds available in your wallet. You can check your balance by querying the
+Genus node for funds encumbered by your `sigAddress`. See [Querying UTXOs](../../reference/rpc#querying-utxos).
+
+You should allow some time for the transaction to be processed by the network.
 
 ## Putting It All Together
+
+At this point, your code should look something like this:
+
+```scala
+import cats.arrow.FunctionK
+import cats.effect.IO
+import cats.effect.unsafe.implicits.global
+import co.topl.brambl.Context
+import co.topl.brambl.builders.TransactionBuilderApi
+import co.topl.brambl.constants.NetworkConstants.{MAIN_LEDGER_ID, PRIVATE_NETWORK_ID}
+import co.topl.brambl.dataApi.{BifrostQueryAlgebra, GenusQueryAlgebra, RpcChannelResource}
+import co.topl.brambl.models.{Datum, Event}
+import co.topl.brambl.servicekit.{WalletKeyApi, WalletStateApi, WalletStateResource}
+import co.topl.brambl.syntax.{LvlType, valueToQuantitySyntaxOps, valueToTypeIdentifierSyntaxOps, int128AsBigInt}
+import co.topl.brambl.wallet.{CredentiallerInterpreter, WalletApi}
+
+import java.io.File
+
+implicit val transformType: FunctionK[IO, IO] = FunctionK.id[IO]
+
+val tutorialDir = new File(System.getProperty("user.home"), "tutorial")
+// Replace with the desired location for your key file
+val keyFile = new File(tutorialDir, "keyfile.json").getCanonicalPath
+// Replace with the desired location of for your mnemonic file
+val mnemonicFile = new File(tutorialDir, "mnemonic.txt").getCanonicalPath
+// Replace with the desired location of for your wallet state DB file
+val walletDb = new File(tutorialDir, "wallet.db").getCanonicalPath
+
+val walletKeyApi = WalletKeyApi.make[IO]()
+val walletApi = WalletApi.make(walletKeyApi)
+val conn = WalletStateResource.walletResource(walletDb)
+val walletStateApi = WalletStateApi.make[IO](conn, walletApi)
+
+val initializeWallet = for {
+  walletResult <- walletApi.createAndSaveNewWallet[IO]("password".getBytes, name = keyFile, mnemonicName = mnemonicFile)
+  mainKeyPair <- walletApi.extractMainKey(walletResult.toOption.get.mainKeyVaultStore, "password".getBytes())
+  childKeyPair <- walletApi.deriveChildKeysPartial(mainKeyPair.toOption.get, 1, 1)
+  _ <- walletStateApi.initWalletState(PRIVATE_NETWORK_ID, MAIN_LEDGER_ID, childKeyPair.vk)
+} yield mainKeyPair
+
+// Replace with the address and port of your node's gRPC endpoint
+val channelResource = RpcChannelResource.channelResource[IO]("localhost", 9084, secureConnection = false)
+val genusQueryApi = GenusQueryAlgebra.make[IO](channelResource)
+val txBuilder = TransactionBuilderApi.make[IO](PRIVATE_NETWORK_ID, MAIN_LEDGER_ID)
+
+val unprovenTransaction = for {
+    _ <- initializeWallet
+    heightLock <- walletStateApi.getLock("nofellowship", "genesis", 1)
+    heightAddress <- txBuilder.lockAddress(heightLock.get)
+    txos <- genusQueryApi.queryUtxo(heightAddress)
+    sigLock <- walletStateApi.getLock("self", "default", 1)
+    sigAddress <- txBuilder.lockAddress(sigLock.get)
+    tx <- txBuilder.buildTransferAmountTransaction(
+      LvlType,
+      txos,
+      heightLock.get.getPredicate,
+      100L,
+      sigAddress,
+      heightAddress,
+      1L
+    )
+} yield tx.toOption.get
+
+val proveAndValidateResult = for {
+  tx <- unprovenTransaction
+  mainKey <- walletApi.loadAndExtractMainKey[IO]("password".getBytes, keyFile)
+  credentialler = CredentiallerInterpreter.make[IO](walletApi, walletStateApi, mainKey.toOption.get)
+  ctx = Context[IO](tx, 50, Map("header" -> Datum().withHeader(Datum.Header(Event.Header(50)))).lift)
+  res <- credentialler.proveAndValidate(tx, ctx)
+} yield res
+
+val bifrostQuery = BifrostQueryAlgebra.make[IO](channelResource)
+
+val broadcastTransaction = for {
+  provenTx <- proveAndValidateResult
+  txId <- bifrostQuery.broadcastTransaction(provenTx.toOption.get)
+} yield txId
+
+broadcastTransaction.unsafeRunSync()
+
+// Allow some time to pass before querying the transaction
+Thread.sleep(15000)
+
+// optionally view your funds
+val queryFunds = for {
+  sigLock <- walletStateApi.getLock("self", "default", 1)
+  sigAddress <- txBuilder.lockAddress(sigLock.get)
+  txos <- genusQueryApi.queryUtxo(sigAddress)
+} yield txos.map(_.transactionOutput.value.value).map(value => s"${value.typeIdentifier}: ${value.quantity.intValue}")
+
+queryFunds.unsafeRunSync().foreach(println)
+```
+
+If all went well, you should see that you have 100 LVLs in encumbered by your `sigAddress` ready to be spent by you.
+
+```bash
+LvlType: 100
+```
+
+## Next Steps
+
+Read our other tutorials to learn how to spend the funds you just transferred to your wallet.
