@@ -88,16 +88,26 @@ import co.topl.brambl.servicekit.{WalletKeyApi, WalletStateApi, WalletStateResou
 import co.topl.brambl.wallet.WalletApi
 
 import java.io.File
+import java.nio.file.Paths
 
 implicit val transformType: FunctionK[IO, IO] = FunctionK.id[IO]
 
-val tutorialDir = new File(System.getProperty("user.home"), "tutorial")
+// Replace with the desired location for your tutorial directory
+val tutorialDir = Paths.get(System.getProperty("user.home"), "tutorial").toString
+new File(tutorialDir).mkdirs() // Create the directory if it doesn't exist
+
+def initFilePath(fileName: String): String = {
+   val filePath = Paths.get(tutorialDir, fileName).toString
+   new File(filePath).delete() // Clear the file if it already exists
+   filePath
+}
+
 // Replace with the desired location for your key file
-val keyFile = new File(tutorialDir, "keyfile.json").getCanonicalPath
+val keyFile = initFilePath("keyfile.json")
 // Replace with the desired location of for your mnemonic file
-val mnemonicFile = new File(tutorialDir, "mnemonic.txt").getCanonicalPath
+val mnemonicFile = initFilePath("mnemonic.txt")
 // Replace with the desired location of for your wallet state DB file
-val walletDb = new File(tutorialDir, "wallet.db").getCanonicalPath
+val walletDb = initFilePath("wallet.db")
 
 val walletKeyApi = WalletKeyApi.make[IO]()
 val walletApi = WalletApi.make(walletKeyApi)
@@ -192,16 +202,26 @@ import co.topl.brambl.syntax.LvlType
 import co.topl.brambl.wallet.WalletApi
 
 import java.io.File
+import java.nio.file.Paths
 
 implicit val transformType: FunctionK[IO, IO] = FunctionK.id[IO]
 
-val tutorialDir = new File(System.getProperty("user.home"), "tutorial")
+// Replace with the desired location for your tutorial directory
+val tutorialDir = Paths.get(System.getProperty("user.home"), "tutorial").toString
+new File(tutorialDir).mkdirs() // Create the directory if it doesn't exist
+
+def initFilePath(fileName: String): String = {
+   val filePath = Paths.get(tutorialDir, fileName).toString
+   new File(filePath).delete() // Clear the file if it already exists
+   filePath
+}
+
 // Replace with the desired location for your key file
-val keyFile = new File(tutorialDir, "keyfile.json").getCanonicalPath
+val keyFile = initFilePath("keyfile.json")
 // Replace with the desired location of for your mnemonic file
-val mnemonicFile = new File(tutorialDir, "mnemonic.txt").getCanonicalPath
+val mnemonicFile = initFilePath("mnemonic.txt")
 // Replace with the desired location of for your wallet state DB file
-val walletDb = new File(tutorialDir, "wallet.db").getCanonicalPath
+val walletDb = initFilePath("wallet.db")
 
 val walletKeyApi = WalletKeyApi.make[IO]()
 val walletApi = WalletApi.make(walletKeyApi)
@@ -281,16 +301,26 @@ import co.topl.brambl.syntax.LvlType
 import co.topl.brambl.wallet.{CredentiallerInterpreter, WalletApi}
 
 import java.io.File
+import java.nio.file.Paths
 
 implicit val transformType: FunctionK[IO, IO] = FunctionK.id[IO]
 
-val tutorialDir = new File(System.getProperty("user.home"), "tutorial")
+// Replace with the desired location for your tutorial directory
+val tutorialDir = Paths.get(System.getProperty("user.home"), "tutorial").toString
+new File(tutorialDir).mkdirs() // Create the directory if it doesn't exist
+
+def initFilePath(fileName: String): String = {
+   val filePath = Paths.get(tutorialDir, fileName).toString
+   new File(filePath).delete() // Clear the file if it already exists
+   filePath
+}
+
 // Replace with the desired location for your key file
-val keyFile = new File(tutorialDir, "keyfile.json").getCanonicalPath
+val keyFile = initFilePath("keyfile.json")
 // Replace with the desired location of for your mnemonic file
-val mnemonicFile = new File(tutorialDir, "mnemonic.txt").getCanonicalPath
+val mnemonicFile = initFilePath("mnemonic.txt")
 // Replace with the desired location of for your wallet state DB file
-val walletDb = new File(tutorialDir, "wallet.db").getCanonicalPath
+val walletDb = initFilePath("wallet.db")
 
 val walletKeyApi = WalletKeyApi.make[IO]()
 val walletApi = WalletApi.make(walletKeyApi)
@@ -377,16 +407,26 @@ import co.topl.brambl.syntax.{LvlType, valueToQuantitySyntaxOps, valueToTypeIden
 import co.topl.brambl.wallet.{CredentiallerInterpreter, WalletApi}
 
 import java.io.File
+import java.nio.file.Paths
 
 implicit val transformType: FunctionK[IO, IO] = FunctionK.id[IO]
 
-val tutorialDir = new File(System.getProperty("user.home"), "tutorial")
+// Replace with the desired location for your tutorial directory
+val tutorialDir = Paths.get(System.getProperty("user.home"), "tutorial").toString
+new File(tutorialDir).mkdirs() // Create the directory if it doesn't exist
+
+def initFilePath(fileName: String): String = {
+   val filePath = Paths.get(tutorialDir, fileName).toString
+   new File(filePath).delete() // Clear the file if it already exists
+   filePath
+}
+
 // Replace with the desired location for your key file
-val keyFile = new File(tutorialDir, "keyfile.json").getCanonicalPath
+val keyFile = initFilePath("keyfile.json")
 // Replace with the desired location of for your mnemonic file
-val mnemonicFile = new File(tutorialDir, "mnemonic.txt").getCanonicalPath
+val mnemonicFile = initFilePath("mnemonic.txt")
 // Replace with the desired location of for your wallet state DB file
-val walletDb = new File(tutorialDir, "wallet.db").getCanonicalPath
+val walletDb = initFilePath("wallet.db")
 
 val walletKeyApi = WalletKeyApi.make[IO]()
 val walletApi = WalletApi.make(walletKeyApi)

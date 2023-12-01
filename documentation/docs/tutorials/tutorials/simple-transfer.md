@@ -16,10 +16,27 @@ The sender wants to send 10 LVLs to the recipient.
 To illustrate setting up a wallet, the Recipient will create and initialize a new wallet.
 
 ## Set-Up
+Throughout this tutorial, we will be alternating between the Sender and the Recipient's Point-of-View. To distinguish 
+between the two, each section will be prefixed with either "Sender >" or "Recipient >". We will also keep all the 
+generated files (key file, wallet file, etc.) in separate folders for each user. These folders should be created and be empty
+in advance.
 
-To follow along with this tutorial, you will need to initialize and fund the Sender's wallet with 100 LVLs.
+To follow along with this tutorial, you will need to initialize and fund the Sender's wallet with 100 LVLs. 
 
-Following the instructions in the [Load Wallet with Funds](./obtain-funds) tutorial, you can initialize and fund the Sender's wallet.
+If you were following the instructions in the [Load Wallet with Funds](./obtain-funds) tutorial, the code to set up the 
+Senders wallet should look something like:
+
+```scala title="Initializing the Sender's Wallet and Funding it with 100 LVLs"
+
+```
+
+After running that file, you should see that the Sender's wallet has been initialized with 100 LVLs:
+
+```bash title="output"
+
+```
+
+Keep the same local node instance running. We will be using it for the rest of this tutorial.
 
 ## Step X: Recipient > Creates and Initializes a Wallet
 
