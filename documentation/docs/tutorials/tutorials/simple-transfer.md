@@ -17,7 +17,7 @@ To illustrate setting up a wallet, the Recipient will create and initialize a ne
 
 ## Set-Up
 Throughout this tutorial, we will be alternating between the Sender and the Recipient's Point-of-View. To distinguish 
-between the two, each section will be prefixed with either "Sender >" or "Recipient >". We will also keep all the 
+between the two, each section will be marked with either "Sender" or "Recipient". We will also keep all the 
 generated files (key file, wallet file, etc.) in separate folders for each user.
 
 To follow along with this tutorial, you will need to initialize and fund the Sender's wallet with 100 LVLs. 
@@ -239,7 +239,7 @@ Digital Signature Lock for the change.
   val recipientAddr = decodeAddress("ptetP7jshHVVBsmyLd5ugb9mVSehmtFdZHYQZqG3zaFtWSfiX79kYt9obJea")
   ```
 2. From the Sender's initialization (in the Set-Up section), the Sender loaded funds to their wallet, encumbered by a 1-of-1 Signature Lock
-stored at (fellowship="self", template="default", interaction=1). To obtain the funds, we must query Genus for the UTXOs. This is similar
+stored at (fellowship="self", template="default", nextInteraction=1). To obtain the funds, we must query Genus for the UTXOs. This is similar
 to the section [Query Genesis Funds](./obtain-funds#query-genesis-funds) in the Obtain Funds tutorial, however, the parameters for
 `getLock` in the first step is different.
   ```scala
@@ -248,7 +248,7 @@ to the section [Query Genesis Funds](./obtain-funds#query-genesis-funds) in the 
 3. Since the Sender owns 100 LVLs but is only sending 10 to the Recipient, we must create a new LockAddress for the change. 
 For this tutorial, we will generate a LockAddress for a 1-of-1 Digital Signature Lock for the change. This is very similar
 to the [Generate a New Lock Address to Receive Tokens](./obtain-funds#generate-a-new-lock-address-to-receive-tokens) section in
-a previous tutorial, however, we are using `interaction=2` for step 1 (to prevent address re-use).
+a previous tutorial, however, we are using `nextInteraction=2` for step 1 (to prevent address re-use).
   ```scala
 changeLock <- walletStateApi.getLock("self", "default", 2)
   ```
@@ -272,7 +272,7 @@ TransactionBuilderApi.make[IO](PRIVATE_NETWORK_ID, MAIN_LEDGER_ID).buildTransfer
    txos,  // The UTXOs we queried from step 2
    inputLock.getPredicate, // The existing lock we retrieved as part of step 2 
    10L, // The amount of LVLs we want to transfer to the recipient
-  recipientAddr, // The decoded LockAddress of the recipient from step 1
+   recipientAddr, // The decoded LockAddress of the recipient from step 1
    changeAddress, // The LockAddress of the changeLock from step 3
    1L // An arbitrary fee amount
 )
@@ -280,19 +280,215 @@ TransactionBuilderApi.make[IO](PRIVATE_NETWORK_ID, MAIN_LEDGER_ID).buildTransfer
 
 ### Prove Transaction
 
-- Load sender's main key
-- initialize credentialler
-- Create context (tick and height are trivial since there is no Height Lock)
-- Prove and validate transaction
+Once we have built the unproven transaction, we must prove (and then validate) it. This is similar to the 
+[Prove Transaction](./obtain-funds#step-3-prove-transaction) section in the Obtain Funds tutorial, with a couple differences.
+
+We must load the main key from the Sender's existing wallet to intialize the Credentialler with. 
+See [Load and Decrypt a Topl Main Key Pair](../../reference/wallets/usage#load-and-decrypt-a-topl-main-key-pair).
+
+```scala
+mainKey <- walletApi.loadAndExtractMainKey[IO]("password".getBytes, keyFile)
+```
+
+We can also simplify the Context used from step 2 in the Obtain Funds tutorial since we are not using a Height Lock:
+
+```scala
+ctx = Context[IO](unprovenTransaction, 50, _ => None)
+```
 
 ### Broadcast Transaction
 
-Link to other page "identical"
+Once the transaction is proven and validated, the Sender can broadcast the transaction to the network. This is exactly 
+identical to the [Broadcast Transaction](./obtain-funds#step-4-broadcast-transaction) section in the Obtain Funds tutorial.
 
 ### Putting it all together
 
-TBD
+At this point, you should have code to create and submit a transaction to send 10 LVLs from the Sender's wallet to the 
+Recipient's LockAddress. The code should look similar to this:
 
-## Optional Step: Recipient > Check Balance
+```scala title="Sender submits TX to send 10 LVLs to Recipient"
+import cats.arrow.FunctionK
+import cats.effect.IO
+import cats.effect.unsafe.implicits.global
+import co.topl.brambl.Context
+import co.topl.brambl.builders.TransactionBuilderApi
+import co.topl.brambl.codecs.AddressCodecs.decodeAddress
+import co.topl.brambl.constants.NetworkConstants.{MAIN_LEDGER_ID, PRIVATE_NETWORK_ID}
+import co.topl.brambl.dataApi.{BifrostQueryAlgebra, GenusQueryAlgebra, RpcChannelResource}
+import co.topl.brambl.servicekit.{WalletKeyApi, WalletStateApi, WalletStateResource}
+import co.topl.brambl.syntax.LvlType
+import co.topl.brambl.wallet.{CredentiallerInterpreter, WalletApi}
 
-// insert runnable code
+import java.nio.file.Paths
+
+implicit val transformType: FunctionK[IO, IO] = FunctionK.id[IO]
+
+// Replace with the existing location for your *Sender* tutorial directory
+val tutorialDir = Paths.get(System.getProperty("user.home"), "tutorial", "sender").toString
+// Replace with the existing location for your key file
+val keyFile = Paths.get(tutorialDir, "keyfile.json").toString
+// Replace with the existing location of for your wallet state DB file
+val walletDb = Paths.get(tutorialDir, "wallet.db").toString
+val conn = WalletStateResource.walletResource(walletDb)
+
+// Replace with the address and port of your node's gRPC endpoint
+val channelResource = RpcChannelResource.channelResource[IO]("localhost", 9084, secureConnection = false)
+
+val walletKeyApi = WalletKeyApi.make[IO]()
+val walletApi = WalletApi.make(walletKeyApi)
+val walletStateApi = WalletStateApi.make[IO](conn, walletApi)
+val genusQueryApi = GenusQueryAlgebra.make[IO](channelResource)
+val txBuilder = TransactionBuilderApi.make[IO](PRIVATE_NETWORK_ID, MAIN_LEDGER_ID)
+
+// Replace the string with your Recipient's Base58 lock address
+val recipientAddr = decodeAddress("ptetP7jshHVVBsmyLd5ugb9mVSehmtFdZHYQZqG3zaFtWSfiX79kYt9obJea").toOption.get
+
+val unprovenTransaction = for {
+  inputLock <- walletStateApi.getLock("self", "default", 1)
+  inputAddress <- txBuilder.lockAddress(inputLock.get)
+  txos <- genusQueryApi.queryUtxo(inputAddress)
+  changeLock <- walletStateApi.getLock("self", "default", 2)
+  changeAddress <- txBuilder.lockAddress(changeLock.get)
+  tx <- txBuilder.buildTransferAmountTransaction(
+    LvlType,
+    txos,
+    inputLock.get.getPredicate,
+    10L,
+    recipientAddr,
+    changeAddress,
+    1L
+  )
+} yield tx.toOption.get
+
+val provenTx = for {
+  mainKey <- walletApi.loadAndExtractMainKey[IO]("password".getBytes, keyFile)
+  credentialler = CredentiallerInterpreter.make[IO](walletApi, walletStateApi, mainKey.toOption.get)
+  tx <- unprovenTransaction
+  ctx = Context[IO](tx, 50, _ => None)
+  res <- credentialler.proveAndValidate(tx, ctx)
+} yield res.toOption.get
+
+
+val bifrostQuery = BifrostQueryAlgebra.make[IO](channelResource)
+
+val broadcastTransaction = for {
+  tx <- provenTx
+  _ <- bifrostQuery.broadcastTransaction(tx)
+} yield "Transaction Submitted"
+
+broadcastTransaction.unsafeRunSync()
+```
+
+After running that file, you should see a message that the transaction was submitted to the network. 
+
+```bash title="output"
+val res0: String = Transaction Submitted
+```
+
+## Optional Steps: Check Balances
+
+After waiting a short period of time, the Recipient and Sender can check their balances to see if the transaction was 
+processed successfully. 
+
+### Recipient Checks Balance
+
+The following code shows an example of the recipient checking their balance:
+
+```scala title="Recipient checks balance"
+import cats.arrow.FunctionK
+import cats.effect.IO
+import cats.effect.unsafe.implicits.global
+import co.topl.brambl.builders.TransactionBuilderApi
+import co.topl.brambl.constants.NetworkConstants.{MAIN_LEDGER_ID, PRIVATE_NETWORK_ID}
+import co.topl.brambl.dataApi.{GenusQueryAlgebra, RpcChannelResource}
+import co.topl.brambl.servicekit.{WalletKeyApi, WalletStateApi, WalletStateResource}
+import co.topl.brambl.syntax.{int128AsBigInt, valueToQuantitySyntaxOps, valueToTypeIdentifierSyntaxOps}
+import co.topl.brambl.wallet.WalletApi
+
+import java.nio.file.Paths
+
+implicit val transformType: FunctionK[IO, IO] = FunctionK.id[IO]
+
+// Replace with the existing location for your *Recipient* tutorial directory
+val tutorialDir = Paths.get(System.getProperty("user.home"), "tutorial", "recipient").toString
+// Replace with the existing location of for your wallet state DB file
+val walletDb = Paths.get(tutorialDir, "wallet.db").toString
+val conn = WalletStateResource.walletResource(walletDb)
+
+// Replace with the address and port of your node's gRPC endpoint
+val channelResource = RpcChannelResource.channelResource[IO]("localhost", 9084, secureConnection = false)
+
+val walletKeyApi = WalletKeyApi.make[IO]()
+val walletApi = WalletApi.make(walletKeyApi)
+val walletStateApi = WalletStateApi.make[IO](conn, walletApi)
+val genusQueryApi = GenusQueryAlgebra.make[IO](channelResource)
+val txBuilder = TransactionBuilderApi.make[IO](PRIVATE_NETWORK_ID, MAIN_LEDGER_ID)
+
+val queryFunds = for {
+  // The sender sent funds to the address derived from (self, default, 1)
+  sigLock <- walletStateApi.getLock("self", "default", 1)
+  sigAddress <- txBuilder.lockAddress(sigLock.get)
+  txos <- genusQueryApi.queryUtxo(sigAddress)
+} yield txos.map(_.transactionOutput.value.value).map(value => s"${value.typeIdentifier}: ${value.quantity.intValue}")
+
+queryFunds.unsafeRunSync().foreach(println)
+```
+
+If all goes well, the recipient should see a balance of 10 LVLs.
+
+```bash title="output"
+LvlType: 10
+```
+
+### Sender Checks Balance
+
+The following code shows an example of the sender checking their balance:
+
+```scala title="Sender checks balance"
+import cats.arrow.FunctionK
+import cats.effect.IO
+import cats.effect.unsafe.implicits.global
+import co.topl.brambl.builders.TransactionBuilderApi
+import co.topl.brambl.constants.NetworkConstants.{MAIN_LEDGER_ID, PRIVATE_NETWORK_ID}
+import co.topl.brambl.dataApi.{GenusQueryAlgebra, RpcChannelResource}
+import co.topl.brambl.servicekit.{WalletKeyApi, WalletStateApi, WalletStateResource}
+import co.topl.brambl.syntax.{int128AsBigInt, valueToQuantitySyntaxOps, valueToTypeIdentifierSyntaxOps}
+import co.topl.brambl.wallet.WalletApi
+
+import java.nio.file.Paths
+
+implicit val transformType: FunctionK[IO, IO] = FunctionK.id[IO]
+
+// Replace with the existing location for your *Sender* tutorial directory
+val tutorialDir = Paths.get(System.getProperty("user.home"), "tutorial", "sender").toString
+// Replace with the existing location of for your wallet state DB file
+val walletDb = Paths.get(tutorialDir, "wallet.db").toString
+val conn = WalletStateResource.walletResource(walletDb)
+
+// Replace with the address and port of your node's gRPC endpoint
+val channelResource = RpcChannelResource.channelResource[IO]("localhost", 9084, secureConnection = false)
+
+val walletKeyApi = WalletKeyApi.make[IO]()
+val walletApi = WalletApi.make(walletKeyApi)
+val walletStateApi = WalletStateApi.make[IO](conn, walletApi)
+val genusQueryApi = GenusQueryAlgebra.make[IO](channelResource)
+val txBuilder = TransactionBuilderApi.make[IO](PRIVATE_NETWORK_ID, MAIN_LEDGER_ID)
+
+val queryFunds = for {
+  // The change went to the address derived from (self, default, 2)
+  sigLock <- walletStateApi.getLock("self", "default", 2)
+  sigAddress <- txBuilder.lockAddress(sigLock.get)
+  txos <- genusQueryApi.queryUtxo(sigAddress)
+} yield txos.map(_.transactionOutput.value.value).map(value => s"${value.typeIdentifier}: ${value.quantity.intValue}")
+
+queryFunds.unsafeRunSync().foreach(println)
+```
+
+If all goes well, the sender should see a balance of 89 LVLs in their change address:
+
+```bash title="output"
+LvlType: 89
+```
+
+The 89 LVLs is the result of the 100 LVLs the sender had before the transaction minus the 10 LVLs they sent to the recipient
+minus the 1 LVL fee they paid to the network.
