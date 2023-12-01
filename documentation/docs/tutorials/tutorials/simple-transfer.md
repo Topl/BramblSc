@@ -1,21 +1,26 @@
 ---
 sidebar_position: 2
 title: Transfer Tokens
-description: How to transfer tokens from one wallet to another
+description: Transfer tokens from one wallet to another
 ---
 
 ## Use Case
 
-Coming Soon (send 10 LVLs from one wallet to another). 
+To send 10 LVLs from an existing wallet to a new wallet.
 
-In this tutorial, we have 2 users, each with their own wallet. The first is the Sender, the second is the recipient.
-
-For the purposes of this tutorial, we will assume that the Sender already has an initialized wallet with 100 LVLs.
-The sender wants to send 10 LVLs to the recipient.
-
-To illustrate setting up a wallet, the Recipient will create and initialize a new wallet.
+**Objectives:**
+- Create a new wallet and lock address (the recipient's wallet)
+- Share a LockAddress with another wallet by Encoding it as a Base58 string
+- Use the keys and state from an existing wallet (the sender's wallet)
+- Create a transaction to 
+  - transfer an amount of funds from one wallet to another
+  - transfer the remaining funds back to the original wallet in a new LockAddress
+- Check the balance of a LockAddress
 
 ## Set-Up
+
+In this tutorial, we have 2 users, each with their own wallet. The first is the Sender, the second is the Recipient.
+
 Throughout this tutorial, we will be alternating between the Sender and the Recipient's Point-of-View. To distinguish 
 between the two, each section will be marked with either "Sender" or "Recipient". We will also keep all the 
 generated files (key file, wallet file, etc.) in separate folders for each user.
