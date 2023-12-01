@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added documentation for using a wallet (extract main key, derive child keys) 
 - Added documentation wallet functionality using persistence (createAndSaveNewWallet, importWalletAndSave, loadAndExtractMainKey) 
+- Added documentation for updating a wallet state
+- Added tutorials: Load new wallet with Genesis funds, Transfer funds from one wallet to another
 
 ## [v2.0.0-alpha4-SNAPSHOT] - - TODO replace date after release 
 
