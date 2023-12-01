@@ -32,10 +32,8 @@ Topl main key and initializing the wallet state.
 
 ### Create the Wallet's Topl Main Key
 
-> See [Create a Wallet](../../reference/wallets/create)
-
 We will generate a new Topl Main Key for the wallet using `createAndSaveNewWallet`. This will also save the keyfile and 
-mnemonic to the local file system.
+mnemonic to the local file system. See [Create a Wallet](../../reference/wallets/create).
 
 1. Initialize a Wallet Key API to persist the keyfile and mnemonic. Here we are using the provided default implementation
 provided by the Service Kit to persist to the local file system.
@@ -53,11 +51,8 @@ provided by the Service Kit to persist to the local file system.
 
 ### Initialize the Wallet State
 
-> See [Initialize Wallet State](../../reference/wallet-state#initialize-wallet-state)
-
-
 We will initialize the wallet state using `initWalletState`. Here we are using the provided default implementation 
-provided by the Service Kit to persist to a SQLite database file.
+provided by the Service Kit to persist to a SQLite database file. See [Initialize Wallet State](../../reference/wallet-state#initialize-wallet-state)
 
 1. With the `walletApi` created in the previous section, initialize a Wallet State API
    ```scala
@@ -73,7 +68,7 @@ provided by the Service Kit to persist to a SQLite database file.
    ```
 4. Using the `childKeyPair` and `walletStateApi` created above, initialize the wallet state using `initWalletState`
    ```scala
-   walletStateApi.initWalletState(MAIN_NETWORK_ID, MAIN_LEDGER_ID, childKeyPair.vk)
+   walletStateApi.initWalletState(PRIVATE_NETWORK_ID, MAIN_LEDGER_ID, childKeyPair.vk)
    ```
 
 ### Breakpoint Check
@@ -84,7 +79,7 @@ At this point, your code should look something like this:
 import cats.arrow.FunctionK
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
-import co.topl.brambl.constants.NetworkConstants
+import co.topl.brambl.constants.NetworkConstants.{PRIVATE_NETWORK_ID, MAIN_LEDGER_ID}
 import co.topl.brambl.servicekit.{WalletKeyApi, WalletStateApi, WalletStateResource}
 import co.topl.brambl.wallet.WalletApi
 
@@ -92,24 +87,25 @@ import java.io.File
 
 implicit val transformType: FunctionK[IO, IO] = FunctionK.id[IO]
 
-val homeDir = System.getProperty("user.home")
+val tutorialDir = new File(System.getProperty("user.home"), "tutorial")
 // Replace with the desired location for your key file
-val keyFile = new File(homeDir, "keyfile.json").getCanonicalPath
+val keyFile = new File(tutorialDir, "keyfile.json").getCanonicalPath
 // Replace with the desired location of for your mnemonic file
-val mnemonicFile = new File(homeDir, "mnemonic.txt").getCanonicalPath
+val mnemonicFile = new File(tutorialDir, "mnemonic.txt").getCanonicalPath
 // Replace with the desired location of for your wallet state DB file
-val walletDb = new File(homeDir, "wallet.db").getCanonicalPath
+val walletDb = new File(tutorialDir, "wallet.db").getCanonicalPath
 
 val walletKeyApi = WalletKeyApi.make[IO]()
 val walletApi = WalletApi.make(walletKeyApi)
-val walletStateApi = WalletStateApi.make[IO](WalletStateResource.walletResource(walletDb), walletApi)
+val conn = WalletStateResource.walletResource(walletDb)
+val walletStateApi = WalletStateApi.make[IO](conn, walletApi)
 
 val initializeWallet = for {
    walletResult <- walletApi.createAndSaveNewWallet[IO]("password".getBytes, name = keyFile, mnemonicName = mnemonicFile)
    mainKeyPair <- walletApi.extractMainKey(walletResult.toOption.get.mainKeyVaultStore, "password".getBytes())
    childKeyPair <- walletApi.deriveChildKeysPartial(mainKeyPair.toOption.get, 1, 1)
-   _ <- walletStateApi.initWalletState(NetworkConstants.PRIVATE_NETWORK_ID, NetworkConstants.MAIN_LEDGER_ID, childKeyPair.vk)
-} yield ()
+   _ <- walletStateApi.initWalletState(PRIVATE_NETWORK_ID, MAIN_LEDGER_ID, childKeyPair.vk)
+} yield mainKeyPair
 
 initializeWallet.unsafeRunSync()
 ```
@@ -132,26 +128,114 @@ we can retrieve the HeightLock using the following code:
    ```
 2. Create a LockAddress from the HeightLock retrieved in the previous step. See [Initialize Wallet State](../../reference/locks/create-lock-addr)
    ```scala
-   lockAddress <- TransactionBuilderApi.make[IO](MAIN_NETWORK_ID, MAIN_LEDGER_ID).lockAddress(heightLock)
+   heightAddress <- TransactionBuilderApi.make[IO](PRIVATE_NETWORK_ID, MAIN_LEDGER_ID).lockAddress(heightLock)
    ```
 3. With the LockAddress created in the previous step, we can query the Genesis block for funds. This will return a list of UTXOs
-which will be the inputs for the transaction.
+which will be the inputs for the transaction. See [Querying UTXOs](../../reference/rpc#querying-utxos)
+   ```scala
+   genusQueryApi = GenusQueryAlgebra.make[IO](RpcChannelResource.channelResource[IO]("localhost", 9084, false))
+   txos <- genusQueryApi.queryUtxo(heightAddress)
+   ```
 
 ### Generate a New Lock Address to Receive Tokens
 
-The output of the transaction should be a new LockAddress that our wallet can prove ownership of. To create this LockAddress
+To receive the funds, we need to generate a LockAddress for which the funds will be transferred to (i.e, an output in 
+the transaction). This LockAddress that will encumber our new funds will be generated from our wallet. This will allow us
+to prove ownership once we want to spend the funds. For this tutorial, we will generate a LockAddress for a 1-of-1 
+Digital Signature Lock.
 
-### Step X: Update Wallet State
-
-TBD
+1. Retrieve a 1-of-1 Signature Lock from the Wallet State API. Since we are using the provided default implementation of the Wallet State API,
+we can retrieve the Signature Lock using the following code:
+   ```scala
+   sigLock <- walletStateApi.getLock("self", "default", 1)
+   ```
+2. Create a LockAddress from the Signature Lock retrieved in the previous step.
+   ```scala
+   sigAddress <- TransactionBuilderApi.make[IO](PRIVATE_NETWORK_ID, MAIN_LEDGER_ID).lockAddress(sigLock)
+   ```
 
 ### Build the Transaction
 
-TBD
+Using everything we generated in this section, we can finally build the transaction using the Transaction Builder API.
+See [Build Transfer Transaction](../../reference/transactions/transfer). For this tutorial, we will transfer 100 LVLs 
+to our wallet. The excess funds will be sent back to the Genesis LockAddress.
+
+```scala
+TransactionBuilderApi.make[IO](PRIVATE_NETWORK_ID, MAIN_LEDGER_ID).buildTransferAmountTransaction(
+   LvlType, // We are transferring LVLs
+   txos,  // The UTXOs we queried from the Genesis block in "Query Genus Funds"
+   heightLock.getPredicate, // The HeightLock we retrieved in "Query Genus Funds" 
+   100L, // The amount of LVLs we want to transfer
+   sigAddress, // Our LockAddress that we generated in "Generate a New Lock Address to Receive Tokens"
+   heightAddress, // The LockAddress to send back change that we generated in "Query Genus Funds"
+   1L // An arbitrary fee amount
+)
+```
 
 ### Breakpoint Check
 
-TBD
+At this point, your code should look something like this:
+
+```scala
+import cats.arrow.FunctionK
+import cats.effect.IO
+import cats.effect.unsafe.implicits.global
+import co.topl.brambl.builders.TransactionBuilderApi
+import co.topl.brambl.constants.NetworkConstants.{MAIN_LEDGER_ID, PRIVATE_NETWORK_ID}
+import co.topl.brambl.dataApi.{GenusQueryAlgebra, RpcChannelResource}
+import co.topl.brambl.servicekit.{WalletKeyApi, WalletStateApi, WalletStateResource}
+import co.topl.brambl.syntax.LvlType
+import co.topl.brambl.wallet.WalletApi
+
+import java.io.File
+
+implicit val transformType: FunctionK[IO, IO] = FunctionK.id[IO]
+
+val tutorialDir = new File(System.getProperty("user.home"), "tutorial")
+// Replace with the desired location for your key file
+val keyFile = new File(tutorialDir, "keyfile.json").getCanonicalPath
+// Replace with the desired location of for your mnemonic file
+val mnemonicFile = new File(tutorialDir, "mnemonic.txt").getCanonicalPath
+// Replace with the desired location of for your wallet state DB file
+val walletDb = new File(tutorialDir, "wallet.db").getCanonicalPath
+
+val walletKeyApi = WalletKeyApi.make[IO]()
+val walletApi = WalletApi.make(walletKeyApi)
+val conn = WalletStateResource.walletResource(walletDb)
+val walletStateApi = WalletStateApi.make[IO](conn, walletApi)
+
+val initializeWallet = for {
+  walletResult <- walletApi.createAndSaveNewWallet[IO]("password".getBytes, name = keyFile, mnemonicName = mnemonicFile)
+  mainKeyPair <- walletApi.extractMainKey(walletResult.toOption.get.mainKeyVaultStore, "password".getBytes())
+  childKeyPair <- walletApi.deriveChildKeysPartial(mainKeyPair.toOption.get, 1, 1)
+  _ <- walletStateApi.initWalletState(PRIVATE_NETWORK_ID, MAIN_LEDGER_ID, childKeyPair.vk)
+} yield mainKeyPair
+
+// Replace with the address and port of your node's gRPC endpoint
+val channelResource = RpcChannelResource.channelResource[IO]("localhost", 9084, secureConnection = false)
+val genusQueryApi = GenusQueryAlgebra.make[IO](channelResource)
+val txBuilder = TransactionBuilderApi.make[IO](PRIVATE_NETWORK_ID, MAIN_LEDGER_ID)
+
+val unprovenTransaction = for {
+    _ <- initializeWallet
+    heightLock <- walletStateApi.getLock("nofellowship", "genesis", 1)
+    heightAddress <- txBuilder.lockAddress(heightLock.get)
+    txos <- genusQueryApi.queryUtxo(heightAddress)
+    sigLock <- walletStateApi.getLock("self", "default", 1)
+    sigAddress <- txBuilder.lockAddress(sigLock.get)
+    tx <- txBuilder.buildTransferAmountTransaction(
+      LvlType,
+      txos,
+      heightLock.get.getPredicate,
+      100L,
+      sigAddress,
+      heightAddress,
+      1L
+    )
+} yield tx.toOption.get
+
+unprovenTransaction.unsafeRunSync()
+```
 
 ## Step X: Prove Transaction
 
