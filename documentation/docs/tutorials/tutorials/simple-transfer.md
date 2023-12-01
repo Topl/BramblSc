@@ -220,20 +220,63 @@ After running that file, you should see the Recipient's LockAddress:
 val res1: String = ptetP7jshHVVBsmyLd5ugb9mVSehmtFdZHYQZqG3zaFtWSfiX79kYt9obJea
 ```
 
-It is important to note that your LockAddress will be different than the one shown above. Everytime the code is run, a new
+It is important to note that your LockAddress will be different from the one shown above. Everytime the code is run, a new
 Topl main key is generated, thus resulting in a new LockAddress. 
 
 ## Step 2: Sender
 
-TBD
+Once the Sender has the Recipient's LockAddress, they can send begin the process of sending the 10 LVLs to the Recipient.
 
 ### Create Transaction
 
-- Decode Recipients lock address
-- Query sender's UTXOs
-- Generate new lock address for sender's change
-- Save new lock address to wallet state
-- Build transaction
+The Sender must build an unproven transaction to send 10 LVLs to the Recipient's LockAddress. Any change (excess LVLs) from the 
+transaction should go to a new LockAddress that the Sender owns. For this tutorial, we will generate a LockAddress for a 1-of-1
+Digital Signature Lock for the change.
+
+1. Building a transaction requires specifying a LockAddress of the recipient. The Recipient shared their address as a base58 encoded
+ string. The first step is to decode this lock address. See [Share a LockAddress](../../reference/locks/share-lock-addr).
+  ```scala
+  val recipientAddr = decodeAddress("ptetP7jshHVVBsmyLd5ugb9mVSehmtFdZHYQZqG3zaFtWSfiX79kYt9obJea")
+  ```
+2. From the Sender's initialization (in the Set-Up section), the Sender loaded funds to their wallet, encumbered by a 1-of-1 Signature Lock
+stored at (fellowship="self", template="default", interaction=1). To obtain the funds, we must query Genus for the UTXOs. This is similar
+to the section [Query Genesis Funds](./obtain-funds#query-genesis-funds) in the Obtain Funds tutorial, however, the parameters for
+`getLock` in the first step is different.
+  ```scala
+  inputLock <- walletStateApi.getLock("self", "default", 1)
+  ```
+3. Since the Sender owns 100 LVLs but is only sending 10 to the Recipient, we must create a new LockAddress for the change. 
+For this tutorial, we will generate a LockAddress for a 1-of-1 Digital Signature Lock for the change. This is very similar
+to the [Generate a New Lock Address to Receive Tokens](./obtain-funds#generate-a-new-lock-address-to-receive-tokens) section in
+a previous tutorial, however, we are using `interaction=2` for step 1 (to prevent address re-use).
+  ```scala
+changeLock <- walletStateApi.getLock("self", "default", 2)
+  ```
+4. Since we are creating a new LockAddress for the change (that we want the Sender to be able to spend from in the future),
+we must update the Wallet State with information to unlock the lock. We did not have to do this step in the set-up or previous
+sections since Wallet State Initialization populates the information for the initial Signature Lock at indices (1, 1, 1). 
+  ```scala
+  walletStateApi.updateWalletState(
+    changePredicate, // The predicate contained in changeLock
+    changeAddress, // The LockAddress of the changeLock
+    Some("ExtendedEd25519"), // The signing routine of the Signature Lock
+    changeVk, // The verification key of the Signature Lock. This is the same as deriving the main key with indices (1, 1, 2)
+    Indices(1,1,2) // The indices of the Signature Lock
+  )
+  ```
+5. Using everything we generated in this section, we can finally build the transaction using the Transaction Builder API. This mirrors
+the [Build the Transaction](./obtain-funds#build-the-transaction) section in the Obtain Funds tutorial.
+  ```scala
+TransactionBuilderApi.make[IO](PRIVATE_NETWORK_ID, MAIN_LEDGER_ID).buildTransferAmountTransaction(
+   LvlType, // We are transferring LVLs
+   txos,  // The UTXOs we queried from step 2
+   inputLock.getPredicate, // The existing lock we retrieved as part of step 2 
+   10L, // The amount of LVLs we want to transfer to the recipient
+  recipientAddr, // The decoded LockAddress of the recipient from step 1
+   changeAddress, // The LockAddress of the changeLock from step 3
+   1L // An arbitrary fee amount
+)
+  ```
 
 ### Prove Transaction
 
