@@ -130,6 +130,11 @@ case class DigestTemplate[F[_]: Monad](
 
 The parameters are the same as a Digest proposition.
 
+:::note
+When creating a Digest Template or Proposition, the preimage of the digest should be added to the Wallet State. The preimage
+will allow the digest to be proven when used in a transaction. See [Add Digest Preimage](../wallet-state#add-digest-preimage) for more information.
+:::
+
 ### SignatureTemplate
 
 Once built, a SignatureTemplate refers to

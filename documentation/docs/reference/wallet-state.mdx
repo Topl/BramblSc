@@ -178,3 +178,58 @@ val updateWallet = for {
 
 updateWallet.unsafeRunSync()
 ```
+
+## Add Digest Preimage
+
+In order to prove any lock that contains a Digest Proposition, the user must provide the preimage of the digest. This
+can be done by calling the
+function <ScaladocLink path="co/topl/brambl/dataApi/WalletStateAlgebra.html#addPreimage(Preimage,Digest):F[Unit]"><code>addPreimage</code></ScaladocLink>
+in a Wallet State instance.
+
+```scala
+def addPreimage(preimage: Preimage, digest: Proposition.Digest): F[Unit]
+```
+
+This function adds a preimage to the wallet state. The preimage is associated with the given digest proposition. This preimage can
+then be used to prove any lock that contains the given digest proposition.
+
+### Example
+
+The following snippet is an example of adding and retrieving a preimage to the wallet state using Cats Effect `IO` and the default
+implementation of the `WalletKeyApi` and `WalletStateApi` provided by the
+the <ScaladocLink path="co/topl/brambl/servicekit/index.html"><code>ServiceKit</code></ScaladocLink>. In this example, we
+assume that the wallet state has already been initialized to `wallet.db`.
+
+```scala
+import cats.effect.IO
+import cats.effect.unsafe.implicits.global
+import co.topl.brambl.servicekit.{WalletKeyApi, WalletStateApi, WalletStateResource}
+import co.topl.brambl.wallet.WalletApi
+import co.topl.crypto.hash.Blake2b256
+import com.google.protobuf.ByteString
+import quivr.models.{Digest, Preimage, Proposition}
+
+import java.io.File
+
+// Replace with the location of your existing wallet database file
+val walletDbFile = new File(System.getProperty("user.home"), "wallet.db").getCanonicalPath
+
+val walletApi = WalletApi.make(WalletKeyApi.make[IO]())
+val walletDbConnection = WalletStateResource.walletResource(walletDbFile)
+val walletStateApi = WalletStateApi.make[IO](walletDbConnection, walletApi)
+
+val preimageInput = "Some message".getBytes
+val salt = "Some salt".getBytes
+val digestValue = ByteString.copyFrom((new Blake2b256).hash(preimageInput ++ salt))
+// Preimage
+val preimage = Preimage(ByteString.copyFrom(preimageInput), ByteString.copyFrom(salt))
+// Digest proposition
+val digest = Proposition.Digest("Blake2b256", Digest(digestValue))
+
+val addAndGetPreimage = for {
+  _ <- walletStateApi.addPreimage(preimage, digest)
+  fetchedPreimage <- walletStateApi.getPreimage(digest)
+} yield fetchedPreimage.get
+
+addAndGetPreimage.unsafeRunSync() == preimage
+```
