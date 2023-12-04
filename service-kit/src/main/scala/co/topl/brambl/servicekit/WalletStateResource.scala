@@ -18,11 +18,15 @@ trait WalletStateResource {
    */
   def walletResource(name: String): Resource[IO, Connection] = Resource
     .make(
-      IO.delay(
-        DriverManager.getConnection(
-          s"jdbc:sqlite:${name}"
+      {
+        // Without this line, repeated runs fail with "No suitable driver found for jdbc:sqlite:..."
+        Class.forName("org.sqlite.JDBC")
+        IO.delay(
+          DriverManager.getConnection(
+            s"jdbc:sqlite:${name}"
+          )
         )
-      )
+      }
     )(conn => IO.delay(conn.close()))
 }
 
