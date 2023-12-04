@@ -1,29 +1,24 @@
 package co.topl.brambl.servicekit
 
-import cats.data.Validated
-import cats.data.ValidatedNel
-import cats.effect.kernel.Resource
-import cats.effect.kernel.Sync
+import cats.data.{OptionT, Validated, ValidatedNel}
+import cats.effect.kernel.{Resource, Sync}
 import cats.implicits._
 import co.topl.brambl.builders.TransactionBuilderApi
-import co.topl.brambl.builders.locks.LockTemplate
-import co.topl.brambl.builders.locks.PropositionTemplate
-import co.topl.brambl.codecs.LockTemplateCodecs.decodeLockTemplate
-import co.topl.brambl.codecs.LockTemplateCodecs.encodeLockTemplate
+import co.topl.brambl.builders.locks.{LockTemplate, PropositionTemplate}
+import co.topl.brambl.codecs.LockTemplateCodecs.{decodeLockTemplate, encodeLockTemplate}
+import co.topl.brambl.common.ContainsEvidence.Ops
+import co.topl.brambl.common.ContainsImmutable.instances._
 import co.topl.brambl.dataApi.WalletStateAlgebra
-import co.topl.brambl.models.Indices
-import co.topl.brambl.models.LockAddress
-import co.topl.brambl.models.LockId
 import co.topl.brambl.models.box.Lock
+import co.topl.brambl.models.{Indices, LockAddress, LockId}
 import co.topl.brambl.utils.Encoding
 import co.topl.brambl.wallet.WalletApi
+import com.google.protobuf.ByteString
 import io.circe.parser._
 import io.circe.syntax.EncoderOps
-import quivr.models.Preimage
-import quivr.models.Proposition
-import quivr.models.VerificationKey
+import quivr.models.{Preimage, Proposition, VerificationKey}
+
 import java.sql.Statement
-import cats.data.OptionT
 
 /**
  * An implementation of the WalletInteractionAlgebra that uses a database to store state information.
@@ -364,10 +359,10 @@ object WalletStateApi {
         ledgerId:  Int,
         vk:        VerificationKey
       ): F[Unit] = {
-        import co.topl.brambl.common.ContainsEvidence.Ops
         import TransactionBuilderApi.implicits._
-        import co.topl.brambl.common.ContainsImmutable.instances._
         import cats.implicits._
+        import co.topl.brambl.common.ContainsEvidence.Ops
+        import co.topl.brambl.common.ContainsImmutable.instances._
         connection.use { conn =>
           for {
             stmnt <- Sync[F].delay(conn.createStatement())
@@ -394,6 +389,17 @@ object WalletStateApi {
               stmnt.execute(
                 "CREATE TABLE IF NOT EXISTS verification_keys (x_fellowship INTEGER NOT NULL," +
                 " y_template INTEGER NOT NULL, vks TEXT NOT NULL, PRIMARY KEY (x_fellowship, y_template))"
+              )
+            )
+            _ <- Sync[F].delay(
+              stmnt.execute(
+                "CREATE TABLE IF NOT EXISTS digests (id INTEGER PRIMARY KEY, digest_evidence TEXT NOT NULL," +
+                " preimage_input TEXT NOT NULL, preimage_salt TEXT NOT NULL)"
+              )
+            )
+            _ <- Sync[F].delay(
+              stmnt.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS digest_idx ON digests (digest_evidence)"
               )
             )
             _ <- Sync[F].delay(
@@ -505,12 +511,45 @@ object WalletStateApi {
         }
       }
 
-      // TODO: We are not yet supporting Digest Propositions in brambl-cli.
       override def getPreimage(
         digestProposition: Proposition.Digest
-      ): F[Option[Preimage]] = Sync[F].delay(
-        None
-      )
+      ): F[Option[Preimage]] = connection.use { conn =>
+        for {
+          stmnt <- Sync[F].blocking(conn.createStatement())
+          rs <- Sync[F].blocking(
+            stmnt.executeQuery(
+              s"SELECT preimage_input, preimage_salt FROM digests WHERE " +
+              s"digest_evidence = '${Encoding.encodeToBase58Check(digestProposition.sizedEvidence.digest.value.toByteArray)}'"
+            )
+          )
+          hasNext       <- Sync[F].delay(rs.next())
+          preimageInput <- Sync[F].delay(rs.getString("preimage_input"))
+          preimageSalt  <- Sync[F].delay(rs.getString("preimage_salt"))
+        } yield
+          if (hasNext) {
+            val input = Encoding.decodeFromBase58Check(preimageInput).toOption.get
+            val salt = Encoding.decodeFromBase58Check(preimageSalt).toOption.get
+            Preimage(ByteString.copyFrom(input), ByteString.copyFrom(salt)).some
+          } else None
+      }
+
+      override def addPreimage(preimage: Preimage, digestProposition: Proposition.Digest): F[Unit] =
+        connection.use { conn =>
+          for {
+            stmnt <- Sync[F].blocking(conn.createStatement())
+            statement = {
+              val digestEvidence =
+                Encoding.encodeToBase58Check(digestProposition.sizedEvidence.digest.value.toByteArray)
+              val input = Encoding.encodeToBase58Check(preimage.input.toByteArray)
+              val salt = Encoding.encodeToBase58Check(preimage.salt.toByteArray)
+              s"INSERT INTO digests (digest_evidence, preimage_input, preimage_salt) VALUES " +
+              s"('${digestEvidence}', '${input}', '${salt}')"
+            }
+            _ <- Sync[F].blocking(
+              stmnt.executeUpdate(statement)
+            )
+          } yield ()
+        }
 
       override def addEntityVks(
         fellowship: String,
