@@ -710,8 +710,9 @@ class CredentiallerInterpreterSpec extends CatsEffectSuite with MockHelpers {
           Map(p.value.digitalSignature.get.sizedEvidence -> bobIndices).get(signatureProposition.sizedEvidence)
         )
 
-      override def initWalletState(networkId:     Int, ledgerId: Int, vk: VerificationKey): F[Unit] = ???
+      override def initWalletState(networkId:     Int, ledgerId:    Int, vk: VerificationKey): F[Unit] = ???
       override def getPreimage(digestProposition: Proposition.Digest): F[Option[Preimage]] = ???
+      override def addPreimage(preimage:          Preimage, digest: Proposition.Digest): IO[Unit] = ???
       override def getCurrentAddress: F[String] = ???
       override def updateWalletState(
         lockPredicate: String,

@@ -2,20 +2,16 @@ package co.topl.brambl.servicekit
 
 import cats.effect.IO
 import co.topl.brambl.builders.TransactionBuilderApi.implicits.lockAddressOps
-import co.topl.brambl.builders.locks.LockTemplate
-import co.topl.brambl.builders.locks.PropositionTemplate
+import co.topl.brambl.builders.locks.{LockTemplate, PropositionTemplate}
 import co.topl.brambl.common.ContainsEvidence.Ops
-import co.topl.brambl.common.ContainsImmutable.instances.lockImmutable
+import co.topl.brambl.common.ContainsImmutable.instances._
 import co.topl.brambl.constants.NetworkConstants
-import co.topl.brambl.models.Indices
-import co.topl.brambl.models.LockAddress
-import co.topl.brambl.models.LockId
+import co.topl.brambl.models.{Indices, LockAddress, LockId}
 import co.topl.brambl.models.box.Lock
 import co.topl.brambl.utils.Encoding
 import com.google.protobuf.ByteString
 import munit.CatsEffectSuite
-import quivr.models.Digest
-import quivr.models.Proposition
+import quivr.models.{Digest, Preimage, Proposition}
 
 class WalletStateApiSpec extends CatsEffectSuite with BaseSpec {
 
@@ -310,8 +306,25 @@ class WalletStateApiSpec extends CatsEffectSuite with BaseSpec {
     val proposition = Proposition.Digest("testValue", Digest(ByteString.copyFrom(Array.fill(32)(0: Byte))))
     assertIO(
       for {
+        _ <- walletStateApi
+          .initWalletState(NetworkConstants.PRIVATE_NETWORK_ID, NetworkConstants.MAIN_NETWORK_ID, mockMainKeyPair.vk)
         preimage <- walletStateApi.getPreimage(proposition)
       } yield preimage.isEmpty,
+      true
+    )
+  }
+
+  testDirectory.test("addPreimage") { _ =>
+    val proposition = Proposition.Digest("testValue", Digest(ByteString.copyFrom(Array.fill(32)(0: Byte))))
+    val secret = Preimage(ByteString.copyFrom("input".getBytes), ByteString.copyFrom("salt".getBytes))
+    assertIO(
+      for {
+        _ <- walletStateApi
+          .initWalletState(NetworkConstants.PRIVATE_NETWORK_ID, NetworkConstants.MAIN_NETWORK_ID, mockMainKeyPair.vk)
+        preimageBefore <- walletStateApi.getPreimage(proposition)
+        _              <- walletStateApi.addPreimage(secret, proposition)
+        preimageAfter  <- walletStateApi.getPreimage(proposition)
+      } yield preimageBefore.isEmpty && preimageAfter.isDefined && preimageAfter.get == secret,
       true
     )
   }

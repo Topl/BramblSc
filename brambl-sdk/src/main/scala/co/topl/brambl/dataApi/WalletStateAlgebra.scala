@@ -37,6 +37,14 @@ trait WalletStateAlgebra[F[_]] {
   def getPreimage(digestProposition: Proposition.Digest): F[Option[Preimage]]
 
   /**
+   * Add a preimage secret associated to a digest proposition.
+   *
+   * @param preimage The preimage secret to add
+   * @param digest The digest proposition for which the preimage is derived from.
+   */
+  def addPreimage(preimage: Preimage, digest: Proposition.Digest): F[Unit]
+
+  /**
    * Get the current address for the wallet interaction
    *
    * @return The current address of the wallet interaction as a string in base58 encoding
