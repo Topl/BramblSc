@@ -132,6 +132,45 @@ Keep the same local node instance running. We will be using it for the rest of t
 
 TBD
 
+### Query Genus Funds
+
+From wallet initialization (in the Set-Up section), our wallet has 100 LVLs encumbered by a 1-of-1 Signature Lock stored 
+at (fellowship="self", template="default", nextInteraction=1). To obtain the funds, we must query Genus for the UTXOs. This is similar
+to the section [Query Genesis Funds](./obtain-funds#query-genesis-funds) in the Obtain Funds tutorial, however, the parameters for
+`getLock` in the first step is different.
+
+```scala title="Updated Steps from Obtain Funds"
+inputLock <- walletStateApi.getLock("self", "default", 1)
+inputAddr <- transactionBuilderApi.lockAddress(inputLock)
+txos <- genusQueryApi.queryUtxo(inputAddr)
+```
+
+### Create Group Policy
+
+The Group Policy will be used to mint Group Constructor Tokens. The Group Policy must be associated to an existing 
+UTXO that contains LVLs. Most commonly, this will be the UTXO that contains the LVLs for the transaction fee. In this 
+tutorial, we will use the UTXO that contains the 100 LVLs. 
+
+```scala 
+GroupPolicy("Group Policy Label", fromTxos.head.outputAddress)
+```
+
+### Generate a New Lock Address
+
+Whenever we create a new transaction, we must generate new lock addresses to receive the funds and the change. 
+For simplicity in this tutorial, we will use the same lock address for both the minted group constructor tokens and the change.
+
+1. For this tutorial, we will generate a LockAddress for a 1-of-1 Digital Signature Lock for the change. This is 
+identical to Step 3 under [Create Transaction](./simple-transfer#create-transaction) in the Transfer Tokens tutorial.
+2. Since we are creating a new LockAddress, we must update the Wallet State with information to unlock the lock. We did 
+not have to do this step in the Set-Up since Wallet State Initialization populates the information for the initial Signature 
+Lock at indices (1, 1, 1). This is identical to Step 4 under [Create Transaction](./simple-transfer#create-transaction) 
+in the Transfer Tokens tutorial.
+
+```scala
+changeLock <- walletStateApi.getLock("self", "default", 2)
+```
+
 ### TBD
 
 TBD
