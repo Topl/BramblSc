@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - YYYY-MM-DD - TODO replace date after release 
 
+### Added
+
+- Added a tutorial for creating a new custom asset
+
 ## [v2.0.0-beta1] - 2023-12-05
 
 ### Added

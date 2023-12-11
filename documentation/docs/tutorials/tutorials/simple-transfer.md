@@ -317,12 +317,16 @@ import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import co.topl.brambl.Context
 import co.topl.brambl.builders.TransactionBuilderApi
+import co.topl.brambl.builders.TransactionBuilderApi.implicits.lockAddressOps
 import co.topl.brambl.codecs.AddressCodecs.decodeAddress
 import co.topl.brambl.constants.NetworkConstants.{MAIN_LEDGER_ID, PRIVATE_NETWORK_ID}
 import co.topl.brambl.dataApi.{BifrostQueryAlgebra, GenusQueryAlgebra, RpcChannelResource}
+import co.topl.brambl.models.Indices
 import co.topl.brambl.servicekit.{WalletKeyApi, WalletStateApi, WalletStateResource}
 import co.topl.brambl.syntax.LvlType
+import co.topl.brambl.utils.Encoding
 import co.topl.brambl.wallet.{CredentiallerInterpreter, WalletApi}
+import quivr.models.VerificationKey
 
 import java.nio.file.Paths
 
@@ -354,6 +358,19 @@ val unprovenTransaction = for {
   txos <- genusQueryApi.queryUtxo(inputAddress)
   changeLock <- walletStateApi.getLock("self", "default", 2)
   changeAddress <- txBuilder.lockAddress(changeLock.get)
+  selfDefaultVk <- walletStateApi.getEntityVks("self", "default").map(_.get.head) map { vk =>
+    VerificationKey.parseFrom(
+      Encoding.decodeFromBase58(vk).toOption.get
+    )
+  }
+  changeVk <- walletApi.deriveChildVerificationKey(selfDefaultVk, 2)
+  _ <- walletStateApi.updateWalletState(
+    Encoding.encodeToBase58(changeLock.get.getPredicate.toByteArray),
+    changeAddress.toBase58(),
+    Some("ExtendedEd25519"),
+    Some(Encoding.encodeToBase58(changeVk.toByteArray)),
+    Indices(1, 1, 2)
+  )
   tx <- txBuilder.buildTransferAmountTransaction(
     LvlType,
     txos,
