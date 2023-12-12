@@ -16,7 +16,7 @@ import co.topl.brambl.wallet.WalletApi
 import com.google.protobuf.ByteString
 import io.circe.parser._
 import io.circe.syntax.EncoderOps
-import quivr.models.{Preimage, Proposition, VerificationKey}
+import quivr.models.{KeyPair, Preimage, Proposition, VerificationKey}
 
 import java.sql.Statement
 
@@ -357,7 +357,7 @@ object WalletStateApi {
       override def initWalletState(
         networkId: Int,
         ledgerId:  Int,
-        vk:        VerificationKey
+        mainKey: KeyPair
       ): F[Unit] = {
         import TransactionBuilderApi.implicits._
         import cats.implicits._
@@ -459,9 +459,10 @@ object WalletStateApi {
                 s"INSERT INTO templates (template, y_template, lock) VALUES ('genesis', 2, '${encodeLockTemplate(genesisTemplate).toString}')"
               )
             )
+            selfDefaultVk <- walletApi.deriveChildKeysPartial(mainKey, 1, 1).map(_.vk)
             _ <- Sync[F].delay(
               stmnt.executeUpdate(
-                s"INSERT INTO verification_keys (x_fellowship, y_template, vks) VALUES (1, 1, '${List(Encoding.encodeToBase58(vk.toByteArray)).asJson.toString}')"
+                s"INSERT INTO verification_keys (x_fellowship, y_template, vks) VALUES (1, 1, '${List(Encoding.encodeToBase58(selfDefaultVk.toByteArray)).asJson.toString}')"
               )
             )
             _ <- Sync[F].delay(
@@ -475,7 +476,7 @@ object WalletStateApi {
               ledgerId,
               LockId(Lock().withPredicate(defaultSignatureLock.getPredicate).sizedEvidence.digest.value)
             )
-            childVk           <- walletApi.deriveChildVerificationKey(vk, 1)
+            childVk           <- walletApi.deriveChildVerificationKey(selfDefaultVk, 1)
             genesisHeightLock <- getLock("nofellowship", "genesis", 1).map(_.get)
             heightLockAddress = LockAddress(
               networkId,

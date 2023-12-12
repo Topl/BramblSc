@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added a tutorial for creating a new custom asset
 
+### Changed
+
+- Service Kit's initWalletState now expects a Topl main key pair instead of a (1,1) partial derivative verification key
+
 ## [v2.0.0-beta1] - 2023-12-05
 
 ### Added

@@ -3,42 +3,26 @@ package co.topl.brambl.wallet
 import cats.data.ValidatedNel
 import cats.effect.IO
 import cats.implicits._
-import co.topl.brambl.Context
-import co.topl.brambl.MockHelpers
-import co.topl.brambl.MockWalletKeyApi
-import co.topl.brambl.MockWalletStateApi
+import co.topl.brambl.{Context, MockHelpers, MockWalletKeyApi, MockWalletStateApi}
 import co.topl.brambl.builders.locks.LockTemplate
 import co.topl.brambl.common.ContainsEvidence.Ops
 import co.topl.brambl.common.ContainsImmutable.instances._
 import co.topl.brambl.common.ContainsSignable.ContainsSignableTOps
 import co.topl.brambl.common.ContainsSignable.instances._
 import co.topl.brambl.dataApi.WalletStateAlgebra
-import co.topl.brambl.models.Datum
-import co.topl.brambl.models.Event
-import co.topl.brambl.models.Indices
-import co.topl.brambl.models.box.AssetMintingStatement
-import co.topl.brambl.models.box.Attestation
-import co.topl.brambl.models.box.Challenge
-import co.topl.brambl.models.box.Lock
-import co.topl.brambl.models.box.Value
+import co.topl.brambl.models.{Datum, Event, Indices}
+import co.topl.brambl.models.box._
 import co.topl.brambl.models.transaction.IoTransaction
-import co.topl.brambl.syntax.cryptoToPbKeyPair
-import co.topl.brambl.syntax.pbKeyPairToCryptoKeyPair
+import co.topl.brambl.syntax.{cryptoToPbKeyPair, pbKeyPairToCryptoKeyPair}
 import co.topl.brambl.validation.TransactionAuthorizationError.AuthorizationFailed
 import co.topl.brambl.validation.TransactionSyntaxError
 import co.topl.crypto.generation.Bip32Indexes
 import co.topl.crypto.signing.ExtendedEd25519
 import co.topl.quivr.api.Proposer
-import co.topl.quivr.runtime.QuivrRuntimeErrors.ValidationError.EvaluationAuthorizationFailed
-import co.topl.quivr.runtime.QuivrRuntimeErrors.ValidationError.LockedPropositionIsUnsatisfiable
+import co.topl.quivr.runtime.QuivrRuntimeErrors.ValidationError.{EvaluationAuthorizationFailed, LockedPropositionIsUnsatisfiable}
 import com.google.protobuf.ByteString
 import munit.CatsEffectSuite
-import quivr.models.Int128
-import quivr.models.KeyPair
-import quivr.models.Preimage
-import quivr.models.Proof
-import quivr.models.Proposition
-import quivr.models.VerificationKey
+import quivr.models._
 
 import scala.util.Random
 
@@ -710,7 +694,7 @@ class CredentiallerInterpreterSpec extends CatsEffectSuite with MockHelpers {
           Map(p.value.digitalSignature.get.sizedEvidence -> bobIndices).get(signatureProposition.sizedEvidence)
         )
 
-      override def initWalletState(networkId:     Int, ledgerId:    Int, vk: VerificationKey): F[Unit] = ???
+      override def initWalletState(networkId:     Int, ledgerId:    Int, mainKey: KeyPair): F[Unit] = ???
       override def getPreimage(digestProposition: Proposition.Digest): F[Option[Preimage]] = ???
       override def addPreimage(preimage:          Preimage, digest: Proposition.Digest): IO[Unit] = ???
       override def getCurrentAddress: F[String] = ???
