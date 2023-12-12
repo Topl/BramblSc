@@ -15,7 +15,7 @@ The first step is to create a vault. The vault is where the master key is stored
 // You can run this code using scala-cli. Save it in a file called `create-vault.sc` and run it with `scala-cli create-vault.sc`
 //> using scala 2.13
 //> using repository "sonatype-s01:releases"
-//> using dep "co.topl::service-kit:2.0.0-beta0"
+//> using dep "co.topl::service-kit:2.0.0-beta2"
 //> using dep "org.typelevel::cats-core:2.10.0"
 
 import cats.effect.IO
@@ -58,11 +58,10 @@ case class CreateWallet(file: String, password: String) {
       )
     _ <- std.Console[IO].println("Wallet: " + new String(wallet.mainKeyVaultStore.asJson.noSpaces))
     _ <- std.Console[IO].println("Mnemonic: "+ wallet.mnemonic.mkString(","))
-    derivedKey <- walletApi.deriveChildKeysPartial(keyPair, 1, 1)
     _ <- walletStateApi.initWalletState(
       NetworkConstants.PRIVATE_NETWORK_ID,
       NetworkConstants.MAIN_LEDGER_ID,
-      derivedKey.vk
+      keyPair
     )
   } yield ()
 
@@ -87,8 +86,6 @@ This code has several parts:
 
 - first, it creates a wallet in memory (the `walletApi.createNewWallet` function)
 - then, it extracts the main key from the wallet (the `walletApi.extractMainKey` function)
-- then, it derives a child key from the main key (the `walletApi.deriveChildKeysPartial` function),
-this is needed to initialized the wallet database with an initial entry for the "self" and "default" fellowship and template.
 - finally, it initializes the wallet database (the `walletStateApi.initWalletState` function)
 
 ## Updating the Wallet Database
@@ -99,7 +96,7 @@ Users must update the wallet state whenever one of their child keys is used to c
 // You can run this code using scala-cli. Save it in a file called `create-vault.sc` and run it with `scala-cli create-vault.sc`
 //> using scala 2.13
 //> using repository "sonatype-s01:releases"
-//> using dep "co.topl::service-kit:2.0.0-beta0"
+//> using dep "co.topl::service-kit:2.0.0-beta2"
 //> using dep "org.typelevel::cats-core:2.10.0"
 
 import cats.effect.IO
@@ -148,12 +145,11 @@ case class CreateWallet(file: String, password: String) {
       )
     _ <- std.Console[IO].println("Wallet: " + new String(wallet.mainKeyVaultStore.asJson.noSpaces))
     _ <- std.Console[IO].println("Mnemonic: "+ wallet.mnemonic.mkString(","))
-    derivedKey <- walletApi.deriveChildKeysPartial(keyPair, 1, 1)
     // Initialize the wallet state:
     _ <- walletStateApi.initWalletState(
       NetworkConstants.PRIVATE_NETWORK_ID,
       NetworkConstants.MAIN_LEDGER_ID,
-      derivedKey.vk
+      keyPair
     )
   } yield ()
 

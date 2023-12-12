@@ -12,7 +12,7 @@ import quivr.models.{KeyPair, Preimage, Proposition}
 trait WalletStateAlgebra[F[_]] {
 
   /**
-   * Initialize the wallet interaction with the given verification key
+   * Initialize the wallet interaction with the given key pair
    *
    * @param networkId The network id to initialize the wallet interaction with
    * @param ledgerId The ledger id to initialize the wallet interaction with
