@@ -357,7 +357,7 @@ object WalletStateApi {
       override def initWalletState(
         networkId: Int,
         ledgerId:  Int,
-        mainKey: KeyPair
+        mainKey:   KeyPair
       ): F[Unit] = {
         import TransactionBuilderApi.implicits._
         import cats.implicits._
