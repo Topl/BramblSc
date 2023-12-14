@@ -14,7 +14,7 @@ class FellowshipStorageApiSpec extends CatsEffectSuite with BaseSpec {
     assertIO(
       for {
         init <- walletStateApi
-          .initWalletState(NetworkConstants.PRIVATE_NETWORK_ID, NetworkConstants.MAIN_NETWORK_ID, mockMainKeyPair.vk)
+          .initWalletState(NetworkConstants.PRIVATE_NETWORK_ID, NetworkConstants.MAIN_NETWORK_ID, mockMainKeyPair)
         _           <- fellowshipApi.addFellowship(fellowship)
         fellowships <- fellowshipApi.findFellowships()
       } yield fellowships.length == 3 && fellowships.last == fellowship,

@@ -66,13 +66,9 @@ provided by the Service Kit to persist to a SQLite database file. See [Initializ
    ```scala
    mainKeyPair <- walletApi.extractMainKey(walletResult.mainKeyVaultStore, "password".getBytes())
    ```
-3. Using the `mainKeyPair` created above, derive a child key at (1, 1).
+3. Using the Topl main key and `walletStateApi` created above, initialize the wallet state using `initWalletState`
    ```scala
-   childKeyPair <- walletApi.deriveChildKeysPartial(mainKeyPair, 1, 1)
-   ```
-4. Using the `childKeyPair` and `walletStateApi` created above, initialize the wallet state using `initWalletState`
-   ```scala
-   walletStateApi.initWalletState(PRIVATE_NETWORK_ID, MAIN_LEDGER_ID, childKeyPair.vk)
+   walletStateApi.initWalletState(PRIVATE_NETWORK_ID, MAIN_LEDGER_ID, mainKeyPair)
    ```
 
 ### Breakpoint Check
@@ -117,8 +113,7 @@ val walletStateApi = WalletStateApi.make[IO](conn, walletApi)
 val initializeWallet = for {
    walletResult <- walletApi.createAndSaveNewWallet[IO]("password".getBytes, name = keyFile, mnemonicName = mnemonicFile)
    mainKeyPair <- walletApi.extractMainKey(walletResult.toOption.get.mainKeyVaultStore, "password".getBytes())
-   childKeyPair <- walletApi.deriveChildKeysPartial(mainKeyPair.toOption.get, 1, 1)
-   _ <- walletStateApi.initWalletState(PRIVATE_NETWORK_ID, MAIN_LEDGER_ID, childKeyPair.vk)
+   _ <- walletStateApi.initWalletState(PRIVATE_NETWORK_ID, MAIN_LEDGER_ID, mainKeyPair.toOption.get)
 } yield mainKeyPair
 
 initializeWallet.unsafeRunSync()
@@ -231,8 +226,7 @@ val walletStateApi = WalletStateApi.make[IO](conn, walletApi)
 val initializeWallet = for {
   walletResult <- walletApi.createAndSaveNewWallet[IO]("password".getBytes, name = keyFile, mnemonicName = mnemonicFile)
   mainKeyPair <- walletApi.extractMainKey(walletResult.toOption.get.mainKeyVaultStore, "password".getBytes())
-  childKeyPair <- walletApi.deriveChildKeysPartial(mainKeyPair.toOption.get, 1, 1)
-  _ <- walletStateApi.initWalletState(PRIVATE_NETWORK_ID, MAIN_LEDGER_ID, childKeyPair.vk)
+  _ <- walletStateApi.initWalletState(PRIVATE_NETWORK_ID, MAIN_LEDGER_ID, mainKeyPair.toOption.get)
 } yield mainKeyPair
 
 // Replace with the address and port of your node's gRPC endpoint
@@ -330,8 +324,7 @@ val walletStateApi = WalletStateApi.make[IO](conn, walletApi)
 val initializeWallet = for {
   walletResult <- walletApi.createAndSaveNewWallet[IO]("password".getBytes, name = keyFile, mnemonicName = mnemonicFile)
   mainKeyPair <- walletApi.extractMainKey(walletResult.toOption.get.mainKeyVaultStore, "password".getBytes())
-  childKeyPair <- walletApi.deriveChildKeysPartial(mainKeyPair.toOption.get, 1, 1)
-  _ <- walletStateApi.initWalletState(PRIVATE_NETWORK_ID, MAIN_LEDGER_ID, childKeyPair.vk)
+  _ <- walletStateApi.initWalletState(PRIVATE_NETWORK_ID, MAIN_LEDGER_ID, mainKeyPair.toOption.get)
 } yield mainKeyPair
 
 // Replace with the address and port of your node's gRPC endpoint
@@ -436,8 +429,7 @@ val walletStateApi = WalletStateApi.make[IO](conn, walletApi)
 val initializeWallet = for {
   walletResult <- walletApi.createAndSaveNewWallet[IO]("password".getBytes, name = keyFile, mnemonicName = mnemonicFile)
   mainKeyPair <- walletApi.extractMainKey(walletResult.toOption.get.mainKeyVaultStore, "password".getBytes())
-  childKeyPair <- walletApi.deriveChildKeysPartial(mainKeyPair.toOption.get, 1, 1)
-  _ <- walletStateApi.initWalletState(PRIVATE_NETWORK_ID, MAIN_LEDGER_ID, childKeyPair.vk)
+  _ <- walletStateApi.initWalletState(PRIVATE_NETWORK_ID, MAIN_LEDGER_ID, mainKeyPair.toOption.get)
 } yield mainKeyPair
 
 // Replace with the address and port of your node's gRPC endpoint

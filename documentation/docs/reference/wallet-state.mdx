@@ -40,11 +40,11 @@ have a wallet state, the file path should point to the existing file.
 ## Initialize Wallet State
 
 When creating a wallet for the first time, you must initialize its state. This can be done by calling the
-function <ScaladocLink path="co/topl/brambl/dataApi/WalletStateAlgebra.html#initWalletState(Int,Int,VerificationKey):F[Unit]"><code>initWalletState</code></ScaladocLink>
+function <ScaladocLink path="co/topl/brambl/dataApi/WalletStateAlgebra.html#initWalletState(Int,Int,KeyPair):F[Unit]"><code>initWalletState</code></ScaladocLink>
 in a Wallet State instance. Read more about state initialization in [Creating a Vault and a Wallet Database](../service-kit/usage#creating-a-vault-and-a-wallet-database).
 
 ```scala
-def initWalletState(networkId: Int, ledgerId: Int, vk: VerificationKey): F[Unit]
+def initWalletState(networkId: Int, ledgerId: Int, mainKey: KeyPair): F[Unit]
 ```
 
 This function initializes the original state of a newly created wallet. In the provided default implementation, this
@@ -57,9 +57,8 @@ the <ScaladocLink path="co/topl/brambl/constants/NetworkConstants$.html"><code>N
 - `ledgerId`: The ID of the ledger that the wallet is being initialized for. This ID is used to generate the initial lock
 addresses. The only possible value is `MAIN_LEDGER_ID` which can be found in the
 the <ScaladocLink path="co/topl/brambl/constants/NetworkConstants$.html"><code>NetworkConstants</code></ScaladocLink> object.
-- `vk`: The parent verification key (x, y) associated to the "self" fellowship and "default" template. Most commonly, this
-will be the verification key derived from the (x=1, y=1) path of the wallet's Main Key Pair. This verification key is used
-to initialize the first fellowships, templates, and child key pair in the wallet state.
+- `mainKey`: The Topl Main Key to initialize the wallet state with. This key pair is used to initialize the first
+fellowships, templates, and child key pair in the wallet state.
 
 
 ### Example
@@ -89,9 +88,7 @@ val walletStateApi = WalletStateApi.make[IO](walletDbConnection, walletApi)
 val initializeWallet = for {
   wallet <- walletApi.createNewWallet(password).map(_.fold(throw _, identity))
   mainKey <- walletApi.extractMainKey(wallet.mainKeyVaultStore, password).map(_.fold(throw _, identity))
-  xyKey <- walletApi.deriveChildKeysPartial(mainKey, 1, 1)
-  // highlight-next-line
-  _ <- walletStateApi.initWalletState(PRIVATE_NETWORK_ID, MAIN_LEDGER_ID, xyKey.vk)
+  _ <- walletStateApi.initWalletState(PRIVATE_NETWORK_ID, MAIN_LEDGER_ID, mainKey)
 } yield ()
 
 initializeWallet.unsafeRunSync()
