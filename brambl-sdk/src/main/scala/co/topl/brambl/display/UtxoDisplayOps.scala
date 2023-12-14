@@ -7,10 +7,11 @@ import co.topl.brambl.models.transaction.UnspentTransactionOutput
 
 trait UtxoDisplayOps {
 
-  implicit val utxoDisplay: DisplayOps[UnspentTransactionOutput] = (utxo: UnspentTransactionOutput) => s"""
-${padLabel("LockAddress")}${utxo.address.display}
-${utxo.value.value.display}
-"""
+  implicit val utxoDisplay: DisplayOps[UnspentTransactionOutput] = (utxo: UnspentTransactionOutput) =>
+    Seq(
+      padLabel("LockAddress") + utxo.address.display,
+      utxo.value.value.display
+    ).mkString("\n")
 
   implicit val lockAddressDisplay: DisplayOps[LockAddress] = (lockAddress: LockAddress) =>
     AddressCodecs.encodeAddress(lockAddress)

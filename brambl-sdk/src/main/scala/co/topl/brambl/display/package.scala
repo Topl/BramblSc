@@ -11,7 +11,7 @@ package object display
     with TransactionDisplayOps
     with BlockDisplayOps {
 
-  val LabelLength = 14
+  val LabelLength = 27
 
   def padLabel(label: String): String = {
     val padding = " " * (LabelLength - label.length).max(0)

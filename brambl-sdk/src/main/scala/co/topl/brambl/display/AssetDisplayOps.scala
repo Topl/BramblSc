@@ -8,20 +8,23 @@ import co.topl.brambl.syntax.int128AsBigInt
 trait AssetDisplayOps {
 
   implicit val assetDisplay: DisplayOps[Value.Asset] = (asset: Value.Asset) =>
-    s"Asset\n" +
-    s"${padLabel("GroupId")}${asset.groupId.map(gId => gId.display).getOrElse("N/A")}\n" +
-    s"${padLabel("SeriesId")}${asset.seriesId.map(sId => sId.display).getOrElse("N/A")}\n" +
-    s"${padLabel("Commitment")}${asset.commitment
+    Seq(
+      "Asset",
+      padLabel("GroupId") + asset.groupId.map(gId => gId.display).getOrElse("N/A"),
+      padLabel("SeriesId") + asset.seriesId.map(sId => sId.display).getOrElse("N/A"),
+      padLabel("Commitment") + asset.commitment
         .map(x => Encoding.encodeToHex(x.toByteArray()))
-        .getOrElse("No commitment")}\n" +
-    s"${padLabel("Ephemeral-Metadata")}\n" +
-    s"${asset.ephemeralMetadata.map(meta => meta.display).getOrElse("No ephemeral metadata")}"
+        .getOrElse("No commitment"),
+      padLabel("Ephemeral-Metadata"),
+      asset.ephemeralMetadata.map(meta => meta.display).getOrElse("No ephemeral metadata")
+    ).mkString("\n")
 
-  implicit val assetMintingStatementDisplay: DisplayOps[AssetMintingStatement] = (ams: AssetMintingStatement) => s"""
-${padLabel("Group-Token-Utxo")}${ams.groupTokenUtxo.display}
-${padLabel("Series-Token-Utxo")}${ams.seriesTokenUtxo.display}
-${padLabel("Quantity")}${(ams.quantity: BigInt).toString}
-${padLabel("Permanent-Metadata")}
-${ams.permanentMetadata.map(meta => meta.display).getOrElse("No permanent metadata")}
-      """
+  implicit val assetMintingStatementDisplay: DisplayOps[AssetMintingStatement] = (ams: AssetMintingStatement) =>
+    Seq(
+      padLabel("Group-Token-Utxo") + ams.groupTokenUtxo.display,
+      padLabel("Series-Token-Utxo") + ams.seriesTokenUtxo.display,
+      padLabel("Quantity") + (ams.quantity: BigInt).toString,
+      padLabel("Permanent-Metadata"),
+      ams.permanentMetadata.map(meta => meta.display).getOrElse("No permanent metadata")
+    ).mkString("\n")
 }

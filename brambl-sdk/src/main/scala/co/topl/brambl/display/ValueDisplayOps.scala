@@ -10,7 +10,7 @@ import scala.util.{Failure, Success, Try}
 trait ValueDisplayOps {
 
   implicit val valueDisplay: DisplayOps[Value.Value] = (value: Value.Value) =>
-    s"${typeDisplay(value)}\n${quantityDisplay(value)}"
+    Seq(typeDisplay(value), quantityDisplay(value)).mkString("\n")
 
   def typeDisplay(value: Value.Value): String = {
     val vType = value match {

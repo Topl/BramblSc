@@ -25,24 +25,27 @@ trait SeriesDisplayOps {
     case _ => throw new Exception("Unknown quantity descriptor type") // should not happen
   }
 
-  implicit val seriesPolicyDisplay: DisplayOps[Datum.SeriesPolicy] = (sp: Datum.SeriesPolicy) => s"""
-${padLabel("Label")}${sp.event.label}
-${padLabel("Regitration-Utxo")}${sp.event.registrationUtxo.display}
-${padLabel("Fungibility")}${sp.event.fungibility.display}
-${padLabel("Quantity-Descriptor")}${sp.event.quantityDescriptor.display}
-${padLabel("Token-Supply")}${displayTokenSupply(sp.event.tokenSupply)}
-${padLabel("Permanent-Metadata-Scheme")}
-${sp.event.permanentMetadataScheme.map(meta => meta.display).getOrElse("No permanent metadata")}
-${padLabel("Ephemeral-Metadata-Scheme")}
-${sp.event.ephemeralMetadataScheme.map(meta => meta.display).getOrElse("No ephemeral metadata")}
-"""
+  implicit val seriesPolicyDisplay: DisplayOps[Datum.SeriesPolicy] = (sp: Datum.SeriesPolicy) =>
+    Seq(
+      padLabel("Label") + sp.event.label,
+      padLabel("Registration-Utxo") + sp.event.registrationUtxo.display,
+      padLabel("Fungibility") + sp.event.fungibility.display,
+      padLabel("Quantity-Descriptor") + sp.event.quantityDescriptor.display,
+      padLabel("Token-Supply") + displayTokenSupply(sp.event.tokenSupply),
+      padLabel("Permanent-Metadata-Scheme"),
+      sp.event.permanentMetadataScheme.map(meta => meta.display).getOrElse("No permanent metadata"),
+      padLabel("Ephemeral-Metadata-Scheme"),
+      sp.event.ephemeralMetadataScheme.map(meta => meta.display).getOrElse("No ephemeral metadata")
+    ).mkString("\n")
 
   implicit val seriesDisplay: DisplayOps[Value.Series] = (series: Value.Series) =>
-    s"Series Constructor\n" +
-    s"${padLabel("Id")}${series.seriesId.display}\n" +
-    s"${padLabel("Fungibility")}${series.fungibility.display}\n" +
-    s"${padLabel("Token-Supply")}${displayTokenSupply(series.tokenSupply)}\n" +
-    s"${padLabel("Quant-Descr.")}${series.quantityDescriptor.display}"
+    Seq(
+      "Series Constructor",
+      padLabel("Id") + series.seriesId.display,
+      padLabel("Fungibility") + series.fungibility.display,
+      padLabel("Token-Supply") + displayTokenSupply(series.tokenSupply),
+      padLabel("Quant-Descr.") + series.quantityDescriptor.display
+    ).mkString("\n")
 
   private def displayTokenSupply(tokenSupply: Option[Int]): String =
     tokenSupply.map(_.toString).getOrElse("UNLIMITED")

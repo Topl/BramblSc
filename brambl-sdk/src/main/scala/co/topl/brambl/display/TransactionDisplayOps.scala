@@ -17,19 +17,15 @@ ${padLabel("TransactionId")}${tx.transactionId.getOrElse(tx.computeId).display}
 
 Group Policies
 ==============
-
 ${tx.groupPolicies.map(gp => gp.display).mkString("\n-----------\n")}
 
 Series Policies
 ===============
-
 ${tx.seriesPolicies.map(sp => sp.display).mkString("\n-----------\n")}
 
 Asset Minting Statements
 ========================
-
 ${tx.mintingStatements.map(ams => ams.display).mkString("\n-----------\n")}
-
 
 Inputs
 ======
