@@ -10,7 +10,7 @@ import scala.util.{Failure, Success, Try}
 trait ValueDisplayOps {
 
   implicit val valueDisplay: DisplayOps[Value.Value] = (value: Value.Value) =>
-    s"""${typeDisplay(value)}\n${quantityDisplay(value)}"""
+    s"${typeDisplay(value)}\n${quantityDisplay(value)}"
 
   def typeDisplay(value: Value.Value): String = {
     val vType = value match {
@@ -21,7 +21,7 @@ trait ValueDisplayOps {
       case Topl(_)   => "TOPL"
       case _         => "Unknown txo type"
     }
-    "Type         : " + vType
+    padLabel("Type") + vType
   }
 
   def quantityDisplay(value: Value.Value): String = {
@@ -31,6 +31,6 @@ trait ValueDisplayOps {
       case Success(asInt128) => (asInt128: BigInt).toString()
       case Failure(_)        => "Undefine type"
     }
-    "Value      : " + quantity
+    padLabel("Value") + quantity
   }
 }

@@ -9,8 +9,8 @@ import co.topl.genus.services.Txo
 trait StxoDisplayOps {
 
   implicit val stxoDisplay: DisplayOps[SpentTransactionOutput] = (stxo: SpentTransactionOutput) => s"""
-TxoAddress  : ${stxo.address.display}
-Attestation  : Not implemented
+${padLabel("TxoAddress")}  : ${stxo.address.display}
+${padLabel("Attestation")}  : Not implemented
 ${stxo.value.value.display}
 """
 
@@ -20,8 +20,8 @@ ${stxo.value.value.display}
       )}#${txoAddress.index}"
 
   implicit val txoDisplay: DisplayOps[Txo] = (txo: Txo) => s"""
-TxoAddress : ${txo.outputAddress.display}
-LockAddress: ${txo.transactionOutput.address.display}
+${padLabel("TxoAddress")} : ${txo.outputAddress.display}
+${padLabel("LockAddress")}: ${txo.transactionOutput.address.display}
 ${txo.transactionOutput.value.value.display}
 """
 

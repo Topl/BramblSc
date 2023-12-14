@@ -9,19 +9,19 @@ trait AssetDisplayOps {
 
   implicit val assetDisplay: DisplayOps[Value.Asset] = (asset: Value.Asset) =>
     s"Asset\n" +
-    s"GroupId      : ${asset.groupId.map(gId => gId.display).getOrElse("N/A")}\n" +
-    s"SeriesId     : ${asset.seriesId.map(sId => sId.display).getOrElse("N/A")}\n" +
-    s"Commitment   : ${asset.commitment
+    s"${padLabel("GroupId")}${asset.groupId.map(gId => gId.display).getOrElse("N/A")}\n" +
+    s"${padLabel("SeriesId")}${asset.seriesId.map(sId => sId.display).getOrElse("N/A")}\n" +
+    s"${padLabel("Commitment")}${asset.commitment
         .map(x => Encoding.encodeToHex(x.toByteArray()))
         .getOrElse("No commitment")}\n" +
-    s"Ephemeral-Metadata: \n" +
+    s"${padLabel("Ephemeral-Metadata")}\n" +
     s"${asset.ephemeralMetadata.map(meta => meta.display).getOrElse("No ephemeral metadata")}"
 
   implicit val assetMintingStatementDisplay: DisplayOps[AssetMintingStatement] = (ams: AssetMintingStatement) => s"""
-Group-Token-Utxo: ${ams.groupTokenUtxo.display}
-Series-Token-Utxo: ${ams.seriesTokenUtxo.display}
-Quantity: ${(ams.quantity: BigInt).toString}
-Permanent-Metadata:
+${padLabel("Group-Token-Utxo")}${ams.groupTokenUtxo.display}
+${padLabel("Series-Token-Utxo")}${ams.seriesTokenUtxo.display}
+${padLabel("Quantity")}${(ams.quantity: BigInt).toString}
+${padLabel("Permanent-Metadata")}
 ${ams.permanentMetadata.map(meta => meta.display).getOrElse("No permanent metadata")}
       """
 }

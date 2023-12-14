@@ -11,6 +11,13 @@ package object display
     with TransactionDisplayOps
     with BlockDisplayOps {
 
+  val LabelLength = 14
+
+  def padLabel(label: String): String = {
+    val padding = " " * (LabelLength - label.length).max(0)
+    s"${label}${padding}: "
+  }
+
   trait DisplayOps[T] {
     def display(t: T): String
   }

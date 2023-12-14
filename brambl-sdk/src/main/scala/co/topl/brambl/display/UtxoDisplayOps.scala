@@ -8,7 +8,7 @@ import co.topl.brambl.models.transaction.UnspentTransactionOutput
 trait UtxoDisplayOps {
 
   implicit val utxoDisplay: DisplayOps[UnspentTransactionOutput] = (utxo: UnspentTransactionOutput) => s"""
-LockAddress  : ${utxo.address.display}
+${padLabel("LockAddress")}${utxo.address.display}
 ${utxo.value.value.display}
 """
 

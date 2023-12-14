@@ -1,7 +1,7 @@
 package co.topl.brambl.display
 
 import co.topl.brambl.display.DisplayOps.DisplayTOps
-import co.topl.brambl.models.{Datum, TransactionId}
+import co.topl.brambl.models.TransactionId
 import co.topl.brambl.models.transaction.IoTransaction
 import co.topl.brambl.syntax.ioTransactionAsTransactionSyntaxOps
 import co.topl.brambl.utils.Encoding
@@ -13,7 +13,7 @@ trait TransactionDisplayOps {
 
   implicit val transactionDisplay: DisplayOps[IoTransaction] = (tx: IoTransaction) =>
     s"""
-TransactionId : ${tx.transactionId.getOrElse(tx.computeId).display}
+${padLabel("TransactionId")}${tx.transactionId.getOrElse(tx.computeId).display}
 
 Group Policies
 ==============
@@ -40,15 +40,9 @@ Outputs
 =======
 ${if (tx.outputs.isEmpty) ("No outputs")
       else tx.outputs.map(utxo => utxo.display).mkString("\n-----------\n")}
-Datum        :
-${tx.datum.display}
-"""
 
-  implicit val txDatumDisplay: DisplayOps[Datum.IoTransaction] = (datumIoTransation: Datum.IoTransaction) =>
-    s"""
-Value      : ${Encoding.encodeToBase58(
-        datumIoTransation.event.metadata.value.toByteArray()
-      )}
+Datum
+=====
+${padLabel("Value")}${Encoding.encodeToBase58(tx.datum.event.metadata.value.toByteArray())}
 """
-
 }
