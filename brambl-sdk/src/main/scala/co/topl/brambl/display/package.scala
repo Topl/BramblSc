@@ -8,7 +8,8 @@ package object display
     with AssetDisplayOps
     with GroupDisplayOps
     with SeriesDisplayOps
-    with TransactionDisplayOps {
+    with TransactionDisplayOps
+    with BlockDisplayOps {
 
   trait DisplayOps[T] {
     def display(t: T): String
