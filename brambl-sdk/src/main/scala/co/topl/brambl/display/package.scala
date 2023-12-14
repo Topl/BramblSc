@@ -2,11 +2,13 @@ package co.topl.brambl
 
 package object display
     extends UtxoDisplayOps
+    with StxoDisplayOps
     with ValueDisplayOps
     with StructDisplayOps
+    with AssetDisplayOps
     with GroupDisplayOps
-    with SeriesDisplayOps {
-  val Sep = "\n-----------\n"
+    with SeriesDisplayOps
+    with TransactionDisplayOps {
 
   trait DisplayOps[T] {
     def display(t: T): String
