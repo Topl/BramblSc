@@ -9,9 +9,12 @@ package object display
     with GroupDisplayOps
     with SeriesDisplayOps
     with TransactionDisplayOps
+    with QuivrDisplayOps
+    with ValidationErrorDisplayOps
     with BlockDisplayOps {
 
   val LabelLength = 27
+  val Indent = 2
 
   def padLabel(label: String): String = {
     val padding = " " * (LabelLength - label.length).max(0)
