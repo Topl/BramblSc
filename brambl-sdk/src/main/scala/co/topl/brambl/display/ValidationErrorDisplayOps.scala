@@ -2,7 +2,7 @@ package co.topl.brambl.display
 
 import co.topl.brambl.display.DisplayOps.DisplayTOps
 import co.topl.brambl.validation.TransactionAuthorizationError.AuthorizationFailed
-import co.topl.brambl.validation.TransactionSyntaxError
+import co.topl.brambl.validation.{TransactionSyntaxError, ValidationError}
 import co.topl.quivr.runtime.QuivrRuntimeError
 import co.topl.quivr.runtime.QuivrRuntimeErrors.ContextError.{
   FailedToFindDatum,
@@ -19,6 +19,12 @@ import co.topl.quivr.runtime.QuivrRuntimeErrors.ValidationError.{
 
 trait ValidationErrorDisplayOps {
 
+  implicit val validationErrorDisplay: DisplayOps[ValidationError] = {
+    case err: TransactionSyntaxError => err.display
+    case err: AuthorizationFailed    => err.display
+    case _                           => "Unknown validation error" // Should not get here
+  }
+
   implicit val syntaxErrorDisplay: DisplayOps[TransactionSyntaxError] = (err: TransactionSyntaxError) =>
     "Not Implemented Yet"
 
@@ -34,7 +40,13 @@ trait ValidationErrorDisplayOps {
     case LockedPropositionIsUnsatisfiable  => "Locked proposition is unsatisfiable"
     case MessageAuthorizationFailed(proof) => s"Transaction Bind on proof is invalid. Proof: ${proof.display}"
     case EvaluationAuthorizationFailed(proposition, proof) =>
-      s"Proof does not satisfy proposition. Proposition: ${proposition.display}, Proof: ${proof.display}"
+      Seq(
+        "Proof does not satisfy proposition.",
+        displayIndent("Proposition:", Indent),
+        displayIndent(proposition.display, Indent),
+        displayIndent("Proof:", Indent),
+        displayIndent(proof.display, Indent)
+      ).mkString("\n")
     case _ => "Unknown Quivr Runtime error" // Should not get here
   }
 }

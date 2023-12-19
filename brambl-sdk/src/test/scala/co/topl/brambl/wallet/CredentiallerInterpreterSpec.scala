@@ -10,6 +10,7 @@ import co.topl.brambl.common.ContainsImmutable.instances._
 import co.topl.brambl.common.ContainsSignable.ContainsSignableTOps
 import co.topl.brambl.common.ContainsSignable.instances._
 import co.topl.brambl.dataApi.WalletStateAlgebra
+import co.topl.brambl.display.DisplayOps.DisplayTOps
 import co.topl.brambl.models.{Datum, Event, Indices}
 import co.topl.brambl.models.box._
 import co.topl.brambl.models.transaction.IoTransaction
@@ -769,6 +770,7 @@ class CredentiallerInterpreterSpec extends CatsEffectSuite with MockHelpers {
         // Should be validated since sufficiently proven
         res2 <- credentialler2.validate(completelyProven, ctx)
       } yield {
+        println(res1.map(_.display).mkString("\n"))
         val validRes1 = (res1.length == 1) && (partiallyProven.signable.value == testTx.signable.value)
         val validRes2 = (res2.isEmpty) && (completelyProven.signable.value == testTx.signable.value)
         validRes1 && validRes2

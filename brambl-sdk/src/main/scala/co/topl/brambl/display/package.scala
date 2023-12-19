@@ -16,6 +16,8 @@ package object display
   val LabelLength = 27
   val Indent = 2
 
+  def displayIndent(txt: String, indent: Int, prefix: String = " "): String = " " * indent + prefix + " " + txt
+
   def padLabel(label: String): String = {
     val padding = " " * (LabelLength - label.length).max(0)
     s"${label}${padding}: "

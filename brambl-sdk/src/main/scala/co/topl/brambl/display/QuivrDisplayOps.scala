@@ -5,110 +5,102 @@ import quivr.models.{Proof, Proposition}
 
 trait QuivrDisplayOps {
 
-  implicit val propositionDisplay: DisplayOps[Proposition] = (p: Proposition) => display(p, 0)
+  implicit val propositionDisplay: DisplayOps[Proposition] = (p: Proposition) => displayProposition(p, 0)
 
-  implicit val proofDisplay: DisplayOps[Proof] = (p: Proof) => display(p, 0)
-  private def display(txt: String, indent: Int, prefix: String = " "): String = " " * indent + prefix + " " + txt
+  implicit val proofDisplay: DisplayOps[Proof] = (p: Proof) => displayProof(p, 0)
 
-  private def display(p: Proposition, indent: Int): String = p.value.value match {
-    case Proposition.Value.Locked(_) => display("Locked", indent, "-")
+  private def displayProposition(p: Proposition, indent: Int, prefix: String = " "): String = p.value match {
+    case Proposition.Value.Locked(_) => displayIndent("Locked", indent, prefix)
     case Proposition.Value.Digest(Proposition.Digest(routine, digest, _)) =>
       Seq(
-        display("Digest:", indent, "-"),
-        display(s"routine: ${routine}", indent),
-        display(s"${Encoding.encodeToBase58(digest.value.toByteArray)}", indent)
+        displayIndent("Digest", indent, prefix),
+        displayIndent(s"routine: ${routine}", indent),
+        displayIndent(s"${Encoding.encodeToBase58(digest.value.toByteArray)}", indent)
       ).mkString("\n")
     case Proposition.Value.DigitalSignature(Proposition.DigitalSignature(routine, vk, _)) =>
       Seq(
-        display("Signature:", indent, "-"),
-        display(s"routine: ${routine}", indent),
-        display(s"vk: ${Encoding.encodeToBase58(vk.toByteArray)}", indent)
+        displayIndent("Signature", indent, prefix),
+        displayIndent(s"routine: ${routine}", indent),
+        displayIndent(s"vk: ${Encoding.encodeToBase58(vk.toByteArray)}", indent)
       ).mkString("\n")
-    case Proposition.Value.HeightRange(_) => display("HeightRange", indent, "-")
-    case Proposition.Value.TickRange(_)   => display("TickRange", indent, "-")
-    case Proposition.Value.ExactMatch(_)  => display("Exact", indent, "-")
-    case Proposition.Value.LessThan(_)    => display("LessThan", indent, "-")
-    case Proposition.Value.GreaterThan(_) => display("GreaterThan", indent, "-")
-    case Proposition.Value.EqualTo(_)     => display("EqualTo", indent, "-")
+    case Proposition.Value.HeightRange(_) => displayIndent("HeightRange", indent, prefix)
+    case Proposition.Value.TickRange(_)   => displayIndent("TickRange", indent, prefix)
+    case Proposition.Value.ExactMatch(_)  => displayIndent("Exact", indent, prefix)
+    case Proposition.Value.LessThan(_)    => displayIndent("LessThan", indent, prefix)
+    case Proposition.Value.GreaterThan(_) => displayIndent("GreaterThan", indent, prefix)
+    case Proposition.Value.EqualTo(_)     => displayIndent("EqualTo", indent, prefix)
     case Proposition.Value.Not(Proposition.Not(proposition, _)) =>
       Seq(
-        display("Not:", indent, "-"),
-        display(proposition, indent + Indent)
+        displayIndent("Not", indent, prefix),
+        displayProposition(proposition, indent + Indent)
       ).mkString("\n")
     case Proposition.Value.And(Proposition.And(left, right, _)) =>
       Seq(
-        display("And:", indent, "-"),
-        display("left:", indent),
-        display(left, indent + Indent),
-        display("right:", indent),
-        display(right, indent + Indent)
+        displayIndent("And", indent, prefix),
+        displayProposition(left, indent + Indent, "left:"),
+        displayProposition(right, indent + Indent, "right:")
       ).mkString("\n")
     case Proposition.Value.Or(Proposition.Or(left, right, _)) =>
       Seq(
-        display("Or:", indent, "-"),
-        display("left:", indent),
-        display(left, indent + Indent),
-        display("right:", indent),
-        display(right, indent + Indent)
+        displayIndent("Or", indent, prefix),
+        displayProposition(left, indent + Indent, "left:"),
+        displayProposition(right, indent + Indent, "right:")
       ).mkString("\n")
     case Proposition.Value.Threshold(Proposition.Threshold(challenges, thresh, _)) =>
       Seq(
-        display(s"Threshold: ${thresh}", indent, "-"),
-        display("challenged:", indent),
-        display(challenges.map(r => display(r, indent + Indent)).mkString("\n"), 0)
+        displayIndent(s"Threshold ${thresh}", indent, prefix),
+        displayIndent("challenges:", indent),
+        // TODO: Not displaying properly
+        displayIndent(challenges.map(r => displayProposition(r, 0, "-")).mkString("\n"), 0)
       ).mkString("\n")
-    case Proposition.Value.Empty => display("EMPTY", indent, "-") // Should never happen
-    case _                       => display("UNKNOWN", indent, "-") // Should never happen
+    case Proposition.Value.Empty => displayIndent("EMPTY", indent, prefix) // Should never happen
+    case _                       => displayIndent("UNKNOWN", indent, prefix) // Should never happen
   }
 
-  private def display(p: Proof, indent: Int): String = p.value.value match {
-    case Proof.Value.Empty     => display("EMPTY", indent, "-")
-    case Proof.Value.Locked(_) => display("Locked", indent, "-")
+  private def displayProof(p: Proof, indent: Int, prefix: String = " "): String = p.value match {
+    case Proof.Value.Empty     => displayIndent("EMPTY", indent, prefix)
+    case Proof.Value.Locked(_) => displayIndent("Locked", indent, prefix)
     case Proof.Value.Digest(Proof.Digest(_, preimage, _)) =>
       Seq(
-        display("Digest:", indent, "-"),
-        display(s"input: ${Encoding.encodeToBase58(preimage.input.toByteArray)}", indent),
-        display(s"salt: ${Encoding.encodeToBase58(preimage.salt.toByteArray)}", indent)
+        displayIndent("Digest", indent, prefix),
+        displayIndent(s"input: ${Encoding.encodeToBase58(preimage.input.toByteArray)}", indent),
+        displayIndent(s"salt: ${Encoding.encodeToBase58(preimage.salt.toByteArray)}", indent)
       ).mkString("\n")
     case Proof.Value.DigitalSignature(Proof.DigitalSignature(_, witness, _)) =>
       Seq(
-        display("Signature:", indent, "-"),
-        display(Encoding.encodeToBase58(witness.value.toByteArray), indent)
+        displayIndent("Signature", indent, prefix),
+        displayIndent(Encoding.encodeToBase58(witness.value.toByteArray), indent)
       ).mkString("\n")
-    case Proof.Value.HeightRange(_) => display("HeightRange", indent, "-")
-    case Proof.Value.TickRange(_)   => display("TickRange", indent, "-")
-    case Proof.Value.ExactMatch(_)  => display("Exact", indent, "-")
-    case Proof.Value.LessThan(_)    => display("LessThan", indent, "-")
-    case Proof.Value.GreaterThan(_) => display("GreaterThan", indent, "-")
-    case Proof.Value.EqualTo(_)     => display("EqualTo", indent, "-")
+    case Proof.Value.HeightRange(_) => displayIndent("HeightRange", indent, prefix)
+    case Proof.Value.TickRange(_)   => displayIndent("TickRange", indent, prefix)
+    case Proof.Value.ExactMatch(_)  => displayIndent("Exact", indent, prefix)
+    case Proof.Value.LessThan(_)    => displayIndent("LessThan", indent, prefix)
+    case Proof.Value.GreaterThan(_) => displayIndent("GreaterThan", indent, prefix)
+    case Proof.Value.EqualTo(_)     => displayIndent("EqualTo", indent, prefix)
     case Proof.Value.Not(Proof.Not(_, proof, _)) =>
       Seq(
-        display("Not:", indent, "-"),
-        display(proof, indent + Indent)
+        displayIndent("Not", indent, prefix),
+        displayProof(proof, indent + Indent)
       ).mkString("\n")
     case Proof.Value.And(Proof.And(_, left, right, _)) =>
       Seq(
-        display("And:", indent, "-"),
-        display("left:", indent),
-        display(left, indent + Indent),
-        display("right:", indent),
-        display(right, indent + Indent)
+        displayIndent("And", indent, prefix),
+        displayProof(left, indent + Indent, "left:"),
+        displayProof(right, indent + Indent, "right:")
       ).mkString("\n")
     case Proof.Value.Or(Proof.Or(_, left, right, _)) =>
       Seq(
-        display("Or:", indent, "-"),
-        display("left:", indent),
-        display(left, indent + Indent),
-        display("right:", indent),
-        display(right, indent + Indent)
+        displayIndent("Or", indent, prefix),
+        displayProof(left, indent + Indent, "left:"),
+        displayProof(right, indent + Indent, "right:")
       ).mkString("\n")
     case Proof.Value.Threshold(Proof.Threshold(_, responses, _)) =>
       Seq(
-        display("Threshold:", indent, "-"),
-        display("responses:", indent),
-        display(responses.map(r => display(r, indent + Indent)).mkString("\n"), 0)
+        displayIndent("Threshold", indent, prefix),
+        displayIndent("responses:", indent),
+        displayIndent(responses.map(r => displayProof(r, indent + Indent, "-")).mkString("\n"), 0)
       ).mkString("\n")
-    case _ => display("UNKNOWN", indent, "-") // Should never happen
+    case _ => displayIndent("UNKNOWN", indent, prefix) // Should never happen
   }
 
 }
