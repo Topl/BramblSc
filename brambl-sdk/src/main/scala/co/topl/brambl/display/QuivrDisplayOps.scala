@@ -5,9 +5,9 @@ import quivr.models.{Proof, Proposition}
 
 trait QuivrDisplayOps {
 
-  implicit val propositionDisplay: DisplayOps[Proposition] = (p: Proposition) => displayProposition(p, 0)
+  implicit val propositionDisplay: DisplayOps[Proposition] = (p: Proposition) => displayProposition(p, Indent, "Proposition:")
 
-  implicit val proofDisplay: DisplayOps[Proof] = (p: Proof) => displayProof(p, 0)
+  implicit val proofDisplay: DisplayOps[Proof] = (p: Proof) => displayProof(p, Indent, "Proof:")
 
   private def displayProposition(p: Proposition, indent: Int, prefix: String = " "): String = p.value match {
     case Proposition.Value.Locked(_) => displayIndent("Locked", indent, prefix)
@@ -48,10 +48,10 @@ trait QuivrDisplayOps {
       ).mkString("\n")
     case Proposition.Value.Threshold(Proposition.Threshold(challenges, thresh, _)) =>
       Seq(
-        displayIndent(s"Threshold ${thresh}", indent, prefix),
+        displayIndent(s"Threshold", indent, prefix),
+        displayIndent(thresh.toString, indent + Indent, "threshold:"),
         displayIndent("challenges:", indent),
-        // TODO: Not displaying properly
-        displayIndent(challenges.map(r => displayProposition(r, 0, "-")).mkString("\n"), 0)
+        challenges.map(r => displayProposition(r, indent + Indent, "-")).mkString("\n")
       ).mkString("\n")
     case Proposition.Value.Empty => displayIndent("EMPTY", indent, prefix) // Should never happen
     case _                       => displayIndent("UNKNOWN", indent, prefix) // Should never happen
@@ -98,7 +98,7 @@ trait QuivrDisplayOps {
       Seq(
         displayIndent("Threshold", indent, prefix),
         displayIndent("responses:", indent),
-        displayIndent(responses.map(r => displayProof(r, indent + Indent, "-")).mkString("\n"), 0)
+        responses.map(r => displayProof(r, indent + Indent, "-")).mkString("\n")
       ).mkString("\n")
     case _ => displayIndent("UNKNOWN", indent, prefix) // Should never happen
   }

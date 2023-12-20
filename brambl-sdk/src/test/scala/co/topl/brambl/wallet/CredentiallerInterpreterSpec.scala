@@ -3,27 +3,23 @@ package co.topl.brambl.wallet
 import cats.data.ValidatedNel
 import cats.effect.IO
 import cats.implicits._
-import co.topl.brambl.{Context, MockHelpers, MockWalletKeyApi, MockWalletStateApi}
 import co.topl.brambl.builders.locks.LockTemplate
 import co.topl.brambl.common.ContainsEvidence.Ops
 import co.topl.brambl.common.ContainsImmutable.instances._
 import co.topl.brambl.common.ContainsSignable.ContainsSignableTOps
 import co.topl.brambl.common.ContainsSignable.instances._
 import co.topl.brambl.dataApi.WalletStateAlgebra
-import co.topl.brambl.display.DisplayOps.DisplayTOps
-import co.topl.brambl.models.{Datum, Event, Indices}
 import co.topl.brambl.models.box._
 import co.topl.brambl.models.transaction.IoTransaction
+import co.topl.brambl.models.{Datum, Event, Indices}
 import co.topl.brambl.syntax.{cryptoToPbKeyPair, pbKeyPairToCryptoKeyPair}
 import co.topl.brambl.validation.TransactionAuthorizationError.AuthorizationFailed
 import co.topl.brambl.validation.TransactionSyntaxError
+import co.topl.brambl.{Context, MockHelpers, MockWalletKeyApi, MockWalletStateApi}
 import co.topl.crypto.generation.Bip32Indexes
 import co.topl.crypto.signing.ExtendedEd25519
 import co.topl.quivr.api.Proposer
-import co.topl.quivr.runtime.QuivrRuntimeErrors.ValidationError.{
-  EvaluationAuthorizationFailed,
-  LockedPropositionIsUnsatisfiable
-}
+import co.topl.quivr.runtime.QuivrRuntimeErrors.ValidationError.{EvaluationAuthorizationFailed, LockedPropositionIsUnsatisfiable}
 import com.google.protobuf.ByteString
 import munit.CatsEffectSuite
 import quivr.models._
@@ -770,7 +766,6 @@ class CredentiallerInterpreterSpec extends CatsEffectSuite with MockHelpers {
         // Should be validated since sufficiently proven
         res2 <- credentialler2.validate(completelyProven, ctx)
       } yield {
-        println(res1.map(_.display).mkString("\n"))
         val validRes1 = (res1.length == 1) && (partiallyProven.signable.value == testTx.signable.value)
         val validRes2 = (res2.isEmpty) && (completelyProven.signable.value == testTx.signable.value)
         validRes1 && validRes2

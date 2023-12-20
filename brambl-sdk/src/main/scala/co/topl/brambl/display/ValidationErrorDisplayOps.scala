@@ -42,10 +42,8 @@ trait ValidationErrorDisplayOps {
     case EvaluationAuthorizationFailed(proposition, proof) =>
       Seq(
         "Proof does not satisfy proposition.",
-        displayIndent("Proposition:", Indent),
-        displayIndent(proposition.display, Indent),
-        displayIndent("Proof:", Indent),
-        displayIndent(proof.display, Indent)
+        proposition.display,
+        proof.display
       ).mkString("\n")
     case _ => "Unknown Quivr Runtime error" // Should not get here
   }
