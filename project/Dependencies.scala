@@ -62,7 +62,7 @@ object Dependencies {
   )
 
   val sqlite: Seq[ModuleID] = Seq(
-    "org.xerial" % "sqlite-jdbc" % "3.43.2.2"
+    "org.xerial" % "sqlite-jdbc" % "3.44.0.0"
   )
 
   val grpcNetty = "io.grpc" % "grpc-netty" % "1.59.0"
@@ -70,7 +70,7 @@ object Dependencies {
   object Crypto {
 
     lazy val sources: Seq[ModuleID] =
-      Seq("org.bouncycastle" % "bcprov-jdk18on" % "1.76") ++
+      Seq("org.bouncycastle" % "bcprov-jdk18on" % "1.77") ++
       circe ++
       newType ++
       cats ++
