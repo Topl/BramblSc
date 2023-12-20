@@ -5,7 +5,8 @@ import quivr.models.{Proof, Proposition}
 
 trait QuivrDisplayOps {
 
-  implicit val propositionDisplay: DisplayOps[Proposition] = (p: Proposition) => displayProposition(p, Indent, "Proposition:")
+  implicit val propositionDisplay: DisplayOps[Proposition] = (p: Proposition) =>
+    displayProposition(p, Indent, "Proposition:")
 
   implicit val proofDisplay: DisplayOps[Proof] = (p: Proof) => displayProof(p, Indent, "Proof:")
 
