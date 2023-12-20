@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added a tutorial for creating a new custom asset
+- Pretty print (display) capabilities for the IoTransaction model
+- Pretty print (display) capabilities for Quivr Propositions, Proofs, and validation errors.
 
 ### Changed
 

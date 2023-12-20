@@ -3,19 +3,19 @@ package co.topl.brambl.wallet
 import cats.data.ValidatedNel
 import cats.effect.IO
 import cats.implicits._
-import co.topl.brambl.{Context, MockHelpers, MockWalletKeyApi, MockWalletStateApi}
 import co.topl.brambl.builders.locks.LockTemplate
 import co.topl.brambl.common.ContainsEvidence.Ops
 import co.topl.brambl.common.ContainsImmutable.instances._
 import co.topl.brambl.common.ContainsSignable.ContainsSignableTOps
 import co.topl.brambl.common.ContainsSignable.instances._
 import co.topl.brambl.dataApi.WalletStateAlgebra
-import co.topl.brambl.models.{Datum, Event, Indices}
 import co.topl.brambl.models.box._
 import co.topl.brambl.models.transaction.IoTransaction
+import co.topl.brambl.models.{Datum, Event, Indices}
 import co.topl.brambl.syntax.{cryptoToPbKeyPair, pbKeyPairToCryptoKeyPair}
 import co.topl.brambl.validation.TransactionAuthorizationError.AuthorizationFailed
 import co.topl.brambl.validation.TransactionSyntaxError
+import co.topl.brambl.{Context, MockHelpers, MockWalletKeyApi, MockWalletStateApi}
 import co.topl.crypto.generation.Bip32Indexes
 import co.topl.crypto.signing.ExtendedEd25519
 import co.topl.quivr.api.Proposer

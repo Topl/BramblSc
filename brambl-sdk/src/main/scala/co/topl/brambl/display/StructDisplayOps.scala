@@ -12,7 +12,6 @@ import com.google.protobuf.struct.Value.Kind.{
 }
 
 trait StructDisplayOps {
-  private val Indent = 2
   private val InitialIndent = Indent
 
   implicit val structDisplay: DisplayOps[Struct] = (struct: Struct) =>

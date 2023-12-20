@@ -1,13 +1,16 @@
 package co.topl.brambl.display
 
-import co.topl.brambl.MockHelpers
+import cats.effect.unsafe.implicits.global
 import co.topl.brambl.display.DisplayOps.DisplayTOps
-import co.topl.brambl.models.box.AssetMintingStatement
+import co.topl.brambl.models.box._
 import co.topl.brambl.models.transaction.Schedule
 import co.topl.brambl.models.{Datum, Event}
-import co.topl.brambl.syntax.longAsInt128
+import co.topl.brambl.syntax.{bigIntAsInt128, longAsInt128}
+import co.topl.brambl.wallet.{CredentiallerInterpreter, WalletApi}
+import co.topl.brambl.{Context, MockHelpers, MockWalletKeyApi, MockWalletStateApi}
+import co.topl.quivr.api.Proposer
 import com.google.protobuf.ByteString
-import quivr.models.SmallData
+import quivr.models.{Proof, SmallData}
 
 import scala.language.implicitConversions
 
@@ -141,4 +144,74 @@ Value                      : KJHK1EAZuVA
 """.trim()
     )
   }
+
+  test("Display Validation Errors") {
+    val walletApi: WalletApi[F] = WalletApi.make[F](MockWalletKeyApi)
+    val vErrs = for {
+      andProp <- Proposer.andProposer[F].propose((MockHeightProposition, MockSignatureProposition))
+      orProp  <- Proposer.orProposer[F].propose((MockDigestProposition, MockLockedProposition))
+      notProp <- Proposer.notProposer[F].propose(MockTickProposition)
+      innerPropositions = List(andProp, notProp, orProp)
+      thresh <- Proposer.thresholdProposer[F].propose((innerPropositions.toSet, innerPropositions.length))
+      testTx = txFull
+        .withInputs(
+          List(
+            inputFull.copy(attestation =
+              Attestation().withPredicate(
+                Attestation.Predicate(Lock.Predicate(List(Challenge().withRevealed(thresh)), 1), List.fill(3)(Proof()))
+              )
+            )
+          )
+        )
+        .withOutputs(
+          Seq(
+            output.withValue(output.value.withLvl(Value.LVL(BigInt(-1)))),
+            output.withValue(output.value.withLvl(Value.LVL(BigInt(100))))
+          )
+        )
+      ctx = Context[F](testTx, 50, _ => None) // Tick should pass, height should fail
+      res <- CredentiallerInterpreter
+        .make[F](walletApi, MockWalletStateApi, MockMainKeyPair)
+        .proveAndValidate(testTx, ctx)
+    } yield res.swap
+
+    val errsDisplay = vErrs.unsafeRunSync().toOption.get.map("> " + _.display).mkString("\n").trim
+    assertNoDiff(
+      errsDisplay,
+      s"""
+> Transaction has an output with a non-positive quantity value
+> Transaction inputs cannot satisfy outputs
+> Authorization failed. Causes:
+- Proof does not satisfy proposition.
+  Proposition: Threshold
+    threshold: 3
+    challenges:
+    - And
+      left: HeightRange
+      right: Signature
+        routine: ExtendedEd25519
+        vk: GeMD3jTehpe52JDKVn8iiGYfjv7kJpaKKeu7ub1ayoB7W1eUwSVCWHkPdT9px9ne1oTesjkTVTQ9ZA5ub869wFwm9zhJPs1Z97
+    - Not
+        TickRange
+    - Or
+      left: Digest
+        routine: Blake2b256
+        8YmGaFtQ5WmMQ7i6uStCZF7T6N6B6w5CT8nChEsr5ZrA
+      right: Locked
+  Proof: Threshold
+    responses:
+    - And
+      left: HeightRange
+      right: Signature
+        kg6S2aBmECwXiq6VF6XXUcCRgetPSGZc9tB8NJjFb9gMQNKe25DWUMLK1sgw7oH96qgu6D7qgy1uPfhGnj8Yjg7
+    - Not
+        TickRange
+    - Or
+      left: Digest
+        input: zTuS2beK
+        salt: 3x4JNf
+      right: Locked""".stripMargin
+    )
+  }
+
 }
