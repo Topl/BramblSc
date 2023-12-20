@@ -1,14 +1,13 @@
 ---
 sidebar_position: 2
-title: Initialize a Wallet
-description: Learn how to initialize a wallet
+title: Wallet Keys
+description: Learn how to initialize and use a wallet
 ---
 
 import DocCardList from '@theme/DocCardList';
 import ScaladocLink from '@site/src/components/ScaladocLink';
 
-A Wallet manages your Keys which will allow you to create and prove transactions. The SDK provides a way to create a
-new wallet from scratch or to import an existing wallet.
+A Wallet manages your Keys which will allow you to create and prove transactions.
 
 ## Prerequisites
 
@@ -35,5 +34,7 @@ val walletApi = WalletApi.make[IO](WalletKeyApi.make())
 ```
 
 ## Reference
+
+The first step to using a wallet is to initialize one. The SDK provides a way to create a new wallet from scratch or to import an existing wallet.
 
 <DocCardList/>

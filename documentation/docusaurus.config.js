@@ -71,11 +71,11 @@ const config = {
             sidebarId: 'serviceKitSidebar',
             label: 'Service Kit',
           },
-//          {
-//            type: 'docSidebar',
-//            sidebarId: 'tutorialsSidebar',
-//            label: 'Tutorials',
-//          },
+          {
+            type: 'docSidebar',
+            sidebarId: 'tutorialsSidebar',
+            label: 'Tutorials',
+          },
 //          {
 //            type: 'docSidebar',
 //            sidebarId: 'conceptsSidebar',

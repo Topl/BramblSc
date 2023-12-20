@@ -1,8 +1,0 @@
-{
-  "label": "Tutorials (TBD)",
-  "position": 2,
-  "link": {
-    "type": "generated-index",
-    "description": "Learn how to do common tasks with the SDK."
-  }
-}

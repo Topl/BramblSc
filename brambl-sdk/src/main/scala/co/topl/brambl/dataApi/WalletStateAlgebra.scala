@@ -4,7 +4,7 @@ import cats.data.ValidatedNel
 import co.topl.brambl.builders.locks.LockTemplate
 import co.topl.brambl.models.Indices
 import co.topl.brambl.models.box.Lock
-import quivr.models.{Preimage, Proposition, VerificationKey}
+import quivr.models.{KeyPair, Preimage, Proposition}
 
 /**
  * Defines a data API for storing and retrieving wallet interaction.
@@ -12,13 +12,13 @@ import quivr.models.{Preimage, Proposition, VerificationKey}
 trait WalletStateAlgebra[F[_]] {
 
   /**
-   * Initialize the wallet interaction with the given verification key
+   * Initialize the wallet interaction with the given key pair
    *
    * @param networkId The network id to initialize the wallet interaction with
    * @param ledgerId The ledger id to initialize the wallet interaction with
-   * @param vk The verification key to initialize the wallet interaction with
+   * @param mainKey The Topl Main verification key to initialize the wallet interaction with
    */
-  def initWalletState(networkId: Int, ledgerId: Int, vk: VerificationKey): F[Unit]
+  def initWalletState(networkId: Int, ledgerId: Int, mainKey: KeyPair): F[Unit]
 
   /**
    * Get the indices associated to a signature proposition
@@ -35,6 +35,14 @@ trait WalletStateAlgebra[F[_]] {
    * @return The preimage secret associated to the Digest Proposition if it exists. Else None
    */
   def getPreimage(digestProposition: Proposition.Digest): F[Option[Preimage]]
+
+  /**
+   * Add a preimage secret associated to a digest proposition.
+   *
+   * @param preimage The preimage secret to add
+   * @param digest The digest proposition for which the preimage is derived from.
+   */
+  def addPreimage(preimage: Preimage, digest: Proposition.Digest): F[Unit]
 
   /**
    * Get the current address for the wallet interaction

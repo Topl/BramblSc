@@ -13,12 +13,19 @@ import co.topl.brambl.syntax.{
 
 class TransactionBuilderInterpreterSeriesTransferSpec extends TransactionBuilderInterpreterSpecBase {
 
-  test("buildTransferAmountTransaction > unsupported token type (txos)") {
+  test("unsupported token type in txos is filtered out/ignored") {
     val testTx = buildTransferAmountTransaction
       .withTokenIdentifier(seriesValue.value.typeIdentifier)
       .withTxos(mockTxos :+ valToTxo(Value.defaultInstance)) // Value.empty
       .run
-    assertEquals(testTx, Left(UserInputErrors(Seq(UserInputError(s"UnknownType tokens are not supported.")))))
+    val expectedTx = buildTransferAmountTransaction
+      .withTokenIdentifier(seriesValue.value.typeIdentifier)
+      .withTxos(mockTxos) // The only difference is the unsupported txo is not present
+      .run
+    assert(
+      (testTx.isRight && expectedTx.isRight) &&
+      sortedTx(testTx.toOption.get).computeId == sortedTx(expectedTx.toOption.get).computeId
+    )
   }
 
   test("buildTransferAmountTransaction > quantity to transfer is non positive") {

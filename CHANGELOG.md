@@ -5,9 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [Unreleased] - YYYY-MM-DD - TODO replace date after release 
 
-## [v2.0.0-alpha4-SNAPSHOT] - - TODO replace date after release 
+### Added
+
+- Added a tutorial for creating a new custom asset
+- Pretty print (display) capabilities for the IoTransaction model
+- Pretty print (display) capabilities for Quivr Propositions, Proofs, and validation errors.
+
+### Changed
+
+- Service Kit's initWalletState now expects a Topl main key pair instead of a (1,1) partial derivative verification key
+
+## [v2.0.0-beta1] - 2023-12-05
+
+### Added
+
+- Added documentation for using a wallet (extract main key, derive child keys) 
+- Added documentation wallet functionality using persistence (createAndSaveNewWallet, importWalletAndSave, loadAndExtractMainKey) 
+- Added documentation for updating a wallet state
+- Added tutorials: Load new wallet with Genesis funds, Transfer funds from one wallet to another
+- Support saving and retrieving the preimage for Digest Propositions
+
+## [v2.0.0-alpha4-SNAPSHOT] 
 
 ### Added
 - TODO replace items after release

@@ -31,6 +31,7 @@ import co.topl.brambl.syntax.{
   valueToQuantitySyntaxOps,
   valueToTypeIdentifierSyntaxOps,
   LvlType,
+  UnknownType,
   ValueTypeIdentifier
 }
 import com.google.protobuf.struct.Struct
@@ -167,8 +168,9 @@ trait TransactionBuilderApi[F[_]] {
    * recipient will be transferred to the change address.
    *
    * @param txos All the TXOs encumbered by the Lock given by lockPredicateFrom. These TXOs must contain some token
-   *             matching tokenIdentifier (if it is provided) and at least the quantity of LVLs to satisfy the fee. All
-   *             TXOs must contain values of valid type. Else an error will be returned.
+   *             matching tokenIdentifier (if it is provided) and at least the quantity of LVLs to satisfy the fee. Else
+   *             an error will be returned. Any TXOs that contain values of an invalid type, such as UnknownType, will be
+   *             filtered out and won't be included in the inputs.
    * @param lockPredicateFrom The Lock Predicate encumbering the txos
    * @param recipientLockAddress The LockAddress of the recipient
    * @param changeLockAddress A LockAddress to send the tokens that are not going to the recipient
@@ -195,13 +197,13 @@ trait TransactionBuilderApi[F[_]] {
    *       descriptor type is LIQUID.
    * @note This function only support transferring a specific amount of TOPLs (via tokenIdentifier) if their staking
    *       registration is None.
-   *
    * @param tokenIdentifier The Token Identifier denoting the type of token to transfer to the recipient. If this denotes
    *                        an Asset Token, the referenced asset's quantity descriptor type must be LIQUID, else an error
    *                        will be returned. This must not be UnknownType.
    * @param txos All the TXOs encumbered by the Lock given by lockPredicateFrom. These TXOs must contain at least the
    *             necessary quantity (given by amount) of the identified Token and at least the quantity of LVLs to
-   *             satisfy the fee. All TXOs must contain values of valid type. Else an error will be returned.
+   *             satisfy the fee. Else an error will be returned. Any TXOs that contain values of an invalid type, such
+   *             as UnknownType, will be filtered out and won't be included in the inputs.
    * @param lockPredicateFrom The Lock Predicate encumbering the txos
    * @param amount The amount of identified Token to transfer to the recipient
    * @param recipientLockAddress The LockAddress of the recipient
@@ -226,8 +228,9 @@ trait TransactionBuilderApi[F[_]] {
    * contain more tokens.
    *
    * @param txos All the TXOs encumbered by the Lock given by lockPredicateFrom. These TXOs must contain some LVLs (as
-   *             specified in the policy), to satisfy the registration fee. All TXOs must contain values of valid type.
-   *             Else an error will be returned.
+   *             specified in the policy), to satisfy the registration fee. Else an error will be returned. Any TXOs
+   *             that contain values of an invalid type, such as UnknownType, will be filtered out and won't be included
+   *             in the inputs.
    * @param lockPredicateFrom The Predicate Lock that encumbers the funds in the txos. This will be used in
    *                         the attestations of the inputs.
    * @param groupPolicy The group policy for which we are minting constructor tokens. This group policy specifies a
@@ -255,8 +258,9 @@ trait TransactionBuilderApi[F[_]] {
    * contain more tokens.
    *
    * @param txos              All the TXOs encumbered by the Lock given by lockPredicateFrom. These TXOs must contain
-   *                          some LVLs (as specified in the policy), to satisfy the registration fee. All TXOs must
-   *                          contain values of valid type. Else an error will be returned.
+   *                          some LVLs (as specified in the policy), to satisfy the registration fee. Else an error will
+   *                          be returned. Any TXOs that contain values of an invalid type, such as UnknownType, will be
+   *                          filtered out and won't be included in the inputs.
    * @param lockPredicateFrom The Predicate Lock that encumbers the funds in the txos. This will be used in
    *                          the attestations of the inputs.
    * @param seriesPolicy The series policy for which we are minting constructor tokens. This series policy specifies a
@@ -289,7 +293,8 @@ trait TransactionBuilderApi[F[_]] {
    * @param mintingStatement      The minting statement that specifies the asset to mint.
    * @param txos                  All the TXOs encumbered by the Locks given by locks. These TXOs must contain some
    *                              group and series constructors (as referenced in the AMS) to satisfy the minting
-   *                              requirements. All TXOs must contain values of valid type. Else an error will be returned.
+   *                              requirements. Else an error will be returned. Any TXOs that contain values of an invalid
+   *                              type, such as UnknownType, will be filtered out and won't be included in the inputs.
    * @param locks             A mapping of Predicate Locks that encumbers the funds in the txos. This will be used in the
    *                              attestations of the txos' inputs.
    * @param fee The transaction fee. The txos must contain enough LVLs to satisfy this fee
@@ -306,8 +311,8 @@ trait TransactionBuilderApi[F[_]] {
     fee:                    Long,
     mintedAssetLockAddress: LockAddress,
     changeAddress:          LockAddress,
-    ephemeralMetadata:      Option[Struct],
-    commitment:             Option[ByteString]
+    ephemeralMetadata:      Option[Struct] = None,
+    commitment:             Option[ByteString] = None
   ): F[Either[BuilderError, IoTransaction]]
 }
 
@@ -379,13 +384,14 @@ object TransactionBuilderApi {
       ): F[Either[BuilderError, IoTransaction]] = (
         for {
           fromLockAddr <- EitherT.right(lockAddress(Lock().withPredicate(lockPredicateFrom)))
+          filteredTxos = txos.filter(_.transactionOutput.value.value.typeIdentifier != UnknownType)
           _ <- EitherT
-            .fromEither[F](validateTransferAllParams(txos, fromLockAddr, fee, tokenIdentifier))
+            .fromEither[F](validateTransferAllParams(filteredTxos, fromLockAddr, fee, tokenIdentifier))
             .leftMap(errs => UserInputErrors(errs.toList))
           stxoAttestation <- EitherT.right(unprovenAttestation(lockPredicateFrom))
           datum           <- EitherT.right(datum())
-          stxos           <- buildStxos(txos, stxoAttestation)
-          utxos           <- buildUtxos(txos, tokenIdentifier, None, recipientLockAddr, changeLockAddr, fee)
+          stxos           <- buildStxos(filteredTxos, stxoAttestation)
+          utxos           <- buildUtxos(filteredTxos, tokenIdentifier, None, recipientLockAddr, changeLockAddr, fee)
         } yield IoTransaction(inputs = stxos, outputs = utxos, datum = datum)
       ).value
 
@@ -400,13 +406,21 @@ object TransactionBuilderApi {
       ): F[Either[BuilderError, IoTransaction]] = (
         for {
           fromLockAddr <- EitherT.right(lockAddress(Lock().withPredicate(lockPredicateFrom)))
+          filteredTxos = txos.filter(_.transactionOutput.value.value.typeIdentifier != UnknownType)
           _ <- EitherT
-            .fromEither[F](validateTransferAmountParams(txos, fromLockAddr, amount, transferType, fee))
+            .fromEither[F](validateTransferAmountParams(filteredTxos, fromLockAddr, amount, transferType, fee))
             .leftMap(errs => UserInputErrors(errs.toList))
           stxoAttestation <- EitherT.right(unprovenAttestation(lockPredicateFrom))
           datum           <- EitherT.right(datum())
-          stxos           <- buildStxos(txos, stxoAttestation)
-          utxos <- buildUtxos(txos, transferType.some, BigInt(amount).some, recipientLockAddr, changeLockAddr, fee)
+          stxos           <- buildStxos(filteredTxos, stxoAttestation)
+          utxos <- buildUtxos(
+            filteredTxos,
+            transferType.some,
+            BigInt(amount).some,
+            recipientLockAddr,
+            changeLockAddr,
+            fee
+          )
         } yield IoTransaction(inputs = stxos, outputs = utxos, datum = datum)
       ).value
 
@@ -478,10 +492,11 @@ object TransactionBuilderApi {
       ): F[Either[BuilderError, IoTransaction]] = (
         for {
           registrationLockAddr <- EitherT.right[BuilderError](lockAddress(Lock().withPredicate(lockPredicateFrom)))
+          filteredTxos = txos.filter(_.transactionOutput.value.value.typeIdentifier != UnknownType)
           _ <- EitherT
             .fromEither[F](
               validateConstructorMintingParams(
-                txos,
+                filteredTxos,
                 registrationLockAddr,
                 groupPolicy.registrationUtxo,
                 quantityToMint,
@@ -490,12 +505,12 @@ object TransactionBuilderApi {
             )
             .leftMap(errs => UserInputErrors(errs.toList))
           stxoAttestation <- EitherT.right[BuilderError](unprovenAttestation(lockPredicateFrom))
-          stxos           <- buildStxos(txos, stxoAttestation)
+          stxos           <- buildStxos(filteredTxos, stxoAttestation)
           datum           <- EitherT.right[BuilderError](datum())
           utxoMinted <- EitherT.right[BuilderError](
             groupOutput(mintedAddress, quantityToMint, groupPolicy.computeId, groupPolicy.fixedSeries)
           )
-          utxoChange <- buildUtxos(txos, None, None, changeAddress, changeAddress, fee)
+          utxoChange <- buildUtxos(filteredTxos, None, None, changeAddress, changeAddress, fee)
         } yield IoTransaction(
           inputs = stxos,
           outputs = utxoChange :+ utxoMinted,
@@ -515,10 +530,11 @@ object TransactionBuilderApi {
       ): F[Either[BuilderError, IoTransaction]] = (
         for {
           registrationLockAddr <- EitherT.right[BuilderError](lockAddress(Lock().withPredicate(lockPredicateFrom)))
+          filteredTxos = txos.filter(_.transactionOutput.value.value.typeIdentifier != UnknownType)
           _ <- EitherT
             .fromEither[F](
               validateConstructorMintingParams(
-                txos,
+                filteredTxos,
                 registrationLockAddr,
                 seriesPolicy.registrationUtxo,
                 quantityToMint,
@@ -527,7 +543,7 @@ object TransactionBuilderApi {
             )
             .leftMap(errs => UserInputErrors(errs.toList))
           stxoAttestation <- EitherT.right[BuilderError](unprovenAttestation(lockPredicateFrom))
-          stxos           <- buildStxos(txos, stxoAttestation)
+          stxos           <- buildStxos(filteredTxos, stxoAttestation)
           datum           <- EitherT.right[BuilderError](datum())
           utxoMinted <- EitherT.right[BuilderError](
             seriesOutput(
@@ -539,7 +555,7 @@ object TransactionBuilderApi {
               seriesPolicy.quantityDescriptor
             )
           )
-          utxoChange <- buildUtxos(txos, None, None, changeAddress, changeAddress, fee)
+          utxoChange <- buildUtxos(filteredTxos, None, None, changeAddress, changeAddress, fee)
         } yield IoTransaction(
           inputs = stxos,
           outputs = utxoChange :+ utxoMinted,
@@ -566,24 +582,25 @@ object TransactionBuilderApi {
         fee:                    Long,
         mintedAssetLockAddress: LockAddress,
         changeAddress:          LockAddress,
-        ephemeralMetadata:      Option[Struct],
-        commitment:             Option[ByteString]
+        ephemeralMetadata:      Option[Struct] = None,
+        commitment:             Option[ByteString] = None
       ): F[Either[BuilderError, IoTransaction]] = (
         for {
+          datum <- EitherT.right[BuilderError](datum())
+          filteredTxos = txos.filter(_.transactionOutput.value.value.typeIdentifier != UnknownType)
           _ <- EitherT
-            .fromEither[F](validateAssetMintingParams(mintingStatement, txos, locks.keySet, fee))
+            .fromEither[F](validateAssetMintingParams(mintingStatement, filteredTxos, locks.keySet, fee))
             .leftMap(errs => UserInputErrors(errs.toList))
-          datum        <- EitherT.right[BuilderError](datum())
-          attestations <- toAttestationMap(txos, locks)
+          attestations <- toAttestationMap(filteredTxos, locks)
           stxos        <- attestations.map(el => buildStxos(el._1, el._2)).toSeq.sequence.map(_.flatten)
           // Per validation, there is exactly one series token in txos
-          (seriesTxo, nonSeriesTxo) = txos
+          (seriesTxo, nonSeriesTxo) = filteredTxos
             .partition(_.outputAddress == mintingStatement.seriesTokenUtxo)
             .leftMap(_.head)
           seriesUtxo = seriesTxo.transactionOutput
           seriesToken = seriesUtxo.value.getSeries
           // Per validation, there is exactly one group token in txos
-          groupToken = txos
+          groupToken = filteredTxos
             .filter(_.outputAddress == mintingStatement.groupTokenUtxo)
             .head
             .transactionOutput

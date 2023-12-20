@@ -1,5 +1,5 @@
 ---
-sidebar_position: 3
+sidebar_position: 4
 title: RPC
 ---
 
@@ -57,6 +57,7 @@ val genusQuery = GenusQueryAlgebra.make[IO](channelResource)
 val lockAddr = decodeAddress("mtetmain1y1Rqvj9PiHrsoF4VRHKscLPArgdWe44ogoiKoxwfevERNVgxLLh").toOption.get
 
 // query starts here:
+// highlight-next-line
 val txos = genusQuery.queryUtxo(lockAddr).attempt.unsafeRunSync()
 ```
 
@@ -113,7 +114,6 @@ import co.topl.brambl.builders.locks.LockTemplate
 import co.topl.brambl.builders.locks.PropositionTemplate.HeightTemplate
 import co.topl.brambl.builders.locks.LockTemplate.PredicateTemplate
 import co.topl.brambl.codecs.AddressCodecs.decodeAddress
-import co.topl.brambl.syntax.{UnknownType, valueToTypeIdentifierSyntaxOps}
 import co.topl.brambl.dataApi.{BifrostQueryAlgebra, GenusQueryAlgebra, RpcChannelResource}
 import co.topl.brambl.servicekit.WalletStateResource
 import co.topl.brambl.servicekit.{WalletKeyApi, WalletStateApi}
@@ -127,11 +127,13 @@ val walletConnection = WalletStateResource.walletResource("wallet.db")
 // Some mock key pair. Do not use. Replace with your Topl main key pair.
 val mainKey = (new ExtendedEd25519).deriveKeyPairFromSeed(Array.fill(96)(0: Byte))
 
+// Replace with the address and port of your node's gRPC endpoint
+val channelResource = RpcChannelResource.channelResource[IO]("localhost", 9084, secureConnection = false)
+
 // Mock address. Replace with recipient address.
 val toAddr = decodeAddress("ptetP7jshHTuV9bmPmtVLm6PtUzBMZ8iYRvAxvbGTJ5VgiEPHqCCnZ8MLLdi").toOption.get
 
 val transactionBuilderApi = TransactionBuilderApi.make[IO](PRIVATE_NETWORK_ID, MAIN_LEDGER_ID)
-val channelResource = RpcChannelResource.channelResource[IO]("localhost", 9084, secureConnection = false)
 val predicateTemplate: LockTemplate[IO] = PredicateTemplate[IO](Seq(HeightTemplate("header", 1, Long.MaxValue)), 1)
 val walletApi = WalletApi.make[IO](WalletKeyApi.make())
 val walletStateApi = WalletStateApi.make[IO](walletConnection, walletApi)
@@ -141,11 +143,11 @@ val bifrostQuery = BifrostQueryAlgebra.make[IO](channelResource)
 val tx = for {
   fromLock <- predicateTemplate.build(List.empty).map(_.toOption.get)
   fromAddr <- transactionBuilderApi.lockAddress(fromLock)
-  txos <- GenusQueryAlgebra.make[IO](channelResource).queryUtxo(fromAddr)
-  fromTxos = txos.filter(_.transactionOutput.value.value.typeIdentifier != UnknownType)
+  fromTxos <- GenusQueryAlgebra.make[IO](channelResource).queryUtxo(fromAddr)
   unprovenTx <- transactionBuilderApi.buildTransferAllTransaction(fromTxos, fromLock.getPredicate, toAddr, toAddr, 1L)
   provenTx <- credentialler.prove(unprovenTx.toOption.get)
   // Broadcast starts here:
+  // highlight-next-line
   broadcast <- bifrostQuery.broadcastTransaction(provenTx)
 } yield broadcast
 

@@ -1,5 +1,5 @@
 ---
-sidebar_position: 6
+sidebar_position: 7
 title: Prove a Transaction
 description: Prove a transaction.
 ---
@@ -91,7 +91,6 @@ import co.topl.brambl.builders.locks.LockTemplate
 import co.topl.brambl.builders.locks.PropositionTemplate.HeightTemplate
 import co.topl.brambl.builders.locks.LockTemplate.PredicateTemplate
 import co.topl.brambl.codecs.AddressCodecs.decodeAddress
-import co.topl.brambl.syntax.{UnknownType, valueToTypeIdentifierSyntaxOps}
 import co.topl.brambl.dataApi.{GenusQueryAlgebra, RpcChannelResource}
 import co.topl.brambl.servicekit.WalletStateResource
 import co.topl.brambl.servicekit.{WalletKeyApi, WalletStateApi}
@@ -112,7 +111,6 @@ val channelResource = RpcChannelResource.channelResource[IO]("localhost", 9084, 
 val toAddr = decodeAddress("ptetP7jshHTuV9bmPmtVLm6PtUzBMZ8iYRvAxvbGTJ5VgiEPHqCCnZ8MLLdi").toOption.get
 
 val transactionBuilderApi = TransactionBuilderApi.make[IO](PRIVATE_NETWORK_ID, MAIN_LEDGER_ID)
-val genusQuery = GenusQueryAlgebra.make[IO](channelResource)
 val walletApi = WalletApi.make[IO](WalletKeyApi.make())
 val walletStateApi = WalletStateApi.make[IO](walletConnection, walletApi)
 val credentialler = CredentiallerInterpreter.make[IO](walletApi, walletStateApi, mainKey)
@@ -123,10 +121,10 @@ val predicateTemplate: LockTemplate[IO] = PredicateTemplate[IO](Seq(HeightTempla
 val tx = for {
   fromLock <- predicateTemplate.build(List.empty).map(_.toOption.get)
   fromAddr <- transactionBuilderApi.lockAddress(fromLock)
-  txos <- genusQuery.queryUtxo(fromAddr)
-  fromTxos = txos.filter(_.transactionOutput.value.value.typeIdentifier != UnknownType)
+  fromTxos <- GenusQueryAlgebra.make[IO](channelResource).queryUtxo(fromAddr)
   unprovenTx <- transactionBuilderApi.buildTransferAllTransaction(fromTxos, fromLock.getPredicate, toAddr, toAddr, 1L)
   // Proving begins here:
+  // highlight-next-line
   provenTx <- credentialler.prove(unprovenTx.toOption.get)
 } yield provenTx
 
@@ -185,7 +183,6 @@ import co.topl.brambl.builders.locks.LockTemplate
 import co.topl.brambl.builders.locks.PropositionTemplate.HeightTemplate
 import co.topl.brambl.builders.locks.LockTemplate.PredicateTemplate
 import co.topl.brambl.codecs.AddressCodecs.decodeAddress
-import co.topl.brambl.syntax.{UnknownType, valueToTypeIdentifierSyntaxOps}
 import co.topl.brambl.dataApi.{GenusQueryAlgebra, RpcChannelResource}
 import co.topl.brambl.models.{Datum, Event}
 import co.topl.brambl.servicekit.WalletStateResource
@@ -220,8 +217,7 @@ val invalidHeight = "header" -> Datum().withHeader(Datum.Header(Event.Header(0))
 val unprovenTx = for {
   fromLock <- predicateTemplate.build(List.empty).map(_.toOption.get)
   fromAddr <- transactionBuilderApi.lockAddress(fromLock)
-  txos <- GenusQueryAlgebra.make[IO](channelResource).queryUtxo(fromAddr)
-  fromTxos = txos.filter(_.transactionOutput.value.value.typeIdentifier != UnknownType)
+  fromTxos <- GenusQueryAlgebra.make[IO](channelResource).queryUtxo(fromAddr)
   unprovenTxRes <- transactionBuilderApi.buildTransferAllTransaction(fromTxos, fromLock.getPredicate, toAddr, toAddr, 1L)
 } yield unprovenTxRes.toOption.get
 
@@ -235,6 +231,7 @@ val provenTx = validRes.unsafeRunSync()
 
 val invalidRes = unprovenTx flatMap { tx =>
   val invalidCtx = Context[IO](tx, 1, Map(invalidHeight).lift)
+  // highlight-next-line
   credentialler.proveAndValidate(tx, invalidCtx)
 }
 val validationErrs = invalidRes.unsafeRunSync()

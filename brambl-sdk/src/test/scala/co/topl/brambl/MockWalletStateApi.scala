@@ -23,7 +23,7 @@ object MockWalletStateApi extends WalletStateAlgebra[IO] with MockHelpers {
     MockSignatureProposition.value.digitalSignature.get.sizedEvidence -> MockIndices
   )
 
-  val propEvidenceToPreimage: Map[Evidence, Preimage] = Map(
+  var propEvidenceToPreimage: Map[Evidence, Preimage] = Map(
     MockDigestProposition.value.digest.get.sizedEvidence -> MockPreimage
   )
 
@@ -33,8 +33,11 @@ object MockWalletStateApi extends WalletStateAlgebra[IO] with MockHelpers {
   override def getPreimage(digestProposition: Proposition.Digest): F[Option[Preimage]] =
     IO.pure(propEvidenceToPreimage.get(digestProposition.sizedEvidence))
 
+  override def addPreimage(preimage: Preimage, digest: Proposition.Digest): IO[Unit] =
+    IO.pure(propEvidenceToPreimage += digest.sizedEvidence -> preimage)
+
   // The following are not implemented since they are not used in the tests
-  override def initWalletState(networkId: Int, ledgerId: Int, vk: VerificationKey): F[Unit] = ???
+  override def initWalletState(networkId: Int, ledgerId: Int, mainKey: KeyPair): F[Unit] = ???
 
   override def getCurrentAddress: F[String] = ???
 

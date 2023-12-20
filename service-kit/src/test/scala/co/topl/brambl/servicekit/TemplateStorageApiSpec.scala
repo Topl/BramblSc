@@ -19,7 +19,7 @@ class TemplateStorageApiSpec extends CatsEffectSuite with BaseSpec {
     assertIO(
       for {
         init <- walletStateApi
-          .initWalletState(NetworkConstants.PRIVATE_NETWORK_ID, NetworkConstants.MAIN_NETWORK_ID, mockMainKeyPair.vk)
+          .initWalletState(NetworkConstants.PRIVATE_NETWORK_ID, NetworkConstants.MAIN_NETWORK_ID, mockMainKeyPair)
         _         <- contractApi.addTemplate(contract)
         templates <- contractApi.findTemplates()
       } yield templates.length == 3 && templates.last == contract,
