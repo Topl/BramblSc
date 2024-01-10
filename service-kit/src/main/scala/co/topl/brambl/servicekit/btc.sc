@@ -90,9 +90,9 @@ def checkBalances(): Unit = {
  * the last output will be locked to a an address that was received externally from a recipient (from the "recipient" wallet).
  * This means that the second output will be also locked to a P2WSH address.
  *
- * 5BTC will be used as a fee
+ * 1BTC will be used as a fee
  */
-def firstTx(recipientAddr: BitcoinAddress, preimage: String): Unit = {
+def firstTx(preimage: String): Unit = {
   println("Creating first TX...")
   val utxo = handleCall(rpcCli.listUnspent("testwallet")).get.head
   val inputs = Vector(TransactionInput.fromTxidAndVout(utxo.txid, UInt32(utxo.vout)))  // The input is the 50 BTC UTXO
@@ -106,7 +106,10 @@ def firstTx(recipientAddr: BitcoinAddress, preimage: String): Unit = {
   val script = RawScriptPubKey(Seq(OP_HASH160, ScriptConstant(digest), OP_EQUAL)) // OP_HASH160 <digest> OP_EQUAL
   val digestAddr = BitcoinAddress.fromScriptPubKey(P2WSHWitnessSPKV0(script), RegTest)  // P2WSHWitnessSPKV0 will build us a P2WSH scriptPubKey
 
-  val outputs = Map(testWalletAddr -> 15.bitcoins, digestAddr -> 15.bitcoins, recipientAddr -> 15.bitcoins)
+  // The last output will be locked to a new P2WPKH address (Betch32) in the "recipient".
+  val recipientAddr = BitcoinAddress(handleCall(rpcCli.getNewAddress(Some("recipient"))).get.value)
+
+  val outputs = Map(testWalletAddr -> 15.bitcoins, digestAddr -> 19.bitcoins, recipientAddr -> 15.bitcoins)
   val unprovenTx = handleCall(rpcCli.createRawTransaction(inputs, outputs)).get
   val provenTx = handleCall(rpcCli.signRawTransactionWithWallet(unprovenTx, Some("testwallet"))).get.hex
 
@@ -115,16 +118,23 @@ def firstTx(recipientAddr: BitcoinAddress, preimage: String): Unit = {
 
   handleCall(rpcCli.sendRawTransaction(provenTx, 0))
 }
-
-setup()
-checkBalances()
-
-
-val preimage = "very secret message"
-val recipientAddr = BitcoinAddress(handleCall(rpcCli.getNewAddress(Some("recipient"))).get.value)
-firstTx(recipientAddr, preimage)
-checkBalances()
-
-
-mineBlocks(1)
-checkBalances()
+//
+///**
+// * Create a TX that spends the 19 BTC locked in the digest script and sends it to the "recipient" wallet.
+// */
+//def secondTx(preimage: String): Unit = {
+//
+//}
+//
+//setup()
+//checkBalances()
+//
+//
+//val preimage = "very secret message"
+//firstTx(preimage)
+//checkBalances()
+//
+//
+//mineBlocks(1)
+//checkBalances()
+println(handleCall(rpcCli.listUnspent))
