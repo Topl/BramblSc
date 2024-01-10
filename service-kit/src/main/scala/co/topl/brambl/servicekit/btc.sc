@@ -1,4 +1,5 @@
 import akka.actor.ActorSystem
+import org.bitcoins.commons.jsonmodels.bitcoind.BalanceInfo
 import org.bitcoins.core.config.RegTest
 import org.bitcoins.core.currency.BitcoinsInt
 import org.bitcoins.core.number.UInt32
@@ -47,16 +48,34 @@ val bitcoindInstance = {
 }
 val rpcCli = BitcoindRpcClient(bitcoindInstance)
 
+def mineBlocks(n: Int, wallet: String = "dummy"): Unit = {
+  println(s"Mining $n blocks...")
+  handleCall(rpcCli.getNewAddress(Some(wallet)).flatMap(rpcCli.generateToAddress(n, _)))
+}
+
 def setup(): Unit = {
+  println("Setting up wallets...")
   handleCall(rpcCli.createWallet("testwallet"))
   handleCall(rpcCli.createWallet("recipient"))
-  handleCall(rpcCli.getNewAddress(Some("testwallet")).flatMap(rpcCli.generateToAddress(101, _)))
+  handleCall(rpcCli.createWallet("dummy"))
+  mineBlocks(1, "testwallet")
+  mineBlocks(100)
 }
 
 def checkBalances(): Unit = {
-  def printBalance(wallet: String): Unit = println(handleCall(rpcCli.getBalances(wallet)).get)
+  def formatBalances(info: BalanceInfo): String = {
+    s"Trusted: ${info.trusted} | Untrusted_Pending: ${info.untrusted_pending} | Immature: ${info.immature}"
+  }
+  def printBalance(wallet: String): Unit = {
+    println(s"Balance of $wallet: ")
+    println(formatBalances(handleCall(rpcCli.getBalances(wallet)).get.mine))
+    println(s"# of spendable UTXOs of $wallet: ${handleCall(rpcCli.listUnspent(wallet)).get.length}")
+  }
+  println("===================")
   printBalance("testwallet")
+  println()
   printBalance("recipient")
+  println("===================")
 }
 
 
@@ -73,7 +92,8 @@ def checkBalances(): Unit = {
  *
  * 5BTC will be used as a fee
  */
-def firstTx(recipientAddrStr: String, preimage: String): Unit = {
+def firstTx(recipientAddr: BitcoinAddress, preimage: String): Unit = {
+  println("Creating first TX...")
   val utxo = handleCall(rpcCli.listUnspent("testwallet")).get.head
   val inputs = Vector(TransactionInput.fromTxidAndVout(utxo.txid, UInt32(utxo.vout)))  // The input is the 50 BTC UTXO
 
@@ -86,15 +106,12 @@ def firstTx(recipientAddrStr: String, preimage: String): Unit = {
   val script = RawScriptPubKey(Seq(OP_HASH160, ScriptConstant(digest), OP_EQUAL)) // OP_HASH160 <digest> OP_EQUAL
   val digestAddr = BitcoinAddress.fromScriptPubKey(P2WSHWitnessSPKV0(script), RegTest)  // P2WSHWitnessSPKV0 will build us a P2WSH scriptPubKey
 
-  // The last output will be locked to a an address that was received externally from a recipient (from the "recipient" wallet).
-  val recipientAddr = BitcoinAddress(recipientAddrStr)
-
   val outputs = Map(testWalletAddr -> 15.bitcoins, digestAddr -> 15.bitcoins, recipientAddr -> 15.bitcoins)
   val unprovenTx = handleCall(rpcCli.createRawTransaction(inputs, outputs)).get
   val provenTx = handleCall(rpcCli.signRawTransactionWithWallet(unprovenTx, Some("testwallet"))).get.hex
 
-  println(unprovenTx)
-  println(provenTx)
+//  println(unprovenTx)
+//  println(provenTx)
 
   handleCall(rpcCli.sendRawTransaction(provenTx, 0))
 }
@@ -102,9 +119,12 @@ def firstTx(recipientAddrStr: String, preimage: String): Unit = {
 setup()
 checkBalances()
 
+
 val preimage = "very secret message"
-val recipientAddr = handleCall(rpcCli.getNewAddress(Some("recipient"))).get.value
+val recipientAddr = BitcoinAddress(handleCall(rpcCli.getNewAddress(Some("recipient"))).get.value)
 firstTx(recipientAddr, preimage)
 checkBalances()
 
-handleCall(rpcCli.listUnspent("testwallet"))
+
+mineBlocks(1)
+checkBalances()
