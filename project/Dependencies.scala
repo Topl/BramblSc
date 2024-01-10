@@ -9,6 +9,7 @@ object Dependencies {
     val circeVersion = "0.14.6"
     val protobufSpecsVersion = "2.0.0-beta0"
     val mUnitTeVersion = "0.7.29"
+    val btcVersion = "1.9.7"
   }
 
   val catsSlf4j: ModuleID =
@@ -67,6 +68,12 @@ object Dependencies {
 
   val grpcNetty = "io.grpc" % "grpc-netty" % "1.59.0"
 
+  val btc: Seq[ModuleID] = Seq(
+    "org.bitcoin-s" %% "bitcoin-s-core" % btcVersion,
+    "org.bitcoin-s" %% "bitcoin-s-bitcoind-rpc" % btcVersion,
+    "org.bitcoin-s" %% "bitcoin-s-crypto" % btcVersion
+  )
+
   object Crypto {
 
     lazy val sources: Seq[ModuleID] =
@@ -98,7 +105,7 @@ object Dependencies {
 
   object ServiceKit {
 
-    lazy val sources: Seq[ModuleID] = sqlite
+    lazy val sources: Seq[ModuleID] = sqlite ++ btc
 
     lazy val tests: Seq[ModuleID] = (
       mUnitTest ++ sqlite
