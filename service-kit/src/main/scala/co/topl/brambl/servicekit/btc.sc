@@ -4,11 +4,10 @@ import org.bitcoins.core.currency.BitcoinsInt
 import org.bitcoins.core.number.UInt32
 import org.bitcoins.core.protocol.BitcoinAddress
 import org.bitcoins.core.protocol.script.{P2WSHWitnessSPKV0, RawScriptPubKey}
-import org.bitcoins.core.protocol.transaction.{TransactionInput, TransactionOutput}
+import org.bitcoins.core.protocol.transaction.TransactionInput
 import org.bitcoins.core.script.bitwise.OP_EQUAL
 import org.bitcoins.core.script.constant.ScriptConstant
 import org.bitcoins.core.script.crypto.OP_HASH160
-import org.bitcoins.core.wallet.builder.{RawFinalizer, RawTxBuilder}
 import org.bitcoins.crypto.CryptoUtil
 import org.bitcoins.rpc.client.common.BitcoindRpcClient
 import org.bitcoins.rpc.config.{BitcoindAuthCredentials, BitcoindInstanceLocal}
@@ -74,33 +73,27 @@ def checkBalances(): Unit = {
  *
  * 5BTC will be used as a fee
  */
-def firstTx(recipientAddr: String): Unit = {
-  val builder = RawTxBuilder()
+def firstTx(recipientAddrStr: String, preimage: String): Unit = {
   val utxo = handleCall(rpcCli.listUnspent("testwallet")).get.head
-
-  builder.addInput(TransactionInput.fromTxidAndVout(utxo.txid, UInt32(utxo.vout))) // The input is the 50 BTC UTXO
+  val inputs = Vector(TransactionInput.fromTxidAndVout(utxo.txid, UInt32(utxo.vout)))  // The input is the 50 BTC UTXO
 
   // The first output will be locked to a new P2WPKH address (Betch32) in the "testwallet".
-  val firstLock = handleCall(rpcCli.getNewAddress(Some("testwallet"))).get.scriptPubKey
-  builder.addOutput(TransactionOutput(15.bitcoins, firstLock))
+  val testWalletAddr = handleCall(rpcCli.getNewAddress(Some("testwallet"))).get
 
-  // The first output will be locked to a new P2WSH address (Betch32). Does not belong to any wallet since anyone with the
-  // preimage can spend it
-  val preimage = "very secret message"
+  // The second output will be locked to a new P2WSH address (Betch32).
+  // Does not belong to any wallet since anyone with the preimage can spend it
   val digest = CryptoUtil.sha256Hash160(preimage).bytes
   val script = RawScriptPubKey(Seq(OP_HASH160, ScriptConstant(digest), OP_EQUAL)) // OP_HASH160 <digest> OP_EQUAL
-  val secondLock = P2WSHWitnessSPKV0(script) // P2WSHWitnessSPKV0 will build us a P2WSH scriptPubKey
-  builder.addOutput(TransactionOutput(14.bitcoins, secondLock))
+  val digestAddr = BitcoinAddress.fromScriptPubKey(P2WSHWitnessSPKV0(script), RegTest)  // P2WSHWitnessSPKV0 will build us a P2WSH scriptPubKey
 
   // The last output will be locked to a an address that was received externally from a recipient (from the "recipient" wallet).
-  val recipientLock = BitcoinAddress(recipientAddr).scriptPubKey
-  builder.addOutput(TransactionOutput(15.bitcoins, recipientLock))
+  val recipientAddr = BitcoinAddress(recipientAddrStr)
 
-  val unprovenTxRaw = builder.result()
-  val unprovenTx = RawFinalizer.buildTx(unprovenTxRaw)
-
+  val outputs = Map(testWalletAddr -> 15.bitcoins, digestAddr -> 15.bitcoins, recipientAddr -> 15.bitcoins)
+  val unprovenTx = handleCall(rpcCli.createRawTransaction(inputs, outputs)).get
   val provenTx = handleCall(rpcCli.signRawTransactionWithWallet(unprovenTx, Some("testwallet"))).get.hex
 
+  println(unprovenTx)
   println(provenTx)
 
   handleCall(rpcCli.sendRawTransaction(provenTx, 0))
@@ -108,8 +101,10 @@ def firstTx(recipientAddr: String): Unit = {
 
 setup()
 checkBalances()
+
+val preimage = "very secret message"
 val recipientAddr = handleCall(rpcCli.getNewAddress(Some("recipient"))).get.value
-firstTx(recipientAddr)
+firstTx(recipientAddr, preimage)
 checkBalances()
 
 handleCall(rpcCli.listUnspent("testwallet"))
