@@ -4,14 +4,15 @@ import org.bitcoins.core.config.RegTest
 import org.bitcoins.core.currency.BitcoinsInt
 import org.bitcoins.core.number.UInt32
 import org.bitcoins.core.protocol.BitcoinAddress
-import org.bitcoins.core.protocol.script.{P2WSHWitnessSPKV0, RawScriptPubKey}
+import org.bitcoins.core.protocol.script.{P2WSHWitnessSPKV0, P2WSHWitnessV0, RawScriptPubKey, ScriptSignature}
 import org.bitcoins.core.protocol.transaction.TransactionInput
 import org.bitcoins.core.script.bitwise.OP_EQUAL
 import org.bitcoins.core.script.constant.ScriptConstant
 import org.bitcoins.core.script.crypto.OP_HASH160
-import org.bitcoins.crypto.CryptoUtil
+import org.bitcoins.crypto.{CryptoUtil, DoubleSha256DigestBE}
 import org.bitcoins.rpc.client.common.BitcoindRpcClient
 import org.bitcoins.rpc.config.{BitcoindAuthCredentials, BitcoindInstanceLocal}
+import scodec.bits.ByteVector
 
 import java.io.File
 import java.net.URI
@@ -92,7 +93,7 @@ def checkBalances(): Unit = {
  *
  * 1BTC will be used as a fee
  */
-def firstTx(preimage: String): Unit = {
+def firstTx(digestScript: RawScriptPubKey): DoubleSha256DigestBE = {
   println("Creating first TX...")
   val utxo = handleCall(rpcCli.listUnspent("testwallet")).get.head
   val inputs = Vector(TransactionInput.fromTxidAndVout(utxo.txid, UInt32(utxo.vout)))  // The input is the 50 BTC UTXO
@@ -102,39 +103,55 @@ def firstTx(preimage: String): Unit = {
 
   // The second output will be locked to a new P2WSH address (Betch32).
   // Does not belong to any wallet since anyone with the preimage can spend it
-  val digest = CryptoUtil.sha256Hash160(preimage).bytes
-  val script = RawScriptPubKey(Seq(OP_HASH160, ScriptConstant(digest), OP_EQUAL)) // OP_HASH160 <digest> OP_EQUAL
-  val digestAddr = BitcoinAddress.fromScriptPubKey(P2WSHWitnessSPKV0(script), RegTest)  // P2WSHWitnessSPKV0 will build us a P2WSH scriptPubKey
+  val digestAddr = BitcoinAddress.fromScriptPubKey(P2WSHWitnessSPKV0(digestScript), RegTest)  // P2WSHWitnessSPKV0 will build us a P2WSH scriptPubKey
 
   // The last output will be locked to a new P2WPKH address (Betch32) in the "recipient".
   val recipientAddr = BitcoinAddress(handleCall(rpcCli.getNewAddress(Some("recipient"))).get.value)
 
+  // in order, the outputs are: 0, 1, 2
   val outputs = Map(testWalletAddr -> 15.bitcoins, digestAddr -> 19.bitcoins, recipientAddr -> 15.bitcoins)
   val unprovenTx = handleCall(rpcCli.createRawTransaction(inputs, outputs)).get
   val provenTx = handleCall(rpcCli.signRawTransactionWithWallet(unprovenTx, Some("testwallet"))).get.hex
 
-//  println(unprovenTx)
-//  println(provenTx)
+  println("Sending: ")
+  println(provenTx)
 
-  handleCall(rpcCli.sendRawTransaction(provenTx, 0))
+  handleCall(rpcCli.sendRawTransaction(provenTx, 0)).get
 }
-//
-///**
-// * Create a TX that spends the 19 BTC locked in the digest script and sends it to the "recipient" wallet.
-// */
-//def secondTx(preimage: String): Unit = {
-//
-//}
-//
-//setup()
-//checkBalances()
-//
-//
-//val preimage = "very secret message"
-//firstTx(preimage)
-//checkBalances()
-//
-//
-//mineBlocks(1)
-//checkBalances()
-println(handleCall(rpcCli.listUnspent))
+
+/**
+ * Create a TX that spends the 19 BTC locked in the digest script and sends it to the "recipient" wallet.
+ *
+ * 1BTC will be used as a fee
+ */
+def secondTx(prevTx: DoubleSha256DigestBE, digestScript: RawScriptPubKey, preimage: ByteVector): Unit = {
+  println("Creating second TX...")
+  val sigw = P2WSHWitnessV0(digestScript, ScriptSignature.fromAsm(Seq(ScriptConstant(preimage))))
+//  val sig = P2SHScriptSignature(ScriptSignature.fromAsm(Seq(ScriptConstant(preimage))), digestScript)
+  val inputs = Vector(TransactionInput.fromTxidAndVout(prevTx, UInt32(1), sigw.scriptSignature))  // The input is the 19 BTC locked in a digest
+  val recipientAddr = BitcoinAddress(handleCall(rpcCli.getNewAddress(Some("recipient"))).get.value)
+  val outputs = Map(recipientAddr -> 18.bitcoins)
+  // Tx is already proven, so we don't need to sign it
+  val provenTx = handleCall(rpcCli.createRawTransaction(inputs, outputs)).get
+  println("Sending: ")
+  println(provenTx)
+  handleCall(rpcCli.sendRawTransaction(provenTx, 0)).get
+}
+
+setup()
+checkBalances()
+
+
+val preimage = ByteVector("very secret message".getBytes)
+val digest = CryptoUtil.sha256Hash160(preimage).bytes
+val digestScript = RawScriptPubKey(Seq(OP_HASH160, ScriptConstant(digest), OP_EQUAL))  // OP_HASH160 <digest> OP_EQUAL
+val txId1 = firstTx(digestScript)
+checkBalances()
+
+
+mineBlocks(1)
+checkBalances()
+
+secondTx(txId1, digestScript, preimage)
+mineBlocks(1)
+checkBalances()
