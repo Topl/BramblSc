@@ -60,22 +60,59 @@ package object playground {
     }
 
     def getNewPublicKey(walletName: String): Future[String] = {
-      this.getNewAddress(walletNameOpt = Some(walletName)).flatMap(addr => {
-        bitcoindCallRaw(
-          "getaddressinfo",
-          List(JsString(addr.value)),
-          uriExtensionOpt = Some(walletExtension(walletName))
-        )
-      })(ec).map(res => (
-        res \ "result" \ "pubkey"
-        ).result.get.as[JsString].toString().filterNot(_ == '"'))(ec)
+      this.getNewAddress(Some(walletName)).flatMap(addr => {
+        this.getAddressInfo(addr, Some(walletName)).map(_.pubkey.get.hex)(ec)
+    })(ec)
     }
 
-    def importDescriptors(walletName: String) = ???
+    def getDescriptor(walletName: String, isPrivate: Boolean = true): Future[String] = {
+      this.listDescriptors(walletName, isPrivate = isPrivate).map(descriptors => {
+        descriptors
+          .map(d => (d \ "desc").get.as[JsString].toString().filterNot(_ == '"'))
+          .find(_.startsWith("pkh(")).get
+      })(ec)
+    }
 
-    def deriveAddresses(walletName: String) = ???
+    // desc should be a descriptor with checksum
+    def importDescriptor(walletName: String, desc: String): Future[JsValue] = {
+      bitcoindCallRaw(
+        "importdescriptors",
+        List(Json.toJson(List(Map(
+          "desc" -> desc,
+          "timestamp" -> "now",
+          "label" -> "pegIn",
+        )))),
+        uriExtensionOpt = Some(walletExtension(walletName))
+      )
+//        .map(res => (
+//        res \ "result" \ "descriptor"
+//        ).result.get.as[JsString].toString().filterNot(_ == '"'))(ec)
+    }
 
-
+    // Takes in desc (with or without checksum), returns the canonical one (without private keys) and orig checksum
+    // useful for importing descriptors with private keys
+    def applyDescriptorChecksum(walletName: String, desc: String): Future[Map[String, String]] = {
+      bitcoindCallRaw(
+        "getdescriptorinfo",
+        List(JsString(desc)),
+        uriExtensionOpt = Some(walletExtension(walletName))
+      ).map(res => {
+        val full = (res \ "result").result.get.as[JsObject].value
+        Map(
+          "descriptor" -> full("descriptor").as[JsString].toString().filterNot(_ == '"'),
+          "checksum" -> full("checksum").as[JsString].toString().filterNot(_ == '"'),
+        )
+      })(ec)
+    }
+    def deriveOneAddresse(walletName: String, desc: String): Future[String] = {
+      bitcoindCallRaw(
+        "deriveaddresses",
+        List(JsString(desc)),
+        uriExtensionOpt = Some(walletExtension(walletName))
+      ).map(res => {
+        (res \ "result").result.get.as[JsArray].value.head.as[JsString].toString().filterNot(_ == '"')
+      })(ec)
+    }
   }
 
   object ExtendedBitcoindRpcClient {
@@ -98,6 +135,15 @@ package object playground {
   }
 
   val rpcCli = ExtendedBitcoindRpcClient()
+
+  def extractKey(desc: String, starChar: Char): String = {
+    val start = desc.indexOf(starChar) + 1
+    val end = desc.indexOf(')')
+    desc.substring(start, end)
+  }
+
+  def extractXPubKey(desc: String): String = extractKey(desc, ']')
+  def extractXPrivKey(desc: String): String = extractKey(desc, '(')
 
   def mineBlocks(n: Int, wallet: String = "dummy"): Unit = {
     println(s"Mining $n blocks...")
@@ -128,9 +174,9 @@ package object playground {
     }
 
     println("===================")
-    printBalance("testwallet")
+    printBalance("alice")
     println()
-    printBalance("recipient")
+    printBalance("bridge")
     println("===================")
   }
 
