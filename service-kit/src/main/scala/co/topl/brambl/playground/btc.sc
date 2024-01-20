@@ -6,8 +6,13 @@ import org.bitcoins.commons.serializers.JsonWriters._
 import org.bitcoins.core.currency.BitcoinsInt
 import org.bitcoins.core.number.UInt32
 import org.bitcoins.core.protocol.BitcoinAddress
-import org.bitcoins.core.protocol.script.{NonStandardScriptPubKey, P2SHScriptPubKey, P2WSHWitnessV0, ScriptSignature}
+import org.bitcoins.core.protocol.script.{NonStandardScriptSignature, P2WSHWitnessV0, RawScriptPubKey, ScriptSignature}
 import org.bitcoins.core.protocol.transaction.{TransactionInput, TransactionOutPoint, WitnessTransaction}
+import org.bitcoins.core.script.bitwise.{OP_EQUAL, OP_EQUALVERIFY}
+import org.bitcoins.core.script.constant.ScriptConstant
+import org.bitcoins.core.script.control.{OP_ELSE, OP_ENDIF, OP_NOTIF}
+import org.bitcoins.core.script.crypto.{OP_CHECKSIG, OP_SHA256}
+import org.bitcoins.core.script.splice.OP_SIZE
 
 import java.security.MessageDigest
 
@@ -17,6 +22,7 @@ checkBalances()
 //handleCall(rpcCli.loadWallet("bridge"))
 
 // Alice retrieves her public key and hashes the secret
+// secret has to be 32 bytes
 val secret = "topl-secret".getBytes("UTF-8")
 val hash = MessageDigest.getInstance("SHA-256").digest(secret)
 val secretHex = Encoding.encodeToHex(secret)
@@ -90,6 +96,26 @@ val aliceNotif = TransactionOutPoint(txId, UInt32(0))
 // Bridge can verify that the funds have been sent to the address
 handleCall(rpcCli.getTxOut(aliceNotif.txId.flip, aliceNotif.vout.toLong)).get
 
+// Only works with our specific descriptor
+def descToScriptPubKey(desc: String): RawScriptPubKey = {
+  def getInner(in: String): String = {
+    val firstP = in.indexOf("(")
+    val lastP = in.lastIndexOf(")")
+    in.substring(firstP + 1, lastP)
+  }
+  val inner = {
+    val firstStrip = getInner(desc)
+    if(firstStrip.startsWith("andor")) getInner(firstStrip)
+    else firstStrip
+  } split ","
+
+  val bridgePk = ScriptConstant(getInner(inner(0)))
+  val secret = ScriptConstant(getInner(inner(1)))
+  val alicePk = ScriptConstant(getInner(inner(2)))
+  val size = ScriptConstant("%02x".format(32))
+
+  RawScriptPubKey(Seq(bridgePk, OP_CHECKSIG, OP_NOTIF, alicePk, OP_CHECKSIG, OP_ELSE, OP_SIZE, size, OP_EQUALVERIFY, OP_SHA256, secret, OP_EQUAL, OP_ENDIF))
+}
 
 // Alice Reclaims the funds
 val reclaimAddress = handleCall(rpcCli.getNewAddress(Some("alice"))).get
@@ -98,8 +124,11 @@ val inputs = Vector(TransactionInput.fromTxidAndVout(aliceNotif.txId.flip, alice
 val scriptPubKey = handleCall(rpcCli.getAddressInfo(BitcoinAddress(address))).get.scriptPubKey
 val tx = handleCall(rpcCli.createRawTransaction(inputs, outputs)).get
 val txWit = WitnessTransaction.toWitnessTx(tx)
-val signature: ScriptSignature = ???
-txWit.updateWitness(0, P2WSHWitnessV0(NonStandardScriptPubKey(Seq(P2SHScriptPubKey(scriptPubKey)))))
+// TODO: The unlocking script tokens go in the sequence??
+val signature: ScriptSignature = NonStandardScriptSignature.fromAsm(Seq())
+// inside the witness needs to be a raw scriptPubKey, not a P2SHScriptPubKey
+// NonStandardScriptPubKey or RawScriptPubKey
+txWit.updateWitness(0, P2WSHWitnessV0(descToScriptPubKey(desc), signature))
 // Following does not work
 val psbt = handleCall(rpcCli.convertToPsbt(txWit)).get
 val signedPsbt = handleCall(rpcCli.walletProcessPSBT(psbt, walletNameOpt = Some("alice"))).get
