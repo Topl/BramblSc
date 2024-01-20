@@ -6,7 +6,8 @@ import org.bitcoins.commons.serializers.JsonWriters._
 import org.bitcoins.core.currency.BitcoinsInt
 import org.bitcoins.core.number.UInt32
 import org.bitcoins.core.protocol.BitcoinAddress
-import org.bitcoins.core.protocol.transaction.TransactionInput
+import org.bitcoins.core.protocol.script.{NonStandardScriptPubKey, P2SHScriptPubKey, P2WSHWitnessV0, ScriptSignature}
+import org.bitcoins.core.protocol.transaction.{TransactionInput, TransactionOutPoint, WitnessTransaction}
 
 import java.security.MessageDigest
 
@@ -76,32 +77,42 @@ println(provenTx.outputs.head.scriptPubKey.asm)
 
 val txId = handleCall(rpcCli.sendRawTransaction(provenTx, 0)).get
 
+println(txId.hex)
+
 checkBalances()
 
 mineBlocks(1)
 checkBalances()
 
 // Alice sends the transaction id and vout
-val aliceNotif = Map(
-  "txId" -> txId
-)
+val aliceNotif = TransactionOutPoint(txId, UInt32(0))
+
+// Bridge can verify that the funds have been sent to the address
+handleCall(rpcCli.getTxOut(aliceNotif.txId.flip, aliceNotif.vout.toLong)).get
 
 
 // Alice Reclaims the funds
 val reclaimAddress = handleCall(rpcCli.getNewAddress(Some("alice"))).get
-val inputs = Vector(TransactionInput.fromTxidAndVout(aliceNotif("txId"), UInt32(0)))
 val outputs = Map(reclaimAddress -> 48.bitcoins) // 1 BTC as fee
-val unprovenTx = handleCall(rpcCli.createRawTransaction(inputs, outputs)).get
-val provenTx = handleCall(rpcCli.signRawTransactionWithWallet(unprovenTx, Some("alice"))).get.hex
+val inputs = Vector(TransactionInput.fromTxidAndVout(aliceNotif.txId.flip, aliceNotif.vout))
+val scriptPubKey = handleCall(rpcCli.getAddressInfo(BitcoinAddress(address))).get.scriptPubKey
+val tx = handleCall(rpcCli.createRawTransaction(inputs, outputs)).get
+val txWit = WitnessTransaction.toWitnessTx(tx)
+val signature: ScriptSignature = ???
+txWit.updateWitness(0, P2WSHWitnessV0(NonStandardScriptPubKey(Seq(P2SHScriptPubKey(scriptPubKey)))))
+// Following does not work
+val psbt = handleCall(rpcCli.convertToPsbt(txWit)).get
+val signedPsbt = handleCall(rpcCli.walletProcessPSBT(psbt, walletNameOpt = Some("alice"))).get
+val witnessTx = handleCall(rpcCli.signRawTransactionWithWallet(txWit, Some("alice"))).get.hex
+signedPsbt.psbt.transaction
+val finaledPsbt1 = handleCall(rpcCli.finalizePsbt(signedPsbt.psbt)).get
+val finaledPsbt2 = signedPsbt.psbt.finalizePSBT
+val txToSend = signedPsbt.psbt.extractTransaction
 println("Sending: ")
-println(provenTx)
-val txId = handleCall(rpcCli.sendRawTransaction(provenTx, 0)).get
+println(txToSend)
+val txId = handleCall(rpcCli.sendRawTransaction(txToSend, 0)).get
 
 checkBalances()
 
 mineBlocks(1)
 checkBalances()
-
-
-
-// look into signrawtransactionwithwallet and the functions in the confluence page; psbt stuff

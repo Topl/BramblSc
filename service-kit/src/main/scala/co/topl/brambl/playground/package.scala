@@ -152,12 +152,13 @@ package object playground {
 
   def setup(): Unit = {
     println("Setting up wallets...")
-    handleCall(rpcCli.createWallet("testwallet", descriptors = true))
-    handleCall(rpcCli.createWallet("recipient", descriptors = true))
+//    handleCall(rpcCli.createWallet("testwallet", descriptors = true))
+//    handleCall(rpcCli.createWallet("recipient", descriptors = true))
+    handleCall(rpcCli.createWallet("dummy", descriptors = true))
     handleCall(rpcCli.createWallet("alice", descriptors = true))
     handleCall(rpcCli.createWallet("bridge", descriptors = true))
-    handleCall(rpcCli.createWallet("dummy", descriptors = true))
-    mineBlocks(1, "testwallet")
+    handleCall(rpcCli.createWallet("watcher", disablePrivateKeys = true, descriptors = true))
+//    mineBlocks(1, "testwallet")
     mineBlocks(1, "alice")
     mineBlocks(100)
   }
