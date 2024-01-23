@@ -218,7 +218,12 @@ def getAliceSignature(unsignedTx: Transaction, script: RawScriptPubKey, privateK
 
   val signableBytes = CryptoUtil.doubleSHA256(serializedTxForSignature)
   val signature = privateKey.sign(signableBytes.bytes) // TODO: Append hashtype?
-  NonStandardScriptSignature.fromAsm(Seq(ScriptConstant(signature.hex), ScriptConstant(signature.hex)))
+  NonStandardScriptSignature.fromAsm(Seq(
+    sizeOf(signature.hex),
+    ScriptConstant(signature.hex),
+    sizeOf(signature.hex),
+    ScriptConstant(signature.hex)
+  ))
 }
 
 // Alice Reclaims the funds
