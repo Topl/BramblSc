@@ -64,6 +64,24 @@ package object playground {
         this.getAddressInfo(addr, Some(walletName)).map(_.pubkey.get.hex)(ec)
     })(ec)
     }
+    def getAddrWitnessProgran(walletName: String, address: String): Future[String] = {
+      bitcoindCallRaw(
+        "getaddressinfo",
+        List(JsString(address)),
+        uriExtensionOpt = Some(walletExtension(walletName))
+      ).map(res => (
+        res \ "result" \ "witness_program"
+        ).result.get.toString())(ec)
+    }
+    def getAddrPubKey(walletName: String, address: String): Future[String] = {
+      bitcoindCallRaw(
+        "getaddressinfo",
+        List(JsString(address)),
+        uriExtensionOpt = Some(walletExtension(walletName))
+      ).map(res => (
+        res \ "result" \ "scriptPubKey"
+        ).result.get.toString())(ec)
+    }
 
     def getDescriptor(walletName: String, isPrivate: Boolean = true): Future[String] = {
       this.listDescriptors(walletName, isPrivate = isPrivate).map(descriptors => {
