@@ -16,7 +16,7 @@ import org.bitcoins.core.script.control.{OP_ELSE, OP_ENDIF, OP_NOTIF}
 import org.bitcoins.core.script.crypto.{OP_CHECKSIG, OP_SHA256}
 import org.bitcoins.core.script.splice.OP_SIZE
 import org.bitcoins.core.util.BytesUtil
-import org.bitcoins.crypto.{CryptoUtil, HashType, Sign}
+import org.bitcoins.crypto._
 import scodec.bits.ByteVector
 
 import java.security.MessageDigest
@@ -217,12 +217,17 @@ def getAliceSignature(unsignedTx: Transaction, script: RawScriptPubKey, privateK
       Int32(HashType.sigHashAll.num).bytesLE
 
   val signableBytes = CryptoUtil.doubleSHA256(serializedTxForSignature)
-  val signature = privateKey.sign(signableBytes.bytes) // TODO: Append hashtype?
+  val signature = privateKey.sign(signableBytes.bytes)
+  // append 1 byte hash type onto the end
+  val sig = ECDigitalSignature(signature.bytes ++ ByteVector.fromByte(HashType.sigHashAll.byte))
+  require(
+    sig.isStrictEncoded,
+    "We did not create a signature that is strictly encoded, got: " + sig)
+  require(DERSignatureUtil.isLowS(sig), "Sig does not have a low s value")
   NonStandardScriptSignature.fromAsm(Seq(
-    sizeOf(signature.hex),
-    ScriptConstant(signature.hex),
-    sizeOf(signature.hex),
-    ScriptConstant(signature.hex)
+    OP_0,
+    sizeOf(sig.hex),
+    ScriptConstant(sig.hex)
   ))
 }
 
