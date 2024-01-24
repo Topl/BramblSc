@@ -28,7 +28,7 @@ checkBalances()
 
 // Alice retrieves her public key and hashes the secret
 // secret has to be 32 bytes
-val secret = "topl-secret".getBytes("UTF-8")
+val secret = "my-big-topl-secret-with-32-bytes".getBytes("UTF-8")
 val hash = MessageDigest.getInstance("SHA-256").digest(secret)
 val secretHex = Encoding.encodeToHex(secret)
 val hashHex = Encoding.encodeToHex(hash)
@@ -199,7 +199,6 @@ def serializeForSignature(
   serializationForSig
 }
 def getAliceSignature(unsignedTx: Transaction, script: RawScriptPubKey, privateKey: Sign, inputAmount: CurrencyUnit): ScriptSignature = {
-
   val serializedTxForSignature = serializeForSignature(unsignedTx, inputAmount, script.asm)
   val signableBytes = CryptoUtil.doubleSHA256(serializedTxForSignature)
   val signature = privateKey.sign(signableBytes.bytes)
@@ -211,24 +210,35 @@ def getAliceSignature(unsignedTx: Transaction, script: RawScriptPubKey, privateK
     OP_0
   ))
 }
+def getBridgeSignature(unsignedTx: Transaction, script: RawScriptPubKey, privateKey: Sign, inputAmount: CurrencyUnit): ScriptSignature = {
+  val serializedTxForSignature = serializeForSignature(unsignedTx, inputAmount, script.asm)
+  val signableBytes = CryptoUtil.doubleSHA256(serializedTxForSignature)
+  val signature = privateKey.sign(signableBytes.bytes)
+  // append 1 byte hash type onto the end, per BIP-066
+  val sig = ECDigitalSignature(signature.bytes ++ ByteVector.fromByte(HashType.sigHashAll.byte))
 
-// Alice Reclaims the funds
-val reclaimAddress = handleCall(rpcCli.getNewAddress(Some("alice"))).get
-val outputs = Map(reclaimAddress -> 48.bitcoins) // 1 BTC as fee
+  NonStandardScriptSignature.fromAsm(Seq(
+    ScriptConstant(secretHex),
+    ScriptConstant(sig.hex)
+  ))
+}
+
+// BELOW IS THE BRIDGE CLAIMING THE FUNDS
+// bridge claims the funds
+val claimAddress = handleCall(rpcCli.getNewAddress(Some("bridge"))).get
+val outputs = Map(claimAddress -> 48.bitcoins) // 1 BTC as fee
 val inputs = Vector(TransactionInput.fromTxidAndVout(aliceNotif.txIdBE, aliceNotif.vout))
 val inputAmount = handleCall(rpcCli.getTxOut(aliceNotif.txIdBE, aliceNotif.vout.toLong)).get.value
 val tx = handleCall(rpcCli.createRawTransaction(inputs, outputs)).get
 val txWitEmpty = WitnessTransaction.toWitnessTx(tx)
-// inside the witness needs to be a raw scriptPubKey, not a P2SHScriptPubKey
-// NonStandardScriptPubKey or RawScriptPubKey
 val scriptInner = descToScriptPubKey(desc)
-val aliceSig = getAliceSignature(
+val bridgeSig = getBridgeSignature(
   txWitEmpty,
   scriptInner,
-  aliceChildPriv.key,
+  bridgeChildPriv.key,
   inputAmount
 )
-val witness = P2WSHWitnessV0(scriptInner, aliceSig)
+val witness = P2WSHWitnessV0(scriptInner, bridgeSig)
 val txWit = txWitEmpty.updateWitness(0, witness)
 println("Sending: ")
 println(txWit)
@@ -236,13 +246,48 @@ println(txWit.hex)
 // 32 byte witness program (P2WSH)
 println("script in our TX: " + txWit.witness.witnesses.head.stack.head.toHex)
 
-println("Witness Program from Address: \n" + handleCall(rpcCli.getAddrWitnessProgran("alice", address)))
+println("Witness Program from Address: \n" + handleCall(rpcCli.getAddrWitnessProgran("bridge", address)))
 println("hash of our redeem script: \n" + CryptoUtil.sha256(scriptInner.asmBytes))
 println("======")
 val txId = handleCall(rpcCli.sendRawTransaction(txWit, 0)).get
 
 mineBlocks(1)
 checkBalances()
+
+
+
+// UNCOMMENT TO TEST ALICE RECLAIMING FUNDS
+// Alice Reclaims the funds
+//val reclaimAddress = handleCall(rpcCli.getNewAddress(Some("alice"))).get
+//val outputs = Map(reclaimAddress -> 48.bitcoins) // 1 BTC as fee
+//val inputs = Vector(TransactionInput.fromTxidAndVout(aliceNotif.txIdBE, aliceNotif.vout))
+//val inputAmount = handleCall(rpcCli.getTxOut(aliceNotif.txIdBE, aliceNotif.vout.toLong)).get.value
+//val tx = handleCall(rpcCli.createRawTransaction(inputs, outputs)).get
+//val txWitEmpty = WitnessTransaction.toWitnessTx(tx)
+//// inside the witness needs to be a raw scriptPubKey, not a P2SHScriptPubKey
+//// NonStandardScriptPubKey or RawScriptPubKey
+//val scriptInner = descToScriptPubKey(desc)
+//val aliceSig = getAliceSignature(
+//  txWitEmpty,
+//  scriptInner,
+//  aliceChildPriv.key,
+//  inputAmount
+//)
+//val witness = P2WSHWitnessV0(scriptInner, aliceSig)
+//val txWit = txWitEmpty.updateWitness(0, witness)
+//println("Sending: ")
+//println(txWit)
+//println(txWit.hex)
+//// 32 byte witness program (P2WSH)
+//println("script in our TX: " + txWit.witness.witnesses.head.stack.head.toHex)
+//
+//println("Witness Program from Address: \n" + handleCall(rpcCli.getAddrWitnessProgran("alice", address)))
+//println("hash of our redeem script: \n" + CryptoUtil.sha256(scriptInner.asmBytes))
+//println("======")
+//val txId = handleCall(rpcCli.sendRawTransaction(txWit, 0)).get
+//
+//mineBlocks(1)
+//checkBalances()
 
 
 
