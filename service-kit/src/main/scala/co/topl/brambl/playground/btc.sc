@@ -34,18 +34,7 @@ val secretHex = Encoding.encodeToHex(secret)
 val hashHex = Encoding.encodeToHex(hash)
 
 
-//val aliceXPrivDesc = handleCall(rpcCli.getDescriptor("alice")).get
-//val aliceXPrivKey = extractXPrivKey(aliceXPrivDesc)
-//val aliceXPubDesc = handleCall(rpcCli.applyDescriptorChecksum("alice", aliceXPrivDesc)).get("descriptor")
-//val aliceXPubKey = extractKey(aliceXPubDesc, '(')
-
-//val aliceXPubDesc = handleCall(rpcCli.getDescriptor("alice", isPrivate = false)).get
-//val aliceXPubKey = extractXPubKey(aliceXPubDesc)
-
 // Alice creates a new public key. It does not matter to us how she obtains it, however, it must be a child key (i.e, not contain a range)
-//val alicePubKey = handleCall(rpcCli.getNewPublicKey("alice")).get
-//val aliceNewAddr = handleCall(rpcCli.getNewAddress(walletNameOpt = Some("alice"))).get
-//val aliceAddrInfo = handleCall(rpcCli.getAddressInfo(aliceNewAddr, walletNameOpt = Some("alice"))).get
 val aliceRootSecretKeyRaw = (handleCall(rpcCli.listDescriptors("alice", isPrivate = true)).get.head \ "desc").result.get.toString()
 val aliceRootSecretKey = aliceRootSecretKeyRaw.substring(aliceRootSecretKeyRaw.indexOf("(") + 1, aliceRootSecretKeyRaw.indexOf("/"))
 val alicePath = "m" + aliceRootSecretKeyRaw.substring(aliceRootSecretKeyRaw.indexOf("/"), aliceRootSecretKeyRaw.indexOf(")")).replace("*", "4")
@@ -53,28 +42,23 @@ val aliceXPriv = ExtPrivateKey.fromString(aliceRootSecretKey)
 val aliceChildPriv = aliceXPriv.deriveChildPrivKey(HDPath.fromString(alicePath))
 val alicePubKey = aliceChildPriv.extPublicKey.key
 // SegWitHDPath.fromString("m/84'/0'/0'/0/0")
-//val alicePrivKey = SegWitHDPath.fromString(aliceAddrInfo.hdkeypath.get)
 // Alice sends the hash and her public key to the bridge
 val aliceReq = Map(
   "hash" -> hashHex,
   "xpub" -> alicePubKey.hex
 )
 
-// Bridge creates a descriptor
-//val bridgeXPrivDesc = handleCall(rpcCli.getDescriptor("bridge")).get
-//val bridgeXPrivKey = extractXPrivKey(bridgeXPrivDesc)
-
-
 // We retrieve a new public key for the bridge to use. It will also be a child key (no range).
-// For this example, the bridge obtains it by generating a new address (thus using a new key), and then retrieving the public key from the address.
-val bridgeXPubKey = handleCall(rpcCli.getNewPublicKey("bridge")).get
+val bridgeRootSecretKeyRaw = (handleCall(rpcCli.listDescriptors("bridge", isPrivate = true)).get.head \ "desc").result.get.toString()
+val bridgeRootSecretKey = bridgeRootSecretKeyRaw.substring(bridgeRootSecretKeyRaw.indexOf("(") + 1, bridgeRootSecretKeyRaw.indexOf("/"))
+val bridgePath = "m" + bridgeRootSecretKeyRaw.substring(bridgeRootSecretKeyRaw.indexOf("/"), bridgeRootSecretKeyRaw.indexOf(")")).replace("*", "4")
+val bridgeXPriv = ExtPrivateKey.fromString(bridgeRootSecretKey)
+val bridgeChildPriv = bridgeXPriv.deriveChildPrivKey(HDPath.fromString(bridgePath))
+val bridgePubKey = bridgeChildPriv.extPublicKey.key.hex
 
-
-//val descriptor = s"wsh(andor(pk($bridgeXPrivKey),sha256(${aliceReq("hash")}),pk(${aliceReq("xpub")})))"
-//val descriptor = s"wsh(and_v(v:pk($bridgeXPrivKey),sha256($hashHex)))" // this works.. i.e, without alice's
 
 // Bridge creates a descriptor using the hash and Alice's public key and its own public key
-val descriptor = s"wsh(andor(pk($bridgeXPubKey),sha256(${aliceReq("hash")}),pk(${aliceReq("xpub")})))"
+val descriptor = s"wsh(andor(pk($bridgePubKey),sha256(${aliceReq("hash")}),pk(${aliceReq("xpub")})))"
 // Bridge adds the checksum
 val desc = handleCall(rpcCli.applyDescriptorChecksum("bridge", descriptor)).get("descriptor")
 
@@ -158,34 +142,7 @@ def descToScriptPubKey(desc: String): RawScriptPubKey = {
   RawScriptPubKey(scriptTokens)
 }
 
-def getP2shPubKey(witnessScript: RawScriptPubKey): RawScriptPubKey = {
-  //Calculate the SHA256 of the witnessScript (scripthash). Please pay attention that a single SHA256 is used, not double SHA256 nor RIPEMD160(SHA256)
-  val scriptHash = CryptoUtil.sha256(witnessScript.asmBytes).hex
-  // Native P2WSH is a scriptPubKey of 34 bytes. It starts with a OP_0, followed by a canonical push of the scripthash (i.e. 0x0020{32-byte scripthash})
-  val scriptPubKey = Seq(
-    OP_0,
-    sizeOf(scriptHash),
-    ScriptConstant(scriptHash)
-  )
-  RawScriptPubKey(scriptPubKey)
-}
-
 def getAliceSignature(unsignedTx: Transaction, script: RawScriptPubKey, privateKey: Sign): ScriptSignature = {
-//  val outPoint = unsignedTx.inputs.head.previousOutput
-//  val signingInfo = ECSignatureParams(
-//    InputInfo(outPoint = outPoint,
-//      output = prevTx.outputs(outPoint.vout.toInt),
-//      redeemScriptOpt = Some(script),
-//      scriptWitnessOpt = Some(P2WSHWitnessV0(script)),
-//      conditionalPath = ConditionalPath.NoCondition),
-//    prevTransaction = prevTx,
-//    signer = privateKey,
-//    hashType = sigHashAll
-//  )
-//  val partialSig = BitcoinSigner.signSingle(
-//    spendingInfo = signingInfo,
-//    unsignedTx = unsignedTx,
-//    isDummySignature = false)
   /** BIP-143
    * Double SHA256 of the serialization of:
    * 1. nVersion of the transaction (4-byte little endian)
@@ -218,7 +175,7 @@ def getAliceSignature(unsignedTx: Transaction, script: RawScriptPubKey, privateK
 
   val signableBytes = CryptoUtil.doubleSHA256(serializedTxForSignature)
   val signature = privateKey.sign(signableBytes.bytes)
-  // append 1 byte hash type onto the end
+  // append 1 byte hash type onto the end, per BIP-066
   val sig = ECDigitalSignature(signature.bytes ++ ByteVector.fromByte(HashType.sigHashAll.byte))
   require(
     sig.isStrictEncoded,
@@ -240,14 +197,12 @@ val txWitEmpty = WitnessTransaction.toWitnessTx(tx)
 // inside the witness needs to be a raw scriptPubKey, not a P2SHScriptPubKey
 // NonStandardScriptPubKey or RawScriptPubKey
 val scriptInner = descToScriptPubKey(desc)
-//val script = getP2shPubKey(scriptInner)
 val aliceSig = getAliceSignature(
   txWitEmpty,
   scriptInner,
   aliceChildPriv
 )
 val witness = P2WSHWitnessV0(scriptInner, aliceSig)
-//witness.stack.map(BytesUtil.encodeHex).foreach(println)
 val txWit = txWitEmpty.updateWitness(0, witness)
 println("Sending: ")
 println(txWit)
