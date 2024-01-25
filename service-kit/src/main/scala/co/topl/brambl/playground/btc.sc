@@ -6,7 +6,7 @@ import org.bitcoins.core.protocol.script.P2WSHWitnessV0
 import org.bitcoins.core.protocol.transaction._
 import org.bitcoins.crypto._
 
-val DoesBridgeClaim: Boolean = true
+val DoesBridgeClaim: Boolean = false
 
 println("> Setting up wallets...")
 handleCall(rpcCli.createWallet("dummy", descriptors = true))
@@ -45,6 +45,7 @@ println("> Alice sends BTC to address...")
 aliceCtx += ("txOut" -> sendFromWallet("alice", aliceCtx("address")).toHumanReadableString)
 println("> Alice sends txOut to bridge...")
 bridgeCtx += ("txOut" -> aliceCtx("txOut"))
+println(aliceCtx("txOut"))
 
 mineBlocks(1)
 checkBalances()
@@ -71,11 +72,15 @@ if(DoesBridgeClaim) {
   handleCall(rpcCli.sendRawTransaction(txWit, 0)).get
 } else {
   print("\n============================" + "Alice reclaims BTC" + "============================\n")
+  // Alice can only reclaim after 1000 blocks
+  println("> Alice waiting 1000 blocks...")
+  mineBlocks(1000)
   val utxoToSpend = TransactionOutPoint.fromString(aliceCtx("txOut"))
   println("> Alice verifies funds...")
   verifyTxOutAndGetAmount(utxoToSpend, aliceCtx("address"))
   println("> Alice creating unproven TX...")
-  val tx = createToWalletTx("alice", utxoToSpend)
+  val tx = createToWalletTx("alice", utxoToSpend, spendTimeLock = true)
+  println(tx)
   println("> Alice deriving witnessScript...")
   val scriptInner = descToScriptPubKey(aliceCtx("desc"))
   println("> Alice verifies validity of witnessScript...")
@@ -85,7 +90,7 @@ if(DoesBridgeClaim) {
   println("> Alice adds the witness to the TX...")
   val txWit = WitnessTransaction.toWitnessTx(tx).updateWitness(0, P2WSHWitnessV0(scriptInner, aliceSig))
   println("> Alice submits TX...")
-  handleCall(rpcCli.sendRawTransaction(txWit, 0)).get
+  handleCall(rpcCli.sendRawTransaction(txWit, 0), debug = true).get
 }
 mineBlocks(1)
 checkBalances()

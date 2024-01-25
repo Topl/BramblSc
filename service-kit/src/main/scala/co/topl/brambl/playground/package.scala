@@ -9,7 +9,7 @@ import org.bitcoins.core.currency.{Bitcoins, CurrencyUnit}
 import org.bitcoins.core.hd.HDPath
 import org.bitcoins.core.number.{Int32, UInt32}
 import org.bitcoins.core.protocol.script.{NonStandardScriptSignature, RawScriptPubKey, ScriptSignature}
-import org.bitcoins.core.protocol.transaction.{Transaction, TransactionInput, TransactionOutPoint}
+import org.bitcoins.core.protocol.transaction.{Transaction, TransactionConstants, TransactionInput, TransactionOutPoint}
 import org.bitcoins.core.protocol.{BitcoinAddress, CompactSizeUInt}
 import org.bitcoins.core.script.bitwise.{OP_EQUAL, OP_EQUALVERIFY}
 import org.bitcoins.core.script.constant.{OP_0, ScriptConstant, ScriptToken}
@@ -333,20 +333,28 @@ package object playground {
   }
 
   def createBaseTx(
-    fromTxId:   DoubleSha256DigestBE,
-    fromVOut:   UInt32,
-    toAddr:     BitcoinAddress,
-    fromAmount: BigDecimal
+    fromTxId:      DoubleSha256DigestBE,
+    fromVOut:      UInt32,
+    toAddr:        BitcoinAddress,
+    fromAmount:    BigDecimal,
+    spendTimeLock: Boolean = false
   ): Transaction = {
-    val inputs = Vector(TransactionInput.fromTxidAndVout(fromTxId, fromVOut))
+    val input = if (spendTimeLock) {
+      val sequence: UInt32 = UInt32(1000L & TransactionConstants.sequenceLockTimeMask.toLong)
+      TransactionInput(TransactionOutPoint(fromTxId, fromVOut), ScriptSignature.empty, sequence)
+    } else TransactionInput.fromTxidAndVout(fromTxId, fromVOut)
     val outputs = Map(toAddr -> Bitcoins(fromAmount - 1)) // 1 BTC as fee
-    handleCall(rpcCli.createRawTransaction(inputs, outputs)).get
+    handleCall(rpcCli.createRawTransaction(Vector(input), outputs)).get
   }
 
-  def createToWalletTx(wallet: String, utxoToSpend: TransactionOutPoint): Transaction = {
+  def createToWalletTx(
+    wallet:        String,
+    utxoToSpend:   TransactionOutPoint,
+    spendTimeLock: Boolean = false
+  ): Transaction = {
     val toAddr = handleCall(rpcCli.getNewAddress(Some(wallet))).get
     val inputAmount = handleCall(rpcCli.getTxOut(utxoToSpend.txIdBE, utxoToSpend.vout.toLong)).get.value
-    createBaseTx(utxoToSpend.txIdBE, utxoToSpend.vout, toAddr, inputAmount.toBigDecimal)
+    createBaseTx(utxoToSpend.txIdBE, utxoToSpend.vout, toAddr, inputAmount.toBigDecimal, spendTimeLock)
   }
 
   def verifyTxOutAndGetAmount(txOutPoint: TransactionOutPoint, expectedAddr: String): Unit = {
