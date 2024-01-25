@@ -1,12 +1,13 @@
 package co.topl.brambl
 
 import akka.actor.ActorSystem
+import co.topl.brambl.utils.Encoding
 import org.bitcoins.commons.jsonmodels.bitcoind.BalanceInfo
 import org.bitcoins.core.config.RegTest
-import org.bitcoins.core.currency.BitcoinsInt
-import org.bitcoins.core.number.UInt32
-import org.bitcoins.core.protocol.BitcoinAddress
-import org.bitcoins.core.protocol.transaction.TransactionInput
+import org.bitcoins.core.crypto.ExtPrivateKey
+import org.bitcoins.core.hd.HDPath
+import org.bitcoins.core.protocol.transaction.TransactionOutPoint
+import org.bitcoins.crypto.{ECPrivateKey, ECPublicKey}
 import org.bitcoins.rpc.client.common.BitcoindRpcClient
 import org.bitcoins.rpc.config.{BitcoindAuthCredentials, BitcoindInstanceLocal}
 import play.api.libs.json._
@@ -14,17 +15,18 @@ import play.api.libs.json._
 import java.io.File
 import java.net.URI
 import java.nio.file.Paths
+import java.security.MessageDigest
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Random, Success, Try}
 package object playground {
 
-  def handleCall[T](call: Future[T]): Option[T] = Try {
+  def handleCall[T](call: Future[T], debug: Boolean = false): Option[T] = Try {
     Await.result(call, Duration(10, "seconds"))
   } match {
     case Success(value) => Some(value)
     case Failure(exception) =>
-      println(exception.getMessage)
+      if(debug) println(exception.getMessage)
       None
   }
 
@@ -59,12 +61,7 @@ package object playground {
 
     }
 
-    def getNewPublicKey(walletName: String): Future[String] = {
-      this.getNewAddress(Some(walletName)).flatMap(addr => {
-        this.getAddressInfo(addr, Some(walletName)).map(_.pubkey.get.hex)(ec)
-    })(ec)
-    }
-    def getAddrWitnessProgran(walletName: String, address: String): Future[String] = {
+    def getAddrWitnessProgram(walletName: String, address: String): Future[String] = {
       bitcoindCallRaw(
         "getaddressinfo",
         List(JsString(address)),
@@ -73,54 +70,16 @@ package object playground {
         res \ "result" \ "witness_program"
         ).result.get.toString())(ec)
     }
-    def getAddrPubKey(walletName: String, address: String): Future[String] = {
-      bitcoindCallRaw(
-        "getaddressinfo",
-        List(JsString(address)),
-        uriExtensionOpt = Some(walletExtension(walletName))
-      ).map(res => (
-        res \ "result" \ "scriptPubKey"
-        ).result.get.toString())(ec)
-    }
 
-    def getDescriptor(walletName: String, isPrivate: Boolean = true): Future[String] = {
-      this.listDescriptors(walletName, isPrivate = isPrivate).map(descriptors => {
-        descriptors
-          .map(d => (d \ "desc").get.as[JsString].toString().filterNot(_ == '"'))
-          .find(_.startsWith("pkh(")).get
-      })(ec)
-    }
-
-    // desc should be a descriptor with checksum
-    def importDescriptor(walletName: String, desc: String): Future[JsValue] = {
-      bitcoindCallRaw(
-        "importdescriptors",
-        List(Json.toJson(List(Map(
-          "desc" -> desc,
-          "timestamp" -> "now",
-          "label" -> "pegIn",
-        )))),
-        uriExtensionOpt = Some(walletExtension(walletName))
-      )
-//        .map(res => (
-//        res \ "result" \ "descriptor"
-//        ).result.get.as[JsString].toString().filterNot(_ == '"'))(ec)
-    }
-
-    // Takes in desc (with or without checksum), returns the canonical one (without private keys) and orig checksum
-    // useful for importing descriptors with private keys
-    def applyDescriptorChecksum(walletName: String, desc: String): Future[Map[String, String]] = {
+    // Takes in desc returns the canonical one (without private keys)
+    def getCanonicalDescriptor(walletName: String, desc: String): Future[String] = {
       bitcoindCallRaw(
         "getdescriptorinfo",
         List(JsString(desc)),
         uriExtensionOpt = Some(walletExtension(walletName))
-      ).map(res => {
-        val full = (res \ "result").result.get.as[JsObject].value
-        Map(
-          "descriptor" -> full("descriptor").as[JsString].toString().filterNot(_ == '"'),
-          "checksum" -> full("checksum").as[JsString].toString().filterNot(_ == '"'),
-        )
-      })(ec)
+      ).map(res => (
+        (res \ "result" \ "descriptor").result.get.as[JsString].toString().filterNot(_ == '"')
+      ))(ec)
     }
     def deriveOneAddresse(walletName: String, desc: String): Future[String] = {
       bitcoindCallRaw(
@@ -154,15 +113,6 @@ package object playground {
 
   val rpcCli = ExtendedBitcoindRpcClient()
 
-  def extractKey(desc: String, starChar: Char): String = {
-    val start = desc.indexOf(starChar) + 1
-    val end = desc.indexOf(')')
-    desc.substring(start, end)
-  }
-
-  def extractXPubKey(desc: String): String = extractKey(desc, ']')
-  def extractXPrivKey(desc: String): String = extractKey(desc, '(')
-
   def mineBlocks(n: Int, wallet: String = "dummy"): Unit = {
     println(s"Mining $n blocks...")
     handleCall(rpcCli.getNewAddress(Some(wallet)).flatMap(rpcCli.generateToAddress(n, _))(ec))
@@ -170,13 +120,9 @@ package object playground {
 
   def setup(): Unit = {
     println("Setting up wallets...")
-//    handleCall(rpcCli.createWallet("testwallet", descriptors = true))
-//    handleCall(rpcCli.createWallet("recipient", descriptors = true))
     handleCall(rpcCli.createWallet("dummy", descriptors = true))
     handleCall(rpcCli.createWallet("alice", descriptors = true))
     handleCall(rpcCli.createWallet("bridge", descriptors = true))
-    handleCall(rpcCli.createWallet("watcher", disablePrivateKeys = true, descriptors = true))
-//    mineBlocks(1, "testwallet")
     mineBlocks(1, "alice")
     mineBlocks(100)
   }
@@ -199,44 +145,27 @@ package object playground {
     println("===================")
   }
 
+  def checkTransaction(txOut: TransactionOutPoint): Unit = {
 
-  /**
-   * Create a TX that spends the 50 BTC UTXO into 2 outputs with 25 (to recipient) and 24 (change) BTC respectively.
-   *
-   * Per the bitcoin.conf file, betch32 is the default address format. This means that the 50 BTC are locked up in a P2WPKH address
-   * under the "testwallet".
-   *
-   * The recipient output will be locked to a new P2WPKH address in the "recipient" wallet.
-   * The change output will be locked to a new P2WPKH address in the "testwallet".
-   *
-   * 1BTC will be used as a fee
-   */
-  def createTx(): Unit = {
-    println("Creating first TX...")
-    val utxo = handleCall(rpcCli.listUnspent("testwallet")).get.head
-    // The input is the 50 BTC UTXO
-    val inputs = Vector(TransactionInput.fromTxidAndVout(utxo.txid, UInt32(utxo.vout)))
-
-    val recipientAddr = BitcoinAddress(handleCall(rpcCli.getNewAddress(Some("recipient"))).get.value)
-    val changeAddr = handleCall(rpcCli.getNewAddress(Some("testwallet"))).get
-    val outputs = Map(recipientAddr -> 25.bitcoins, changeAddr -> 24.bitcoins)
-
-    val unprovenTx = handleCall(rpcCli.createRawTransaction(inputs, outputs)).get
-    val provenTx = handleCall(rpcCli.signRawTransactionWithWallet(unprovenTx, Some("testwallet"))).get.hex
-    println("Sending: ")
-    println(provenTx)
-
-    handleCall(rpcCli.sendRawTransaction(provenTx, 0)).get
   }
 
-  def run(): Unit = {
-    setup()
-    checkBalances()
+  case class Secret(secretHex: String, hashHex: String)
 
-    createTx()
-    checkBalances()
+  // Secret has to be 32 bytes
+  def generateSecret(): Secret = {
+    val secret = Random.nextBytes(32)
+    val hash = MessageDigest.getInstance("SHA-256").digest(secret)
+    Secret(Encoding.encodeToHex(secret), Encoding.encodeToHex(hash))
+  }
 
-    mineBlocks(1)
-    checkBalances()
+  case class KeyPair(signingKey: ECPrivateKey, verificationKey: ECPublicKey)
+  def getChildKeyPair(wallet: String, i: Int = 4): KeyPair = {
+    val rootSecretKeyRaw = (handleCall(rpcCli.listDescriptors(wallet, isPrivate = true)).get.head \ "desc").result.get.toString()
+    val rootSecretKeyStr = rootSecretKeyRaw.substring(rootSecretKeyRaw.indexOf("(") + 1, rootSecretKeyRaw.indexOf("/"))
+    val keyPath = "m" + rootSecretKeyRaw.substring(rootSecretKeyRaw.indexOf("/"), rootSecretKeyRaw.indexOf(")")).replace("*", i.toString)
+    val rootSecretKey = ExtPrivateKey.fromString(rootSecretKeyStr)
+    val childSecretKey = rootSecretKey.deriveChildPrivKey(HDPath.fromString(keyPath))
+    println(s"Generating child key pair for $wallet at $keyPath...")
+    KeyPair(childSecretKey.key, childSecretKey.extPublicKey.key)
   }
 }

@@ -1,11 +1,8 @@
 import co.topl.brambl.playground._
-import co.topl.brambl.utils.Encoding
 import org.bitcoins.commons.jsonmodels.bitcoind._
 import org.bitcoins.commons.serializers.JsonSerializers._
 import org.bitcoins.commons.serializers.JsonWriters._
-import org.bitcoins.core.crypto.ExtPrivateKey
-import org.bitcoins.core.currency.{BitcoinsInt, CurrencyUnit}
-import org.bitcoins.core.hd.HDPath
+import org.bitcoins.core.currency.{Bitcoins, BitcoinsInt, CurrencyUnit}
 import org.bitcoins.core.number.{Int32, UInt32}
 import org.bitcoins.core.protocol.script.{NonStandardScriptSignature, P2WSHWitnessV0, RawScriptPubKey, ScriptSignature}
 import org.bitcoins.core.protocol.transaction._
@@ -19,48 +16,29 @@ import org.bitcoins.core.util.BytesUtil
 import org.bitcoins.crypto._
 import scodec.bits.ByteVector
 
-import java.security.MessageDigest
-
 setup()
 checkBalances()
-//handleCall(rpcCli.loadWallet("alice"))
-//handleCall(rpcCli.loadWallet("bridge"))
 
-// Alice retrieves her public key and hashes the secret
-// secret has to be 32 bytes
-val secret = "my-big-topl-secret-with-32-bytes".getBytes("UTF-8")
-val hash = MessageDigest.getInstance("SHA-256").digest(secret)
-val secretHex = Encoding.encodeToHex(secret)
-val hashHex = Encoding.encodeToHex(hash)
+println("Alice generating 32 byte secret...")
+val aliceSecret = generateSecret()
 
+// Alice creates a new public key. It does not matter to us how she obtains it, however, it must be a child key
+println("Alice generating keypair...")
+val aliceKeyPair = getChildKeyPair("alice")
 
-// Alice creates a new public key. It does not matter to us how she obtains it, however, it must be a child key (i.e, not contain a range)
-val aliceRootSecretKeyRaw = (handleCall(rpcCli.listDescriptors("alice", isPrivate = true)).get.head \ "desc").result.get.toString()
-val aliceRootSecretKey = aliceRootSecretKeyRaw.substring(aliceRootSecretKeyRaw.indexOf("(") + 1, aliceRootSecretKeyRaw.indexOf("/"))
-val alicePath = "m" + aliceRootSecretKeyRaw.substring(aliceRootSecretKeyRaw.indexOf("/"), aliceRootSecretKeyRaw.indexOf(")")).replace("*", "4")
-val aliceXPriv = ExtPrivateKey.fromString(aliceRootSecretKey)
-val aliceChildPriv = aliceXPriv.deriveChildPrivKey(HDPath.fromString(alicePath))
-val alicePubKey = aliceChildPriv.extPublicKey.key
-// SegWitHDPath.fromString("m/84'/0'/0'/0/0")
-// Alice sends the hash and her public key to the bridge
-val aliceReq = Map(
-  "hash" -> hashHex,
-  "xpub" -> alicePubKey.hex
-)
+println("Alice sending hash and public key to bridge...")
+val aliceReq = Map("hash" -> aliceSecret.hashHex, "vk" -> aliceKeyPair.verificationKey.hex)
 
-// We retrieve a new public key for the bridge to use. It will also be a child key (no range).
-val bridgeRootSecretKeyRaw = (handleCall(rpcCli.listDescriptors("bridge", isPrivate = true)).get.head \ "desc").result.get.toString()
-val bridgeRootSecretKey = bridgeRootSecretKeyRaw.substring(bridgeRootSecretKeyRaw.indexOf("(") + 1, bridgeRootSecretKeyRaw.indexOf("/"))
-val bridgePath = "m" + bridgeRootSecretKeyRaw.substring(bridgeRootSecretKeyRaw.indexOf("/"), bridgeRootSecretKeyRaw.indexOf(")")).replace("*", "4")
-val bridgeXPriv = ExtPrivateKey.fromString(bridgeRootSecretKey)
-val bridgeChildPriv = bridgeXPriv.deriveChildPrivKey(HDPath.fromString(bridgePath))
-val bridgePubKey = bridgeChildPriv.extPublicKey.key.hex
+// We retrieve a new public key for the bridge to use.
+println("Bridge generating keypair...")
+val bridgeKeyPair = getChildKeyPair("bridge")
+
 
 
 // Bridge creates a descriptor using the hash and Alice's public key and its own public key
-val descriptor = s"wsh(andor(pk($bridgePubKey),sha256(${aliceReq("hash")}),pk(${aliceReq("xpub")})))"
+val descriptor = s"wsh(andor(pk(${bridgeKeyPair.verificationKey.hex}),sha256(${aliceReq("hash")}),pk(${aliceReq("vk")})))"
 // Bridge adds the checksum
-val desc = handleCall(rpcCli.applyDescriptorChecksum("bridge", descriptor)).get("descriptor")
+val desc = handleCall(rpcCli.getCanonicalDescriptor("bridge", descriptor)).get
 
 // Bridge sends back the descriptor to alice.
 val bridgeRes = Map(
@@ -80,7 +58,7 @@ val provenTx = handleCall(rpcCli.signRawTransactionWithWallet(unprovenTx, Some("
 println("Sending: ")
 println(provenTx.outputs.head.scriptPubKey.asm)
 // 20 byte witness program (P2WPKH)
-println("Witness Program from Address: " + handleCall(rpcCli.getAddrWitnessProgran("alice", initialFundsUtxo.address.get.value)))
+println("Witness Program from Address: " + handleCall(rpcCli.getAddrWitnessProgram("alice", initialFundsUtxo.address.get.value)))
 println("Witness Program in our TX: " + CryptoUtil.sha256Hash160(provenTx.asInstanceOf[WitnessTransaction].witness.witnesses.head.stack.head))
 println("======")
 
@@ -93,9 +71,6 @@ checkBalances()
 
 // Alice sends the transaction id and vout
 val aliceNotif = TransactionOutPoint(txId, UInt32(0))
-
-// Bridge can verify that the funds have been sent to the address
-val complexUtxo = handleCall(rpcCli.getTxOut(aliceNotif.txId.flip, aliceNotif.vout.toLong)).get
 
 def sizeOf(toPush: String): ScriptConstant = {
   val size = toPush.length / 2
@@ -158,16 +133,14 @@ def descToScriptPubKey(desc: String): RawScriptPubKey = {
  * 9. nLocktime of the transaction (4-byte little endian)
  * 10. sighash type of the signature (4-byte little endian)
  *
- * We are assuming hashtype is hashAll
+ * We are assuming hashtype is SIGHASH_ALL and sigVersion is SIGVERSION_WITNESS_V0
  *
- * We are also using TransactionSignatureSerializer's implementation from bitcoin-s as inspiration
+ * The following was reverse engineered from the bitcoin core implementation
  */
 def serializeForSignature(
                            txTo: Transaction,
                            inputAmount: CurrencyUnit, // amount in the output of the previous transaction (what we are spending)
                            inputScript: Seq[ScriptToken]): ByteVector = {
-  // assume sigVersion == SigVersionWitnessV0
-  // assume hashType == SIGHASH_ALL
   val hashPrevouts: ByteVector =  {
     val prevOuts = txTo.inputs.map(_.previousOutput)
     val bytes: ByteVector = BytesUtil.toByteVector(prevOuts)
@@ -198,55 +171,57 @@ def serializeForSignature(
       HashType.sigHashAll.num).bytes.reverse
   serializationForSig
 }
-def getAliceSignature(unsignedTx: Transaction, script: RawScriptPubKey, privateKey: Sign, inputAmount: CurrencyUnit): ScriptSignature = {
-  val serializedTxForSignature = serializeForSignature(unsignedTx, inputAmount, script.asm)
-  val signableBytes = CryptoUtil.doubleSHA256(serializedTxForSignature)
-  val signature = privateKey.sign(signableBytes.bytes)
-  // append 1 byte hash type onto the end, per BIP-066
-  val sig = ECDigitalSignature(signature.bytes ++ ByteVector.fromByte(HashType.sigHashAll.byte))
 
+def getTxSignature(unsignedTx: Transaction, script: RawScriptPubKey, privateKey: Sign, inputAmount: CurrencyUnit): ECDigitalSignature = {
+  val serializedTxForSignature = serializeForSignature (unsignedTx, inputAmount, script.asm)
+  val signableBytes = CryptoUtil.doubleSHA256 (serializedTxForSignature)
+  val signature = privateKey.sign (signableBytes.bytes)
+  // append 1 byte hash type onto the end, per BIP-066
+  ECDigitalSignature (signature.bytes ++ ByteVector.fromByte (HashType.sigHashAll.byte) )
+}
+def getAliceSignature(txSig: ECDigitalSignature): ScriptSignature = {
+  /**
+   * Any witness stack items before the witnessScript are used as the input stack for script evaluation. The input stack
+   * is not interpreted as script.
+   * For example, there is no need to use a 0x4c (OP_PUSHDATA1) to “push” a big item.
+   */
   NonStandardScriptSignature.fromAsm(Seq(
-    ScriptConstant(sig.hex),
+    ScriptConstant(txSig.hex),
     OP_0
   ))
 }
-def getBridgeSignature(unsignedTx: Transaction, script: RawScriptPubKey, privateKey: Sign, inputAmount: CurrencyUnit): ScriptSignature = {
-  val serializedTxForSignature = serializeForSignature(unsignedTx, inputAmount, script.asm)
-  val signableBytes = CryptoUtil.doubleSHA256(serializedTxForSignature)
-  val signature = privateKey.sign(signableBytes.bytes)
-  // append 1 byte hash type onto the end, per BIP-066
-  val sig = ECDigitalSignature(signature.bytes ++ ByteVector.fromByte(HashType.sigHashAll.byte))
-
-  NonStandardScriptSignature.fromAsm(Seq(
-    ScriptConstant(secretHex),
-    ScriptConstant(sig.hex)
-  ))
-}
+/**
+ * Any witness stack items before the witnessScript are used as the input stack for script evaluation. The input stack
+ * is not interpreted as script.
+ * For example, there is no need to use a 0x4c (OP_PUSHDATA1) to “push” a big item.
+ */
+def getBridgeSignature(txSig: ECDigitalSignature, preimageHex: String): ScriptSignature = NonStandardScriptSignature.fromAsm(
+  Seq(
+    ScriptConstant(preimageHex),
+    ScriptConstant(txSig.hex)
+  )
+)
 
 // BELOW IS THE BRIDGE CLAIMING THE FUNDS
 // bridge claims the funds
-val claimAddress = handleCall(rpcCli.getNewAddress(Some("bridge"))).get
-val outputs = Map(claimAddress -> 48.bitcoins) // 1 BTC as fee
-val inputs = Vector(TransactionInput.fromTxidAndVout(aliceNotif.txIdBE, aliceNotif.vout))
 val inputAmount = handleCall(rpcCli.getTxOut(aliceNotif.txIdBE, aliceNotif.vout.toLong)).get.value
+val claimAddress = handleCall(rpcCli.getNewAddress(Some("bridge"))).get
+val outputs = Map(claimAddress -> Bitcoins(inputAmount.toBigDecimal - 1)) // 1 BTC as fee
+val inputs = Vector(TransactionInput.fromTxidAndVout(aliceNotif.txIdBE, aliceNotif.vout))
 val tx = handleCall(rpcCli.createRawTransaction(inputs, outputs)).get
-val txWitEmpty = WitnessTransaction.toWitnessTx(tx)
 val scriptInner = descToScriptPubKey(desc)
-val bridgeSig = getBridgeSignature(
-  txWitEmpty,
-  scriptInner,
-  bridgeChildPriv.key,
-  inputAmount
-)
+val bridgeTxSig = getTxSignature(tx, scriptInner, bridgeKeyPair.signingKey, inputAmount)
+val derivedSecret = aliceSecret.secretHex // simulates the bridge deriving the secret from another transaction
+val bridgeSig = getBridgeSignature(bridgeTxSig, derivedSecret)
 val witness = P2WSHWitnessV0(scriptInner, bridgeSig)
-val txWit = txWitEmpty.updateWitness(0, witness)
+val txWit = WitnessTransaction.toWitnessTx(tx).updateWitness(0, witness)
 println("Sending: ")
 println(txWit)
 println(txWit.hex)
 // 32 byte witness program (P2WSH)
 println("script in our TX: " + txWit.witness.witnesses.head.stack.head.toHex)
 
-println("Witness Program from Address: \n" + handleCall(rpcCli.getAddrWitnessProgran("bridge", address)))
+println("Witness Program from Address: \n" + handleCall(rpcCli.getAddrWitnessProgram("bridge", address)))
 println("hash of our redeem script: \n" + CryptoUtil.sha256(scriptInner.asmBytes))
 println("======")
 val txId = handleCall(rpcCli.sendRawTransaction(txWit, 0)).get
@@ -258,36 +233,29 @@ checkBalances()
 
 // UNCOMMENT TO TEST ALICE RECLAIMING FUNDS
 // Alice Reclaims the funds
-//val reclaimAddress = handleCall(rpcCli.getNewAddress(Some("alice"))).get
-//val outputs = Map(reclaimAddress -> 48.bitcoins) // 1 BTC as fee
-//val inputs = Vector(TransactionInput.fromTxidAndVout(aliceNotif.txIdBE, aliceNotif.vout))
-//val inputAmount = handleCall(rpcCli.getTxOut(aliceNotif.txIdBE, aliceNotif.vout.toLong)).get.value
-//val tx = handleCall(rpcCli.createRawTransaction(inputs, outputs)).get
-//val txWitEmpty = WitnessTransaction.toWitnessTx(tx)
-//// inside the witness needs to be a raw scriptPubKey, not a P2SHScriptPubKey
-//// NonStandardScriptPubKey or RawScriptPubKey
-//val scriptInner = descToScriptPubKey(desc)
-//val aliceSig = getAliceSignature(
-//  txWitEmpty,
-//  scriptInner,
-//  aliceChildPriv.key,
-//  inputAmount
-//)
-//val witness = P2WSHWitnessV0(scriptInner, aliceSig)
-//val txWit = txWitEmpty.updateWitness(0, witness)
-//println("Sending: ")
-//println(txWit)
-//println(txWit.hex)
-//// 32 byte witness program (P2WSH)
-//println("script in our TX: " + txWit.witness.witnesses.head.stack.head.toHex)
-//
-//println("Witness Program from Address: \n" + handleCall(rpcCli.getAddrWitnessProgran("alice", address)))
-//println("hash of our redeem script: \n" + CryptoUtil.sha256(scriptInner.asmBytes))
-//println("======")
-//val txId = handleCall(rpcCli.sendRawTransaction(txWit, 0)).get
-//
-//mineBlocks(1)
-//checkBalances()
+val inputAmount = handleCall(rpcCli.getTxOut(aliceNotif.txIdBE, aliceNotif.vout.toLong)).get.value
+val reclaimAddress = handleCall(rpcCli.getNewAddress(Some("alice"))).get
+val outputs = Map(reclaimAddress -> Bitcoins(inputAmount.toBigDecimal - 1)) // 1 BTC as fee
+val inputs = Vector(TransactionInput.fromTxidAndVout(aliceNotif.txIdBE, aliceNotif.vout))
+val tx = handleCall(rpcCli.createRawTransaction(inputs, outputs)).get
+val scriptInner = descToScriptPubKey(desc)
+val aliceTxSig = getTxSignature(tx, scriptInner, aliceKeyPair.signingKey, inputAmount)
+val aliceSig = getAliceSignature(aliceTxSig)
+val witness = P2WSHWitnessV0(scriptInner, aliceSig)
+val txWit = WitnessTransaction.toWitnessTx(tx).updateWitness(0, witness)
+println("Sending: ")
+println(txWit)
+println(txWit.hex)
+// 32 byte witness program (P2WSH)
+println("script in our TX: " + txWit.witness.witnesses.head.stack.head.toHex)
+
+println("Witness Program from Address: \n" + handleCall(rpcCli.getAddrWitnessProgram("alice", address)))
+println("hash of our redeem script: \n" + CryptoUtil.sha256(scriptInner.asmBytes))
+println("======")
+val txId = handleCall(rpcCli.sendRawTransaction(txWit, 0)).get
+
+mineBlocks(1)
+checkBalances()
 
 
 
