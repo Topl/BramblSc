@@ -6,7 +6,7 @@ import org.bitcoins.core.protocol.script.P2WSHWitnessV0
 import org.bitcoins.core.protocol.transaction._
 import org.bitcoins.crypto._
 
-val DoesBridgeClaim: Boolean = false
+val DoesBridgeClaim: Boolean = true
 
 println("> Setting up wallets...")
 handleCall(rpcCli.createWallet("dummy", descriptors = true))

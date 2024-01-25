@@ -14,7 +14,8 @@ import org.bitcoins.core.protocol.{BitcoinAddress, CompactSizeUInt}
 import org.bitcoins.core.script.bitwise.{OP_EQUAL, OP_EQUALVERIFY}
 import org.bitcoins.core.script.constant.{OP_0, ScriptConstant, ScriptToken}
 import org.bitcoins.core.script.control.{OP_ELSE, OP_ENDIF, OP_NOTIF}
-import org.bitcoins.core.script.crypto.{OP_CHECKSIG, OP_SHA256}
+import org.bitcoins.core.script.crypto.{OP_CHECKSIG, OP_CHECKSIGVERIFY, OP_SHA256}
+import org.bitcoins.core.script.locktime.OP_CHECKSEQUENCEVERIFY
 import org.bitcoins.core.script.splice.OP_SIZE
 import org.bitcoins.core.util.BytesUtil
 import org.bitcoins.crypto._
@@ -184,8 +185,9 @@ package object playground {
     )
   }
 
+  // andor(pk(BridgeVk),sha256(H),and_v(v:pk(AliceVk),older(1000)))
   def generateDescriptor(bridgeVk: String, hash: String, userVk: String): String = {
-    val descriptor = s"wsh(andor(pk($bridgeVk),sha256($hash),pk($userVk)))"
+    val descriptor = s"wsh(andor(pk($bridgeVk),sha256($hash),and_v(v:pk($userVk),older(1000))))"
     // Bridge adds the checksum
     handleCall(rpcCli.getCanonicalDescriptor("bridge", descriptor)).get
   }
@@ -195,43 +197,56 @@ package object playground {
     ScriptConstant("%02x".format(size))
   }
 
-  // Only works with our specific descriptor
-  // We only support 33byte public keys in hex
-  // per: BIP-143
-  // Each public key passed to a sigop inside version 0 witness program must be a compressed key:
-  // the first byte MUST be either 0x02 or 0x03, and the size MUST be 33 bytes.
+  /**
+   * Only works with our specific descriptor
+   * We only support 33byte public keys in hex
+   * per: BIP-143
+   * Each public key passed to a sigop inside version 0 witness program must be a compressed key:
+   * the first byte MUST be either 0x02 or 0x03, and the size MUST be 33 bytes.
+   *
+   * wsh(andor(pk(BridgeVk),sha256(H),and_v(v:pk(AliceVk),older(1000))))
+   *
+   * <BridgeVk> OP_CHECKSIG OP_NOTIF
+   * <AliceVk> OP_CHECKSIGVERIFY <e803> OP_CHECKSEQUENCEVERIFY
+   * OP_ELSE
+   * OP_SIZE <20> OP_EQUALVERIFY OP_SHA256 <H> OP_EQUAL
+   * OP_ENDIF
+   */
   def descToScriptPubKey(desc: String): RawScriptPubKey = {
-    def getInner(in: String): String = {
-      val firstP = in.indexOf("(")
-      val lastP = in.lastIndexOf(")")
-      in.substring(firstP + 1, lastP)
-    }
+    val bridgeVkStart = desc.indexOf("andor(pk(") + 9
+    val bridgeVkEnd = desc.indexOf(")", bridgeVkStart)
+    val bridgeVk = desc.substring(bridgeVkStart, bridgeVkEnd)
 
-    val inner = {
-      val firstStrip = getInner(desc)
-      if (firstStrip.startsWith("andor")) getInner(firstStrip)
-      else firstStrip
-    } split ","
-    val bridgePk = ScriptConstant(getInner(inner(0)))
-    val secret = ScriptConstant(getInner(inner(1)))
-    val alicePk = ScriptConstant(getInner(inner(2)))
-    val size = ScriptConstant("%02x".format(32))
+    val secretStart = desc.indexOf("sha256(") + 7
+    val secretEnd = desc.indexOf(")", secretStart)
+    val secret = desc.substring(secretStart, secretEnd)
+    val secretSize = "%02x".format(32)
+
+    val userVkStart = desc.indexOf("v:pk(") + 5
+    val userVkEnd = desc.indexOf(")", userVkStart)
+    val userVk = desc.substring(userVkStart, userVkEnd)
+
+    val seqLockTime = BytesUtil.flipEndianness("%02x".format(1000))
+
     val scriptTokens = Seq(
-      sizeOf(bridgePk.hex), // op codes 1-75 indicates the number of bytes to push
-      bridgePk,
+      sizeOf(bridgeVk), // op codes 1-75 indicates the number of bytes to push
+      ScriptConstant(bridgeVk),
       OP_CHECKSIG,
       OP_NOTIF,
-      sizeOf(alicePk.hex),
-      alicePk,
-      OP_CHECKSIG,
+      sizeOf(userVk),
+      ScriptConstant(userVk),
+      OP_CHECKSIGVERIFY,
+      sizeOf(seqLockTime),
+      ScriptConstant(seqLockTime),
+      OP_CHECKSEQUENCEVERIFY,
       OP_ELSE,
       OP_SIZE,
-      sizeOf(size.hex),
-      size,
+      sizeOf(secretSize),
+      ScriptConstant(secretSize),
       OP_EQUALVERIFY,
       OP_SHA256,
-      sizeOf(secret.hex),
-      secret,
+      sizeOf(secret),
+      ScriptConstant(secret),
       OP_EQUAL,
       OP_ENDIF
     )
