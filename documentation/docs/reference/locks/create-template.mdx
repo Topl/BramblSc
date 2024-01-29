@@ -128,7 +128,8 @@ case class DigestTemplate[F[_]: Monad](
 ) extends PropositionTemplate[F]
 ```
 
-The parameters are the same as a Digest proposition.
+The parameters are the same as a Digest proposition. Currently, the only supported values of the `routine` parameter are
+`Blake2b256` and `Sha256`.
 
 :::note
 When creating a Digest Template or Proposition, the preimage of the digest should be added to the Wallet State. The preimage
@@ -155,6 +156,8 @@ The parameters are similar to a DigitalSignature proposition. The key difference
 in a list of verification keys. `entityIdx` in conjunction with this list of verification keys (which is provided when building
 the lock), will be used to populate the `verificationKey` field in the built DigitalSignature proposition.
 See [Generate a Lock](./build-lock) for more information.
+
+Currently, the only supported value of the `routine` parameter is `ExtendedEd25519`.
 
 ### AndTemplate
 
