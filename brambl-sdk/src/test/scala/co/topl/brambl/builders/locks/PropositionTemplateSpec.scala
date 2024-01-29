@@ -4,8 +4,8 @@ import cats.Id
 import co.topl.brambl.MockHelpers
 import co.topl.brambl.builders.locks.PropositionTemplate.UnableToBuildPropositionTemplate
 import com.google.protobuf.ByteString
-import quivr.models.Proposition.Value._
 import quivr.models.Data
+import quivr.models.Proposition.Value._
 
 class PropositionTemplateSpec extends munit.FunSuite with MockHelpers {
 
@@ -48,6 +48,17 @@ class PropositionTemplateSpec extends munit.FunSuite with MockHelpers {
     assert(digestProposition.value.isDigest)
     assertEquals(digestProposition.value.asInstanceOf[Digest].value.routine, MockDigestRoutine)
     assertEquals(digestProposition.value.asInstanceOf[Digest].value.digest, MockDigest)
+  }
+
+  test("Build Sha256 Digest Proposition via Template") {
+    val digestTemplate = PropositionTemplate.DigestTemplate[Id](MockSha256DigestRoutine, MockSha256Digest)
+    // No verification keys needed for digest. However, supplying them should not affect the result.
+    val digestInstance = digestTemplate.build(Nil)
+    assert(digestInstance.isRight)
+    val digestProposition = digestInstance.toOption.get
+    assert(digestProposition.value.isDigest)
+    assertEquals(digestProposition.value.asInstanceOf[Digest].value.routine, "Sha256")
+    assertEquals(digestProposition.value.asInstanceOf[Digest].value.digest, MockSha256Digest)
   }
 
   test("Build Signature Proposition via Template") {

@@ -97,6 +97,35 @@ class CredentiallerInterpreterSpec extends CatsEffectSuite with MockHelpers {
     )
   }
 
+  test("proveAndValidate: Single Input Transaction with Digest Propositions (Blake2b256 and Sha256)") {
+    assertIO(
+      for {
+        testTx <- {
+          val testAttestation = Attestation().withPredicate(
+            Attestation.Predicate(
+              Lock.Predicate(
+                List(
+                  Challenge().withRevealed(MockDigestProposition), // Blake2b256
+                  Challenge().withRevealed(MockSha256DigestProposition) // Sha256
+                ),
+                2 // Both are required
+              ),
+              List(Proof(), Proof())
+            )
+          )
+          IO.pure(txFull.copy(inputs = txFull.inputs.map(stxo => stxo.copy(attestation = testAttestation))))
+        }
+        ctx = Context[F](testTx, 50, _ => None) // Tick and height are trivial
+        // Secrets for the digests are available in the MockWalletStateApi
+        validateRes <- CredentiallerInterpreter
+          .make[F](walletApi, MockWalletStateApi, MockMainKeyPair)
+          .proveAndValidate(testTx, ctx)
+      } yield validateRes.isRight,
+      // If successful, we know that we can prove and validate a transaction with Blake2b256 and Sha256 digest propositions
+      true
+    )
+  }
+
   test("validate: Single Input Transaction with Attestation.Predicate > Validation successful") {
     val ctx = Context[F](txFull, 50, _ => None) // Tick satisfies a proposition
     val credentialler = CredentiallerInterpreter.make[F](walletApi, MockWalletStateApi, MockMainKeyPair)
