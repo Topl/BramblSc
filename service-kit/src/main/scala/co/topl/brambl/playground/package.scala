@@ -1,6 +1,10 @@
 package co.topl.brambl
 
 import akka.actor.ActorSystem
+import cats.arrow.FunctionK
+import cats.effect.IO
+import cats.implicits.catsSyntaxOptionId
+import co.topl.brambl.models.{LockAddress, TransactionId}
 import co.topl.brambl.utils.Encoding
 import org.bitcoins.commons.jsonmodels.bitcoind.{BalanceInfo, GetTxOutResultV22}
 import org.bitcoins.core.config.RegTest
@@ -8,8 +12,14 @@ import org.bitcoins.core.crypto.ExtPrivateKey
 import org.bitcoins.core.currency.{Bitcoins, CurrencyUnit}
 import org.bitcoins.core.hd.HDPath
 import org.bitcoins.core.number.{Int32, UInt32}
-import org.bitcoins.core.protocol.script.{NonStandardScriptSignature, RawScriptPubKey, ScriptSignature}
-import org.bitcoins.core.protocol.transaction.{Transaction, TransactionConstants, TransactionInput, TransactionOutPoint}
+import org.bitcoins.core.protocol.script.{NonStandardScriptSignature, P2WSHWitnessV0, RawScriptPubKey, ScriptSignature}
+import org.bitcoins.core.protocol.transaction.{
+  Transaction,
+  TransactionConstants,
+  TransactionInput,
+  TransactionOutPoint,
+  WitnessTransaction
+}
 import org.bitcoins.core.protocol.{BitcoinAddress, CompactSizeUInt}
 import org.bitcoins.core.script.bitwise.{OP_EQUAL, OP_EQUALVERIFY}
 import org.bitcoins.core.script.constant.{OP_0, ScriptConstant, ScriptToken}
@@ -132,15 +142,7 @@ package object playground {
   def mineBlocks(n: Int, wallet: String = "dummy"): Unit = {
     println(s"Mining $n blocks...")
     handleCall(rpcCli.getNewAddress(Some(wallet)).flatMap(rpcCli.generateToAddress(n, _))(ec))
-  }
-
-  def setup(): Unit = {
-    println("Setting up wallets...")
-    handleCall(rpcCli.createWallet("dummy", descriptors = true))
-    handleCall(rpcCli.createWallet("alice", descriptors = true))
-    handleCall(rpcCli.createWallet("bridge", descriptors = true))
-    mineBlocks(1, "alice")
-    mineBlocks(100)
+    if (wallet == "dummy") checkBalances()
   }
 
   def checkBalances(): Unit = {
@@ -392,5 +394,154 @@ package object playground {
           ScriptConstant(txSig.hex) // To satisfy the bridge's vk
         )
       )
+  }
+  implicit val transformType: FunctionK[IO, IO] = FunctionK.id[IO]
+
+  def setUpToplWallets(): Unit = {
+    // TODO: Finish setting up topl wallets
+    val tutorialDir = Paths.get(System.getProperty("user.home"), "tutorial").toString
+    def initFilePath(walletName: String, fileName: String): String = {
+      val filePath = Paths.get(tutorialDir, walletName, fileName).toString
+      new File(filePath).delete() // Clear the file if it already exists
+      filePath
+    }
+    new File(tutorialDir).mkdirs() // Create the directory if it doesn't exist
+
+  }
+
+  def setUpWallets(): Unit = {
+    println("> Setting up Bitcoin wallets...")
+    handleCall(rpcCli.createWallet("dummy", descriptors = true))
+    handleCall(rpcCli.createWallet("alice", descriptors = true))
+    handleCall(rpcCli.createWallet("bridge", descriptors = true))
+    mineBlocks(1, "alice")
+    mineBlocks(100)
+    println("> Setting up Topl wallets...")
+  }
+
+  case class BTCContext(
+    hash:    Option[String] = None,
+    secret:  Option[String] = None,
+    sk:      Option[String] = None,
+    vk:      Option[String] = None,
+    desc:    Option[String] = None,
+    address: Option[String] = None,
+    txOut:   Option[String] = None
+  )
+
+  case class Alice() {
+    var BtcCtx: BTCContext = BTCContext()
+
+    def generateSecrets(): Unit = {
+      println("> Alice generating 32 byte secret...")
+      val secrets = generateSecret()
+      BtcCtx = BtcCtx.copy(hash = secrets.get("hash"), secret = secrets.get("secret"))
+      println("> Alice generating keypair...")
+      // TODO: Will also generate topl keypair and send topl public key to bridge
+      val keys = getChildKeyPair("alice")
+      BtcCtx = BtcCtx.copy(sk = keys.get("sk"), vk = keys.get("vk"))
+    }
+
+    def initiateRequest(bridge: Bridge): String = {
+      print("\n============================" + "Alice initiates request" + "============================\n")
+      generateSecrets()
+      println("> Alice sending hash and public key to bridge...")
+      println("Sending hash: " + BtcCtx.hash.get)
+      println("Sending vk: " + BtcCtx.vk.get)
+      val desc = bridge.handleRequest(BtcCtx.hash.get, BtcCtx.vk.get)
+      BtcCtx = BtcCtx.copy(desc = desc.some)
+      desc
+    }
+
+    def sendBtcToDesc(desc: String): String = {
+      print("\n============================" + "Alice sends BTC to Descriptor" + "============================\n")
+      println("> Alice deriving address from descriptor...")
+      val address = handleCall(rpcCli.deriveOneAddress("alice", desc)).get
+      BtcCtx = BtcCtx.copy(address = address.some)
+      println("> Alice sends BTC to address...")
+      val txOut = sendFromWallet("alice", address).toHumanReadableString
+      BtcCtx = BtcCtx.copy(txOut = txOut.some)
+      txOut
+    }
+
+    def reclaimBtc(): Unit = {
+      print("\n============================" + "Alice reclaims BTC" + "============================\n")
+      val utxoToSpend = TransactionOutPoint.fromString(BtcCtx.txOut.get)
+      println("> Alice verifies funds...")
+      verifyTxOutAndGetAmount(utxoToSpend, BtcCtx.address.get)
+      println("> Alice creating unproven TX...")
+      val tx = createToWalletTx("alice", utxoToSpend, spendTimeLock = true)
+      println(tx)
+      println("> Alice deriving witnessScript...")
+      val scriptInner = descToScriptPubKey(BtcCtx.desc.get)
+      println("> Alice verifies validity of witnessScript...")
+      verifyWitnessScript("alice", scriptInner, BtcCtx.address.get)
+      println("> Alice derives script signature...")
+      val aliceSig = ScriptSignatures.getUserReclaimSig(getTxSignature(tx, scriptInner, BtcCtx.sk.get))
+      println("> Alice adds the witness to the TX...")
+      val txWit = WitnessTransaction.toWitnessTx(tx).updateWitness(0, P2WSHWitnessV0(scriptInner, aliceSig))
+      println("> Alice submits TX...")
+      handleCall(rpcCli.sendRawTransaction(txWit, 0), debug = true).get
+    }
+
+    def informOfBitcoinTx(bridge: Bridge): LockAddress = {
+      println("> Alice informs bridge of Bitcoin TX...")
+      bridge.triggerMinting(BtcCtx.txOut.get)
+    }
+
+    def claimTBtc(lockAddr: LockAddress): TransactionId =
+      // getTransactionById (genus)
+//      "the txOut of claim tx"
+      TransactionId.defaultInstance
+  }
+
+  case class Bridge() {
+    var BtcCtx: BTCContext = BTCContext()
+
+    // TODO: When initializing the bridge, we need to load funds to wallet, and mint series and group
+    def handleRequest(hash: String, aliceVk: String): String = {
+      print("\n============================" + "Bridge builds Descriptor" + "============================\n")
+      println("> Bridge generating keypair...")
+      val keys = getChildKeyPair("bridge")
+      BtcCtx = BtcCtx.copy(sk = keys.get("sk"), vk = keys.get("vk"))
+      println("> Bridge generating descriptor...")
+      val desc = generateDescriptor(BtcCtx.vk.get, hash, aliceVk)
+      BtcCtx = BtcCtx.copy(desc = desc.some)
+      println("> Bridge generating descriptor address...")
+      val addr = handleCall(rpcCli.deriveOneAddress("bridge", desc)).get
+      BtcCtx = BtcCtx.copy(address = addr.some)
+      println("Sending desc: " + desc)
+      desc
+    }
+
+    def triggerMinting(txOut: String): LockAddress = {
+      // TODO: Will also generate new topl keypair for the bridge and store it
+      // check if the txOut is valid/contains the right amount of btc
+      BtcCtx = BtcCtx.copy(txOut = txOut.some)
+      // The lockAddress containing the tBtc
+      LockAddress.defaultInstance
+    }
+
+    def claimBtc(secret: String): Unit = {
+      print("\n============================" + "Bridge claims BTC" + "============================\n")
+      val utxoToSpend = TransactionOutPoint.fromString(BtcCtx.txOut.get)
+      println("> Bridge verifies funds...")
+      verifyTxOutAndGetAmount(utxoToSpend, BtcCtx.address.get)
+      println("> Bridge creating unproven TX...")
+      val tx = createToWalletTx("bridge", utxoToSpend)
+      println("> Bridge deriving witnessScript...")
+      val scriptInner = descToScriptPubKey(BtcCtx.desc.get)
+      println("> Bridge verifies validity of witnessScript...")
+      verifyWitnessScript("bridge", scriptInner, BtcCtx.address.get)
+      println("> Bridge derives script signature...")
+      val bridgeSig = ScriptSignatures.getBridgeClaimSig(
+        getTxSignature(tx, scriptInner, BtcCtx.sk.get),
+        secret
+      )
+      println("> Bridge adds the witness to the TX...")
+      val txWit = WitnessTransaction.toWitnessTx(tx).updateWitness(0, P2WSHWitnessV0(scriptInner, bridgeSig))
+      println("> Bridge submits TX...")
+      handleCall(rpcCli.sendRawTransaction(txWit, 0)).get
+    }
   }
 }
