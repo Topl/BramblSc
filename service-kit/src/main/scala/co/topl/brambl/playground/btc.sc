@@ -75,6 +75,7 @@ if(DoesBridgeClaim) {
   // Alice can only reclaim after 1000 blocks
   println("> Alice waiting 1000 blocks...")
   mineBlocks(1000)
+  checkBalances()
   val utxoToSpend = TransactionOutPoint.fromString(aliceCtx("txOut"))
   println("> Alice verifies funds...")
   verifyTxOutAndGetAmount(utxoToSpend, aliceCtx("address"))
