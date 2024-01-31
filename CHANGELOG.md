@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Support for Sha256 Digest Propositions in the SDK. This change allows successful Quivr validation of a Digest Proposition with routine="Sha256".
+
+## [v2.0.0-beta2] - 2024-01-10
+
+### Added
+
 - Added a tutorial for creating a new custom asset
 - Pretty print (display) capabilities for the IoTransaction model
 - Pretty print (display) capabilities for Quivr Propositions, Proofs, and validation errors.

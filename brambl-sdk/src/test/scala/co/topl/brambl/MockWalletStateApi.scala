@@ -24,7 +24,8 @@ object MockWalletStateApi extends WalletStateAlgebra[IO] with MockHelpers {
   )
 
   var propEvidenceToPreimage: Map[Evidence, Preimage] = Map(
-    MockDigestProposition.value.digest.get.sizedEvidence -> MockPreimage
+    MockDigestProposition.value.digest.get.sizedEvidence       -> MockPreimage,
+    MockSha256DigestProposition.value.digest.get.sizedEvidence -> MockPreimage
   )
 
   override def getIndicesBySignature(signatureProposition: Proposition.DigitalSignature): F[Option[Indices]] =

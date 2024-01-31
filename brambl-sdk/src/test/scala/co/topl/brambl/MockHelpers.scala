@@ -36,6 +36,7 @@ import quivr.models.{
 }
 import co.topl.brambl.syntax.{cryptoToPbKeyPair, pbKeyPairToCryptoKeyPair}
 import co.topl.crypto.generation.Bip32Indexes
+import co.topl.crypto.hash.implicits.sha256Hash
 import co.topl.crypto.signing.ExtendedEd25519
 
 trait MockHelpers {
@@ -70,10 +71,17 @@ trait MockHelpers {
 
   // Hardcoding Blake2b256
   val MockDigestRoutine: String = "Blake2b256"
+  val MockSha256DigestRoutine: String = "Sha256"
 
   val MockDigest: Digest =
     Digest(ByteString.copyFrom((new Blake2b256).hash(MockPreimage.input.toByteArray ++ MockPreimage.salt.toByteArray)))
+
+  val MockSha256Digest: Digest =
+    Digest(ByteString.copyFrom(sha256Hash.hash(MockPreimage.input.toByteArray ++ MockPreimage.salt.toByteArray).value))
   val MockDigestProposition: Id[Proposition] = Proposer.digestProposer[Id].propose((MockDigestRoutine, MockDigest))
+
+  val MockSha256DigestProposition: Id[Proposition] =
+    Proposer.digestProposer[Id].propose((MockSha256DigestRoutine, MockSha256Digest))
   val MockDigestProof: Id[Proof] = Prover.digestProver[Id].prove(MockPreimage, fakeMsgBind)
 
   val MockMin: Long = 0L
