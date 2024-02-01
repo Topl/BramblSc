@@ -26,7 +26,7 @@ import org.bitcoins.commons.jsonmodels.bitcoind.{BalanceInfo, GetTxOutResultV22}
 import org.bitcoins.core.config.RegTest
 import org.bitcoins.core.crypto.ExtPrivateKey
 import org.bitcoins.core.currency.{Bitcoins, CurrencyUnit}
-import org.bitcoins.core.hd.{BIP32Path, HDPath}
+import org.bitcoins.core.hd.BIP32Path
 import org.bitcoins.core.number.{Int32, UInt32}
 import org.bitcoins.core.protocol.script.{NonStandardScriptSignature, P2WSHWitnessV0, RawScriptPubKey, ScriptSignature}
 import org.bitcoins.core.protocol.transaction._
@@ -209,7 +209,7 @@ package object playground {
 
     val keyPath = s"m/${idx.x}'/${idx.y}'/${idx.z}"
     println(s"Generating Bitcoin child key pair for $wallet at $keyPath...")
-    val childSecretKey = mainKeyBtc.deriveChildPrivKey(HDPath.fromString(keyPath)).key
+    val childSecretKey = mainKeyBtc.deriveChildPrivKey(BIP32Path.fromString(keyPath)).key
 
     (childSecretKey, toplVk)
   }
@@ -568,7 +568,7 @@ package object playground {
       println("> Alice storing descriptor and (toplVk, toplLock, toplIdx) in her wallet state...")
       walletStateApi
         .updateWalletState(
-          Encoding.encodeToBase58(resp.toplLock.getPredicate.toByteArray),
+          Encoding.encodeToBase58Check(resp.toplLock.getPredicate.toByteArray),
           resp.toplAddress.toBase58(),
           Some("ExtendedEd25519"),
           Some(Encoding.encodeToBase58(toplVk.toByteArray)),
@@ -632,7 +632,7 @@ package object playground {
           walletApi.deriveChildVerificationKey(VerificationKey.parseFrom(Encoding.decodeFromBase58(vk).toOption.get), 2)
         }
         _ <- walletStateApi.updateWalletState(
-          Encoding.encodeToBase58(claimLock.get.getPredicate.toByteArray),
+          Encoding.encodeToBase58Check(claimLock.get.getPredicate.toByteArray),
           claimAddr.toBase58(),
           Some("ExtendedEd25519"),
           Some(Encoding.encodeToBase58(claimVk.toByteArray)),
@@ -649,7 +649,7 @@ package object playground {
         txId     <- bifrostQuery.broadcastTransaction(provenTx)
       } yield txId
       val txId = claimAsset.unsafeRunSync()
-      // getTransactionById (genus)
+      BtcCtx = BtcCtx.copy(tBtcTxId = txId.some)
       txId
     }
   }
@@ -684,7 +684,7 @@ package object playground {
           walletApi.deriveChildVerificationKey(VerificationKey.parseFrom(Encoding.decodeFromBase58(vk).toOption.get), 2)
         }
         _ <- walletStateApi.updateWalletState(
-          Encoding.encodeToBase58(outputLock.get.getPredicate.toByteArray),
+          Encoding.encodeToBase58Check(outputLock.get.getPredicate.toByteArray),
           outputAddress.toBase58(),
           Some("ExtendedEd25519"),
           Some(Encoding.encodeToBase58(outputVk.toByteArray)),
@@ -721,7 +721,7 @@ package object playground {
           walletApi.deriveChildVerificationKey(VerificationKey.parseFrom(Encoding.decodeFromBase58(vk).toOption.get), 3)
         }
         _ <- walletStateApi.updateWalletState(
-          Encoding.encodeToBase58(outputLock.get.getPredicate.toByteArray),
+          Encoding.encodeToBase58Check(outputLock.get.getPredicate.toByteArray),
           outputAddress.toBase58(),
           Some("ExtendedEd25519"),
           Some(Encoding.encodeToBase58(outputVk.toByteArray)),
@@ -759,7 +759,7 @@ package object playground {
           walletApi.deriveChildVerificationKey(VerificationKey.parseFrom(Encoding.decodeFromBase58(vk).toOption.get), 4)
         }
         _ <- walletStateApi.updateWalletState(
-          Encoding.encodeToBase58(changeLock.get.getPredicate.toByteArray),
+          Encoding.encodeToBase58Check(changeLock.get.getPredicate.toByteArray),
           changeAddress.toBase58(),
           Some("ExtendedEd25519"),
           Some(Encoding.encodeToBase58(changeVk.toByteArray)),
@@ -809,12 +809,13 @@ package object playground {
       val addr = handleCall(rpcCli.deriveOneAddress("bridge", desc)).get
       BtcCtx = BtcCtx.copy(address = addr.some)
       println("Sending desc: " + desc)
+      val hashBytes = Encoding.decodeFromHex(hash).toOption.get
       val toplLock = PredicateTemplate[Id](
         Seq(
           // Alice case
           AndTemplate(
             SignatureTemplate("ExtendedEd25519", 0),
-            DigestTemplate("Sha256", Digest(ByteString.copyFrom(hash.getBytes)))
+            DigestTemplate("Sha256", Digest(ByteString.copyFrom(hashBytes)))
           ),
           // Bridge case
           AndTemplate(
@@ -827,7 +828,7 @@ package object playground {
       val toplAddr = txBuilder.lockAddress(toplLock).unsafeRunSync()
       walletStateApi
         .updateWalletState(
-          Encoding.encodeToBase58(toplLock.getPredicate.toByteArray),
+          Encoding.encodeToBase58Check(toplLock.getPredicate.toByteArray),
           toplAddr.toBase58(),
           Some("ExtendedEd25519"),
           Some(Encoding.encodeToBase58(toplVk.toByteArray)),

@@ -8,7 +8,6 @@ import org.bitcoins.commons.serializers.JsonSerializers._
 import org.bitcoins.commons.serializers.JsonWriters._
 import org.bitcoins.core.protocol.transaction._
 import org.bitcoins.crypto._
-import quivr.models.Proof.{And, Digest}
 
 val DoesBridgeClaim: Boolean = true
 
@@ -20,8 +19,8 @@ def extractSecret(txId: TransactionId)(targetLockAddr: LockAddress): String = {
     .find(att => targetLockAddr == txBuilder.lockAddress(Lock().withPredicate(att.lock)).unsafeRunSync())
     .get
   // The following is possible because we know the exact structure of the attestation
-  val aliceProof = attestation.responses.head.asInstanceOf[And]
-  val preimage = aliceProof.right.asInstanceOf[Digest].preimage
+  val aliceProof = attestation.responses.head.getAnd
+  val preimage = aliceProof.right.getDigest.preimage
   Encoding.encodeToHex(preimage.input.toByteArray ++ preimage.salt.toByteArray)
 }
 
