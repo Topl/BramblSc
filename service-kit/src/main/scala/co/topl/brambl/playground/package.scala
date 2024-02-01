@@ -8,12 +8,16 @@ import cats.effect.unsafe.implicits.global
 import cats.implicits.catsSyntaxOptionId
 import co.topl.brambl.builders.TransactionBuilderApi
 import co.topl.brambl.builders.TransactionBuilderApi.implicits.lockAddressOps
+import co.topl.brambl.builders.locks.LockTemplate.PredicateTemplate
+import co.topl.brambl.builders.locks.PropositionTemplate.{AndTemplate, DigestTemplate, SignatureTemplate, TickTemplate}
 import co.topl.brambl.constants.NetworkConstants.{MAIN_LEDGER_ID, PRIVATE_NETWORK_ID}
 import co.topl.brambl.dataApi.{BifrostQueryAlgebra, GenusQueryAlgebra, RpcChannelResource, WalletStateAlgebra}
 import co.topl.brambl.models.Event.{GroupPolicy, SeriesPolicy}
+import co.topl.brambl.models.box.AssetMintingStatement
 import co.topl.brambl.models.{Indices, LockAddress, TransactionId}
+import co.topl.brambl.playground.BridgeQuery.{PegInRequest, PegInResponse}
 import co.topl.brambl.servicekit.{WalletKeyApi, WalletStateApi, WalletStateResource}
-import co.topl.brambl.syntax.{valueToTypeIdentifierSyntaxOps, LvlType}
+import co.topl.brambl.syntax.{bigIntAsInt128, valueToTypeIdentifierSyntaxOps, LvlType}
 import co.topl.brambl.utils.Encoding
 import co.topl.brambl.wallet.{Credentialler, CredentiallerInterpreter, WalletApi}
 import co.topl.quivr.api.Proposer
@@ -22,7 +26,7 @@ import org.bitcoins.commons.jsonmodels.bitcoind.{BalanceInfo, GetTxOutResultV22}
 import org.bitcoins.core.config.RegTest
 import org.bitcoins.core.crypto.ExtPrivateKey
 import org.bitcoins.core.currency.{Bitcoins, CurrencyUnit}
-import org.bitcoins.core.hd.HDPath
+import org.bitcoins.core.hd.{BIP32Path, HDPath}
 import org.bitcoins.core.number.{Int32, UInt32}
 import org.bitcoins.core.protocol.script.{NonStandardScriptSignature, P2WSHWitnessV0, RawScriptPubKey, ScriptSignature}
 import org.bitcoins.core.protocol.transaction._
@@ -123,6 +127,17 @@ package object playground {
       ).map(res => (res \ "result").result.get.as[JsArray].value.head.as[JsString].toString().filterNot(_ == '"'))(
         ec
       )
+
+    def importDescriptor(walletName: String, desc: String): Future[Boolean] =
+      bitcoindCallRaw(
+        "importdescriptors",
+        List(JsArray(List(JsObject(Map("desc" -> JsString(desc), "timestamp" -> JsString("now")))))),
+        uriExtensionOpt = Some(walletExtension(walletName))
+      ).map(res =>
+        (res \ "result").result.get.as[JsArray].value.head.as[JsObject].value("success").as[JsBoolean].value
+      )(
+        ec
+      )
   }
 
   object ExtendedBitcoindRpcClient {
@@ -166,6 +181,8 @@ package object playground {
     printBalance("alice")
     println()
     printBalance("bridge")
+    println()
+    printBalance("watcher")
     println("===================")
   }
 
@@ -180,41 +197,21 @@ package object playground {
     )
   }
 
-  def getChildKeyPair(
-    wallet:         String,
-    walletApi:      WalletApi[IO],
-    mainKey:        KeyPair,
-    walletStateApi: WalletStateAlgebra[IO],
-    z:              Int = 4
-  ): Map[String, String] = {
-    // Hardcoding x,y=(5,5) for Topl path.
-    println(s"Generating Topl child key pair for $wallet at 5/5/$z...")
-    val indices = Indices(5, 5, z)
-    val toplVk = Encoding.encodeToBase58(walletApi.deriveChildKeys(mainKey, indices).unsafeRunSync().vk.toByteArray)
-    walletStateApi
-      .updateWalletState(
-        "", // irrelevant
-        "", // irrelevant
-        Some("ExtendedEd25519"),
-        Some(toplVk),
-        Indices(1, 1, 2)
-      )
-      .unsafeRunSync()
+  def getChildKeys(
+    wallet:      String,
+    walletApi:   WalletApi[IO],
+    mainKeyTopl: KeyPair,
+    mainKeyBtc:  ExtPrivateKey,
+    idx:         Indices
+  ): (ECPrivateKey, VerificationKey) = {
+    println(s"Generating Topl child key pair for $wallet at $idx...")
+    val toplVk = walletApi.deriveChildKeys(mainKeyTopl, idx).unsafeRunSync().vk
 
-    val rootSecretKeyRaw =
-      (handleCall(rpcCli.listDescriptors(wallet, isPrivate = true)).get.head \ "desc").result.get.toString()
-    val rootSecretKeyStr = rootSecretKeyRaw.substring(rootSecretKeyRaw.indexOf("(") + 1, rootSecretKeyRaw.indexOf("/"))
-    val keyPath = "m" + rootSecretKeyRaw
-      .substring(rootSecretKeyRaw.indexOf("/"), rootSecretKeyRaw.indexOf(")"))
-      .replace("*", z.toString)
-    val rootSecretKey = ExtPrivateKey.fromString(rootSecretKeyStr)
-    val childSecretKey = rootSecretKey.deriveChildPrivKey(HDPath.fromString(keyPath))
+    val keyPath = s"m/${idx.x}'/${idx.y}'/${idx.z}"
     println(s"Generating Bitcoin child key pair for $wallet at $keyPath...")
-    Map(
-      "sk"     -> childSecretKey.key.hex,
-      "vk"     -> childSecretKey.extPublicKey.key.hex,
-      "toplVk" -> toplVk
-    )
+    val childSecretKey = mainKeyBtc.deriveChildPrivKey(HDPath.fromString(keyPath)).key
+
+    (childSecretKey, toplVk)
   }
 
   // andor(pk(BridgeVk),sha256(H),and_v(v:pk(AliceVk),older(1000)))
@@ -389,12 +386,13 @@ package object playground {
     createBaseTx(utxoToSpend.txIdBE, utxoToSpend.vout, toAddr, inputAmount.toBigDecimal, spendTimeLock)
   }
 
-  def verifyTxOutAndGetAmount(txOutPoint: TransactionOutPoint, expectedAddr: String): Unit = {
+  def verifyTxOutAndGetAmount(txOutPoint: TransactionOutPoint, expectedAddr: String): BigInt = {
     val txOut =
       handleCall(rpcCli.getTxOut(txOutPoint.txIdBE, txOutPoint.vout.toLong)).get.asInstanceOf[GetTxOutResultV22]
     println("    Expected addr: " + expectedAddr)
     println("    Received addr: " + txOut.scriptPubKey.address.get.value)
     println("    amount: " + txOut.value)
+    txOut.value.satoshis.toBigInt
   }
 
   def verifyWitnessScript(wallet: String, script: RawScriptPubKey, expectedAddr: String): Unit = {
@@ -427,36 +425,41 @@ package object playground {
   }
   implicit val transformType: FunctionK[IO, IO] = FunctionK.id[IO]
 
-  def setUpToplWallets(): Unit = {
-    // TODO: Finish setting up topl wallets
-    val tutorialDir = Paths.get(System.getProperty("user.home"), "tutorial").toString
-    def initFilePath(walletName: String, fileName: String): String = {
-      val filePath = Paths.get(tutorialDir, walletName, fileName).toString
-      new File(filePath).delete() // Clear the file if it already exists
-      filePath
-    }
-    new File(tutorialDir).mkdirs() // Create the directory if it doesn't exist
-
-  }
-
   def setUpWallets(): Unit = {
     println("> Setting up Bitcoin wallets...")
     handleCall(rpcCli.createWallet("dummy", descriptors = true))
     handleCall(rpcCli.createWallet("alice", descriptors = true))
     handleCall(rpcCli.createWallet("bridge", descriptors = true))
+    handleCall(rpcCli.createWallet("watcher", descriptors = true, disablePrivateKeys = true))
     mineBlocks(1, "alice")
     mineBlocks(100)
     println("> Setting up Topl wallets...")
   }
 
+  def getBtcMainKey(wallet: String): ExtPrivateKey = {
+    val rootSecretKeyRaw =
+      (handleCall(rpcCli.listDescriptors(wallet, isPrivate = true)).get.head \ "desc").result.get.toString()
+    val rootSecretKey = ExtPrivateKey.fromString(
+      rootSecretKeyRaw.substring(rootSecretKeyRaw.indexOf("(") + 1, rootSecretKeyRaw.indexOf("/"))
+    )
+    // m / purpose' / coin_type' / account' / change / index ... BIP-044
+    // our existing indices do not follow this scheme, so we need to choose a purpose that is not already in use
+    // Per Bip-43 (and other Bips), purposes known to be in use are (non-exhaustive): 0, 44, 49, 86, 84, (1852 for cardano ed25519)
+    // For now, we will choose 7091 (which is our coin_type, but not recognized since our purpose is not 44)
+    val mainKeyPath = BIP32Path.fromString("m/7091'")
+    rootSecretKey.deriveChildPrivKey(mainKeyPath)
+  }
+
   case class BTCContext(
-    hash:    Option[String] = None,
-    secret:  Option[String] = None,
-    sk:      Option[String] = None,
-    vk:      Option[String] = None,
-    desc:    Option[String] = None,
-    address: Option[String] = None,
-    txOut:   Option[String] = None
+    hash:        Option[String] = None,
+    secret:      Option[String] = None,
+    sk:          Option[String] = None,
+    vk:          Option[String] = None,
+    desc:        Option[String] = None,
+    address:     Option[String] = None,
+    txOut:       Option[String] = None,
+    tBtcAddress: Option[LockAddress] = None,
+    tBtcTxId:    Option[TransactionId] = None
   )
 
   val ToplDir = Paths.get(System.getProperty("user.home"), "btc-tutorial").toString
@@ -509,7 +512,7 @@ package object playground {
     loadFunds.unsafeRunSync()
   }
 
-  case class Alice() {
+  case class Alice(bridgeRpc: BridgeQuery) {
     var BtcCtx: BTCContext = BTCContext()
     val toplDir = Paths.get(ToplDir, "alice").toString
     new File(toplDir).mkdirs() // Create the directory if it doesn't exist
@@ -520,9 +523,11 @@ package object playground {
     val walletStateApi =
       WalletStateApi.make[IO](WalletStateResource.walletResource(initFilePath("wallet.db")), walletApi)
 
-    val mainKey =
+    val mainKeyTopl =
       initializeToplWallet(walletApi, walletStateApi, initFilePath("keyfile.json"), initFilePath("mnemonic.txt"))
-    val credentialler = CredentiallerInterpreter.make[IO](walletApi, walletStateApi, mainKey)
+    val credentialler = CredentiallerInterpreter.make[IO](walletApi, walletStateApi, mainKeyTopl)
+
+    val mainKeyBtc = getBtcMainKey("alice")
 
     def initWalletFunds(): Unit = {
       println("Loading Alice's Topl wallet with 100Lvls... waiting 15 seconds")
@@ -531,7 +536,7 @@ package object playground {
     }
     initWalletFunds()
 
-    def generateSecrets(): String = {
+    def generateSecrets(idx: Indices): VerificationKey = {
       println("> Alice generating 32 byte secret...")
       val secrets = generateSecret()
       BtcCtx = BtcCtx.copy(
@@ -544,26 +549,39 @@ package object playground {
       val digestProposition = Proposer.digestProposer[Id].propose(("Sha256", digest))
       walletStateApi.addPreimage(preimage, digestProposition.getDigest).unsafeRunSync()
       println("> Alice generating keypair...")
-      val keys = getChildKeyPair("alice", walletApi, mainKey, walletStateApi)
-      BtcCtx = BtcCtx.copy(sk = keys.get("sk"), vk = keys.get("vk"))
-      keys("toplVk")
+      val (btcKey, toplVk) = getChildKeys("alice", walletApi, mainKeyTopl, mainKeyBtc, idx)
+      BtcCtx = BtcCtx.copy(sk = btcKey.hex.some, vk = btcKey.publicKey.hex.some)
+      toplVk
     }
 
-    def initiateRequest(bridge: Bridge): String = {
+    def initiateRequest(): String = {
       print("\n============================" + "Alice initiates request" + "============================\n")
-      val toplVk = generateSecrets()
+      println("> Hardcoding indices to be 5'/5'/5")
+      val idx = Indices(5, 5, 5)
+      val toplVk = generateSecrets(idx)
       println("> Alice sending hash and public key to bridge...")
       println("Sending hash: " + BtcCtx.hash.get)
       println("Sending vk: " + BtcCtx.vk.get)
-      val desc = bridge.handleRequest(BtcCtx.hash.get, BtcCtx.vk.get, toplVk)
-      BtcCtx = BtcCtx.copy(desc = desc.some)
-      desc
+      println("Sending topl vk: " + toplVk)
+      val resp = bridgeRpc.initiatePegInRequest(PegInRequest(BtcCtx.hash.get, BtcCtx.vk.get, toplVk))
+      BtcCtx = BtcCtx.copy(desc = resp.desc.some, tBtcAddress = resp.toplAddress.some)
+      println("> Alice storing descriptor and (toplVk, toplLock, toplIdx) in her wallet state...")
+      walletStateApi
+        .updateWalletState(
+          Encoding.encodeToBase58(resp.toplLock.getPredicate.toByteArray),
+          resp.toplAddress.toBase58(),
+          Some("ExtendedEd25519"),
+          Some(Encoding.encodeToBase58(toplVk.toByteArray)),
+          idx
+        )
+        .unsafeRunSync()
+      resp.desc
     }
 
-    def sendBtcToDesc(desc: String): String = {
+    def sendBtcToDesc(): String = {
       print("\n============================" + "Alice sends BTC to Descriptor" + "============================\n")
       println("> Alice deriving address from descriptor...")
-      val address = handleCall(rpcCli.deriveOneAddress("alice", desc)).get
+      val address = handleCall(rpcCli.deriveOneAddress("alice", BtcCtx.desc.get)).get
       BtcCtx = BtcCtx.copy(address = address.some)
       println("> Alice sends BTC to address...")
       val txOut = sendFromWallet("alice", address).toHumanReadableString
@@ -591,18 +609,52 @@ package object playground {
       handleCall(rpcCli.sendRawTransaction(txWit, 0), debug = true).get
     }
 
-    def informOfBitcoinTx(bridge: Bridge): LockAddress = {
+    def notifyBridgeBtcTransfer(): Unit = {
       println("> Alice informs bridge of Bitcoin TX...")
-      bridge.triggerMinting(BtcCtx.txOut.get)
+      bridgeRpc.notifyOfBtcTransfer(BtcCtx.txOut.get)
     }
 
-    def claimTBtc(lockAddr: LockAddress): TransactionId =
+    def notifyBridgeTbtcClaim(): Unit = {
+      println("> Alice informs bridge of tBTC claim...")
+      bridgeRpc.notifyOfTbtcClaim(BtcCtx.tBtcTxId.get)
+    }
+
+    def claimTBtc(): TransactionId = {
+      println("\n============================" + "Alice claims tBTC" + "============================\n")
+      val inputAddress = BtcCtx.tBtcAddress.get
+      val claimAsset = for {
+        inputLock <- walletStateApi.getLockByAddress(inputAddress.toBase58()).map(_.get)
+        txos      <- genusQueryApi.queryUtxo(inputAddress)
+        claimLock <- walletStateApi.getLock("self", "default", 2)
+        claimAddr <- txBuilder.lockAddress(claimLock.get)
+        claimVk <- walletStateApi.getEntityVks("self", "default").map(_.get.head) flatMap { vk =>
+          // Derive the verification key at path 1/1/2
+          walletApi.deriveChildVerificationKey(VerificationKey.parseFrom(Encoding.decodeFromBase58(vk).toOption.get), 2)
+        }
+        _ <- walletStateApi.updateWalletState(
+          Encoding.encodeToBase58(claimLock.get.getPredicate.toByteArray),
+          claimAddr.toBase58(),
+          Some("ExtendedEd25519"),
+          Some(Encoding.encodeToBase58(claimVk.toByteArray)),
+          Indices(1, 1, 2)
+        )
+        unprovenTx <- txBuilder.buildTransferAllTransaction(
+          txos,
+          inputLock,
+          claimAddr,
+          claimAddr,
+          0L // TODO: Update txBuilder to take in multiple input locks for different assets (to satisfy fee)
+        )
+        provenTx <- credentialler.prove(unprovenTx.toOption.get)
+        txId     <- bifrostQuery.broadcastTransaction(provenTx)
+      } yield txId
+      val txId = claimAsset.unsafeRunSync()
       // getTransactionById (genus)
-//      "the txOut of claim tx"
-      TransactionId.defaultInstance
+      txId
+    }
   }
 
-  case class Bridge() {
+  case class Bridge(secretExtraction: (TransactionId => LockAddress => String)) {
     var BtcCtx: BTCContext = BTCContext()
     val toplDir = Paths.get(ToplDir, "bridge").toString
     new File(toplDir).mkdirs() // Create the directory if it doesn't exist
@@ -613,9 +665,11 @@ package object playground {
     val walletStateApi =
       WalletStateApi.make[IO](WalletStateResource.walletResource(initFilePath("wallet.db")), walletApi)
 
-    val mainKey =
+    val mainKeyTopl =
       initializeToplWallet(walletApi, walletStateApi, initFilePath("keyfile.json"), initFilePath("mnemonic.txt"))
-    val credentialler = CredentiallerInterpreter.make[IO](walletApi, walletStateApi, mainKey)
+    val credentialler = CredentiallerInterpreter.make[IO](walletApi, walletStateApi, mainKeyTopl)
+
+    val mainKeyBtc = getBtcMainKey("bridge")
 
     def mintGroupConstructorTokens(): Unit = {
       val mintGroup = for {
@@ -688,6 +742,43 @@ package object playground {
       mintSeries.unsafeRunSync()
     }
 
+    def mintAssets(toAddr: LockAddress, amount: BigInt): Unit = {
+      val mintTBtc = for {
+        inputLock    <- walletStateApi.getLock("self", "default", 3)
+        inputAddress <- txBuilder.lockAddress(inputLock.get)
+        txos         <- genusQueryApi.queryUtxo(inputAddress)
+        assetMintingStatement = AssetMintingStatement(
+          txos.filter(_.transactionOutput.value.value.isGroup).head.outputAddress,
+          txos.filter(_.transactionOutput.value.value.isSeries).head.outputAddress,
+          amount
+        )
+        changeLock    <- walletStateApi.getLock("self", "default", 4)
+        changeAddress <- txBuilder.lockAddress(changeLock.get)
+        changeVk <- walletStateApi.getEntityVks("self", "default").map(_.get.head) flatMap { vk =>
+          // Derive the verification key at path 1/1/4 (used in outputLock)
+          walletApi.deriveChildVerificationKey(VerificationKey.parseFrom(Encoding.decodeFromBase58(vk).toOption.get), 4)
+        }
+        _ <- walletStateApi.updateWalletState(
+          Encoding.encodeToBase58(changeLock.get.getPredicate.toByteArray),
+          changeAddress.toBase58(),
+          Some("ExtendedEd25519"),
+          Some(Encoding.encodeToBase58(changeVk.toByteArray)),
+          Indices(1, 1, 4)
+        )
+        unprovenTx <- txBuilder.buildAssetMintingTransaction(
+          assetMintingStatement,
+          txos,
+          Map(inputAddress -> inputLock.get.getPredicate),
+          1L,
+          toAddr,
+          changeAddress
+        )
+        provenTx <- credentialler.prove(unprovenTx.toOption.get)
+        txId     <- bifrostQuery.broadcastTransaction(provenTx)
+      } yield txId
+      mintTBtc.unsafeRunSync()
+    }
+
     def initWalletFunds(): Unit = {
       println("Loading Bridges's Topl wallet with 100Lvls... waiting 15 seconds")
       loadLvls(walletStateApi, credentialler)
@@ -701,32 +792,64 @@ package object playground {
     }
     initWalletFunds()
 
-    def handleRequest(hash: String, aliceBitcoinVk: String, aliceToplVk: String): String = {
+    def handleRequest(hash: String, aliceBitcoinVk: String, aliceToplVk: VerificationKey): PegInResponse = {
       print("\n============================" + "Bridge builds Descriptor" + "============================\n")
       println("> Bridge generating keypair...")
-      val keys = getChildKeyPair("bridge", walletApi, mainKey, walletStateApi)
-      BtcCtx = BtcCtx.copy(sk = keys.get("sk"), vk = keys.get("vk"))
+      println("> Hardcoding indices to be 5'/5'/5")
+      val idx = Indices(5, 5, 5)
+      val (btcKey, toplVk) = getChildKeys("bridge", walletApi, mainKeyTopl, mainKeyBtc, idx)
+      BtcCtx = BtcCtx.copy(sk = btcKey.hex.some, vk = btcKey.publicKey.hex.some)
       println("> Bridge generating descriptor...")
       val desc = generateDescriptor(BtcCtx.vk.get, hash, aliceBitcoinVk)
       BtcCtx = BtcCtx.copy(desc = desc.some)
+      println("> watcher importing descriptor...")
+      val importDescSuccessful = handleCall(rpcCli.importDescriptor("watcher", desc)).get
+      println("> watcher importing descriptor successful: " + importDescSuccessful)
       println("> Bridge generating descriptor address...")
       val addr = handleCall(rpcCli.deriveOneAddress("bridge", desc)).get
       BtcCtx = BtcCtx.copy(address = addr.some)
       println("Sending desc: " + desc)
-      // TODO: Bridge also sends back the topl lockpredicate and topl address. Alice can then store this in her wallet
-      // I.e, the updateWallet call. So that when she is ready to claim, she has all the information she needs (need the predicate to build the TX)
-      desc
+      val toplLock = PredicateTemplate[Id](
+        Seq(
+          // Alice case
+          AndTemplate(
+            SignatureTemplate("ExtendedEd25519", 0),
+            DigestTemplate("Sha256", Digest(ByteString.copyFrom(hash.getBytes)))
+          ),
+          // Bridge case
+          AndTemplate(
+            SignatureTemplate("ExtendedEd25519", 1),
+            TickTemplate(0, Long.MaxValue)
+          ) // TODO: Replace with actual current slot
+        ),
+        1
+      ).build(List(aliceToplVk, toplVk)).toOption.get
+      val toplAddr = txBuilder.lockAddress(toplLock).unsafeRunSync()
+      walletStateApi
+        .updateWalletState(
+          Encoding.encodeToBase58(toplLock.getPredicate.toByteArray),
+          toplAddr.toBase58(),
+          Some("ExtendedEd25519"),
+          Some(Encoding.encodeToBase58(toplVk.toByteArray)),
+          idx
+        )
+        .unsafeRunSync()
+      BtcCtx = BtcCtx.copy(tBtcAddress = toplAddr.some)
+      PegInResponse(desc, toplLock, toplAddr)
     }
 
-    def triggerMinting(txOut: String): LockAddress = {
-      // TODO: Will also generate new topl keypair for the bridge and store it
-      // check if the txOut is valid/contains the right amount of btc
+    def triggerMinting(txOut: String): Unit = {
       BtcCtx = BtcCtx.copy(txOut = txOut.some)
-      // The lockAddress containing the tBtc
-      LockAddress.defaultInstance
+
+      val utxo = TransactionOutPoint.fromString(BtcCtx.txOut.get)
+      val amount = verifyTxOutAndGetAmount(utxo, BtcCtx.address.get)
+
+      println("Bridge mints tBtc... waiting 15 seconds")
+      mintAssets(BtcCtx.tBtcAddress.get, amount)
+      Thread.sleep(15000)
     }
 
-    def claimBtc(secret: String): Unit = {
+    def claimBtc(txId: TransactionId): Unit = {
       print("\n============================" + "Bridge claims BTC" + "============================\n")
       val utxoToSpend = TransactionOutPoint.fromString(BtcCtx.txOut.get)
       println("> Bridge verifies funds...")
@@ -740,7 +863,7 @@ package object playground {
       println("> Bridge derives script signature...")
       val bridgeSig = ScriptSignatures.getBridgeClaimSig(
         getTxSignature(tx, scriptInner, BtcCtx.sk.get),
-        secret
+        secretExtraction(txId)(BtcCtx.tBtcAddress.get)
       )
       println("> Bridge adds the witness to the TX...")
       val txWit = WitnessTransaction.toWitnessTx(tx).updateWitness(0, P2WSHWitnessV0(scriptInner, bridgeSig))
