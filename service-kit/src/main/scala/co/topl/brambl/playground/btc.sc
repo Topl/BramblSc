@@ -9,9 +9,10 @@ import org.bitcoins.commons.serializers.JsonWriters._
 import org.bitcoins.core.protocol.transaction._
 import org.bitcoins.crypto._
 
-val DoesBridgeClaim: Boolean = true
+// TODO: topl slot vs bitcoin block; syncing the timing.
 
-setUpWallets()
+val PegInHappyPath: Boolean = true
+val PegOutHappyPath: Boolean = true
 
 def extractSecret(txId: TransactionId)(targetLockAddr: LockAddress): String = {
   val tx = bifrostQuery.fetchTransaction(txId).unsafeRunSync().get
@@ -25,21 +26,38 @@ def extractSecret(txId: TransactionId)(targetLockAddr: LockAddress): String = {
 }
 
 val bridge = Bridge(extractSecret)
-val bridgeRpc = BridgeQuery(bridge)
-val alice = Alice(bridgeRpc)
+val alice = Alice(BridgeQuery(bridge))
 
-alice.initiateRequest()
-alice.sendBtcToDesc()
-
-mineBlocks(1)
-
-if(DoesBridgeClaim) {
-  alice.notifyBridgeBtcTransfer()
-  alice.claimTBtc()
-  alice.notifyBridgeTbtcClaim()
-} else {
-  println("> Alice waiting 1000 blocks...")  // Alice can only reclaim after 1000 blocks
-  mineBlocks(1000)
-  alice.reclaimBtc()
+def pegIn(): Boolean = {
+  val desc = alice.initiatePegIn()
+  val txOut = alice.sendBtcToDesc(desc)
+  if(PegInHappyPath) {
+    val lockAddr = alice.notifyBridgeBtcTransfer(txOut)
+    val txId = alice.claimTBtc(lockAddr)
+     alice.notifyBridgeTbtcClaim(txId, desc)
+  } else {
+    // Alice opts out (reclaims BTC)
+    println("> Alice waiting 1000 blocks...") // Alice can only reclaim after 1000 blocks
+    mineBlocks(1000)
+    alice.reclaimBtc(desc)
+  }
+  PegInHappyPath
 }
-mineBlocks(1)
+
+def pegOut(): Unit = {
+  val lock = alice.initiatePegOut()
+  val txId = alice.sendTbtcToAddress(lock)
+  if (PegOutHappyPath) {
+    val desc = alice.notifyBridgeTbtcTransfer()
+    val txOut = alice.claimBtc(desc)
+    alice.notifyBridgeBtcClaim(txOut)
+  } else {
+    // Alice opts out (reclaims tBTC)
+    // TODO
+  }
+}
+
+val pegInComplete = pegIn()
+if (pegInComplete) {
+  pegOut()
+}
