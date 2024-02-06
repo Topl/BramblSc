@@ -38,9 +38,9 @@ package object playground {
   implicit val system: ActorSystem = ActorSystem("System")
 
   val rpcCli = ExtendedBitcoindRpcClient()
-
+  handleCall(rpcCli.createWallet("dummy", descriptors = true))
   def mineBlocks(n: Int, wallet: String = "dummy"): Unit = {
-    println(s"Mining $n blocks...")
+    println(s"Mining $n blocks to $wallet...")
     handleCall(rpcCli.getNewAddress(Some(wallet)).flatMap(rpcCli.generateToAddress(n, _))(ec))
     if (wallet == "dummy") checkBalances()
   }
@@ -60,7 +60,9 @@ package object playground {
     println()
     printBalance("bridge")
     println()
-    printBalance("watcher")
+    printBalance("alice-watcher")
+    println()
+    printBalance("bridge-watcher")
     println("===================")
   }
 
@@ -153,6 +155,7 @@ package object playground {
       TransactionInput(TransactionOutPoint(fromTxId, fromVOut), ScriptSignature.empty, sequence)
     } else TransactionInput.fromTxidAndVout(fromTxId, fromVOut)
     val outputs = Map(toAddr -> Bitcoins(fromAmount - 1)) // 1 BTC as fee
+    println(s"Creating tx with input: $input and outputs: $outputs")
     handleCall(rpcCli.createRawTransaction(Vector(input), outputs)).get
   }
 

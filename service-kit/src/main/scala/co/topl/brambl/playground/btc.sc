@@ -12,11 +12,16 @@ val bridgeRpc = BridgeQuery(bridge)
 val alice = Alice(bridgeRpc)
 
 def pegIn(): Boolean = {
+  println("> Alice initiating peg-in...")
   val desc = alice.initiatePegIn()
-  val txOut = alice.sendBtcToDesc(desc)
+  println(s"> Alice sending BTC to $desc...")
+  val txOut = alice.btcWallet.sendBtcToDesc(desc)
   if(PegInHappyPath) {
-    val lockAddr = bridgeRpc.notifyOfBtcTransfer(txOut)
+    println("> notifying bridge of BTC transfer...")
+    val lockAddr = bridgeRpc.notifyOfBtcTransfer(txOut, desc)
+    println(s"> Alice claiming tBTC at $lockAddr...")
     val txId = alice.claimTBtc(lockAddr)
+    println("> notifying bridge of tBTC claim...")
     bridgeRpc.notifyOfTbtcClaim(txId, desc)
   } else {
     // Alice opts out (reclaims BTC)
@@ -28,10 +33,15 @@ def pegIn(): Boolean = {
 }
 
 def pegOut(): Unit = {
+  println("> Alice initiating peg-out...")
   val lock = alice.initiatePegOut()
+  println(s"> Alice sending tBTC to $lock...")
   val utxoId = alice.sendTbtcToAddress(lock)
+  println("> notifying bridge of tBTC transfer...")
   val desc = bridgeRpc.notifyOfTbtcTransfer(utxoId)
+  println(s"> Alice claiming BTC at $desc...")
   val txId = alice.claimBtc(desc)
+  println("> notifying bridge of BTC claim...")
   bridgeRpc.notifyOfBtcClaim(txId, desc)
 }
 

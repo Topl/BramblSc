@@ -13,11 +13,11 @@ import quivr.models.{KeyPair, VerificationKey}
 import java.io.File
 import java.nio.file.Paths
 
-trait ToplWallet {
-
-  val walletName: String
+class ToplWallet(val walletName: String) {
 
   private val ToplDir = Paths.get(System.getProperty("user.home"), "btc-example").toString
+  println(s"ToplDir: $ToplDir")
+  println(s"walletName: $walletName")
   val toplDir: String = Paths.get(ToplDir, walletName).toString
   new File(toplDir).mkdirs() // Create the directory if it doesn't exist
 

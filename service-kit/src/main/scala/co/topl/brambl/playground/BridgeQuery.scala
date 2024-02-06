@@ -19,16 +19,17 @@ case class BridgeQuery(bridge: Bridge) {
     val z = if (isPegIn) 5 else 6
     println(s"> Hardcoding indices to be 5'/5'/$z")
     val idx = Indices(5, 5, z)
-    val toplVk = bridge.getChildVk(idx)
-    val btcKey = bridge.getChildSecretKey(idx)
+    val toplVk = bridge.toplWallet.getChildVk(idx)
+    val btcKey = bridge.btcWallet.getChildSecretKey(idx)
     println("> Bridge generating descriptor...")
-    val desc = scriptBuilder.generateDescriptor(btcKey.hex, request.hash, request.bitcoinPk)
+    val desc = scriptBuilder.generateDescriptor(btcKey.publicKey.hex, request.hash, request.bitcoinPk)
     println("> watcher importing descriptor...")
-    val importDescSuccessful = handleCall(rpcCli.importDescriptor(bridge.watcherName, desc)).get
+    val importDescSuccessful = handleCall(rpcCli.importDescriptor(bridge.btcWallet.watcherName, desc)).get
     println("> watcher importing descriptor successful: " + importDescSuccessful)
     val toplLock = scriptBuilder.generateToplLock(request.toplVk, request.hash, toplVk)
     val toplAddr = txBuilder.lockAddress(toplLock).unsafeRunSync()
-    bridge.walletStateApi
+    bridge.btcWallet.addWalletEntry(idx, desc)
+    bridge.toplWallet.walletStateApi
       .updateWalletState(
         Encoding.encodeToBase58Check(toplLock.getPredicate.toByteArray),
         toplAddr.toBase58(),
@@ -40,8 +41,8 @@ case class BridgeQuery(bridge: Bridge) {
     BridgeResponse(desc, toplLock, toplAddr)
   }
 
-  def notifyOfBtcTransfer(txOut: String): LockAddress =
-    bridge.triggerMinting(txOut)
+  def notifyOfBtcTransfer(txOut: String, desc: String): LockAddress =
+    bridge.triggerMinting(txOut, desc)
 
   def notifyOfTbtcClaim(txId: TransactionId, desc: String): Unit =
     bridge.claimBtc(txId, desc)

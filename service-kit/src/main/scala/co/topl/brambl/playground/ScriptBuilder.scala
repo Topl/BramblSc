@@ -40,6 +40,7 @@ object ScriptBuilder {
     // andor(pk(BridgeVk),sha256(H),and_v(v:pk(AliceVk),older(1000)))
     override def generateDescriptor(bridgeVk: String, hash: String, userVk: String): String = {
       val descriptor = s"wsh(andor(pk($bridgeVk),sha256($hash),and_v(v:pk($userVk),older(1000))))"
+      println(s"Generated descriptor: $descriptor")
       // Bridge adds the checksum
       handleCall(rpcCli.getCanonicalDescriptor("bridge", descriptor)).get
     }

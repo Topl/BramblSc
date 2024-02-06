@@ -8,8 +8,7 @@ import org.bitcoins.core.protocol.BitcoinAddress
 import org.bitcoins.core.protocol.transaction.{Transaction, TransactionOutPoint}
 import org.bitcoins.crypto.ECPrivateKey
 
-trait BitcoinWallet {
-  val walletName: String
+class BitcoinWallet(val walletName: String) {
   def initBtcFunds(): Unit = {}
 
   val watcherName: String = s"$walletName-watcher"
