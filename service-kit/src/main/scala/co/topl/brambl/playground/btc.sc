@@ -13,7 +13,8 @@ val alice = Alice(bridgeRpc)
 
 def pegIn(): Boolean = {
   println("> Alice initiating peg-in...")
-  val desc = alice.initiatePegIn()
+  val resp = alice.initiatePegIn()
+  val desc = resp.desc
   println(s"> Alice sending BTC to $desc...")
   val txOut = alice.btcWallet.sendBtcToDesc(desc)
   if(PegInHappyPath) {
@@ -34,11 +35,13 @@ def pegIn(): Boolean = {
 
 def pegOut(): Unit = {
   println("> Alice initiating peg-out...")
-  val lock = alice.initiatePegOut()
+  val resp = alice.initiatePegOut()
+  val lock = resp.toplLock
+  val desc = resp.desc
   println(s"> Alice sending tBTC to $lock...")
   val utxoId = alice.sendTbtcToAddress(lock)
   println("> notifying bridge of tBTC transfer...")
-  val desc = bridgeRpc.notifyOfTbtcTransfer(utxoId)
+  bridgeRpc.notifyOfTbtcTransfer(utxoId)
   println(s"> Alice claiming BTC at $desc...")
   val txId = alice.claimBtc(desc)
   println("> notifying bridge of BTC claim...")

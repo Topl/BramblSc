@@ -39,6 +39,7 @@ package object playground {
 
   val rpcCli = ExtendedBitcoindRpcClient()
   handleCall(rpcCli.createWallet("dummy", descriptors = true))
+
   def mineBlocks(n: Int, wallet: String = "dummy"): Unit = {
     println(s"Mining $n blocks to $wallet...")
     handleCall(rpcCli.getNewAddress(Some(wallet)).flatMap(rpcCli.generateToAddress(n, _))(ec))
@@ -147,14 +148,14 @@ package object playground {
     fromTxId:      DoubleSha256DigestBE,
     fromVOut:      UInt32,
     toAddr:        BitcoinAddress,
-    fromAmount:    BigDecimal,
+    fromAmount:    Bitcoins,
     spendTimeLock: Boolean = false
   ): Transaction = {
     val input = if (spendTimeLock) {
       val sequence: UInt32 = UInt32(1000L & TransactionConstants.sequenceLockTimeMask.toLong)
       TransactionInput(TransactionOutPoint(fromTxId, fromVOut), ScriptSignature.empty, sequence)
     } else TransactionInput.fromTxidAndVout(fromTxId, fromVOut)
-    val outputs = Map(toAddr -> Bitcoins(fromAmount - 1)) // 1 BTC as fee
+    val outputs = Map(toAddr -> Bitcoins(fromAmount.toBigDecimal - 1)) // 1 BTC as fee
     println(s"Creating tx with input: $input and outputs: $outputs")
     handleCall(rpcCli.createRawTransaction(Vector(input), outputs)).get
   }

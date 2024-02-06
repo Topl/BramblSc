@@ -6,9 +6,7 @@ import co.topl.brambl.models.{LockAddress, TransactionId}
 import co.topl.brambl.playground.ScriptBuilder.PegOut
 import co.topl.brambl.utils.Encoding
 import com.google.protobuf.ByteString
-import org.bitcoins.core.protocol.script.ScriptSignature
-import org.bitcoins.core.protocol.transaction.WitnessTransaction
-import org.bitcoins.crypto.DoubleSha256DigestBE
+import org.bitcoins.core.protocol.transaction.{Transaction, WitnessTransaction}
 import quivr.models.Preimage
 
 object SecretExtraction {
@@ -25,15 +23,13 @@ object SecretExtraction {
     Encoding.encodeToHex(preimage.input.toByteArray ++ preimage.salt.toByteArray)
   }
 
-  // TODO: If we need to debug, check the order of head/tail here
-  def extractFromBitcoinTx(txId: DoubleSha256DigestBE, desc: String): Preimage = {
-    val tx = handleCall(rpcCli.getRawTransactionRaw(txId)).get.asInstanceOf[WitnessTransaction]
+  def extractFromBitcoinTx(tx: Transaction, desc: String): Preimage = {
     val scriptInner = PegOut.descToScriptPubKey(desc)
-    val aliceProof = tx.witness.witnesses.find(wit => wit.stack.head == scriptInner.asmBytes).get
-    val signature = ScriptSignature.fromBytes(aliceProof.stack.last)
-    // We know the exact structure of the signature since we generated it. It was from PegOut.getClaimSig
-    val secretHex = signature.asm.head.bytes.toHex
-    val secret = Encoding.decodeFromHex(secretHex).toOption.get // Should have
+    val aliceProof =
+      tx.asInstanceOf[WitnessTransaction].witness.witnesses.find(wit => wit.stack.head == scriptInner.asmBytes).get
+    // the following is possible because we know the exact structure of the witness
+    val preimageHex = aliceProof.stack.last.toHex
+    val secret = Encoding.decodeFromHex(preimageHex).toOption.get
     Preimage(ByteString.copyFrom(secret.take(SecretSize)), ByteString.copyFrom(secret.drop(SecretSize)))
   }
 }

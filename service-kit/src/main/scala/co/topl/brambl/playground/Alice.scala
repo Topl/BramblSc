@@ -6,20 +6,24 @@ import co.topl.brambl.builders.TransactionBuilderApi.implicits.lockAddressOps
 import co.topl.brambl.constants.NetworkConstants.{MAIN_LEDGER_ID, PRIVATE_NETWORK_ID}
 import co.topl.brambl.models.box.Lock
 import co.topl.brambl.models.{Indices, LockAddress, TransactionId, TransactionOutputAddress}
-import co.topl.brambl.playground.BridgeQuery.BridgeRequest
-import co.topl.brambl.playground.ScriptBuilder.PegIn
+import co.topl.brambl.playground.BridgeQuery.{BridgeRequest, BridgeResponse}
+import co.topl.brambl.playground.ScriptBuilder.{PegIn, PegOut}
 import co.topl.brambl.utils.Encoding
 import co.topl.quivr.api.Proposer
 import com.google.protobuf.ByteString
+import org.bitcoins.core.number.UInt32
+import org.bitcoins.core.protocol.BitcoinAddress
 import org.bitcoins.core.protocol.script.P2WSHWitnessV0
 import org.bitcoins.core.protocol.transaction.{TransactionOutPoint, WitnessTransaction}
 import org.bitcoins.crypto.DoubleSha256DigestBE
 import quivr.models.{Digest, Preimage, VerificationKey}
 
-case class Alice(bridgeRpc: BridgeQuery){
+case class Alice(bridgeRpc: BridgeQuery) {
   val walletName: String = "alice"
   val toplWallet = new ToplWallet(walletName)
+
   val btcWallet = new BitcoinWallet(walletName) {
+
     override def initBtcFunds(): Unit = {
       println("Mining 101 blocks to Alice's wallet...")
       mineBlocks(1, walletName)
@@ -27,11 +31,7 @@ case class Alice(bridgeRpc: BridgeQuery){
     }
   }
 
-  toplWallet.initToplFunds()
-  btcWallet.initBtcFunds()
-
-
-  def initiateRequest(isPegIn: Boolean): (String, Lock) = {
+  def initiateRequest(isPegIn: Boolean): BridgeResponse = {
     println("> Alice generating 32 byte secret...")
     val secrets = generateSecret()
     println("> Alice saving Preimage and Digest pair to her wallet state...")
@@ -47,6 +47,9 @@ case class Alice(bridgeRpc: BridgeQuery){
     println("> Alice sending hash and public key to bridge...")
     val bridgeReq = BridgeRequest(Encoding.encodeToHex(secrets("hash")), btcKey.publicKey.hex, toplVk)
     val resp = bridgeRpc.initiateRequest(bridgeReq, isPegIn)
+    println("> watcher importing descriptor...")
+    val importDescSuccessful = handleCall(rpcCli.importDescriptor(btcWallet.watcherName, resp.desc)).get
+    println("> watcher importing descriptor successful: " + importDescSuccessful)
     println("> Alice storing descriptor and (toplVk, toplLock, toplIdx) in her wallet state...")
     btcWallet.addWalletEntry(idx, resp.desc)
     toplWallet.walletStateApi
@@ -58,24 +61,24 @@ case class Alice(bridgeRpc: BridgeQuery){
         idx
       )
       .unsafeRunSync()
-    (resp.desc, resp.toplLock)
+    resp
   }
 
-  def initiatePegIn(): String = {
+  def initiatePegIn(): BridgeResponse = {
     print("\n============================" + "Alice initiates Peg-In" + "============================\n")
-    initiateRequest(true)._1
+    initiateRequest(true)
   }
 
-  def initiatePegOut(): Lock = {
+  def initiatePegOut(): BridgeResponse = {
     print("\n============================" + "Alice initiates Peg-Out" + "============================\n")
-    initiateRequest(false)._2
+    initiateRequest(false)
   }
 
   def sendTbtcToAddress(lock: Lock): TransactionOutputAddress = {
     print("\n============================" + "Alice sends TBTC to Lock" + "============================\n")
     val sendTbtc = for {
-      // Hardcoding indices to be 5'/5'/5, since Alice will need to use the same indices as the ones used in the peg-in
-      inLock <- toplWallet.walletStateApi.getLockByIndex(Indices(5, 5, 5)).map(_.get)
+      // This is where alice sent the TBTC
+      inLock <- toplWallet.walletStateApi.getLock("self", "default", 2).map(_.get.getPredicate)
       inAddr <- txBuilder.lockAddress(Lock().withPredicate(inLock))
       // Only TBTC should be present at this address
       txos       <- genusQueryApi.queryUtxo(inAddr)
@@ -99,11 +102,12 @@ case class Alice(bridgeRpc: BridgeQuery){
 
   def claimBtc(desc: String): DoubleSha256DigestBE = {
     print("\n============================" + "Alice claims BTC" + "============================\n")
-    val utxoToSpend = TransactionOutPoint.fromString(btcWallet.getTxOut(desc))
+    val expectedAddress = BitcoinAddress(handleCall(rpcCli.deriveOneAddress(btcWallet.walletName, desc)).get)
+    val utxo = handleCall(rpcCli.listUnspent(btcWallet.watcherName)).get.filter(_.address.get == expectedAddress).head
     println("> Alice creating unproven TX...")
-    val tx = btcWallet.createToWalletTx(utxoToSpend)
+    val tx = btcWallet.createToWalletTx(TransactionOutPoint(utxo.txid, UInt32(utxo.vout)))
     println("> Alice deriving witnessScript...")
-    val scriptInner = PegIn.descToScriptPubKey(desc)
+    val scriptInner = PegOut.descToScriptPubKey(desc)
     println("> Alice derives script signature...")
     val idx = btcWallet.getIndicesByDesc(desc)
     val secret = (for {
@@ -149,7 +153,10 @@ case class Alice(bridgeRpc: BridgeQuery){
       claimAddr <- txBuilder.lockAddress(claimLock.get)
       claimVk <- toplWallet.walletStateApi.getEntityVks("self", "default").map(_.get.head) flatMap { vk =>
         // Derive the verification key at path 1/1/2
-        toplWallet.walletApi.deriveChildVerificationKey(VerificationKey.parseFrom(Encoding.decodeFromBase58(vk).toOption.get), 2)
+        toplWallet.walletApi.deriveChildVerificationKey(
+          VerificationKey.parseFrom(Encoding.decodeFromBase58(vk).toOption.get),
+          2
+        )
       }
       _ <- toplWallet.walletStateApi.updateWalletState(
         Encoding.encodeToBase58Check(claimLock.get.getPredicate.toByteArray),

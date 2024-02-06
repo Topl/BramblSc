@@ -2,6 +2,7 @@ package co.topl.brambl.playground
 
 import co.topl.brambl.models.Indices
 import org.bitcoins.core.crypto.ExtPrivateKey
+import org.bitcoins.core.currency.{Bitcoins, Satoshis}
 import org.bitcoins.core.hd.BIP32Path
 import org.bitcoins.core.number.UInt32
 import org.bitcoins.core.protocol.BitcoinAddress
@@ -50,16 +51,18 @@ class BitcoinWallet(val walletName: String) {
   ): Transaction = {
     val toAddr = handleCall(rpcCli.getNewAddress(Some(walletName))).get
     val inputAmount = handleCall(rpcCli.getTxOut(utxoToSpend.txIdBE, utxoToSpend.vout.toLong)).get.value
-    createBaseTx(utxoToSpend.txIdBE, utxoToSpend.vout, toAddr, inputAmount.toBigDecimal, spendTimeLock)
+    createBaseTx(utxoToSpend.txIdBE, utxoToSpend.vout, toAddr, inputAmount, spendTimeLock)
   }
 
-  def sendFromWallet(recipientAddr: String, toSend: Option[BigDecimal]): TransactionOutPoint = {
+  def sendFromWallet(recipientAddr: String, toSend: Option[BigInt]): TransactionOutPoint = {
+    val desiredAmount = toSend.map(sat => Bitcoins(Satoshis(sat)))
     val initialFundsUtxo = handleCall(rpcCli.listUnspent(walletName)).get.head
     val unprovenTx = createBaseTx(
       initialFundsUtxo.txid,
       UInt32(initialFundsUtxo.vout),
       BitcoinAddress(recipientAddr),
-      toSend.getOrElse(initialFundsUtxo.amount.toBigDecimal)
+      // If the request amount does not exceed the available funds, use it, otherwise use all available funds
+      desiredAmount.filter(btc => btc <= initialFundsUtxo.amount).getOrElse(initialFundsUtxo.amount)
     )
     val provenTx = handleCall(rpcCli.signRawTransactionWithWallet(unprovenTx, Some(walletName))).get.hex
     val txId = handleCall(rpcCli.sendRawTransaction(provenTx, 0)).get
@@ -67,7 +70,7 @@ class BitcoinWallet(val walletName: String) {
     TransactionOutPoint(txId, UInt32(0))
   }
 
-  def sendBtcToDesc(desc: String, amount: Option[BigDecimal] = None): String = {
+  def sendBtcToDesc(desc: String, amount: Option[BigInt] = None): String = {
     print("\n============================" + s"$walletName sends BTC to Descriptor" + "============================\n")
     println(s"> $walletName deriving address from descriptor...")
     val address = handleCall(rpcCli.deriveOneAddress(walletName, desc)).get

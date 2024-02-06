@@ -24,14 +24,16 @@ import quivr.models.VerificationKey
 
 case class Bridge() {
   val walletName: String = "bridge"
+
   val toplWallet = new ToplWallet(walletName) {
+
     def mintGroupConstructorTokens(): Unit = {
       val mintGroup = for {
-        inputLock <- walletStateApi.getLock("self", "default", 1)
+        inputLock    <- walletStateApi.getLock("self", "default", 1)
         inputAddress <- txBuilder.lockAddress(inputLock.get)
-        txos <- genusQueryApi.queryUtxo(inputAddress)
+        txos         <- genusQueryApi.queryUtxo(inputAddress)
         groupPolicy = GroupPolicy("tBTC Group", txos.head.outputAddress)
-        outputLock <- walletStateApi.getLock("self", "default", 2)
+        outputLock    <- walletStateApi.getLock("self", "default", 2)
         outputAddress <- txBuilder.lockAddress(outputLock.get)
         outputVk <- walletStateApi.getEntityVks("self", "default").map(_.get.head) flatMap { vk =>
           // Derive the verification key at path 1/1/2 (used in outputLock)
@@ -54,21 +56,21 @@ case class Bridge() {
           1L
         )
         provenTx <- credentialler.prove(unprovenTx.toOption.get)
-        txId <- bifrostQuery.broadcastTransaction(provenTx)
+        txId     <- bifrostQuery.broadcastTransaction(provenTx)
       } yield txId
       mintGroup.unsafeRunSync()
     }
 
     def mintSeriesConstructorTokens(): Unit = {
       val mintSeries = for {
-        inputLock <- walletStateApi.getLock("self", "default", 2)
+        inputLock    <- walletStateApi.getLock("self", "default", 2)
         inputAddress <- txBuilder.lockAddress(inputLock.get)
-        txos <- genusQueryApi.queryUtxo(inputAddress)
+        txos         <- genusQueryApi.queryUtxo(inputAddress)
         seriesPolicy = SeriesPolicy(
           "tBTC Series",
           registrationUtxo = txos.filter(_.transactionOutput.value.value.typeIdentifier == LvlType).head.outputAddress
         )
-        outputLock <- walletStateApi.getLock("self", "default", 3)
+        outputLock    <- walletStateApi.getLock("self", "default", 3)
         outputAddress <- txBuilder.lockAddress(outputLock.get)
         outputVk <- walletStateApi.getEntityVks("self", "default").map(_.get.head) flatMap { vk =>
           // Derive the verification key at path 1/1/3 (used in outputLock)
@@ -91,7 +93,7 @@ case class Bridge() {
           1L
         )
         provenTx <- credentialler.prove(unprovenTx.toOption.get)
-        txId <- bifrostQuery.broadcastTransaction(provenTx)
+        txId     <- bifrostQuery.broadcastTransaction(provenTx)
       } yield txId
       mintSeries.unsafeRunSync()
     }
@@ -122,7 +124,10 @@ case class Bridge() {
       changeAddress <- txBuilder.lockAddress(changeLock.get)
       changeVk <- toplWallet.walletStateApi.getEntityVks("self", "default").map(_.get.head) flatMap { vk =>
         // Derive the verification key at path 1/1/4 (used in outputLock)
-        toplWallet.walletApi.deriveChildVerificationKey(VerificationKey.parseFrom(Encoding.decodeFromBase58(vk).toOption.get), 4)
+        toplWallet.walletApi.deriveChildVerificationKey(
+          VerificationKey.parseFrom(Encoding.decodeFromBase58(vk).toOption.get),
+          4
+        )
       }
       _ <- toplWallet.walletStateApi.updateWalletState(
         Encoding.encodeToBase58Check(changeLock.get.getPredicate.toByteArray),
@@ -193,12 +198,14 @@ case class Bridge() {
 
   def claimTbtc(txId: DoubleSha256DigestBE, desc: String): Unit = {
     println("\n============================" + "Bridge claims tBTC" + "============================\n")
-    val preimage = extractFromBitcoinTx(txId, desc)
+    val tx = handleCall(rpcCli.getTransaction(txId, walletNameOpt = Some(btcWallet.watcherName))).get.hex
+    val preimage = extractFromBitcoinTx(tx, desc)
     val idx = btcWallet.getIndicesByDesc(desc) // should be 5/5/6
     val digestProp = toplWallet.walletStateApi
       .getLockByIndex(idx)
       .map(_.get.challenges.head.getRevealed.getAnd.right.getDigest)
       .unsafeRunSync()
+    println(preimage, digestProp)
     toplWallet.walletStateApi.addPreimage(preimage, digestProp).unsafeRunSync()
     val claimAsset = for {
       inputLock    <- toplWallet.walletStateApi.getLockByIndex(idx).map(_.get)
@@ -208,7 +215,10 @@ case class Bridge() {
       claimAddr    <- txBuilder.lockAddress(claimLock.get)
       claimVk <- toplWallet.walletStateApi.getEntityVks("self", "default").map(_.get.head) flatMap { vk =>
         // Derive the verification key at path 1/1/5
-        toplWallet.walletApi.deriveChildVerificationKey(VerificationKey.parseFrom(Encoding.decodeFromBase58(vk).toOption.get), 5)
+        toplWallet.walletApi.deriveChildVerificationKey(
+          VerificationKey.parseFrom(Encoding.decodeFromBase58(vk).toOption.get),
+          5
+        )
       }
       _ <- toplWallet.walletStateApi.updateWalletState(
         Encoding.encodeToBase58Check(claimLock.get.getPredicate.toByteArray),
@@ -226,7 +236,7 @@ case class Bridge() {
       )
       provenTx <- toplWallet.credentialler.prove(unprovenTx.toOption.get)
       txId     <- bifrostQuery.broadcastTransaction(provenTx)
-    } yield (txId, claimAddr)
+    } yield (txId, claimAddr, provenTx, inputAddress)
     val newTxId = claimAsset.unsafeRunSync()
     Thread.sleep(15000)
     val tbtcBalance = toplWallet.getTbtcBalance(newTxId._2)
@@ -240,6 +250,6 @@ case class Bridge() {
     val desc = (for {
       idx <- toplWallet.walletStateApi.getIndicesByAddress(utxo.address.toBase58())
     } yield btcWallet.getDescByIndices(idx.get)).unsafeRunSync()
-    btcWallet.sendBtcToDesc(desc, BigDecimal(utxo.value.value.quantity: BigInt).some)
+    btcWallet.sendBtcToDesc(desc, (utxo.value.value.quantity: BigInt).some)
   }
 }
