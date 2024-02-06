@@ -4,9 +4,9 @@ import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import co.topl.brambl.constants.NetworkConstants.{MAIN_LEDGER_ID, PRIVATE_NETWORK_ID}
 import co.topl.brambl.dataApi.WalletStateAlgebra
-import co.topl.brambl.models.Indices
+import co.topl.brambl.models.{Indices, LockAddress}
 import co.topl.brambl.servicekit.{WalletKeyApi, WalletStateApi, WalletStateResource}
-import co.topl.brambl.syntax.LvlType
+import co.topl.brambl.syntax.{int128AsBigInt, valueToQuantitySyntaxOps, LvlType}
 import co.topl.brambl.wallet.{Credentialler, CredentiallerInterpreter, WalletApi}
 import quivr.models.{KeyPair, VerificationKey}
 
@@ -84,4 +84,12 @@ trait ToplWallet {
     println(s"Generating Topl child key pair for $walletName at $idx...")
     walletApi.deriveChildKeys(mainKeyTopl, idx).unsafeRunSync().vk
   }
+
+  def getTbtcBalance(lockAddr: LockAddress): BigInt =
+    genusQueryApi
+      .queryUtxo(lockAddr)
+      .unsafeRunSync()
+      .map(_.transactionOutput.value.value.quantity: BigInt)
+      .fold(BigInt(0))(_ + _)
+
 }

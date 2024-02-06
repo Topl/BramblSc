@@ -104,6 +104,23 @@ object WalletStateApi {
           } yield if (hasNext) Some(Indices(x, y, z)) else None
         }
 
+      override def getIndicesByAddress(lockAddress: String): F[Option[Indices]] =
+        connection.use { conn =>
+          for {
+            stmnt <- Sync[F].blocking(conn.createStatement())
+            rs <- Sync[F].blocking(
+              stmnt.executeQuery(
+                s"SELECT x_fellowship, y_template, z_interaction FROM " +
+                s"cartesian WHERE address = '$lockAddress'"
+              )
+            )
+            hasNext <- Sync[F].delay(rs.next())
+            x       <- Sync[F].delay(rs.getInt("x_fellowship"))
+            y       <- Sync[F].delay(rs.getInt("y_template"))
+            z       <- Sync[F].delay(rs.getInt("z_interaction"))
+          } yield if (hasNext) Some(Indices(x, y, z)) else None
+        }
+
       def getLockByIndex(indices: Indices): F[Option[Lock.Predicate]] = connection.use { conn =>
         for {
           stmnt <- Sync[F].blocking(conn.createStatement())

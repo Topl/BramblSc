@@ -3,13 +3,16 @@ package co.topl.brambl.playground
 import co.topl.brambl.models.Indices
 import org.bitcoins.core.crypto.ExtPrivateKey
 import org.bitcoins.core.hd.BIP32Path
+import org.bitcoins.core.number.UInt32
+import org.bitcoins.core.protocol.BitcoinAddress
+import org.bitcoins.core.protocol.transaction.{Transaction, TransactionOutPoint}
 import org.bitcoins.crypto.ECPrivateKey
 
 trait BitcoinWallet {
   val walletName: String
   def initBtcFunds(): Unit = {}
 
-  private val watcherName: String = s"$walletName-watcher"
+  val watcherName: String = s"$walletName-watcher"
 
   private def createBitcoinWallets(): Unit = {
     println(s"Creating wallets $walletName and $watcherName")
@@ -42,19 +45,53 @@ trait BitcoinWallet {
     mainKeyBtc.deriveChildPrivKey(childPath).key
   }
 
-  // BTC version of our wallet state
-  private case class CartesianEntry(idx: Indices, desc: String, address: String)
-  var cartesianIndexing: Seq[CartesianEntry] = Seq()
+  def createToWalletTx(
+    utxoToSpend:   TransactionOutPoint,
+    spendTimeLock: Boolean = false
+  ): Transaction = {
+    val toAddr = handleCall(rpcCli.getNewAddress(Some(walletName))).get
+    val inputAmount = handleCall(rpcCli.getTxOut(utxoToSpend.txIdBE, utxoToSpend.vout.toLong)).get.value
+    createBaseTx(utxoToSpend.txIdBE, utxoToSpend.vout, toAddr, inputAmount.toBigDecimal, spendTimeLock)
+  }
 
-  def addWalletEntry(idx: Indices, desc: String, address: String): Unit =
-    cartesianIndexing = cartesianIndexing :+ CartesianEntry(idx, desc, address)
+  def sendFromWallet(recipientAddr: String, toSend: Option[BigDecimal]): TransactionOutPoint = {
+    val initialFundsUtxo = handleCall(rpcCli.listUnspent(walletName)).get.head
+    val unprovenTx = createBaseTx(
+      initialFundsUtxo.txid,
+      UInt32(initialFundsUtxo.vout),
+      BitcoinAddress(recipientAddr),
+      toSend.getOrElse(initialFundsUtxo.amount.toBigDecimal)
+    )
+    val provenTx = handleCall(rpcCli.signRawTransactionWithWallet(unprovenTx, Some(walletName))).get.hex
+    val txId = handleCall(rpcCli.sendRawTransaction(provenTx, 0)).get
+    mineBlocks(1)
+    TransactionOutPoint(txId, UInt32(0))
+  }
+
+  def sendBtcToDesc(desc: String, amount: Option[BigDecimal] = None): String = {
+    print("\n============================" + s"$walletName sends BTC to Descriptor" + "============================\n")
+    println(s"> $walletName deriving address from descriptor...")
+    val address = handleCall(rpcCli.deriveOneAddress(walletName, desc)).get
+    println(s"> $walletName sends BTC to address...")
+    sendFromWallet(address, amount).toHumanReadableString
+  }
+
+  // BTC version of our wallet state
+  private case class CartesianEntry(idx: Indices, desc: String)
+  private var cartesianIndexing: Seq[CartesianEntry] = Seq()
+
+  def addWalletEntry(idx: Indices, desc: String): Unit =
+    cartesianIndexing = cartesianIndexing :+ CartesianEntry(idx, desc)
 
   def getIndicesByDesc(desc: String): Indices =
     cartesianIndexing.find(_.desc == desc).get.idx
 
+  def getDescByIndices(idx: Indices): String =
+    cartesianIndexing.find(_.idx == idx).get.desc
+
   // Storing desc => txOut since ATM we can't query bitcoin core just using desc
   private case class DescTxOut(desc: String, txOut: String)
-  var descTxOutIndexing: Seq[DescTxOut] = Seq()
+  private var descTxOutIndexing: Seq[DescTxOut] = Seq()
 
   def addDescTxOutEntry(desc: String, txOut: String): Unit =
     descTxOutIndexing = descTxOutIndexing :+ DescTxOut(desc, txOut)

@@ -144,6 +144,14 @@ trait WalletStateAlgebra[F[_]] {
   def getLockByAddress(lockAddress: String): F[Option[Lock.Predicate]]
 
   /**
+   * Get the Indices associated to the given lockAddress.
+   *
+   * @param lockAddress The lockAddress for which we are retrieving the indices for
+   * @return The indices for the lockAddress if possible. Else None
+   */
+  def getIndicesByAddress(lockAddress: String): F[Option[Indices]]
+
+  /**
    * Get the lock address associated to the given fellowship, template and optional interaction
    *
    * @param fellowship   A String label of the fellowship to get the lock address for
