@@ -2,15 +2,13 @@ package co.topl.brambl.validation
 
 import cats.Monad
 import cats.implicits._
-import co.topl.brambl.models.AccumulatorRootId
-import co.topl.brambl.models.LockId
+import co.topl.brambl.models.{AccumulatorRootId, Datum, LockId}
 import co.topl.brambl.models.box.Attestation
-import co.topl.brambl.models.Datum
 import co.topl.brambl.models.transaction.IoTransaction
+import co.topl.brambl.validation.algebras.TransactionAuthorizationVerifier
 import co.topl.quivr.api.Verifier
 import co.topl.quivr.runtime.DynamicContext
 import quivr.models.{Proof, Proposition}
-import co.topl.brambl.validation.algebras.TransactionAuthorizationVerifier
 
 /**
  * Validates that each Input within a Transaction is properly "authorized".  "Authorized" simply means "does the given
@@ -29,9 +27,10 @@ object TransactionAuthorizationInterpreter {
       override def validate(context: DynamicContext[F, String, Datum])(
         transaction: IoTransaction
       ): F[Either[TransactionAuthorizationError, IoTransaction]] =
-        transaction.inputs.zipWithIndex
-          .foldLeft(Either.right[TransactionAuthorizationError, IoTransaction](transaction).pure[F]) {
-            case (acc, (input, index)) =>
+        transaction.inputs
+          .foldLeftM(Either.right[TransactionAuthorizationError, IoTransaction](transaction)) {
+            case (Left(error), _) => error.asLeft[IoTransaction].pure[F]
+            case (_, input) =>
               input.attestation.value match {
                 case Attestation.Value.Predicate(p) =>
                   predicateValidate(p.lock.challenges.map(_.getRevealed), p.lock.threshold, p.responses, context).map(
@@ -50,6 +49,10 @@ object TransactionAuthorizationInterpreter {
                     p.responses,
                     context
                   ).map(r => r.map(_ => transaction))
+                case _ =>
+                  (TransactionAuthorizationError.AuthorizationFailed(): TransactionAuthorizationError)
+                    .asLeft[IoTransaction]
+                    .pure[F]
               }
           }
 

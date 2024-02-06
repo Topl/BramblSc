@@ -53,6 +53,8 @@ object TransactionCostCalculatorInterpreter {
             p.responses.map(proofCost).sum
           case Attestation.Value.Commitment(p) =>
             p.responses.map(proofCost).sum
+          case _ =>
+            0L
         })
 
       /**
