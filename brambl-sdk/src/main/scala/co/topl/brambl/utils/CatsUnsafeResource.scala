@@ -1,12 +1,10 @@
 package co.topl.brambl.utils
 
 import cats.data.OptionT
-import cats.effect.Async
-import cats.effect.Resource
-import cats.effect.Sync
+import cats.effect.implicits._
 import cats.effect.std.Queue
+import cats.effect.{Async, Resource, Sync}
 import cats.implicits._
-import cats.implicits.{toFlatMapOps, toFunctorOps}
 
 /**
  * Manages thread-unsafe resources in a thread-safe manner by utilizing a cats-effect queue. Inactive resources
@@ -19,13 +17,14 @@ object CatsUnsafeResource {
       _     <- Async[F].raiseWhen(maxParallelism < 1)(new IllegalArgumentException("Invalid maxParallelism"))
       queue <- Queue.unbounded[F, Option[T]]
       // Launch with several uninitialized resources
-      _ <- catsSyntaxMonadIdOps(0).iterateUntilM((i: Int) => queue.offer(None).as(i + 1))(_ >= maxParallelism)
+      _ <- queue.offer(None).replicateA(maxParallelism)
       res = Resource.make(
+        Async[F].cede *>
         Sync[F].defer(
           OptionT(queue.take)
             // If an uninitialized resource was pulled, initialize it
-            .getOrElseF(Async[F].delay(init))
+            .getOrElseF(Async[F].delay(init).guarantee(Async[F].cede))
         )
-      )(t => Sync[F].defer(queue.offer(t.some)))
+      )(t => Sync[F].defer(queue.offer(t.some)).guarantee(Async[F].cede))
     } yield res
 }
