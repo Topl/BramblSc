@@ -1,6 +1,6 @@
 package co.topl.brambl.playground
 
-import co.topl.brambl.models.Indices
+import co.topl.brambl.models.{Indices, LockAddress}
 import org.bitcoins.core.crypto.ExtPrivateKey
 import org.bitcoins.core.currency.{Bitcoins, Satoshis}
 import org.bitcoins.core.hd.BIP32Path
@@ -79,17 +79,20 @@ class BitcoinWallet(val walletName: String) {
   }
 
   // BTC version of our wallet state
-  private case class CartesianEntry(idx: Indices, desc: String)
+  private case class CartesianEntry(idx: Indices, desc: String, lockAddr: LockAddress)
   private var cartesianIndexing: Seq[CartesianEntry] = Seq()
 
-  def addWalletEntry(idx: Indices, desc: String): Unit =
-    cartesianIndexing = cartesianIndexing :+ CartesianEntry(idx, desc)
+  def addWalletEntry(idx: Indices, desc: String, lockAddr: LockAddress): Unit =
+    cartesianIndexing = cartesianIndexing :+ CartesianEntry(idx, desc, lockAddr)
 
   def getIndicesByDesc(desc: String): Indices =
     cartesianIndexing.find(_.desc == desc).get.idx
 
   def getDescByIndices(idx: Indices): String =
     cartesianIndexing.find(_.idx == idx).get.desc
+
+  def getDescByAddress(lockAddr: LockAddress): String =
+    cartesianIndexing.find(_.lockAddr == lockAddr).get.desc
 
   // Storing desc => txOut since ATM we can't query bitcoin core just using desc
   private case class DescTxOut(desc: String, txOut: String)

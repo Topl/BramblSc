@@ -28,7 +28,7 @@ case class BridgeQuery(bridge: Bridge) {
     println("> watcher importing descriptor successful: " + importDescSuccessful)
     val toplLock = scriptBuilder.generateToplLock(request.toplVk, request.hash, toplVk)
     val toplAddr = txBuilder.lockAddress(toplLock).unsafeRunSync()
-    bridge.btcWallet.addWalletEntry(idx, desc)
+    bridge.btcWallet.addWalletEntry(idx, desc, toplAddr)
     bridge.toplWallet.walletStateApi
       .updateWalletState(
         Encoding.encodeToBase58Check(toplLock.getPredicate.toByteArray),

@@ -31,6 +31,12 @@ case class Alice(bridgeRpc: BridgeQuery) {
     }
   }
 
+  def init(): Unit = {
+    toplWallet.initToplFunds()
+  }
+
+  init()
+
   def initiateRequest(isPegIn: Boolean): BridgeResponse = {
     println("> Alice generating 32 byte secret...")
     val secrets = generateSecret()
@@ -51,7 +57,7 @@ case class Alice(bridgeRpc: BridgeQuery) {
     val importDescSuccessful = handleCall(rpcCli.importDescriptor(btcWallet.watcherName, resp.desc)).get
     println("> watcher importing descriptor successful: " + importDescSuccessful)
     println("> Alice storing descriptor and (toplVk, toplLock, toplIdx) in her wallet state...")
-    btcWallet.addWalletEntry(idx, resp.desc)
+    btcWallet.addWalletEntry(idx, resp.desc, resp.toplAddress)
     toplWallet.walletStateApi
       .updateWalletState(
         Encoding.encodeToBase58Check(resp.toplLock.getPredicate.toByteArray),

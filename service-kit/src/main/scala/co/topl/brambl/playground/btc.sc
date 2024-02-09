@@ -49,3 +49,5 @@ def pegOut(): Unit = {
 }
 
 if (pegIn()) pegOut()
+
+bridge.monitoringService.stop()

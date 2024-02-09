@@ -6,7 +6,7 @@ import co.topl.brambl.constants.NetworkConstants.{MAIN_LEDGER_ID, PRIVATE_NETWOR
 import co.topl.brambl.dataApi.WalletStateAlgebra
 import co.topl.brambl.models.{Indices, LockAddress}
 import co.topl.brambl.servicekit.{WalletKeyApi, WalletStateApi, WalletStateResource}
-import co.topl.brambl.syntax.{int128AsBigInt, valueToQuantitySyntaxOps, LvlType}
+import co.topl.brambl.syntax.{AssetType, LvlType, int128AsBigInt, valueToQuantitySyntaxOps}
 import co.topl.brambl.wallet.{Credentialler, CredentiallerInterpreter, WalletApi}
 import quivr.models.{KeyPair, VerificationKey}
 
@@ -73,12 +73,12 @@ class ToplWallet(val walletName: String) {
     loadFunds.unsafeRunSync()
   }
 
-  def initToplFunds(): Unit = {
+  def initToplFunds(): Option[AssetType] = {
     println(s"Initializing 100Lvls to $walletName ... waiting 15 secs")
     loadLvls()
     Thread.sleep(15000)
+    None
   }
-  initToplFunds()
 
   def getChildVk(idx: Indices): VerificationKey = {
     println(s"Generating Topl child key pair for $walletName at $idx...")

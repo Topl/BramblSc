@@ -8,13 +8,7 @@ import co.topl.brambl.models.box.{AssetMintingStatement, Lock}
 import co.topl.brambl.models.{Indices, LockAddress, TransactionId, TransactionOutputAddress}
 import co.topl.brambl.playground.ScriptBuilder.PegIn
 import co.topl.brambl.playground.SecretExtraction.{extractFromBitcoinTx, extractFromToplTx}
-import co.topl.brambl.syntax.{
-  bigIntAsInt128,
-  int128AsBigInt,
-  valueToQuantitySyntaxOps,
-  valueToTypeIdentifierSyntaxOps,
-  LvlType
-}
+import co.topl.brambl.syntax.{AssetType, LvlType, bigIntAsInt128, groupPolicyAsGroupPolicySyntaxOps, int128AsBigInt, seriesPolicyAsSeriesPolicySyntaxOps, valueToQuantitySyntaxOps, valueToTypeIdentifierSyntaxOps}
 import co.topl.brambl.utils.Encoding
 import org.bitcoins.commons.jsonmodels.bitcoind.GetTxOutResultV22
 import org.bitcoins.core.protocol.script.P2WSHWitnessV0
@@ -27,7 +21,7 @@ case class Bridge() {
 
   val toplWallet = new ToplWallet(walletName) {
 
-    def mintGroupConstructorTokens(): Unit = {
+    def mintGroupConstructorTokens(): GroupPolicy = {
       val mintGroup = for {
         inputLock    <- walletStateApi.getLock("self", "default", 1)
         inputAddress <- txBuilder.lockAddress(inputLock.get)
@@ -57,11 +51,12 @@ case class Bridge() {
         )
         provenTx <- credentialler.prove(unprovenTx.toOption.get)
         txId     <- bifrostQuery.broadcastTransaction(provenTx)
-      } yield txId
-      mintGroup.unsafeRunSync()
+      } yield (txId, groupPolicy)
+      val res = mintGroup.unsafeRunSync()
+      res._2
     }
 
-    def mintSeriesConstructorTokens(): Unit = {
+    def mintSeriesConstructorTokens(): SeriesPolicy = {
       val mintSeries = for {
         inputLock    <- walletStateApi.getLock("self", "default", 2)
         inputAddress <- txBuilder.lockAddress(inputLock.get)
@@ -94,21 +89,32 @@ case class Bridge() {
         )
         provenTx <- credentialler.prove(unprovenTx.toOption.get)
         txId     <- bifrostQuery.broadcastTransaction(provenTx)
-      } yield txId
-      mintSeries.unsafeRunSync()
+      } yield (txId, seriesPolicy)
+      val res = mintSeries.unsafeRunSync()
+      res._2
     }
 
-    override def initToplFunds(): Unit = {
+    override def initToplFunds(): Option[AssetType] = {
       super.initToplFunds()
       println("Bridge mints group constructor tokens... waiting 15 seconds")
-      mintGroupConstructorTokens()
+      val gp = mintGroupConstructorTokens()
       Thread.sleep(15000)
       println("Bridge mints series constructor tokens... waiting 15 seconds")
-      mintSeriesConstructorTokens()
+      val sp = mintSeriesConstructorTokens()
       Thread.sleep(15000)
+      AssetType(gp.computeId.value, sp.computeId.value).some
     }
   }
   val btcWallet = new BitcoinWallet(walletName)
+
+  val monitoringService: MonitoringService = MonitoringService()
+
+  def init(): Unit = {
+    val tbtc = toplWallet.initToplFunds().get
+    monitoringService.start(tbtc, claimBtc)
+  }
+
+  init()
 
   def mintAssets(toAddr: LockAddress, amount: BigInt): Unit = {
     val mintTBtc = for {
@@ -171,9 +177,9 @@ case class Bridge() {
     println(s"Bridge minted $tbtcBalance tBTC (unclaimed)")
     lockAddress
   }
-
-  def claimBtc(txId: TransactionId, desc: String): Unit = {
+  def claimBtc(txId: TransactionId, lockAddr: LockAddress): Unit = {
     print("\n============================" + "Bridge claims BTC" + "============================\n")
+    val desc = btcWallet.getDescByAddress(lockAddr)
     val utxoToSpend = TransactionOutPoint.fromString(btcWallet.getTxOut(desc))
     println("> Bridge creating unproven TX...")
     val tx = btcWallet.createToWalletTx(utxoToSpend)
