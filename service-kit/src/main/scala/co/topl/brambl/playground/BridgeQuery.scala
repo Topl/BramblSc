@@ -44,8 +44,8 @@ case class BridgeQuery(bridge: Bridge) {
   def notifyOfBtcTransfer(txOut: String, desc: String): LockAddress =
     bridge.triggerMinting(txOut, desc)
 
-  def notifyOfTbtcClaim(txId: TransactionId, desc: String): Unit =
-    bridge.claimBtc(txId, desc)
+  def notifyOfTbtcClaim(txId: TransactionId, addr: LockAddress): Unit =
+    bridge.claimBtc(txId, addr)
 
   def notifyOfTbtcTransfer(utxoId: TransactionOutputAddress): String =
     bridge.triggerBtcTransfer(utxoId)

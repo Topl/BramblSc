@@ -23,7 +23,7 @@ def pegIn(): Boolean = {
     println(s"> Alice claiming tBTC at $lockAddr...")
     val txId = alice.claimTBtc(lockAddr)
     println("> notifying bridge of tBTC claim...")
-    bridgeRpc.notifyOfTbtcClaim(txId, desc)
+    bridgeRpc.notifyOfTbtcClaim(txId, lockAddr)
   } else {
     // Alice opts out (reclaims BTC)
     println("> Alice waiting 1000 blocks...") // Alice can only reclaim after 1000 blocks
