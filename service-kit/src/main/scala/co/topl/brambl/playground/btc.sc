@@ -1,6 +1,9 @@
+import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import co.topl.brambl.builders.TransactionBuilderApi.implicits.lockAddressOps
+import co.topl.brambl.models.LockAddress
 import co.topl.brambl.playground._
+import co.topl.brambl.playground.monitoring.MonitoringService.ToMonitor
 import org.bitcoins.commons.jsonmodels.bitcoind._
 import org.bitcoins.commons.serializers.JsonSerializers._
 import org.bitcoins.commons.serializers.JsonWriters._
@@ -9,13 +12,12 @@ import org.bitcoins.crypto._
 
 val PegInHappyPath: Boolean = true
 
-val bridge = Bridge()
-val bridgeRpc = BridgeQuery(bridge)
-val alice = Alice(bridgeRpc)
+val pegInLockAddrs = ToMonitor.empty[IO, LockAddress].unsafeRunSync() // trivial for this example
+val pegInDescs = ToMonitor.empty[IO, String].unsafeRunSync() // trivial for this example
 
-val bridgeFib = bridge.start()
-println("running bridge async...")
-bridgeFib.unsafeRunAndForget()
+val bridge = Bridge()
+val bridgeRpc = BridgeQuery(bridge, pegInLockAddrs, pegInDescs)
+val alice = Alice(bridgeRpc)
 
 def pegIn(): Boolean = {
   println("> Alice initiating peg-in...")
@@ -24,10 +26,8 @@ def pegIn(): Boolean = {
   println(s"> Alice sending BTC to $desc...")
   val txOut = alice.btcWallet.sendBtcToDesc(desc)
   if(PegInHappyPath) {
-    // Notifying the bridge of the BTC transfer is no longer necessary due to monitoring
-//    println("> notifying bridge of BTC transfer...")
-//    val lockAddr = bridgeRpc.notifyOfBtcTransfer(txOut, desc)
-//    waitUntilFunded(resp.toplAddress) // Alice waits for tBTC to be funded. Do we want to do this for the user?
+    println("> notifying bridge of BTC transfer...")
+    val lockAddr = bridgeRpc.notifyOfBtcTransfer(txOut, desc)
     Thread.sleep(17000)
     println(s"> Alice claiming tBTC at ${resp.toplAddress.toBase58()}...")
     val txId = alice.claimTBtc(resp.toplAddress)
@@ -60,5 +60,3 @@ def pegOut(): Unit = {
 println("starting peg-in...")
 
 if (pegIn()) pegOut()
-
-bridge.stop(bridgeFib)
