@@ -6,7 +6,7 @@ import co.topl.brambl.constants.NetworkConstants.{MAIN_LEDGER_ID, PRIVATE_NETWOR
 import co.topl.brambl.dataApi.WalletStateAlgebra
 import co.topl.brambl.models.{Indices, LockAddress}
 import co.topl.brambl.servicekit.{WalletKeyApi, WalletStateApi, WalletStateResource}
-import co.topl.brambl.syntax.{AssetType, LvlType, int128AsBigInt, valueToQuantitySyntaxOps}
+import co.topl.brambl.syntax.{int128AsBigInt, valueToQuantitySyntaxOps, AssetType, LvlType}
 import co.topl.brambl.wallet.{Credentialler, CredentiallerInterpreter, WalletApi}
 import quivr.models.{KeyPair, VerificationKey}
 
@@ -74,9 +74,9 @@ class ToplWallet(val walletName: String) {
   }
 
   def initToplFunds(): Option[AssetType] = {
-    println(s"Initializing 100Lvls to $walletName ... waiting 15 secs")
+    println(s"Initializing 100Lvls to $walletName ... waiting 30 secs")
     loadLvls()
-    Thread.sleep(15000)
+    Thread.sleep(30000)
     None
   }
 

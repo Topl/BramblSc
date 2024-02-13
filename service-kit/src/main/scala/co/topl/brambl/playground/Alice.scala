@@ -1,6 +1,7 @@
 package co.topl.brambl.playground
 
 import cats.Id
+import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import co.topl.brambl.builders.TransactionBuilderApi.implicits.lockAddressOps
 import co.topl.brambl.constants.NetworkConstants.{MAIN_LEDGER_ID, PRIVATE_NETWORK_ID}
@@ -18,6 +19,8 @@ import org.bitcoins.core.protocol.transaction.{TransactionOutPoint, WitnessTrans
 import org.bitcoins.crypto.DoubleSha256DigestBE
 import quivr.models.{Digest, Preimage, VerificationKey}
 
+import scala.concurrent.duration.DurationInt
+
 case class Alice(bridgeRpc: BridgeQuery) {
   val walletName: String = "alice"
   val toplWallet = new ToplWallet(walletName)
@@ -31,9 +34,8 @@ case class Alice(bridgeRpc: BridgeQuery) {
     }
   }
 
-  def init(): Unit = {
+  def init(): Unit =
     toplWallet.initToplFunds()
-  }
 
   init()
 
@@ -182,7 +184,9 @@ case class Alice(bridgeRpc: BridgeQuery) {
       txId     <- bifrostQuery.broadcastTransaction(provenTx)
     } yield (txId, claimAddr)
     val txId = claimAsset.unsafeRunSync()
-    Thread.sleep(15000)
+    println("waiting 20 seconds for the transaction to be processed")
+    IO.unit.andWait(20.seconds).unsafeRunSync()
+    println("getting balance")
     val tbtcBalance = toplWallet.getTbtcBalance(txId._2)
     println(s"Alice owns $tbtcBalance tBTC (claimed)")
     txId._1

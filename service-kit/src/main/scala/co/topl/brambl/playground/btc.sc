@@ -1,3 +1,5 @@
+import cats.effect.unsafe.implicits.global
+import co.topl.brambl.builders.TransactionBuilderApi.implicits.lockAddressOps
 import co.topl.brambl.playground._
 import org.bitcoins.commons.jsonmodels.bitcoind._
 import org.bitcoins.commons.serializers.JsonSerializers._
@@ -11,6 +13,10 @@ val bridge = Bridge()
 val bridgeRpc = BridgeQuery(bridge)
 val alice = Alice(bridgeRpc)
 
+val bridgeFib = bridge.start()
+println("running bridge async...")
+bridgeFib.unsafeRunAndForget()
+
 def pegIn(): Boolean = {
   println("> Alice initiating peg-in...")
   val resp = alice.initiatePegIn()
@@ -18,12 +24,15 @@ def pegIn(): Boolean = {
   println(s"> Alice sending BTC to $desc...")
   val txOut = alice.btcWallet.sendBtcToDesc(desc)
   if(PegInHappyPath) {
-    println("> notifying bridge of BTC transfer...")
-    val lockAddr = bridgeRpc.notifyOfBtcTransfer(txOut, desc)
-    println(s"> Alice claiming tBTC at $lockAddr...")
-    val txId = alice.claimTBtc(lockAddr)
+    // Notifying the bridge of the BTC transfer is no longer necessary due to monitoring
+//    println("> notifying bridge of BTC transfer...")
+//    val lockAddr = bridgeRpc.notifyOfBtcTransfer(txOut, desc)
+//    waitUntilFunded(resp.toplAddress) // Alice waits for tBTC to be funded. Do we want to do this for the user?
+    Thread.sleep(17000)
+    println(s"> Alice claiming tBTC at ${resp.toplAddress.toBase58()}...")
+    val txId = alice.claimTBtc(resp.toplAddress)
     println("> notifying bridge of tBTC claim...")
-    bridgeRpc.notifyOfTbtcClaim(txId, lockAddr)
+    bridgeRpc.notifyOfTbtcClaim(txId, resp.toplAddress)
   } else {
     // Alice opts out (reclaims BTC)
     println("> Alice waiting 1000 blocks...") // Alice can only reclaim after 1000 blocks
@@ -48,6 +57,8 @@ def pegOut(): Unit = {
   bridgeRpc.notifyOfBtcClaim(txId, desc)
 }
 
+println("starting peg-in...")
+
 if (pegIn()) pegOut()
 
-bridge.monitoringService.stop()
+bridge.stop(bridgeFib)

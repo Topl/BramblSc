@@ -155,6 +155,7 @@ package object playground {
       val sequence: UInt32 = UInt32(1000L & TransactionConstants.sequenceLockTimeMask.toLong)
       TransactionInput(TransactionOutPoint(fromTxId, fromVOut), ScriptSignature.empty, sequence)
     } else TransactionInput.fromTxidAndVout(fromTxId, fromVOut)
+    println(s"input: $input")
     val outputs = Map(toAddr -> Bitcoins(fromAmount.toBigDecimal - 1)) // 1 BTC as fee
     println(s"Creating tx with input: $input and outputs: $outputs")
     handleCall(rpcCli.createRawTransaction(Vector(input), outputs)).get

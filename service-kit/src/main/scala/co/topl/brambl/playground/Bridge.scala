@@ -1,6 +1,7 @@
 package co.topl.brambl.playground
 
 import cats.effect.unsafe.implicits.global
+import cats.effect.{FiberIO, IO}
 import cats.implicits.catsSyntaxOptionId
 import co.topl.brambl.builders.TransactionBuilderApi.implicits.lockAddressOps
 import co.topl.brambl.models.Event.{GroupPolicy, SeriesPolicy}
@@ -8,13 +9,24 @@ import co.topl.brambl.models.box.{AssetMintingStatement, Lock}
 import co.topl.brambl.models.{Indices, LockAddress, TransactionId, TransactionOutputAddress}
 import co.topl.brambl.playground.ScriptBuilder.PegIn
 import co.topl.brambl.playground.SecretExtraction.{extractFromBitcoinTx, extractFromToplTx}
-import co.topl.brambl.syntax.{AssetType, LvlType, bigIntAsInt128, groupPolicyAsGroupPolicySyntaxOps, int128AsBigInt, seriesPolicyAsSeriesPolicySyntaxOps, valueToQuantitySyntaxOps, valueToTypeIdentifierSyntaxOps}
+import co.topl.brambl.syntax.{
+  bigIntAsInt128,
+  groupPolicyAsGroupPolicySyntaxOps,
+  int128AsBigInt,
+  seriesPolicyAsSeriesPolicySyntaxOps,
+  valueToQuantitySyntaxOps,
+  valueToTypeIdentifierSyntaxOps,
+  AssetType,
+  LvlType
+}
 import co.topl.brambl.utils.Encoding
 import org.bitcoins.commons.jsonmodels.bitcoind.GetTxOutResultV22
 import org.bitcoins.core.protocol.script.P2WSHWitnessV0
 import org.bitcoins.core.protocol.transaction.{TransactionOutPoint, WitnessTransaction}
 import org.bitcoins.crypto.DoubleSha256DigestBE
 import quivr.models.VerificationKey
+
+import scala.concurrent.duration.DurationInt
 
 case class Bridge() {
   val walletName: String = "bridge"
@@ -96,27 +108,34 @@ case class Bridge() {
 
     override def initToplFunds(): Option[AssetType] = {
       super.initToplFunds()
-      println("Bridge mints group constructor tokens... waiting 15 seconds")
+      println("Bridge mints group constructor tokens... waiting 20 seconds")
       val gp = mintGroupConstructorTokens()
-      Thread.sleep(15000)
-      println("Bridge mints series constructor tokens... waiting 15 seconds")
+      Thread.sleep(20000)
+      println("Bridge mints series constructor tokens... waiting 20 seconds")
       val sp = mintSeriesConstructorTokens()
-      Thread.sleep(15000)
+      Thread.sleep(20000)
       AssetType(gp.computeId.value, sp.computeId.value).some
     }
   }
   val btcWallet = new BitcoinWallet(walletName)
 
-  val monitoringService: MonitoringService = MonitoringService()
-
-  def init(): Unit = {
-    val tbtc = toplWallet.initToplFunds().get
-    monitoringService.start(tbtc, claimBtc)
-  }
+  def init(): Unit =
+    toplWallet.initToplFunds()
 
   init()
 
+  def start(): IO[FiberIO[Nothing]] = {
+    println("Starting bridge...")
+//    val tbtc = toplWallet.initToplFunds().get
+//    MonitoringService(btcWallet.watcherName, tbtc, triggerMinting, claimBtc, pegInLockAddrs, pegInDescs).start()
+    ???
+  }
+
+  def stop(fib: IO[FiberIO[Nothing]]): Unit =
+    fib.map(_.cancel.start.unsafeRunSync())
+
   def mintAssets(toAddr: LockAddress, amount: BigInt): Unit = {
+    println(s"Bridge mints $amount tBTC to ${toAddr.toBase58()}")
     val mintTBtc = for {
       inputLock    <- toplWallet.walletStateApi.getLock("self", "default", 3)
       inputAddress <- txBuilder.lockAddress(inputLock.get)
@@ -154,9 +173,11 @@ case class Bridge() {
       txId     <- bifrostQuery.broadcastTransaction(provenTx)
     } yield txId
     mintTBtc.unsafeRunSync()
+    println(s"Bridge minted $amount tBTC to ${toAddr.toBase58()}")
   }
 
   def triggerMinting(txOut: String, desc: String): LockAddress = {
+    println(s"Bridge mints tBTC b/c BTC was sent to $desc")
     val utxo = TransactionOutPoint.fromString(txOut)
     val amount = handleCall(rpcCli.getTxOut(utxo.txIdBE, utxo.vout.toLong)).get
       .asInstanceOf[GetTxOutResultV22]
@@ -164,7 +185,6 @@ case class Bridge() {
       .satoshis
       .toBigInt
 
-    println("Bridge mints tBtc... waiting 15 seconds")
     btcWallet.addDescTxOutEntry(desc, txOut)
     val idx = btcWallet.getIndicesByDesc(desc)
     val lockAddress = (for {
@@ -172,11 +192,11 @@ case class Bridge() {
       lockAddress <- txBuilder.lockAddress(Lock().withPredicate(lock.get))
     } yield lockAddress).unsafeRunSync()
     mintAssets(lockAddress, amount)
-    Thread.sleep(15000)
-    val tbtcBalance = toplWallet.getTbtcBalance(lockAddress)
-    println(s"Bridge minted $tbtcBalance tBTC (unclaimed)")
+    println(s"Bridge minted ${amount.toInt} tBTC (unclaimed)")
+    IO.unit.andWait(20.seconds).unsafeRunSync()
     lockAddress
   }
+
   def claimBtc(txId: TransactionId, lockAddr: LockAddress): Unit = {
     print("\n============================" + "Bridge claims BTC" + "============================\n")
     val desc = btcWallet.getDescByAddress(lockAddr)

@@ -49,8 +49,12 @@ class BitcoinWallet(val walletName: String) {
     utxoToSpend:   TransactionOutPoint,
     spendTimeLock: Boolean = false
   ): Transaction = {
-    val toAddr = handleCall(rpcCli.getNewAddress(Some(walletName))).get
-    val inputAmount = handleCall(rpcCli.getTxOut(utxoToSpend.txIdBE, utxoToSpend.vout.toLong)).get.value
+    println(s"using utxoToSpend: $utxoToSpend")
+    println(walletName)
+    val toAddr = handleCall(rpcCli.getNewAddress(walletNameOpt = Some(walletName)), debug = true).get
+    println(s"toAddr: $toAddr")
+    val inputAmount = handleCall(rpcCli.getTxOut(utxoToSpend.txIdBE, utxoToSpend.vout.toLong), debug = true).get.value
+    println(s"inputAmount: $inputAmount")
     createBaseTx(utxoToSpend.txIdBE, utxoToSpend.vout, toAddr, inputAmount, spendTimeLock)
   }
 

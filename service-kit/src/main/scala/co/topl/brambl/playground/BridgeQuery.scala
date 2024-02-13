@@ -1,16 +1,18 @@
 package co.topl.brambl.playground
 
+import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import co.topl.brambl.builders.TransactionBuilderApi.implicits.lockAddressOps
 import co.topl.brambl.models.box.Lock
 import co.topl.brambl.models.{Indices, LockAddress, TransactionId, TransactionOutputAddress}
 import co.topl.brambl.playground.BridgeQuery.{BridgeRequest, BridgeResponse}
 import co.topl.brambl.playground.ScriptBuilder.{PegIn, PegOut}
+import co.topl.brambl.playground.monitoring.MonitoringService.ToMonitor
 import co.topl.brambl.utils.Encoding
 import org.bitcoins.crypto.DoubleSha256DigestBE
 import quivr.models.VerificationKey
 
-case class BridgeQuery(bridge: Bridge) {
+case class BridgeQuery(bridge: Bridge, pegInLockAddrs: ToMonitor[IO, LockAddress], pegInDescs: ToMonitor[IO, String]) {
 
   def initiateRequest(request: BridgeRequest, isPegIn: Boolean): BridgeResponse = {
     print("\n============================" + "Bridge Receives Request" + "============================\n")
@@ -38,6 +40,11 @@ case class BridgeQuery(bridge: Bridge) {
         idx
       )
       .unsafeRunSync()
+    if (isPegIn) {
+      println("> Adding peg-in addresses to monitor...")
+      pegInLockAddrs.add(toplAddr).unsafeRunSync()
+      pegInDescs.add(desc).unsafeRunSync()
+    } else {}
     BridgeResponse(desc, toplLock, toplAddr)
   }
 
