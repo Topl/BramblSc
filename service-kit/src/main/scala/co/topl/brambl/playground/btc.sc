@@ -25,6 +25,9 @@ def pegIn(): Boolean = {
   val desc = resp.desc
   println(s"> Alice sending BTC to $desc...")
   val txOut = alice.btcWallet.sendBtcToDesc(desc)
+  // bridge monitoring desc
+  // user funds desc
+  // bridge should still monitor desc in a diff context, if desc has been spent from, then bridge should relcaim the minted tbtc
   if(PegInHappyPath) {
     println("> notifying bridge of BTC transfer...")
     val lockAddr = bridgeRpc.notifyOfBtcTransfer(txOut, desc)

@@ -9,14 +9,14 @@ import co.topl.brambl.playground.{genusQueryApi, Alice, Bridge, BridgeQuery}
 
 object Example extends IOApp {
 
-  case class Example(pegInLockAddrs: ToMonitor[IO, LockAddress], pegInDescs: ToMonitor[IO, String]) {
+  case class Example(pegInLockAddrs: ToMonitor[IO, LockAddress], pegInDescs: ToMonitor[IO, String], pegInDescsReclaim: ToMonitor[IO, String]) {
 
     def run: IO[Unit] = {
       val bridge = Bridge()
       val bridgeRpc = BridgeQuery(bridge, pegInLockAddrs, pegInDescs)
       val alice = Alice(bridgeRpc)
       (for {
-        service <- MonitoringService(bridgeRpc, pegInLockAddrs, pegInDescs).run().start
+        service <- MonitoringService(bridgeRpc, pegInLockAddrs, pegInDescs, pegInDescsReclaim).run().start
         demoRes <- demo(bridgeRpc, alice).start
         res     <- demoRes.join *> service.cancel.start
       } yield res.joinWithUnit).flatten
@@ -53,7 +53,8 @@ object Example extends IOApp {
     for {
       pegInLockAddrs <- ToMonitor.empty[IO, LockAddress] // Shared state
       pegInDescs     <- ToMonitor.empty[IO, String] // Shared state
-      bridge = Example(pegInLockAddrs, pegInDescs) // Create bridge
+      pegInDescsReclaim     <- ToMonitor.empty[IO, String] // Shared state
+      bridge = Example(pegInLockAddrs, pegInDescs, pegInDescsReclaim) // Create bridge
       res <- bridge.run
         .as(
           ExitCode.Success

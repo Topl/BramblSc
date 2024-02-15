@@ -8,7 +8,7 @@ import cats.implicits._
 import cats.instances.list._
 import co.topl.brambl.models.LockAddress
 import co.topl.brambl.playground.monitoring.MonitoringService.ToMonitor
-import co.topl.brambl.playground.{genusQueryApi, handleCall, rpcCli, BridgeQuery}
+import co.topl.brambl.playground.{BridgeQuery, genusQueryApi, handleCall, rpcCli}
 import co.topl.genus.services.TxoState
 import org.bitcoins.core.number.UInt32
 import org.bitcoins.core.protocol.BitcoinAddress
@@ -17,12 +17,11 @@ import org.bitcoins.core.protocol.transaction.TransactionOutPoint
 import scala.collection.immutable.Queue
 import scala.language.implicitConversions
 
-// TODO: As a second pass, consider garbage collection on the monitoring data (sad paths) (state=spent?)
-
 case class MonitoringService(
   bridgeRpc:      BridgeQuery,
   pegInLockAddrs: ToMonitor[IO, LockAddress],
-  pegInDescs:     ToMonitor[IO, String]
+  pegInDescsTransfer:     ToMonitor[IO, String],
+  pegInDescsReclaim:     ToMonitor[IO, String],
 ) {
   def p(msg: String): IO[Unit] = IO.println(s"Monitoring Service: $msg")
 
@@ -32,15 +31,23 @@ case class MonitoringService(
       process()
 
   def process(): IO[Nothing] = {
-    val p1 = pegInLockAddrs.take() flatMap {
+    val monitorPegInTransfer = pegInDescsTransfer.take() flatMap {
+      case Some(a) => checkPegInTransfer(a)
+      case None => IO.unit
+    }
+    val monitorPegInClaim = pegInLockAddrs.take() flatMap {
       case Some(a) => checkPegInClaimed(a)
       case None    => IO.unit
     }
-    val p2 = pegInDescs.take() flatMap {
-      case Some(a) => checkPegInTransfer(a)
+    val monitorPegInReClaim = pegInDescsReclaim.take() flatMap {
+      case Some(a) => checkPegInReclaim(a)
       case None    => IO.unit
     }
-    Seq(p1, p2).parSequence.foreverM
+    Seq(
+      monitorPegInTransfer,
+      monitorPegInClaim,
+//      monitorPegInReClaim
+    ).parSequence.foreverM
   }
 
   // Monitor that a Topl address have been spent FROM (claimed TBTC)
@@ -63,17 +70,37 @@ case class MonitoringService(
   // Monitor that a Bitcoin Descriptor has been funded (transfer BTC)
   def checkPegInTransfer(desc: String): IO[Unit] = {
     val expectedAddr = BitcoinAddress(handleCall(rpcCli.deriveOneAddress(walletName = "bridge-watcher", desc)).get)
-    val allUtxos = handleCall(rpcCli.listUnspent(walletName = "bridge-watcher")).get
+    val allUtxos = handleCall(rpcCli.listUnspent(walletName = "bridge-watcher")).get // can add label since only 10 records will return
     val output = allUtxos.find(_.address.get == expectedAddr)
     output match {
       case Some(utxo) =>
         p(s"Descriptor is funded. Starting minting. $desc") *>
+        pegInDescsReclaim.add(desc) *> // Now that the descriptor is funded, we should monitor if the funds get reclaimed
         IO(
           bridgeRpc.notifyOfBtcTransfer(TransactionOutPoint(utxo.txid, UInt32(utxo.vout)).toHumanReadableString, desc)
         ).start.void
       case None =>
         p(s"Descriptor is not yet funded. re-adding to queue $desc") *>
-        pegInDescs.add(desc).start.void
+          pegInDescsTransfer.add(desc).start.void
+    }
+  }
+  // Monitor that a Bitcoin Descriptor has been spent from (user reclaims BTC)
+  // Preconditions: Descriptor is already funded (has been returned by listUnspent)
+  def checkPegInReclaim(desc: String): IO[Unit] = {
+    // If we ever get here, then we know the descriptor has been funded
+    val expectedAddr = BitcoinAddress(handleCall(rpcCli.deriveOneAddress(walletName = "bridge-watcher", desc)).get)
+    val allUtxos = handleCall(rpcCli.listUnspent(walletName = "bridge-watcher")).get
+    val output = allUtxos.find(_.address.get == expectedAddr)
+    output match {
+      case Some(_) =>
+        p(s"Descriptor is still funded. re-adding to queue. $desc") *>
+          pegInDescsReclaim.add(desc).start.void
+      case None =>
+        // The descriptor could have either been spent from the user or the bridge
+        // The called function will handle the cases
+        p(s"Descriptor has been spent from. attempting to reclaim TBTC $desc") *>
+          pegInDescsTransfer.add(desc) *>
+          IO(bridgeRpc.notifyOfBtcReclaim(desc)).start.void
     }
   }
 }

@@ -59,6 +59,8 @@ case class BridgeQuery(bridge: Bridge, pegInLockAddrs: ToMonitor[IO, LockAddress
 
   def notifyOfBtcClaim(txId: DoubleSha256DigestBE, desc: String): Unit =
     bridge.claimTbtc(txId, desc)
+  def notifyOfBtcReclaim(desc: String): Unit =
+    bridge.reclaimTbtc(desc)
 }
 
 object BridgeQuery {

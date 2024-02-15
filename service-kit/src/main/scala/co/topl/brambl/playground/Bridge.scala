@@ -278,4 +278,20 @@ case class Bridge() {
     } yield btcWallet.getDescByIndices(idx.get)).unsafeRunSync()
     btcWallet.sendBtcToDesc(desc, (utxo.value.value.quantity: BigInt).some)
   }
+  def reclaimTbtc(desc: String): Unit = {
+    // At this point in time, we don't know if it was the bridge who claimed the TBTC or the user
+    // If it was the bridge, then the TBTC has already been claimed (the bridge needs to extract the secret from the Topl TX)
+    // Therefore, if the topl LockAddress is still unspent, then we know that the user has reclaimed their BTC, and the bridge can reclaim the TBTC
+    val idx = btcWallet.getIndicesByDesc(desc) // should be 5/5/5
+    (for {
+      lock        <- toplWallet.walletStateApi.getLockByIndex(idx)
+      lockAddress <- txBuilder.lockAddress(Lock().withPredicate(lock.get))
+      txos       <- genusQueryApi.queryUtxo(lockAddress) // default is unspent
+      // In production, we could check for the specific TBTC asset type
+      tbtc = txos.find(_.transactionOutput.value.value.isAsset)
+    } yield tbtc match {
+      case None => IO.unit // if the user already claimed the TBTC, do nothing
+      case Some(txo) => ??? // TODO: reclaim the TBTC
+    }).unsafeRunSync()
+  }
 }
