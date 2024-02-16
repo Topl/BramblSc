@@ -23,14 +23,13 @@ import java.io.{BufferedReader, InputStreamReader}
 import java.net.{HttpURLConnection, URL}
 import scala.concurrent.duration.DurationInt
 
-case class Alice() {
-  val walletName: String = "alice"
+case class User(walletName: String) {
   val toplWallet = new ToplWallet(walletName)
 
   val btcWallet = new BitcoinWallet(walletName) {
 
     override def initBtcFunds(): Unit = {
-      println("Mining 101 blocks to Alice's wallet...")
+      println(s"Mining 101 blocks to $walletName's wallet...")
       mineBlocks(1, walletName)
       mineBlocks(100)
     }
@@ -42,9 +41,9 @@ case class Alice() {
   init()
 
   def initiateRequest(isPegIn: Boolean): BridgeResponse = {
-    println("> Alice generating 32 byte secret...")
+    println(s"> $walletName generating 32 byte secret...")
     val secrets = generateSecret()
-    println("> Alice saving Preimage and Digest pair to her wallet state...")
+    println(s"> $walletName saving Preimage and Digest pair to their wallet state...")
     val preimage = Preimage(ByteString.copyFrom(secrets("secret")), ByteString.copyFrom(secrets("salt")))
     val digest = Digest(ByteString.copyFrom(secrets("hash")))
     val digestProposition = Proposer.digestProposer[Id].propose(("Sha256", digest))
@@ -52,13 +51,13 @@ case class Alice() {
     val idx = toplWallet.walletStateApi.getNextIndicesForFunds("self", "default").unsafeRunSync().get
     val toplVk = toplWallet.getChildVk(idx)
     val btcKey = btcWallet.getChildSecretKey(idx)
-    println("> Alice sending hash and public key to bridge...")
+    println(s"> $walletName sending hash and public key to bridge...")
     val bridgeReq = BridgeRequest(Encoding.encodeToHex(secrets("hash")), btcKey.publicKey.hex, toplVk)
     val resp = bridgeRequest(bridgeReq, isPegIn)
     println("> watcher importing descriptor...")
     val importDescSuccessful = handleCall(rpcCli.importDescriptor(btcWallet.watcherName, resp.desc)).get
     println("> watcher importing descriptor successful: " + importDescSuccessful)
-    println("> Alice storing descriptor and (toplVk, toplLock, toplIdx) in her wallet state...")
+    println(s"> $walletName storing descriptor and (toplVk, toplLock, toplIdx) in their wallet state...")
     btcWallet.addWalletEntry(idx, resp.desc, resp.toplAddress)
     toplWallet.walletStateApi
       .updateWalletState(
@@ -99,12 +98,12 @@ case class Alice() {
   }
 
   def initiatePegIn(): BridgeResponse = {
-    print("\n============================" + "Alice initiates Peg-In" + "============================\n")
+    print("\n============================" + s"$walletName initiates Peg-In" + "============================\n")
     initiateRequest(true)
   }
 
   def initiatePegOut(): BridgeResponse = {
-    print("\n============================" + "Alice initiates Peg-Out" + "============================\n")
+    print("\n============================" + s"$walletName initiates Peg-Out" + "============================\n")
     initiateRequest(false)
   }
   def sendBtcToDesc(desc: String): Unit = {
@@ -113,7 +112,7 @@ case class Alice() {
   }
 
   def sendTbtcToAddress(lock: Lock): TransactionOutputAddress = {
-    print("\n============================" + "Alice sends TBTC to Lock" + "============================\n")
+    print("\n============================" + s"$walletName sends TBTC to Lock" + "============================\n")
     val sendTbtc = for {
       // This is where alice sent the TBTC
       inLock <- toplWallet.walletStateApi.getLock("self", "default", 2).map(_.get.getPredicate)
@@ -134,19 +133,19 @@ case class Alice() {
     val txId = sendTbtc.unsafeRunSync()
     Thread.sleep(15000)
     val tbtcBalance = toplWallet.getTbtcBalance(txId._2)
-    println(s"Alice transferred $tbtcBalance tBTC (unclaimed)")
+    println(s"$walletName transferred $tbtcBalance tBTC (unclaimed)")
     TransactionOutputAddress(PRIVATE_NETWORK_ID, MAIN_LEDGER_ID, 0, txId._1)
   }
 
   def claimBtc(desc: String): DoubleSha256DigestBE = {
-    print("\n============================" + "Alice claims BTC" + "============================\n")
+    print("\n============================" + s"$walletName claims BTC" + "============================\n")
     val expectedAddress = BitcoinAddress(handleCall(rpcCli.deriveOneAddress(btcWallet.walletName, desc)).get)
     val utxo = handleCall(rpcCli.listUnspent(btcWallet.watcherName)).get.filter(_.address.get == expectedAddress).head
-    println("> Alice creating unproven TX...")
+    println(s"> $walletName creating unproven TX...")
     val tx = btcWallet.createToWalletTx(TransactionOutPoint(utxo.txid, UInt32(utxo.vout)))
-    println("> Alice deriving witnessScript...")
+    println(s"> $walletName deriving witnessScript...")
     val scriptInner = PegOut.descToScriptPubKey(desc)
-    println("> Alice derives script signature...")
+    println(s"> $walletName derives script signature...")
     val idx = btcWallet.getIndicesByDesc(desc)
     val secret = (for {
       lock <- toplWallet.walletStateApi.getLockByIndex(idx)
@@ -157,33 +156,33 @@ case class Alice() {
       getTxSignature(tx, scriptInner, btcWallet.getChildSecretKey(idx).hex),
       secret
     )
-    println("> Alice adds the witness to the TX...")
+    println(s"> $walletName adds the witness to the TX...")
     val txWit = WitnessTransaction.toWitnessTx(tx).updateWitness(0, P2WSHWitnessV0(scriptInner, userSig))
-    println("> Alice submits TX...")
+    println(s"> $walletName submits TX...")
     val txId = handleCall(rpcCli.sendRawTransaction(txWit, 0)).get
     mineBlocks(1)
     txId
   }
 
   def reclaimBtc(desc: String): Unit = {
-    print("\n============================" + "Alice reclaims BTC" + "============================\n")
+    print("\n============================" + s"$walletName reclaims BTC" + "============================\n")
     val utxoToSpend = TransactionOutPoint.fromString(btcWallet.getTxOut(desc))
-    println("> Alice creating unproven TX...")
+    println(s"> $walletName creating unproven TX...")
     val tx = btcWallet.createToWalletTx(utxoToSpend, spendTimeLock = true)
-    println("> Alice deriving witnessScript...")
+    println(s"> $walletName deriving witnessScript...")
     val scriptInner = PegIn.descToScriptPubKey(desc)
-    println("> Alice derives script signature...")
+    println(s"> $walletName derives script signature...")
     val sk = btcWallet.getChildSecretKey(btcWallet.getIndicesByDesc(desc))
     val aliceSig = SignatureBuilder.PegIn.getReclaimSig(getTxSignature(tx, scriptInner, sk.hex))
-    println("> Alice adds the witness to the TX...")
+    println(s"> $walletName adds the witness to the TX...")
     val txWit = WitnessTransaction.toWitnessTx(tx).updateWitness(0, P2WSHWitnessV0(scriptInner, aliceSig))
-    println("> Alice submits TX...")
+    println(s"> $walletName submits TX...")
     handleCall(rpcCli.sendRawTransaction(txWit, 0), debug = true).get
     mineBlocks(1)
   }
 
   def claimTBtc(inputAddress: LockAddress): TransactionId = {
-    println("\n============================" + "Alice claims tBTC" + "============================\n")
+    println("\n============================" + s"$walletName claims tBTC" + "============================\n")
     val claimAsset = for {
       inputLock <- toplWallet.walletStateApi.getLockByAddress(inputAddress.toBase58()).map(_.get)
       txos      <- genusQueryApi.queryUtxo(inputAddress)
@@ -219,7 +218,7 @@ case class Alice() {
     IO.unit.andWait(20.seconds).unsafeRunSync()
     println("getting balance")
     val tbtcBalance = toplWallet.getTbtcBalance(txId._2)
-    println(s"Alice owns $tbtcBalance tBTC (claimed)")
+    println(s"$walletName owns $tbtcBalance tBTC (claimed)")
     txId._1
   }
 }
