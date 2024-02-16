@@ -157,6 +157,7 @@ case class Bridge() {
     } yield txId
     mintTBtc.unsafeRunSync()
     println(s"Bridge minted $amount tBTC to ${toAddr.toBase58()}")
+    displayBalance()
   }
 
   def triggerMinting(txOut: String, desc: String): LockAddress = {
@@ -203,6 +204,7 @@ case class Bridge() {
     println("> Bridge submits TX...")
     handleCall(rpcCli.sendRawTransaction(txWit, 0)).get
     mineBlocks(1)
+    displayBalance()
   }
 
   def claimTbtc(txId: DoubleSha256DigestBE, desc: String): Unit = {
@@ -252,6 +254,7 @@ case class Bridge() {
     Thread.sleep(15000)
     val tbtcBalance = toplWallet.getTbtcBalance(newTxId._2)
     println(s"Bridge owns $tbtcBalance tBTC (claimed)")
+    displayBalance()
   }
 
   def triggerBtcTransfer(utxoId: TransactionOutputAddress): String = {
@@ -261,7 +264,9 @@ case class Bridge() {
     val desc = (for {
       idx <- toplWallet.walletStateApi.getIndicesByAddress(utxo.address.toBase58())
     } yield btcWallet.getDescByIndices(idx.get)).unsafeRunSync()
-    btcWallet.sendBtcToDesc(desc, (utxo.value.value.quantity: BigInt).some)
+    val txId = btcWallet.sendBtcToDesc(desc, (utxo.value.value.quantity: BigInt).some)
+    displayBalance()
+    txId
   }
   def reclaimTbtc(desc: String): Unit = {
     // At this point in time, we don't know if it was the bridge who claimed the TBTC or the user
@@ -317,5 +322,11 @@ case class Bridge() {
         println(s"Bridge owns $tbtcBalance tBTC (claimed)")
       }
     }).unsafeRunSync()
+    displayBalance()
+  }
+
+  def displayBalance(): Unit = {
+    toplWallet.getBalance()
+    btcWallet.getBalance()
   }
 }

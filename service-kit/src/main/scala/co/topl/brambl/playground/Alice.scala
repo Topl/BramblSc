@@ -109,6 +109,7 @@ case class User(walletName: String) {
   def sendBtcToDesc(desc: String): Unit = {
     val txOut = btcWallet.sendBtcToDesc(desc)
     btcWallet.addDescTxOutEntry(desc, txOut)
+    displayBalance()
   }
 
   def sendTbtcToAddress(lock: Lock): TransactionOutputAddress = {
@@ -134,6 +135,7 @@ case class User(walletName: String) {
     Thread.sleep(15000)
     val tbtcBalance = toplWallet.getTbtcBalance(txId._2)
     println(s"$walletName transferred $tbtcBalance tBTC (unclaimed)")
+    displayBalance()
     TransactionOutputAddress(PRIVATE_NETWORK_ID, MAIN_LEDGER_ID, 0, txId._1)
   }
 
@@ -161,6 +163,7 @@ case class User(walletName: String) {
     println(s"> $walletName submits TX...")
     val txId = handleCall(rpcCli.sendRawTransaction(txWit, 0)).get
     mineBlocks(1)
+    displayBalance()
     txId
   }
 
@@ -179,6 +182,7 @@ case class User(walletName: String) {
     println(s"> $walletName submits TX...")
     handleCall(rpcCli.sendRawTransaction(txWit, 0), debug = true).get
     mineBlocks(1)
+    displayBalance()
   }
 
   def claimTBtc(inputAddress: LockAddress): TransactionId = {
@@ -219,6 +223,12 @@ case class User(walletName: String) {
     println("getting balance")
     val tbtcBalance = toplWallet.getTbtcBalance(txId._2)
     println(s"$walletName owns $tbtcBalance tBTC (claimed)")
+    displayBalance()
     txId._1
+  }
+
+  def displayBalance(): Unit = {
+    toplWallet.getBalance()
+    btcWallet.getBalance()
   }
 }

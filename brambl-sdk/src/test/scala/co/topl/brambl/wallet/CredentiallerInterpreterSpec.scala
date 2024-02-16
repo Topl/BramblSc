@@ -11,7 +11,7 @@ import co.topl.brambl.common.ContainsSignable.instances._
 import co.topl.brambl.dataApi.WalletStateAlgebra
 import co.topl.brambl.models.box._
 import co.topl.brambl.models.transaction.IoTransaction
-import co.topl.brambl.models.{Datum, Event, Indices}
+import co.topl.brambl.models.{Datum, Event, Indices, LockAddress}
 import co.topl.brambl.syntax.{cryptoToPbKeyPair, pbKeyPairToCryptoKeyPair}
 import co.topl.brambl.validation.TransactionAuthorizationError.AuthorizationFailed
 import co.topl.brambl.validation.TransactionSyntaxError
@@ -19,10 +19,7 @@ import co.topl.brambl.{Context, MockHelpers, MockWalletKeyApi, MockWalletStateAp
 import co.topl.crypto.generation.Bip32Indexes
 import co.topl.crypto.signing.ExtendedEd25519
 import co.topl.quivr.api.Proposer
-import co.topl.quivr.runtime.QuivrRuntimeErrors.ValidationError.{
-  EvaluationAuthorizationFailed,
-  LockedPropositionIsUnsatisfiable
-}
+import co.topl.quivr.runtime.QuivrRuntimeErrors.ValidationError.{EvaluationAuthorizationFailed, LockedPropositionIsUnsatisfiable}
 import com.google.protobuf.ByteString
 import munit.CatsEffectSuite
 import quivr.models._
@@ -759,6 +756,8 @@ class CredentiallerInterpreterSpec extends CatsEffectSuite with MockHelpers {
       override def getLockByAddress(lockAddress: String): F[Option[Lock.Predicate]] = ???
 
       override def getIndicesByAddress(lockAddress: String): F[Option[Indices]] = ???
+
+      override def getCurrentAddresses(): F[Seq[LockAddress]] = ???
     }
     val aliceDataApi = MockWalletStateApi
     val bobDataApi = NewWalletStateApi

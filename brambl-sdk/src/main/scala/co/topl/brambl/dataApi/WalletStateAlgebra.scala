@@ -2,7 +2,7 @@ package co.topl.brambl.dataApi
 
 import cats.data.ValidatedNel
 import co.topl.brambl.builders.locks.LockTemplate
-import co.topl.brambl.models.Indices
+import co.topl.brambl.models.{Indices, LockAddress}
 import co.topl.brambl.models.box.Lock
 import quivr.models.{KeyPair, Preimage, Proposition}
 
@@ -210,4 +210,11 @@ trait WalletStateAlgebra[F[_]] {
    * @return A built lock, if possible. Else none
    */
   def getLock(fellowship: String, template: String, nextInteraction: Int): F[Option[Lock]]
+
+  /**
+   * Get all the current lock addresses. That is, lock addresses that are currently in use in the wallet interaction, thus may contain some funds.
+   *
+   * @return The list of current lock addresses
+   */
+  def getCurrentAddresses(): F[Seq[LockAddress]]
 }

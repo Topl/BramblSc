@@ -43,29 +43,9 @@ package object playground {
   def mineBlocks(n: Int, wallet: String = "dummy"): Unit = {
     println(s"Mining $n blocks to $wallet...")
     handleCall(rpcCli.getNewAddress(Some(wallet)).flatMap(rpcCli.generateToAddress(n, _))(ec))
-    if (wallet == "dummy") checkBalances()
   }
-
-  def checkBalances(): Unit = {
-    def formatBalances(info: BalanceInfo): String =
-      s"Trusted: ${info.trusted} | Untrusted_Pending: ${info.untrusted_pending} | Immature: ${info.immature}"
-
-    def printBalance(wallet: String): Unit = {
-      println(s"Balance of $wallet: ")
-      println(formatBalances(handleCall(rpcCli.getBalances(wallet)).get.mine))
-      println(s"# of spendable UTXOs of $wallet: ${handleCall(rpcCli.listUnspent(wallet)).get.length}")
-    }
-
-    println("\n===================")
-    printBalance("alice")
-    println()
-    printBalance("bridge")
-    println()
-    printBalance("alice-watcher")
-    println()
-    printBalance("bridge-watcher")
-    println("===================")
-  }
+  def formatBalances(info: BalanceInfo): String =
+    s"Trusted: ${info.trusted} | Untrusted_Pending: ${info.untrusted_pending} | Immature: ${info.immature}"
 
   val SecretSize = 24
 

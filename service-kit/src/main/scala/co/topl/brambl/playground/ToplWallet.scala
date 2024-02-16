@@ -2,11 +2,13 @@ package co.topl.brambl.playground
 
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
+import cats.implicits.toTraverseOps
 import co.topl.brambl.constants.NetworkConstants.{MAIN_LEDGER_ID, PRIVATE_NETWORK_ID}
 import co.topl.brambl.dataApi.WalletStateAlgebra
+import co.topl.brambl.display.DisplayOps.DisplayTOps
 import co.topl.brambl.models.{Indices, LockAddress}
 import co.topl.brambl.servicekit.{WalletKeyApi, WalletStateApi, WalletStateResource}
-import co.topl.brambl.syntax.{int128AsBigInt, valueToQuantitySyntaxOps, AssetType, LvlType}
+import co.topl.brambl.syntax.{AssetType, LvlType, int128AsBigInt, valueToQuantitySyntaxOps}
 import co.topl.brambl.wallet.{Credentialler, CredentiallerInterpreter, WalletApi}
 import quivr.models.{KeyPair, VerificationKey}
 
@@ -89,5 +91,19 @@ class ToplWallet(val walletName: String) {
       .unsafeRunSync()
       .map(_.transactionOutput.value.value.quantity: BigInt)
       .fold(BigInt(0))(_ + _)
+
+
+  def getBalance(): Unit = {
+    val allTxos = (for {
+      addrs <- walletStateApi.getCurrentAddresses()
+      allTxos <- addrs.map(addr => genusQueryApi.queryUtxo(addr).map((addr -> _))).sequence
+    } yield allTxos).unsafeRunSync()
+    allTxos foreach { txos =>
+      println(s"Address: ${txos._1}")
+        txos._2.foreach { txo =>
+            println(s"UTXO: ${txo.transactionOutput.value.value.display}")
+        }
+    }
+  }
 
 }

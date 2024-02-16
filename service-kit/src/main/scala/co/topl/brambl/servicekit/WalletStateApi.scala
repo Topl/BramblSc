@@ -5,6 +5,7 @@ import cats.effect.kernel.{Resource, Sync}
 import cats.implicits._
 import co.topl.brambl.builders.TransactionBuilderApi
 import co.topl.brambl.builders.locks.{LockTemplate, PropositionTemplate}
+import co.topl.brambl.codecs.AddressCodecs
 import co.topl.brambl.codecs.LockTemplateCodecs.{decodeLockTemplate, encodeLockTemplate}
 import co.topl.brambl.common.ContainsEvidence.Ops
 import co.topl.brambl.common.ContainsImmutable.instances._
@@ -19,6 +20,7 @@ import io.circe.syntax.EncoderOps
 import quivr.models.{KeyPair, Preimage, Proposition, VerificationKey}
 
 import java.sql.Statement
+import scala.collection.mutable.ListBuffer
 
 /**
  * An implementation of the WalletInteractionAlgebra that uses a database to store state information.
@@ -688,5 +690,23 @@ object WalletStateApi {
           .sequence
           .map(_.flatten)
       } yield changeLock
+
+      override def getCurrentAddresses(): F[Seq[LockAddress]] = connection.use { conn =>
+        for {
+          stmnt <- Sync[F].blocking(conn.createStatement())
+          rs <- Sync[F].blocking(
+            stmnt.executeQuery(
+              s"SELECT MAX(z_interaction), address FROM cartesian GROUP BY x_fellowship, y_template"
+            )
+          )
+        } yield {
+          val addresses: ListBuffer[LockAddress] = ListBuffer.empty[LockAddress]
+          while (rs.next()) {
+            val address = rs.getString("address")
+            addresses += AddressCodecs.decodeAddress(address).toOption.get
+          }
+          addresses.toSeq
+        }
+      }
     }
 }
