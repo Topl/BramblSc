@@ -175,7 +175,7 @@ case class Bridge() {
       lockAddress <- txBuilder.lockAddress(Lock().withPredicate(lock.get))
     } yield lockAddress).unsafeRunSync()
     mintAssets(lockAddress, amount)
-    println(s"Bridge minted ${amount.toInt} tBTC (unclaimed)")
+    println(s"Bridge minted ${amount} tBTC (unclaimed)")
     IO.unit.andWait(20.seconds).unsafeRunSync()
     lockAddress
   }
@@ -276,41 +276,46 @@ case class Bridge() {
       tbtc = txos.find(_.transactionOutput.value.value.isAsset)
     } yield tbtc match {
       case None => IO.unit // if the user already claimed the TBTC, do nothing
-      case Some(_) => for { // if the user has not claimed the TBTC, the bridge reclaims it
-        // Idx may differ (depends on if Peg-out has occured)
-        claimIdx
-        <- toplWallet.walletStateApi.getNextIndicesForFunds("self", "default").map(_.get)
-        claimLock
-        <- toplWallet.walletStateApi.getLock("self", "default", claimIdx.z)
-        claimAddress
-        <- txBuilder.lockAddress(claimLock.get)
-        changeVk
-        <- toplWallet.walletStateApi.getEntityVks("self", "default").map(_.get.head) flatMap { vk =>
-          toplWallet.walletApi.deriveChildVerificationKey(
-            VerificationKey.parseFrom(Encoding.decodeFromBase58(vk).toOption.get),
-            claimIdx.z
-          )
-        }
-        _
-        <- toplWallet.walletStateApi.updateWalletState(
-          Encoding.encodeToBase58Check(claimLock.get.getPredicate.toByteArray),
-          claimAddress.toBase58(),
-          Some("ExtendedEd25519"),
-          Some(Encoding.encodeToBase58(changeVk.toByteArray)),
+      case Some(_) => {
+        val txRes = (for { // if the user has not claimed the TBTC, the bridge reclaims it
+          // Idx may differ (depends on if Peg-out has occured)
           claimIdx
-        )
-        unprovenTx <- txBuilder.buildTransferAllTransaction(
-          txos,
-          lock,
-          claimAddress,
-          claimAddress,
-          0L // TODO: Fee should be able to be a non LVL type
-        )
-        provenTx
-        <- toplWallet.credentialler.prove(unprovenTx.toOption.get)
-        txId
-        <- bifrostQuery.broadcastTransaction(provenTx)
-      } yield txId
+            <- toplWallet.walletStateApi.getNextIndicesForFunds("self", "default").map(_.get)
+          claimLock
+            <- toplWallet.walletStateApi.getLock("self", "default", claimIdx.z)
+          claimAddress
+            <- txBuilder.lockAddress(claimLock.get)
+          changeVk
+            <- toplWallet.walletStateApi.getEntityVks("self", "default").map(_.get.head) flatMap { vk =>
+            toplWallet.walletApi.deriveChildVerificationKey(
+              VerificationKey.parseFrom(Encoding.decodeFromBase58(vk).toOption.get),
+              claimIdx.z
+            )
+          }
+          _
+            <- toplWallet.walletStateApi.updateWalletState(
+            Encoding.encodeToBase58Check(claimLock.get.getPredicate.toByteArray),
+            claimAddress.toBase58(),
+            Some("ExtendedEd25519"),
+            Some(Encoding.encodeToBase58(changeVk.toByteArray)),
+            claimIdx
+          )
+          unprovenTx <- txBuilder.buildTransferAllTransaction(
+            txos,
+            lock,
+            claimAddress,
+            claimAddress,
+            0L // TODO: Fee should be able to be a non LVL type
+          )
+          provenTx
+            <- toplWallet.credentialler.prove(unprovenTx.toOption.get)
+          txId
+            <- bifrostQuery.broadcastTransaction(provenTx)
+        } yield (txId, claimAddress)).unsafeRunSync()
+        Thread.sleep(15000)
+        val tbtcBalance = toplWallet.getTbtcBalance(txRes._2)
+        println(s"Bridge owns $tbtcBalance tBTC (claimed)")
+      }
     }).unsafeRunSync()
   }
 }

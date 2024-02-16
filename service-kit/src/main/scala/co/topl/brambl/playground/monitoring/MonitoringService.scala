@@ -8,7 +8,7 @@ import cats.implicits._
 import cats.instances.list._
 import co.topl.brambl.models.LockAddress
 import co.topl.brambl.playground.monitoring.MonitoringService.ToMonitor
-import co.topl.brambl.playground.{BridgeQuery, genusQueryApi, handleCall, rpcCli}
+import co.topl.brambl.playground.{Bridge, genusQueryApi, handleCall, rpcCli}
 import co.topl.genus.services.TxoState
 import org.bitcoins.core.number.UInt32
 import org.bitcoins.core.protocol.BitcoinAddress
@@ -18,17 +18,14 @@ import scala.collection.immutable.Queue
 import scala.language.implicitConversions
 
 case class MonitoringService(
-  bridgeRpc:      BridgeQuery,
+  bridge:      Bridge,
   pegInLockAddrs: ToMonitor[IO, LockAddress],
   pegInDescsTransfer:     ToMonitor[IO, String],
   pegInDescsReclaim:     ToMonitor[IO, String],
 ) {
   def p(msg: String): IO[Unit] = IO.println(s"Monitoring Service: $msg")
 
-  def run(): IO[Nothing] =
-    p("starting up monitoring service...") *>
-      p("running infinite loop") *>
-      process()
+  def run(): IO[Nothing] = p("starting up...") *> process()
 
   def process(): IO[Nothing] = {
     val monitorPegInTransfer = pegInDescsTransfer.take() flatMap {
@@ -46,7 +43,7 @@ case class MonitoringService(
     Seq(
       monitorPegInTransfer,
       monitorPegInClaim,
-//      monitorPegInReClaim
+      monitorPegInReClaim
     ).parSequence.foreverM
   }
 
@@ -58,7 +55,7 @@ case class MonitoringService(
       // We expect there to be only one tbtc asset at this LockAddress so we can find it/return it as an Option
       // In production, we would need to check the type of the asset to ensure it is tBTC
       res <- spent.find(_.transactionOutput.value.value.isAsset) match {
-        case Some(txo) =>
+        case Some(txo) => // TODO: Handle the case where the bridge reclaimed the TBTC.. if that's the case, then the BTC will not be available to spend anymore
           // TODO: in the future, we will be able to access the STXO of the TXO
           //          IO.pure(bridge.notifyOfTbtcClaim(???, addr))
           p(s"placeholder for claiming BTC $addr").start.void
@@ -77,10 +74,10 @@ case class MonitoringService(
         p(s"Descriptor is funded. Starting minting. $desc") *>
         pegInDescsReclaim.add(desc) *> // Now that the descriptor is funded, we should monitor if the funds get reclaimed
         IO(
-          bridgeRpc.notifyOfBtcTransfer(TransactionOutPoint(utxo.txid, UInt32(utxo.vout)).toHumanReadableString, desc)
+          bridge.triggerMinting(TransactionOutPoint(utxo.txid, UInt32(utxo.vout)).toHumanReadableString, desc)
         ).start.void
       case None =>
-        p(s"Descriptor is not yet funded. re-adding to queue $desc") *>
+//        p(s"Descriptor is not yet funded. re-adding to queue $desc") *> // to declutter logs
           pegInDescsTransfer.add(desc).start.void
     }
   }
@@ -93,14 +90,14 @@ case class MonitoringService(
     val output = allUtxos.find(_.address.get == expectedAddr)
     output match {
       case Some(_) =>
-        p(s"Descriptor is still funded. re-adding to queue. $desc") *>
+//        p(s"Descriptor is still funded. re-adding to queue. $desc") *> // to declutter logs
           pegInDescsReclaim.add(desc).start.void
       case None =>
         // The descriptor could have either been spent from the user or the bridge
         // The called function will handle the cases
         p(s"Descriptor has been spent from. attempting to reclaim TBTC $desc") *>
           pegInDescsTransfer.add(desc) *>
-          IO(bridgeRpc.notifyOfBtcReclaim(desc)).start.void
+          IO(bridge.reclaimTbtc(desc)).start.void
     }
   }
 }
