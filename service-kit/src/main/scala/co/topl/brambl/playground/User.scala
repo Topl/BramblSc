@@ -180,6 +180,8 @@ case class User(walletName: String) {
     println(s"> $walletName adds the witness to the TX...")
     val txWit = WitnessTransaction.toWitnessTx(tx).updateWitness(0, P2WSHWitnessV0(scriptInner, aliceSig))
     println(s"> $walletName submits TX...")
+    val spendingTx = handleCall(rpcCli.getTxOut(utxoToSpend.txIdBE, utxoToSpend.vout.toLong), debug = true).get
+    println(s"number of confirmations: ${spendingTx.confirmations}")
     handleCall(rpcCli.sendRawTransaction(txWit, 0), debug = true).get
     mineBlocks(1)
     displayBalance()
@@ -228,7 +230,10 @@ case class User(walletName: String) {
   }
 
   def displayBalance(): Unit = {
-    toplWallet.getBalance()
-    btcWallet.getBalance()
+    val balance = Seq(
+      toplWallet.getBalance(),
+      btcWallet.getBalance()
+    ) mkString("=====================================", "=====================================", "=====================================")
+    println(balance)
   }
 }

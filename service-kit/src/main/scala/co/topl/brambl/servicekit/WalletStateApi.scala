@@ -691,12 +691,13 @@ object WalletStateApi {
           .map(_.flatten)
       } yield changeLock
 
-      override def getCurrentAddresses(): F[Seq[LockAddress]] = connection.use { conn =>
+      override def getCurrentAddresses(includeGenesis: Boolean = false): F[Seq[LockAddress]] = connection.use { conn =>
+        val filter = if(includeGenesis) "" else "WHERE x_fellowship != 0 or y_template != 2"
         for {
           stmnt <- Sync[F].blocking(conn.createStatement())
           rs <- Sync[F].blocking(
             stmnt.executeQuery(
-              s"SELECT MAX(z_interaction), address FROM cartesian GROUP BY x_fellowship, y_template"
+              s"SELECT MAX(z_interaction), address FROM cartesian $filter GROUP BY x_fellowship, y_template"
             )
           )
         } yield {

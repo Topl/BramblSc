@@ -96,7 +96,6 @@ case class MonitoringService(
         // The descriptor could have either been spent from the user or the bridge
         // The called function will handle the cases
         p(s"Descriptor has been spent from. attempting to reclaim TBTC $desc") *>
-          pegInDescsTransfer.add(desc) *>
           IO(bridge.reclaimTbtc(desc)).start.void
     }
   }

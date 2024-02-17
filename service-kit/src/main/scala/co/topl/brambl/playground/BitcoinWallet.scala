@@ -24,16 +24,17 @@ class BitcoinWallet(val walletName: String) {
   createBitcoinWallets()
 
   def getBalance(): Unit = {
-    def printBalance(wallet: String): Unit = {
-      println(s"Balance of $wallet: ")
-      println(formatBalances(handleCall(rpcCli.getBalances(wallet)).get.mine))
-      println(s"# of spendable UTXOs of $wallet: ${handleCall(rpcCli.listUnspent(wallet)).get.length}")
-    }
+    def printBalance(wallet: String): String =
+      Seq(
+        s"Balance of $wallet: ",
+        formatBalances(handleCall(rpcCli.getBalances(wallet)).get.mine),
+        s"# of spendable UTXOs of $wallet: ${handleCall(rpcCli.listUnspent(wallet)).get.length}"
+      ).mkString("\n")
 
-    printBalance(walletName)
-    println()
-    printBalance(watcherName)
-    println()
+    Seq(
+        walletName,
+        watcherName
+        ) map printBalance mkString("\n", "\n", "\n")
   }
 
   private def getBtcMainKey(): ExtPrivateKey = {

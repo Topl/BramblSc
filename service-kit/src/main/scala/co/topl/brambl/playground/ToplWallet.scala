@@ -3,6 +3,7 @@ package co.topl.brambl.playground
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import cats.implicits.toTraverseOps
+import co.topl.brambl.builders.TransactionBuilderApi.implicits.lockAddressOps
 import co.topl.brambl.constants.NetworkConstants.{MAIN_LEDGER_ID, PRIVATE_NETWORK_ID}
 import co.topl.brambl.dataApi.WalletStateAlgebra
 import co.topl.brambl.display.DisplayOps.DisplayTOps
@@ -93,17 +94,15 @@ class ToplWallet(val walletName: String) {
       .fold(BigInt(0))(_ + _)
 
 
-  def getBalance(): Unit = {
+  def getBalance(): String = {
     val allTxos = (for {
       addrs <- walletStateApi.getCurrentAddresses()
       allTxos <- addrs.map(addr => genusQueryApi.queryUtxo(addr).map((addr -> _))).sequence
-    } yield allTxos).unsafeRunSync()
-    allTxos foreach { txos =>
-      println(s"Address: ${txos._1}")
-        txos._2.foreach { txo =>
-            println(s"UTXO: ${txo.transactionOutput.value.value.display}")
-        }
-    }
+    } yield allTxos.filter(_._2.nonEmpty)).unsafeRunSync()
+    if(allTxos.nonEmpty) allTxos map { txos =>
+      s"Balance at address: ${txos._1.toBase58()}" +
+        txos._2.map(_.transactionOutput.value.value.display).mkString("\n", "\n", "\n")
+    } mkString("\n", "\n", "\n") else "No funds found in Topl wallet"
   }
 
 }

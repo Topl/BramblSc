@@ -216,5 +216,5 @@ trait WalletStateAlgebra[F[_]] {
    *
    * @return The list of current lock addresses
    */
-  def getCurrentAddresses(): F[Seq[LockAddress]]
+  def getCurrentAddresses(includeGenesis: Boolean = false): F[Seq[LockAddress]]
 }

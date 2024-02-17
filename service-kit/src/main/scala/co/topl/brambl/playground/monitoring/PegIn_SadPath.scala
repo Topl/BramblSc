@@ -16,7 +16,7 @@ object PegIn_SadPath extends App {
   sally.sendBtcToDesc(peginResponse.desc)
 
   // Sally reclaims BTC
-  println("Sally waiting 1000 blocks to relcaim BTC") // Sally can only reclaim after 1000 blocks
+  println("Sally waiting 1000 blocks to reclaim BTC") // Sally can only reclaim after 1000 blocks
   mineBlocks(1000)
   sally.reclaimBtc(peginResponse.desc)
 }

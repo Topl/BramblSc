@@ -326,7 +326,10 @@ case class Bridge() {
   }
 
   def displayBalance(): Unit = {
-    toplWallet.getBalance()
-    btcWallet.getBalance()
+    val balance = Seq(
+      toplWallet.getBalance(),
+      btcWallet.getBalance()
+    ) mkString("=====================================", "=====================================", "=====================================")
+    println(balance)
   }
 }
