@@ -117,6 +117,9 @@ object BridgeDemo extends IOApp {
       pegInLockAddrs <- ToMonitor.empty[IO, LockAddress] // Shared state
       pegInDescsTransfer <- ToMonitor.empty[IO, String] // Shared state
       pegInDescsReclaim <- ToMonitor.empty[IO, String] // Shared state
+      pegOutDescs <- ToMonitor.empty[IO, String] // Shared state
+      pegOutLockAddrsTransfer <- ToMonitor.empty[IO, LockAddress] // Shared state
+      pegOutLockAddrsReclaim <- ToMonitor.empty[IO, LockAddress] // Shared state
       server = { // Create Mock WS server
         val server = HttpServer.create(new InetSocketAddress(1997), 0)
         server.createContext("/pegin", handlePegIn(pegInLockAddrs, pegInDescsTransfer))
@@ -128,7 +131,15 @@ object BridgeDemo extends IOApp {
         println("Server started on port 1997")
         server
       }
-      monitoringService <- MonitoringService(bridge , pegInLockAddrs, pegInDescsTransfer, pegInDescsReclaim).run().start
+      monitoringService <- MonitoringService(
+        bridge,
+        pegInLockAddrs,
+        pegInDescsTransfer,
+        pegInDescsReclaim,
+        pegOutDescs,
+        pegOutLockAddrsTransfer,
+        pegOutLockAddrsReclaim
+      ).run().start
       res <- IO.unit
         .start.foreverM
         .guarantee(

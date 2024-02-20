@@ -22,6 +22,9 @@ case class MonitoringService(
   pegInLockAddrs: ToMonitor[IO, LockAddress],
   pegInDescsTransfer:     ToMonitor[IO, String],
   pegInDescsReclaim:     ToMonitor[IO, String],
+  pegOutDescs:     ToMonitor[IO, String],
+  pegOutLockAddrsTransfer:     ToMonitor[IO, LockAddress],
+  pegOutLockAddrsReclaim:     ToMonitor[IO, LockAddress],
 ) {
   def p(msg: String): IO[Unit] = IO.println(s"Monitoring Service: $msg")
 
@@ -40,10 +43,15 @@ case class MonitoringService(
       case Some(a) => checkPegInReclaim(a)
       case None    => IO.unit
     }
+    val monitorPegOutTransfer = pegOutLockAddrsTransfer.take() flatMap {
+      case Some(a) => checkPegOutTransfer(a)
+      case None    => IO.unit
+    }
     Seq(
       monitorPegInTransfer,
       monitorPegInClaim,
-      monitorPegInReClaim
+      monitorPegInReClaim,
+      monitorPegOutTransfer
     ).parSequence.foreverM
   }
 
@@ -59,7 +67,7 @@ case class MonitoringService(
           // TODO: in the future, we will be able to access the STXO of the TXO
           //          IO.pure(bridge.notifyOfTbtcClaim(???, addr))
           p(s"placeholder for claiming BTC $addr").start.void
-        case None => // p(s"LockAddress is not yet claimed. re-adding to queue $addr") *> // to declutter logs
+        case None =>
           pegInLockAddrs.add(addr).start.void // Re-add the address to the monitoring list if it hasn't been claimed
       }
     } yield res
@@ -77,7 +85,6 @@ case class MonitoringService(
           bridge.triggerMinting(TransactionOutPoint(utxo.txid, UInt32(utxo.vout)).toHumanReadableString, desc)
         ).start.void
       case None =>
-//        p(s"Descriptor is not yet funded. re-adding to queue $desc") *> // to declutter logs
           pegInDescsTransfer.add(desc).start.void
     }
   }
@@ -90,7 +97,6 @@ case class MonitoringService(
     val output = allUtxos.find(_.address.get == expectedAddr)
     output match {
       case Some(_) =>
-//        p(s"Descriptor is still funded. re-adding to queue. $desc") *> // to declutter logs
           pegInDescsReclaim.add(desc).start.void
       case None =>
         // The descriptor could have either been spent from the user or the bridge
@@ -99,6 +105,20 @@ case class MonitoringService(
           IO(bridge.reclaimTbtc(desc)).start.void
     }
   }
+
+  // Monitor that a Topl Address has been funded (transfer TBTC)
+  def checkPegOutTransfer(addr: LockAddress): IO[Unit] = for {
+    spent <- genusQueryApi.queryUtxo(addr) // Default is unspent
+    // In production, we would need to check the type of the asset to ensure it is tBTC
+    res <- spent.find(_.transactionOutput.value.value.isAsset) match {
+      case Some(txo) =>
+        p(s"Topl Address is funded. Starting BTC transafer. $addr") *>
+          pegOutLockAddrsReclaim.add(addr) *> // Now that the address is funded, we should monitor if the funds get reclaimed
+          IO(bridge.triggerBtcTransfer(txo.outputAddress)).start.void
+      case None =>
+        pegOutLockAddrsTransfer.add(addr).start.void // Re-add the address to the monitoring list if it hasn't been funded
+    }
+  } yield res
 }
 
 object MonitoringService {
