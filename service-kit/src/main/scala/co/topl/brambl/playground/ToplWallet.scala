@@ -102,7 +102,7 @@ class ToplWallet(val walletName: String) {
     if(allTxos.nonEmpty) allTxos map { txos =>
       s"Balance at address: ${txos._1.toBase58()}" +
         txos._2.map(_.transactionOutput.value.value.display).mkString("\n", "\n", "\n")
-    } mkString("\n", "\n", "\n") else "No funds found in Topl wallet"
+    } mkString("\n", "\n", "\n") else "\nNo funds found in Topl wallet\n"
   }
 
 }

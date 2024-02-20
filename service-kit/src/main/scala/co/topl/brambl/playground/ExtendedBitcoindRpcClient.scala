@@ -1,5 +1,7 @@
 package co.topl.brambl.playground
 
+import org.bitcoins.commons.jsonmodels.bitcoind.ListSinceBlockResult
+import org.bitcoins.commons.serializers.JsonSerializers.listSinceBlockResultReads
 import org.bitcoins.core.config.RegTest
 import org.bitcoins.rpc.client.common.BitcoindRpcClient
 import org.bitcoins.rpc.config.{BitcoindAuthCredentials, BitcoindInstanceLocal}
@@ -67,6 +69,10 @@ class ExtendedBitcoindRpcClient(instance: BitcoindInstanceLocal) extends Bitcoin
     ).map(res => (res \ "result").result.get.as[JsArray].value.head.as[JsObject].value("success").as[JsBoolean].value)(
       ec
     )
+
+  def listSinceBlockWallet(walletName: String): Future[ListSinceBlockResult] =
+    bitcoindCall[ListSinceBlockResult]("listsinceblock", List.empty, uriExtensionOpt = Some(walletExtension(walletName)))
+
 }
 
 object ExtendedBitcoindRpcClient {

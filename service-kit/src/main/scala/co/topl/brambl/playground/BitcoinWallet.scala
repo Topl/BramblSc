@@ -23,7 +23,7 @@ class BitcoinWallet(val walletName: String) {
 
   createBitcoinWallets()
 
-  def getBalance(): Unit = {
+  def getBalance(): String = {
     def printBalance(wallet: String): String =
       Seq(
         s"Balance of $wallet: ",
@@ -34,7 +34,9 @@ class BitcoinWallet(val walletName: String) {
     Seq(
         walletName,
         watcherName
-        ) map printBalance mkString("\n", "\n", "\n")
+        )
+      .map(printBalance)
+      .mkString("\n", "\n", "\n")
   }
 
   private def getBtcMainKey(): ExtPrivateKey = {

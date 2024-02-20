@@ -12,9 +12,8 @@ import co.topl.brambl.playground.SecretExtraction.{extractFromBitcoinTx, extract
 import co.topl.brambl.syntax.{AssetType, LvlType, bigIntAsInt128, groupPolicyAsGroupPolicySyntaxOps, int128AsBigInt, seriesPolicyAsSeriesPolicySyntaxOps, valueToQuantitySyntaxOps, valueToTypeIdentifierSyntaxOps}
 import co.topl.brambl.utils.Encoding
 import org.bitcoins.commons.jsonmodels.bitcoind.GetTxOutResultV22
-import org.bitcoins.core.protocol.script.P2WSHWitnessV0
+import org.bitcoins.core.protocol.script.{P2WSHWitnessV0, ScriptWitness}
 import org.bitcoins.core.protocol.transaction.{TransactionOutPoint, WitnessTransaction}
-import org.bitcoins.crypto.DoubleSha256DigestBE
 import quivr.models.VerificationKey
 
 import scala.concurrent.duration.DurationInt
@@ -207,10 +206,10 @@ case class Bridge() {
     displayBalance()
   }
 
-  def claimTbtc(txId: DoubleSha256DigestBE, desc: String): Unit = {
+  // TODO: Handle the case where the bridge reclaimed the BTC.. if that's the case, then the BTC will not be available to spend anymore
+  def claimTbtc(proof: ScriptWitness, desc: String): Unit = {
     println("\n============================" + "Bridge claims tBTC" + "============================\n")
-    val tx = handleCall(rpcCli.getTransaction(txId, walletNameOpt = Some(btcWallet.watcherName))).get.hex
-    val preimage = extractFromBitcoinTx(tx, desc)
+    val preimage = extractFromBitcoinTx(proof)
     val idx = btcWallet.getIndicesByDesc(desc) // should be 5/5/6
     val digestProp = toplWallet.walletStateApi
       .getLockByIndex(idx)
@@ -329,7 +328,11 @@ case class Bridge() {
     val balance = Seq(
       toplWallet.getBalance(),
       btcWallet.getBalance()
-    ) mkString("=====================================", "=====================================", "=====================================")
+    ) mkString(
+      s"==================$walletName Topl Balance===================",
+      "===================Bitcoin Balance=====================",
+      "====================================="
+    )
     println(balance)
   }
 }

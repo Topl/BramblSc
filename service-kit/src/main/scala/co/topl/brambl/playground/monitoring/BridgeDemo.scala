@@ -71,30 +71,32 @@ object BridgeDemo extends IOApp {
     BridgeResponse(desc, toplLock, toplAddr)
   }
 
-  def handlePegIn(pegInLockAddrs: ToMonitor[IO, LockAddress], pegInDescs: ToMonitor[IO, String]): HttpHandler = (exchange: HttpExchange) => {
+  def handlePegIn(pegInDescsTransfer: ToMonitor[IO, (String, LockAddress)]): HttpHandler = (exchange: HttpExchange) => {
     print("\n============================" + "Bridge Receives Peg-In Request" + "============================\n")
     val bridgeResp = initiateRequest(exchange.parseReq, PegIn)
     val response = bridgeResp.toJson
     println(s"> Sending response: $response")
     exchange.sendResponseHeaders(200, response.length())
     (
-      IO.println("> Adding peg-in addresses to monitor...") *>
-      Seq(
-        pegInLockAddrs.add(bridgeResp.toplAddress),
-        pegInDescs.add(bridgeResp.desc)
-      ).parSequence *>
-      IO.println("Addresses Added to monitor")
+      IO.println("> Adding peg-in desc,addr to monitor...") *>
+        pegInDescsTransfer.add((bridgeResp.desc, bridgeResp.toplAddress)) *>
+      IO.println("Monitoring if descriptor gets funded...")
     ).unsafeRunSync()
     val os: OutputStream = exchange.getResponseBody
     os.write(response.getBytes())
     os.close()
   }
-  def handlePegOut(pegInLockAddrs: ToMonitor[IO, LockAddress], pegInDescs: ToMonitor[IO, String]): HttpHandler = (exchange: HttpExchange) => {
+  def handlePegOut(pegOutLockAddrsTransfer: ToMonitor[IO, (String, LockAddress)]): HttpHandler = (exchange: HttpExchange) => {
     print("\n============================" + "Bridge Receives Peg-Out Request" + "============================\n")
     val bridgeResp = initiateRequest(exchange.parseReq, PegOut)
     val response = bridgeResp.toJson
     exchange.sendResponseHeaders(200, response.length())
     println(s"> Sending response: $response")
+    (
+      IO.println("> Adding peg-out desc,addr to monitor...") *>
+        pegOutLockAddrsTransfer.add((bridgeResp.desc, bridgeResp.toplAddress)) *>
+        IO.println("Monitoring if adress gets funded...")
+      ).unsafeRunSync()
     val os: OutputStream = exchange.getResponseBody
     os.write(response.getBytes())
     os.close()
@@ -114,16 +116,16 @@ object BridgeDemo extends IOApp {
 
   override def run(args: List[String]): IO[ExitCode] = {
     for {
-      pegInLockAddrs <- ToMonitor.empty[IO, LockAddress] // Shared state
-      pegInDescsTransfer <- ToMonitor.empty[IO, String] // Shared state
+      pegInDescsTransfer <- ToMonitor.empty[IO, (String, LockAddress)] // Shared state
+      pegInLockAddrsClaim <- ToMonitor.empty[IO, LockAddress] // Shared state
       pegInDescsReclaim <- ToMonitor.empty[IO, String] // Shared state
-      pegOutDescs <- ToMonitor.empty[IO, String] // Shared state
-      pegOutLockAddrsTransfer <- ToMonitor.empty[IO, LockAddress] // Shared state
+      pegOutLockAddrsTransfer <- ToMonitor.empty[IO, (String, LockAddress)] // Shared state
+      pegOutDescsClaim <- ToMonitor.empty[IO, String] // Shared state
       pegOutLockAddrsReclaim <- ToMonitor.empty[IO, LockAddress] // Shared state
       server = { // Create Mock WS server
         val server = HttpServer.create(new InetSocketAddress(1997), 0)
-        server.createContext("/pegin", handlePegIn(pegInLockAddrs, pegInDescsTransfer))
-        server.createContext("/pegout", handlePegOut(pegInLockAddrs, pegInDescsTransfer))
+        server.createContext("/pegin", handlePegIn(pegInDescsTransfer))
+        server.createContext("/pegout", handlePegOut(pegOutLockAddrsTransfer))
         server.createContext("/notifyOfTbtcClaim", notifyOfTbtcClaim())
         server.createContext("/test", test())
         server.setExecutor(null) // creates a default executor
@@ -133,11 +135,11 @@ object BridgeDemo extends IOApp {
       }
       monitoringService <- MonitoringService(
         bridge,
-        pegInLockAddrs,
         pegInDescsTransfer,
+        pegInLockAddrsClaim,
         pegInDescsReclaim,
-        pegOutDescs,
         pegOutLockAddrsTransfer,
+        pegOutDescsClaim,
         pegOutLockAddrsReclaim
       ).run().start
       res <- IO.unit

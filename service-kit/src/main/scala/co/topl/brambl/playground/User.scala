@@ -233,7 +233,11 @@ case class User(walletName: String) {
     val balance = Seq(
       toplWallet.getBalance(),
       btcWallet.getBalance()
-    ) mkString("=====================================", "=====================================", "=====================================")
+    ) mkString(
+      s"==================$walletName Topl Balance===================",
+      "===================Bitcoin Balance=====================",
+      "====================================="
+    )
     println(balance)
   }
 }
