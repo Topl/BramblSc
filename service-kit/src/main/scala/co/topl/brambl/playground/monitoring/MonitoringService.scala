@@ -14,6 +14,7 @@ import co.topl.genus.services.TxoState
 import org.bitcoins.core.number.UInt32
 import org.bitcoins.core.protocol.BitcoinAddress
 import org.bitcoins.core.protocol.transaction.{TransactionOutPoint, WitnessTransaction}
+import org.bitcoins.crypto.DoubleSha256DigestBE
 
 import scala.collection.immutable.Queue
 import scala.language.implicitConversions
@@ -48,11 +49,16 @@ case class MonitoringService(
       case Some((desc, addr)) => checkPegOutTransfer(desc, addr)
       case None    => IO.unit
     }
+    val monitorPegOutClaim = pegOutDescsClaim.take() flatMap {
+      case Some(desc) => checkPegOutClaimed(desc)
+      case None    => IO.unit
+    }
     Seq(
       monitorPegInTransfer,
       monitorPegInClaim,
       monitorPegInReClaim,
-      monitorPegOutTransfer
+      monitorPegOutTransfer,
+      monitorPegOutClaim
     ).parSequence.foreverM
   }
 
@@ -138,7 +144,10 @@ case class MonitoringService(
           val sentProof = handleCall(rpcCli.listSinceBlockWallet("bridge-watcher"))
             .get.transactions.filter(_.category == "send") // All "sent" transactions
             .map(_.txid).toSet
-            .map(txId => handleCall(rpcCli.getTransaction(txId, walletNameOpt = Some("bridge-watcher"))).get.hex.asInstanceOf[WitnessTransaction])
+            .map((txId: DoubleSha256DigestBE) =>
+              handleCall(rpcCli.getTransaction(txId, walletNameOpt = Some("bridge-watcher"))).get
+              .hex.asInstanceOf[WitnessTransaction]
+            )
             // Find the transaction that spent the descriptor (compare to the witness)
             .map(_.witness.witnesses.find(wit => wit.stack.head == PegOut.descToScriptPubKey(desc).asmBytes))
             .find(_.isDefined).flatten
