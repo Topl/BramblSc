@@ -38,4 +38,6 @@ object PegInOut_HappyPath extends App {
   ).unsafeRunSync()
   println("Alice claims BTC")
   alice.claimBtc(pegoutResponse.desc)
+
+  // TODO: Loop until TBTC claimed, then print alice's balance again
 }

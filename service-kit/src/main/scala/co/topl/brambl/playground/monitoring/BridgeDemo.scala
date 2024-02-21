@@ -13,6 +13,7 @@ import co.topl.brambl.playground.monitoring.MonitoringService.ToMonitor
 import co.topl.brambl.playground.{Bridge, ScriptBuilder, handleCall, rpcCli, txBuilder}
 import co.topl.brambl.utils.Encoding
 import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
+import org.bitcoins.core.protocol.BitcoinAddress
 
 import java.io.OutputStream
 import java.net.InetSocketAddress
@@ -53,6 +54,7 @@ object BridgeDemo extends IOApp {
     val btcKey = bridge.btcWallet.getChildSecretKey(idx)
     println("> Bridge generating descriptor...")
     val desc = scriptBuilder.generateDescriptor(btcKey.publicKey.hex, request.hash, request.bitcoinPk)
+    val btcAddr = handleCall(rpcCli.deriveOneAddress(bridge.walletName, desc)).get
     println("> watcher importing descriptor...")
     val importDescSuccessful = handleCall(rpcCli.importDescriptor(bridge.btcWallet.watcherName, desc)).get
     println("> watcher importing descriptor successful: " + importDescSuccessful)
@@ -68,7 +70,7 @@ object BridgeDemo extends IOApp {
         idx
       )
       .unsafeRunSync()
-    BridgeResponse(desc, toplLock, toplAddr)
+    BridgeResponse(desc, BitcoinAddress(btcAddr), toplLock, toplAddr)
   }
 
   def handlePegIn(pegInDescsTransfer: ToMonitor[IO, (String, LockAddress)]): HttpHandler = (exchange: HttpExchange) => {

@@ -96,11 +96,11 @@ class ToplWallet(val walletName: String) {
 
   def getBalance(): String = {
     val allTxos = (for {
-      addrs <- walletStateApi.getCurrentAddresses()
-      allTxos <- addrs.map(addr => genusQueryApi.queryUtxo(addr).map((addr -> _))).sequence
+      addrsIdx <- walletStateApi.getCurrentAddresses()
+      allTxos <- addrsIdx.map(a => genusQueryApi.queryUtxo(a._2).map((a -> _))).sequence
     } yield allTxos.filter(_._2.nonEmpty)).unsafeRunSync()
     if(allTxos.nonEmpty) allTxos map { txos =>
-      s"Balance at address: ${txos._1.toBase58()}" +
+      s"Balance at indices (${txos._1._1.x}, ${txos._1._1.y}, ${txos._1._1.z}) and address: ${txos._1._2.toBase58()}" +
         txos._2.map(_.transactionOutput.value.value.display).mkString("\n", "\n", "\n")
     } mkString("\n", "\n", "\n") else "\nNo funds found in Topl wallet\n"
   }

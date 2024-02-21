@@ -214,7 +214,7 @@ trait WalletStateAlgebra[F[_]] {
   /**
    * Get all the current lock addresses. That is, lock addresses that are currently in use in the wallet interaction, thus may contain some funds.
    *
-   * @return The list of current lock addresses
+   * @return The list of current lock addresses with their respective indices
    */
-  def getCurrentAddresses(includeGenesis: Boolean = false): F[Seq[LockAddress]]
+  def getCurrentAddresses(includeGenesis: Boolean = false): F[Seq[(Indices, LockAddress)]]
 }

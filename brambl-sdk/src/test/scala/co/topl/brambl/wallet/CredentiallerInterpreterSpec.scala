@@ -757,7 +757,7 @@ class CredentiallerInterpreterSpec extends CatsEffectSuite with MockHelpers {
 
       override def getIndicesByAddress(lockAddress: String): F[Option[Indices]] = ???
 
-      override def getCurrentAddresses(): F[Seq[LockAddress]] = ???
+      override def getCurrentAddresses(includeGenesis: Boolean): F[Seq[(Indices, LockAddress)]] = ???
     }
     val aliceDataApi = MockWalletStateApi
     val bobDataApi = NewWalletStateApi

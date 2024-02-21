@@ -47,7 +47,7 @@ object Models {
   }
 
   object BridgeResponse {
-    def apply(desc: String, toplLock: String, toplAddress: String, bitcoinAddress: String): BridgeResponse =
+    def apply(desc: String, bitcoinAddress: String, toplLock: String, toplAddress: String): BridgeResponse =
       BridgeResponse(
         desc,
         BitcoinAddress(bitcoinAddress),

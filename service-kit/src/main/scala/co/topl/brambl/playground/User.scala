@@ -115,8 +115,10 @@ case class User(walletName: String) {
   def sendTbtcToAddress(lock: Lock): TransactionOutputAddress = {
     print("\n============================" + s"$walletName sends TBTC to Lock" + "============================\n")
     val sendTbtc = for {
-      // This is where alice sent the TBTC
-      inLock <- toplWallet.walletStateApi.getLock("self", "default", 2).map(_.get.getPredicate)
+      inIdx <- toplWallet.walletStateApi.getCurrentIndicesForFunds("self", "default", None)
+        .map(_.get)
+        .map(idx => idx.copy(z = idx.z - 1)) // Current is for the peg-out. This is just for the demo, not production
+      inLock <- toplWallet.walletStateApi.getLock("self", "default", inIdx.z).map(_.get.getPredicate)
       inAddr <- txBuilder.lockAddress(Lock().withPredicate(inLock))
       // Only TBTC should be present at this address
       txos       <- genusQueryApi.queryUtxo(inAddr)

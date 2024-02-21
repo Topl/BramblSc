@@ -83,5 +83,5 @@ object MockWalletStateApi extends WalletStateAlgebra[IO] with MockHelpers {
 
   override def getIndicesByAddress(lockAddress: String): IO[Option[Indices]] = ???
 
-  override def getCurrentAddresses(): IO[Seq[LockAddress]] = ???
+  override def getCurrentAddresses(includeGenesis: Boolean): IO[Seq[(Indices, LockAddress)]] = ???
 }
