@@ -1,6 +1,6 @@
 package co.topl.brambl.playground.monitoring
 
-import co.topl.brambl.playground.{User, mineBlocks}
+import co.topl.brambl.playground.{mineBlocks, User}
 
 object PegIn_SadPath extends App {
   // Initiate Sally's wallet

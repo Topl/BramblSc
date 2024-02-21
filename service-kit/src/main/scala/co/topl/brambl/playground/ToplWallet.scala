@@ -9,7 +9,7 @@ import co.topl.brambl.dataApi.WalletStateAlgebra
 import co.topl.brambl.display.DisplayOps.DisplayTOps
 import co.topl.brambl.models.{Indices, LockAddress}
 import co.topl.brambl.servicekit.{WalletKeyApi, WalletStateApi, WalletStateResource}
-import co.topl.brambl.syntax.{AssetType, LvlType, int128AsBigInt, valueToQuantitySyntaxOps}
+import co.topl.brambl.syntax.{int128AsBigInt, valueToQuantitySyntaxOps, AssetType, LvlType}
 import co.topl.brambl.wallet.{Credentialler, CredentiallerInterpreter, WalletApi}
 import quivr.models.{KeyPair, VerificationKey}
 
@@ -93,16 +93,16 @@ class ToplWallet(val walletName: String) {
       .map(_.transactionOutput.value.value.quantity: BigInt)
       .fold(BigInt(0))(_ + _)
 
-
   def getBalance(): String = {
     val allTxos = (for {
       addrsIdx <- walletStateApi.getCurrentAddresses()
-      allTxos <- addrsIdx.map(a => genusQueryApi.queryUtxo(a._2).map((a -> _))).sequence
+      allTxos  <- addrsIdx.map(a => genusQueryApi.queryUtxo(a._2).map((a -> _))).sequence
     } yield allTxos.filter(_._2.nonEmpty)).unsafeRunSync()
-    if(allTxos.nonEmpty) allTxos map { txos =>
+    if (allTxos.nonEmpty) allTxos map { txos =>
       s"Balance at indices (${txos._1._1.x}, ${txos._1._1.y}, ${txos._1._1.z}) and address: ${txos._1._2.toBase58()}" +
-        txos._2.map(_.transactionOutput.value.value.display).mkString("\n", "\n", "\n")
-    } mkString("\n", "\n", "\n") else "\nNo funds found in Topl wallet\n"
+      txos._2.map(_.transactionOutput.value.value.display).mkString("\n", "\n", "\n")
+    } mkString ("\n", "\n", "\n")
+    else "\nNo funds found in Topl wallet\n"
   }
 
 }

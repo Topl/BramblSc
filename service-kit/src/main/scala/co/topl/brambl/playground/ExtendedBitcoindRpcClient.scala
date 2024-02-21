@@ -71,7 +71,11 @@ class ExtendedBitcoindRpcClient(instance: BitcoindInstanceLocal) extends Bitcoin
     )
 
   def listSinceBlockWallet(walletName: String): Future[ListSinceBlockResult] =
-    bitcoindCall[ListSinceBlockResult]("listsinceblock", List.empty, uriExtensionOpt = Some(walletExtension(walletName)))
+    bitcoindCall[ListSinceBlockResult](
+      "listsinceblock",
+      List.empty,
+      uriExtensionOpt = Some(walletExtension(walletName))
+    )
 
 }
 

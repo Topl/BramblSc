@@ -78,13 +78,13 @@ case class User(walletName: String) {
 
   def doRequest(path: String, params: Map[String, String]): String = {
     val url = new URL(s"http://localhost:1997/$path?${params.map { case (k, v) => s"$k=$v" }.mkString("&")}")
-    val con: HttpURLConnection  = url.openConnection.asInstanceOf[HttpURLConnection]
+    val con: HttpURLConnection = url.openConnection.asInstanceOf[HttpURLConnection]
     con.setRequestMethod("GET")
     con.setDoOutput(true)
     val in = new BufferedReader(new InputStreamReader(con.getInputStream))
     val resp = new StringBuffer()
     var inputLine = in.readLine()
-    while(inputLine != null){
+    while (inputLine != null) {
       resp.append(inputLine)
       inputLine = in.readLine()
     }
@@ -93,9 +93,8 @@ case class User(walletName: String) {
     resp.toString
   }
 
-  def notifyBridgeOfTbtcClaim(txId: TransactionId, addr: LockAddress): Unit = {
+  def notifyBridgeOfTbtcClaim(txId: TransactionId, addr: LockAddress): Unit =
     doRequest("notifyOfTbtcClaim", Map("txId" -> Encoding.encodeToHex(txId.toByteArray), "addr" -> addr.toBase58()))
-  }
 
   def initiatePegIn(): BridgeResponse = {
     print("\n============================" + s"$walletName initiates Peg-In" + "============================\n")
@@ -106,6 +105,7 @@ case class User(walletName: String) {
     print("\n============================" + s"$walletName initiates Peg-Out" + "============================\n")
     initiateRequest(false)
   }
+
   def sendBtcToDesc(desc: String): Unit = {
     val txOut = btcWallet.sendBtcToDesc(desc)
     btcWallet.addDescTxOutEntry(desc, txOut)
@@ -115,7 +115,8 @@ case class User(walletName: String) {
   def sendTbtcToAddress(lock: Lock): TransactionOutputAddress = {
     print("\n============================" + s"$walletName sends TBTC to Lock" + "============================\n")
     val sendTbtc = for {
-      inIdx <- toplWallet.walletStateApi.getCurrentIndicesForFunds("self", "default", None)
+      inIdx <- toplWallet.walletStateApi
+        .getCurrentIndicesForFunds("self", "default", None)
         .map(_.get)
         .map(idx => idx.copy(z = idx.z - 1)) // Current is for the peg-out. This is just for the demo, not production
       inLock <- toplWallet.walletStateApi.getLock("self", "default", inIdx.z).map(_.get.getPredicate)
@@ -194,8 +195,7 @@ case class User(walletName: String) {
     val claimAsset = for {
       inputLock <- toplWallet.walletStateApi.getLockByAddress(inputAddress.toBase58()).map(_.get)
       txos      <- genusQueryApi.queryUtxo(inputAddress)
-      claimIdx
-        <- toplWallet.walletStateApi.getNextIndicesForFunds("self", "default").map(_.get)
+      claimIdx  <- toplWallet.walletStateApi.getNextIndicesForFunds("self", "default").map(_.get)
       claimLock <- toplWallet.walletStateApi.getLock("self", "default", claimIdx.z)
       claimAddr <- txBuilder.lockAddress(claimLock.get)
       claimVk <- toplWallet.walletStateApi.getEntityVks("self", "default").map(_.get.head) flatMap { vk =>
@@ -235,7 +235,7 @@ case class User(walletName: String) {
     val balance = Seq(
       toplWallet.getBalance(),
       btcWallet.getBalance()
-    ) mkString(
+    ) mkString (
       s"==================$walletName Topl Balance===================",
       "===================Bitcoin Balance=====================",
       "====================================="

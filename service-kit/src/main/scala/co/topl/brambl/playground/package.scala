@@ -44,6 +44,7 @@ package object playground {
     println(s"Mining $n blocks to $wallet...")
     handleCall(rpcCli.getNewAddress(Some(wallet)).flatMap(rpcCli.generateToAddress(n, _))(ec))
   }
+
   def formatBalances(info: BalanceInfo): String =
     s"Trusted: ${info.trusted} | Untrusted_Pending: ${info.untrusted_pending} | Immature: ${info.immature}"
 

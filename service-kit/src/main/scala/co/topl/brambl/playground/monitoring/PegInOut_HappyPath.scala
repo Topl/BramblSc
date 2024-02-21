@@ -2,7 +2,7 @@ package co.topl.brambl.playground.monitoring
 
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
-import co.topl.brambl.playground.{User, ec, genusQueryApi, rpcCli}
+import co.topl.brambl.playground.{ec, genusQueryApi, rpcCli, User}
 
 object PegInOut_HappyPath extends App {
   // Initiate Alice's wallet
@@ -15,6 +15,7 @@ object PegInOut_HappyPath extends App {
   println("Alice sends BTC to the peg-in descriptor")
   alice.sendBtcToDesc(peginResponse.desc)
   println("Alice waits for the TBTC to be minted")
+
   (
     genusQueryApi.queryUtxo(peginResponse.toplAddress).iterateWhile(_.isEmpty) *>
     IO.println("tBTC funded!")
@@ -30,6 +31,7 @@ object PegInOut_HappyPath extends App {
   println("Alice sends TBTC to the peg-out address")
   alice.sendTbtcToAddress(pegoutResponse.toplLock)
   println("Alice waits for the TBTC to be transferred")
+
   (
     IO.fromFuture(
       IO(rpcCli.listUnspent("alice-watcher").map(_.find(_.address.contains(pegoutResponse.bitcoinAddress))))

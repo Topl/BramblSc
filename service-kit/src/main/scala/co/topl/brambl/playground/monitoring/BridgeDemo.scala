@@ -10,7 +10,7 @@ import co.topl.brambl.models.{LockAddress, TransactionId}
 import co.topl.brambl.playground.ScriptBuilder.{PegIn, PegOut}
 import co.topl.brambl.playground.monitoring.Models.{BridgeRequest, BridgeResponse}
 import co.topl.brambl.playground.monitoring.MonitoringService.ToMonitor
-import co.topl.brambl.playground.{Bridge, ScriptBuilder, handleCall, rpcCli, txBuilder}
+import co.topl.brambl.playground.{handleCall, rpcCli, txBuilder, Bridge, ScriptBuilder}
 import co.topl.brambl.utils.Encoding
 import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
 import org.bitcoins.core.protocol.BitcoinAddress
@@ -23,14 +23,16 @@ object BridgeDemo extends IOApp {
   val bridge: Bridge = Bridge()
 
   implicit class HttpReq(req: HttpExchange) {
+
     def getParams: Map[String, String] = {
       println(req.getRequestURI.getQuery)
       val pairs = req.getRequestURI.getQuery.split("&")
-      pairs.map(p => {
+      pairs.map { p =>
         val kv = p.split("=")
         kv(0) -> kv(1)
-      }).toMap
+      }.toMap
     }
+
     def parseReq: BridgeRequest = {
       val params = req.getParams
       BridgeRequest(params("hash"), params("bitcoinPk"), params("toplVk"))
@@ -81,28 +83,31 @@ object BridgeDemo extends IOApp {
     exchange.sendResponseHeaders(200, response.length())
     (
       IO.println("> Adding peg-in desc,addr to monitor...") *>
-        pegInDescsTransfer.add((bridgeResp.desc, bridgeResp.toplAddress)) *>
+      pegInDescsTransfer.add((bridgeResp.desc, bridgeResp.toplAddress)) *>
       IO.println("Monitoring if descriptor gets funded...")
     ).unsafeRunSync()
     val os: OutputStream = exchange.getResponseBody
     os.write(response.getBytes())
     os.close()
   }
-  def handlePegOut(pegOutLockAddrsTransfer: ToMonitor[IO, (String, LockAddress)]): HttpHandler = (exchange: HttpExchange) => {
-    print("\n============================" + "Bridge Receives Peg-Out Request" + "============================\n")
-    val bridgeResp = initiateRequest(exchange.parseReq, PegOut)
-    val response = bridgeResp.toJson
-    exchange.sendResponseHeaders(200, response.length())
-    println(s"> Sending response: $response")
-    (
-      IO.println("> Adding peg-out desc,addr to monitor...") *>
+
+  def handlePegOut(pegOutLockAddrsTransfer: ToMonitor[IO, (String, LockAddress)]): HttpHandler =
+    (exchange: HttpExchange) => {
+      print("\n============================" + "Bridge Receives Peg-Out Request" + "============================\n")
+      val bridgeResp = initiateRequest(exchange.parseReq, PegOut)
+      val response = bridgeResp.toJson
+      exchange.sendResponseHeaders(200, response.length())
+      println(s"> Sending response: $response")
+      (
+        IO.println("> Adding peg-out desc,addr to monitor...") *>
         pegOutLockAddrsTransfer.add((bridgeResp.desc, bridgeResp.toplAddress)) *>
         IO.println("Monitoring if adress gets funded...")
       ).unsafeRunSync()
-    val os: OutputStream = exchange.getResponseBody
-    os.write(response.getBytes())
-    os.close()
-  }
+      val os: OutputStream = exchange.getResponseBody
+      os.write(response.getBytes())
+      os.close()
+    }
+
   // Temporary until Monitor Service is ready
   def notifyOfTbtcClaim(): HttpHandler = (exchange: HttpExchange) => {
     val params = exchange.getParams
@@ -116,14 +121,14 @@ object BridgeDemo extends IOApp {
     os.close()
   }
 
-  override def run(args: List[String]): IO[ExitCode] = {
+  override def run(args: List[String]): IO[ExitCode] =
     for {
-      pegInDescsTransfer <- ToMonitor.empty[IO, (String, LockAddress)] // Shared state
-      pegInLockAddrsClaim <- ToMonitor.empty[IO, LockAddress] // Shared state
-      pegInDescsReclaim <- ToMonitor.empty[IO, String] // Shared state
+      pegInDescsTransfer      <- ToMonitor.empty[IO, (String, LockAddress)] // Shared state
+      pegInLockAddrsClaim     <- ToMonitor.empty[IO, LockAddress] // Shared state
+      pegInDescsReclaim       <- ToMonitor.empty[IO, String] // Shared state
       pegOutLockAddrsTransfer <- ToMonitor.empty[IO, (String, LockAddress)] // Shared state
-      pegOutDescsClaim <- ToMonitor.empty[IO, String] // Shared state
-      pegOutLockAddrsReclaim <- ToMonitor.empty[IO, LockAddress] // Shared state
+      pegOutDescsClaim        <- ToMonitor.empty[IO, String] // Shared state
+      pegOutLockAddrsReclaim  <- ToMonitor.empty[IO, LockAddress] // Shared state
       server = { // Create Mock WS server
         val server = HttpServer.create(new InetSocketAddress(1997), 0)
         server.createContext("/pegin", handlePegIn(pegInDescsTransfer))
@@ -144,19 +149,17 @@ object BridgeDemo extends IOApp {
         pegOutDescsClaim,
         pegOutLockAddrsReclaim
       ).run().start
-      res <- IO.unit
-        .start.foreverM
+      res <- IO.unit.start.foreverM
         .guarantee(
           IO.println("shutting down server") *>
-            IO(server.stop(0)) *>
-            IO.println("shutting down monitoring") *>
-            monitoringService.cancel.start.void
+          IO(server.stop(0)) *>
+          IO.println("shutting down monitoring") *>
+          monitoringService.cancel.start.void
         )
         .as(ExitCode.Success)
         .handleErrorWith { t =>
           Console[IO].errorln(s"Error caught: ${t.getMessage}").as(ExitCode.Error)
         }
     } yield res
-  }
 
 }

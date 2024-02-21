@@ -32,9 +32,9 @@ class BitcoinWallet(val walletName: String) {
       ).mkString("\n")
 
     Seq(
-        walletName,
-        watcherName
-        )
+      walletName,
+      watcherName
+    )
       .map(printBalance)
       .mkString("\n", "\n", "\n")
   }

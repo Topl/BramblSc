@@ -9,18 +9,22 @@ import org.bitcoins.core.protocol.BitcoinAddress
 import quivr.models.VerificationKey
 
 object Models {
+
   case class BridgeRequest(
-                            hash: String,
-                            bitcoinPk: String,
-                            toplVk: VerificationKey
-                          ) {
+    hash:      String,
+    bitcoinPk: String,
+    toplVk:    VerificationKey
+  ) {
+
     def toMap: Map[String, String] = Map(
-      "hash" -> hash,
+      "hash"      -> hash,
       "bitcoinPk" -> bitcoinPk,
-      "toplVk" -> Encoding.encodeToHex(toplVk.toByteArray)
+      "toplVk"    -> Encoding.encodeToHex(toplVk.toByteArray)
     )
   }
+
   object BridgeRequest {
+
     def apply(hash: String, bitcoinPk: String, toplVk: String): BridgeRequest =
       BridgeRequest(
         hash,
@@ -30,16 +34,17 @@ object Models {
   }
 
   case class BridgeResponse(
-                             desc: String,
-                             bitcoinAddress: BitcoinAddress,
-                             toplLock: Lock,
-                             toplAddress: LockAddress // Serves as a checksum for the toplLock
-                           ) {
+    desc:           String,
+    bitcoinAddress: BitcoinAddress,
+    toplLock:       Lock,
+    toplAddress:    LockAddress // Serves as a checksum for the toplLock
+  ) {
+
     def toJson: String = {
       val params = Map(
-        "desc" -> desc,
-        "toplLock" -> Encoding.encodeToHex(toplLock.toByteArray),
-        "toplAddress" -> toplAddress.toBase58(),
+        "desc"           -> desc,
+        "toplLock"       -> Encoding.encodeToHex(toplLock.toByteArray),
+        "toplAddress"    -> toplAddress.toBase58(),
         "bitcoinAddress" -> bitcoinAddress.value
       )
       params.map(p => s""""${p._1}":"${p._2}"""").mkString("{", ",", "}")
@@ -47,6 +52,7 @@ object Models {
   }
 
   object BridgeResponse {
+
     def apply(desc: String, bitcoinAddress: String, toplLock: String, toplAddress: String): BridgeResponse =
       BridgeResponse(
         desc,

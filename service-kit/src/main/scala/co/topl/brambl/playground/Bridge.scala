@@ -9,7 +9,16 @@ import co.topl.brambl.models.box.{AssetMintingStatement, Lock}
 import co.topl.brambl.models.{Indices, LockAddress, TransactionId, TransactionOutputAddress}
 import co.topl.brambl.playground.ScriptBuilder.PegIn
 import co.topl.brambl.playground.SecretExtraction.{extractFromBitcoinTx, extractFromToplTx}
-import co.topl.brambl.syntax.{AssetType, LvlType, bigIntAsInt128, groupPolicyAsGroupPolicySyntaxOps, int128AsBigInt, seriesPolicyAsSeriesPolicySyntaxOps, valueToQuantitySyntaxOps, valueToTypeIdentifierSyntaxOps}
+import co.topl.brambl.syntax.{
+  bigIntAsInt128,
+  groupPolicyAsGroupPolicySyntaxOps,
+  int128AsBigInt,
+  seriesPolicyAsSeriesPolicySyntaxOps,
+  valueToQuantitySyntaxOps,
+  valueToTypeIdentifierSyntaxOps,
+  AssetType,
+  LvlType
+}
 import co.topl.brambl.utils.Encoding
 import org.bitcoins.commons.jsonmodels.bitcoind.GetTxOutResultV22
 import org.bitcoins.core.protocol.script.{P2WSHWitnessV0, ScriptWitness}
@@ -127,7 +136,7 @@ case class Bridge() {
         amount
       )
       // No longer hardcoding indices
-      changeIdx <- toplWallet.walletStateApi.getNextIndicesForFunds("self", "default").map(_.get)
+      changeIdx     <- toplWallet.walletStateApi.getNextIndicesForFunds("self", "default").map(_.get)
       changeLock    <- toplWallet.walletStateApi.getLock("self", "default", changeIdx.z)
       changeAddress <- txBuilder.lockAddress(changeLock.get)
       changeVk <- toplWallet.walletStateApi.getEntityVks("self", "default").map(_.get.head) flatMap { vk =>
@@ -222,10 +231,9 @@ case class Bridge() {
       inputAddress <- txBuilder.lockAddress(Lock().withPredicate(inputLock))
       txos         <- genusQueryApi.queryUtxo(inputAddress)
       // Idx may differ (depends on if Peg-in sad path has occured)
-      changeIdx
-        <- toplWallet.walletStateApi.getNextIndicesForFunds("self", "default").map(_.get)
-      claimLock    <- toplWallet.walletStateApi.getLock("self", "default", changeIdx.z)
-      claimAddr    <- txBuilder.lockAddress(claimLock.get)
+      changeIdx <- toplWallet.walletStateApi.getNextIndicesForFunds("self", "default").map(_.get)
+      claimLock <- toplWallet.walletStateApi.getLock("self", "default", changeIdx.z)
+      claimAddr <- txBuilder.lockAddress(claimLock.get)
       claimVk <- toplWallet.walletStateApi.getEntityVks("self", "default").map(_.get.head) flatMap { vk =>
         toplWallet.walletApi.deriveChildVerificationKey(
           VerificationKey.parseFrom(Encoding.decodeFromBase58(vk).toOption.get),
@@ -267,6 +275,7 @@ case class Bridge() {
     displayBalance()
     txId
   }
+
   def reclaimTbtc(desc: String): Unit = {
     // At this point in time, we don't know if it was the bridge who claimed the TBTC or the user
     // If it was the bridge, then the TBTC has already been claimed (the bridge needs to extract the secret from the Topl TX)
@@ -275,29 +284,24 @@ case class Bridge() {
     (for {
       lock        <- toplWallet.walletStateApi.getLockByIndex(idx).map(_.get)
       lockAddress <- txBuilder.lockAddress(Lock().withPredicate(lock))
-      txos       <- genusQueryApi.queryUtxo(lockAddress) // default is unspent
+      txos        <- genusQueryApi.queryUtxo(lockAddress) // default is unspent
       // In production, we could check for the specific TBTC asset type
       tbtc = txos.find(_.transactionOutput.value.value.isAsset)
     } yield tbtc match {
       case None => IO.unit // if the user already claimed the TBTC, do nothing
-      case Some(_) => {
+      case Some(_) =>
         val txRes = (for { // if the user has not claimed the TBTC, the bridge reclaims it
           // Idx may differ (depends on if Peg-out has occured)
-          claimIdx
-            <- toplWallet.walletStateApi.getNextIndicesForFunds("self", "default").map(_.get)
-          claimLock
-            <- toplWallet.walletStateApi.getLock("self", "default", claimIdx.z)
-          claimAddress
-            <- txBuilder.lockAddress(claimLock.get)
-          changeVk
-            <- toplWallet.walletStateApi.getEntityVks("self", "default").map(_.get.head) flatMap { vk =>
+          claimIdx     <- toplWallet.walletStateApi.getNextIndicesForFunds("self", "default").map(_.get)
+          claimLock    <- toplWallet.walletStateApi.getLock("self", "default", claimIdx.z)
+          claimAddress <- txBuilder.lockAddress(claimLock.get)
+          changeVk <- toplWallet.walletStateApi.getEntityVks("self", "default").map(_.get.head) flatMap { vk =>
             toplWallet.walletApi.deriveChildVerificationKey(
               VerificationKey.parseFrom(Encoding.decodeFromBase58(vk).toOption.get),
               claimIdx.z
             )
           }
-          _
-            <- toplWallet.walletStateApi.updateWalletState(
+          _ <- toplWallet.walletStateApi.updateWalletState(
             Encoding.encodeToBase58Check(claimLock.get.getPredicate.toByteArray),
             claimAddress.toBase58(),
             Some("ExtendedEd25519"),
@@ -311,15 +315,12 @@ case class Bridge() {
             claimAddress,
             0L // TODO: Fee should be able to be a non LVL type
           )
-          provenTx
-            <- toplWallet.credentialler.prove(unprovenTx.toOption.get)
-          txId
-            <- bifrostQuery.broadcastTransaction(provenTx)
+          provenTx <- toplWallet.credentialler.prove(unprovenTx.toOption.get)
+          txId     <- bifrostQuery.broadcastTransaction(provenTx)
         } yield (txId, claimAddress)).unsafeRunSync()
         Thread.sleep(15000)
         val tbtcBalance = toplWallet.getTbtcBalance(txRes._2)
         println(s"Bridge owns $tbtcBalance tBTC (claimed)")
-      }
     }).unsafeRunSync()
     displayBalance()
   }
@@ -328,7 +329,7 @@ case class Bridge() {
     val balance = Seq(
       toplWallet.getBalance(),
       btcWallet.getBalance()
-    ) mkString(
+    ) mkString (
       s"==================$walletName Topl Balance===================",
       "===================Bitcoin Balance=====================",
       "====================================="

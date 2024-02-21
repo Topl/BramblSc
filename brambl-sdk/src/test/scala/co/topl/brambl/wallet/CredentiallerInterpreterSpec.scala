@@ -19,7 +19,10 @@ import co.topl.brambl.{Context, MockHelpers, MockWalletKeyApi, MockWalletStateAp
 import co.topl.crypto.generation.Bip32Indexes
 import co.topl.crypto.signing.ExtendedEd25519
 import co.topl.quivr.api.Proposer
-import co.topl.quivr.runtime.QuivrRuntimeErrors.ValidationError.{EvaluationAuthorizationFailed, LockedPropositionIsUnsatisfiable}
+import co.topl.quivr.runtime.QuivrRuntimeErrors.ValidationError.{
+  EvaluationAuthorizationFailed,
+  LockedPropositionIsUnsatisfiable
+}
 import com.google.protobuf.ByteString
 import munit.CatsEffectSuite
 import quivr.models._

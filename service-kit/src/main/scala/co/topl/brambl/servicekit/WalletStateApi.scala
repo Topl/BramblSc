@@ -691,28 +691,29 @@ object WalletStateApi {
           .map(_.flatten)
       } yield changeLock
 
-      override def getCurrentAddresses(includeGenesis: Boolean = false): F[Seq[(Indices, LockAddress)]] = connection.use { conn =>
-        val filter = if(includeGenesis) "" else "WHERE x_fellowship != 0 or y_template != 2"
-        for {
-          stmnt <- Sync[F].blocking(conn.createStatement())
-          rs <- Sync[F].blocking(
-            stmnt.executeQuery(
-              s"SELECT x_fellowship, y_template, MAX(z_interaction) as z, address FROM cartesian $filter GROUP BY x_fellowship, y_template"
+      override def getCurrentAddresses(includeGenesis: Boolean = false): F[Seq[(Indices, LockAddress)]] =
+        connection.use { conn =>
+          val filter = if (includeGenesis) "" else "WHERE x_fellowship != 0 or y_template != 2"
+          for {
+            stmnt <- Sync[F].blocking(conn.createStatement())
+            rs <- Sync[F].blocking(
+              stmnt.executeQuery(
+                s"SELECT x_fellowship, y_template, MAX(z_interaction) as z, address FROM cartesian $filter GROUP BY x_fellowship, y_template"
+              )
             )
-          )
-        } yield {
-          val addresses: ListBuffer[(Indices, LockAddress)] = ListBuffer.empty[(Indices, LockAddress)]
-          while (rs.next()) {
-            val address = rs.getString("address")
-            val indices = Indices(
-              rs.getInt("x_fellowship"),
-              rs.getInt("y_template"),
-              rs.getInt("z")
-            )
-            addresses += (indices -> AddressCodecs.decodeAddress(address).toOption.get)
+          } yield {
+            val addresses: ListBuffer[(Indices, LockAddress)] = ListBuffer.empty[(Indices, LockAddress)]
+            while (rs.next()) {
+              val address = rs.getString("address")
+              val indices = Indices(
+                rs.getInt("x_fellowship"),
+                rs.getInt("y_template"),
+                rs.getInt("z")
+              )
+              addresses += (indices -> AddressCodecs.decodeAddress(address).toOption.get)
+            }
+            addresses.toSeq
           }
-          addresses.toSeq
         }
-      }
     }
 }

@@ -2,9 +2,9 @@ package co.topl.brambl.playground.monitoring
 
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
-import co.topl.brambl.playground.{User, genusQueryApi}
+import co.topl.brambl.playground.{genusQueryApi, User}
 
-object PegOut_SadPath extends App{
+object PegOut_SadPath extends App {
   // Initiate Bob's wallet
   println("Initiating Bob's wallet")
   val bob = User("bob")
@@ -19,8 +19,9 @@ object PegOut_SadPath extends App{
 
   // Once TBTC is minted, Bob claims it
   println("Bob waits for the TBTC to be minted")
+
   (genusQueryApi.queryUtxo(peginResponse.toplAddress).iterateWhile(_.isEmpty) *>
-    IO.println("tBTC funded!")).unsafeRunSync()
+  IO.println("tBTC funded!")).unsafeRunSync()
   println("Bob claims TBTC")
   val txId = bob.claimTBtc(peginResponse.toplAddress)
   // Bob notifies bridge of the claim since it is not automated yet
