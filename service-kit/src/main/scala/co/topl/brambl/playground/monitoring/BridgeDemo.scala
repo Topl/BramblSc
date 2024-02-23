@@ -9,7 +9,7 @@ import co.topl.brambl.models.LockAddress
 import co.topl.brambl.playground.ScriptBuilder.{PegIn, PegOut}
 import co.topl.brambl.playground.monitoring.Models.{BridgeRequest, BridgeResponse}
 import co.topl.brambl.playground.monitoring.MonitoringService.ToMonitor
-import co.topl.brambl.playground.{Bridge, ScriptBuilder, handleCall, mineBlocks, rpcCli, txBuilder}
+import co.topl.brambl.playground.{handleCall, mineBlocks, rpcCli, txBuilder, Bridge, ScriptBuilder}
 import co.topl.brambl.utils.Encoding
 import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
 import org.bitcoins.core.protocol.BitcoinAddress
@@ -98,7 +98,6 @@ object BridgeDemo extends IOApp {
       os.write(response.getBytes())
       os.close()
     }
-
 
   override def run(args: List[String]): IO[ExitCode] =
     for {

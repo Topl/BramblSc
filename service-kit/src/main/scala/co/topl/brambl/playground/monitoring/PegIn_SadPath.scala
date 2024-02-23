@@ -2,7 +2,7 @@ package co.topl.brambl.playground.monitoring
 
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
-import co.topl.brambl.playground.{User, genusQueryApi, mineBlocks}
+import co.topl.brambl.playground.{genusQueryApi, mineBlocks, User}
 
 object PegIn_SadPath extends App {
   // Initiate Sally's wallet
@@ -20,10 +20,13 @@ object PegIn_SadPath extends App {
   // Sally reclaims BTC
   println("Sally waiting 1000 blocks (and bridge minting) to reclaim BTC") // Sally can only reclaim after 1000 blocks
   mineBlocks(1000)
-  (genusQueryApi.queryUtxo(peginResponse.toplAddress).iterateWhile(_.isEmpty) *> IO.println("tBTC is minted!")).unsafeRunSync()
+
+  (genusQueryApi.queryUtxo(peginResponse.toplAddress).iterateWhile(_.isEmpty) *> IO.println("tBTC is minted!"))
+    .unsafeRunSync()
   sally.reclaimBtc(peginResponse.desc)
 
-  (genusQueryApi.queryUtxo(peginResponse.toplAddress).iterateWhile(_.nonEmpty) *> IO.println("tBTC is claimed!")).unsafeRunSync()
+  (genusQueryApi.queryUtxo(peginResponse.toplAddress).iterateWhile(_.nonEmpty) *> IO.println("tBTC is claimed!"))
+    .unsafeRunSync()
   println("Sally's balance after reclaiming BTC:")
   sally.displayBalance()
 }

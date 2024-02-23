@@ -10,7 +10,16 @@ import co.topl.brambl.models.box.{AssetMintingStatement, Attestation, Lock}
 import co.topl.brambl.models.{Indices, LockAddress, TransactionOutputAddress}
 import co.topl.brambl.playground.ScriptBuilder.PegIn
 import co.topl.brambl.playground.SecretExtraction.{extractFromBitcoinTx, extractFromToplTx}
-import co.topl.brambl.syntax.{AssetType, LvlType, bigIntAsInt128, groupPolicyAsGroupPolicySyntaxOps, int128AsBigInt, seriesPolicyAsSeriesPolicySyntaxOps, valueToQuantitySyntaxOps, valueToTypeIdentifierSyntaxOps}
+import co.topl.brambl.syntax.{
+  bigIntAsInt128,
+  groupPolicyAsGroupPolicySyntaxOps,
+  int128AsBigInt,
+  seriesPolicyAsSeriesPolicySyntaxOps,
+  valueToQuantitySyntaxOps,
+  valueToTypeIdentifierSyntaxOps,
+  AssetType,
+  LvlType
+}
 import co.topl.brambl.utils.Encoding
 import org.bitcoins.commons.jsonmodels.bitcoind.GetTxOutResultV22
 import org.bitcoins.core.protocol.script.{P2WSHWitnessV0, ScriptWitness}
@@ -61,7 +70,7 @@ case class Bridge() {
 
     def mintSeriesConstructorTokens(): SeriesPolicy = {
       val mintSeries = for {
-        idx <- walletStateApi.getNextIndicesForFunds("self", "default").map(_.get)
+        idx          <- walletStateApi.getNextIndicesForFunds("self", "default").map(_.get)
         inputLock    <- walletStateApi.getLock("self", "default", idx.z - 1)
         inputAddress <- txBuilder.lockAddress(inputLock.get)
         txos         <- genusQueryApi.queryUtxo(inputAddress)
@@ -72,7 +81,10 @@ case class Bridge() {
         outputLock    <- walletStateApi.getLock("self", "default", idx.z)
         outputAddress <- txBuilder.lockAddress(outputLock.get)
         outputVk <- walletStateApi.getEntityVks("self", "default").map(_.get.head) flatMap { vk =>
-          walletApi.deriveChildVerificationKey(VerificationKey.parseFrom(Encoding.decodeFromBase58(vk).toOption.get), idx.z)
+          walletApi.deriveChildVerificationKey(
+            VerificationKey.parseFrom(Encoding.decodeFromBase58(vk).toOption.get),
+            idx.z
+          )
         }
         _ <- walletStateApi.updateWalletState(
           Encoding.encodeToBase58Check(outputLock.get.getPredicate.toByteArray),
@@ -120,20 +132,23 @@ case class Bridge() {
     val mintTBtc = for {
       balance <- toplWallet.walletStateApi.getCurrentAddresses()
       allTxos <- balance.map(b => (b -> genusQueryApi.queryUtxo(b._2)).sequence).sequence
-      txosToUse = allTxos.filter(txos =>
-        txos._2.exists(_.transactionOutput.value.value.isGroup) && txos._2.exists(_.transactionOutput.value.value.isSeries)
-      ).maxBy(v => (v._1._1.x, v._1._1.y, v._1._1.z))
-      inputAddress    = txosToUse._1._2
-      inputLock    <- toplWallet.walletStateApi.getLockByAddress(inputAddress.toBase58()).map(_.get)
-      txos         = txosToUse._2
+      txosToUse = allTxos
+        .filter(txos =>
+          txos._2.exists(_.transactionOutput.value.value.isGroup) && txos._2
+            .exists(_.transactionOutput.value.value.isSeries)
+        )
+        .maxBy(v => (v._1._1.x, v._1._1.y, v._1._1.z))
+      inputAddress = txosToUse._1._2
+      inputLock <- toplWallet.walletStateApi.getLockByAddress(inputAddress.toBase58()).map(_.get)
+      txos = txosToUse._2
       assetMintingStatement = AssetMintingStatement(
         txos.filter(_.transactionOutput.value.value.isGroup).head.outputAddress,
         txos.filter(_.transactionOutput.value.value.isSeries).head.outputAddress,
         amount
       )
       // No longer hardcoding indices
-      changeIdx     <- toplWallet.walletStateApi.getNextIndicesForFunds("self", "default").map(_.get)
-      changeLock    <- {
+      changeIdx <- toplWallet.walletStateApi.getNextIndicesForFunds("self", "default").map(_.get)
+      changeLock <- {
         println(s"input idx: ${txosToUse._1._1}")
         println(s"change idx: $changeIdx")
         toplWallet.walletStateApi.getLock("self", "default", changeIdx.z)
@@ -164,7 +179,9 @@ case class Bridge() {
       txId     <- bifrostQuery.broadcastTransaction(provenTx)
     } yield txId
     mintTBtc.unsafeRunSync()
-    (genusQueryApi.queryUtxo(toAddr).iterateWhile(_.isEmpty) *> IO.println(s"Bridge minted $amount tBTC to ${toAddr.toBase58()}")).unsafeRunSync()
+    (genusQueryApi.queryUtxo(toAddr).iterateWhile(_.isEmpty) *> IO.println(
+      s"Bridge minted $amount tBTC to ${toAddr.toBase58()}"
+    )).unsafeRunSync()
     displayBalance()
   }
 
@@ -196,9 +213,12 @@ case class Bridge() {
     print("\n============================" + "Bridge claims BTC" + "============================\n")
     val desc = btcWallet.getDescByAddress(lockAddr)
     val utxoToSpend = TransactionOutPoint.fromString(btcWallet.getTxOut(desc))
-    val isSpendable = handleCall(rpcCli.listUnspent(walletName = "bridge-watcher")
-      .map(_.exists(utxo => utxoToSpend.txIdBE == utxo.txid && utxoToSpend.vout.toLong == utxo.vout))).get
-    if(isSpendable) { // BTC is not claimed yet, bridge should claim
+    val isSpendable = handleCall(
+      rpcCli
+        .listUnspent(walletName = "bridge-watcher")
+        .map(_.exists(utxo => utxoToSpend.txIdBE == utxo.txid && utxoToSpend.vout.toLong == utxo.vout))
+    ).get
+    if (isSpendable) { // BTC is not claimed yet, bridge should claim
       println("> Bridge creating unproven TX...")
       val tx = btcWallet.createToWalletTx(utxoToSpend)
       println("> Bridge deriving witnessScript...")
@@ -235,7 +255,8 @@ case class Bridge() {
       inputLock    <- toplWallet.walletStateApi.getLockByIndex(idx).map(_.get)
       inputAddress <- txBuilder.lockAddress(Lock().withPredicate(inputLock))
       txos         <- genusQueryApi.queryUtxo(inputAddress)
-      trivialAddr <- toplWallet.walletStateApi.getAddress("nofellowship", "genesis", None)
+      trivialAddr <- toplWallet.walletStateApi
+        .getAddress("nofellowship", "genesis", None)
         .map(addr => AddressCodecs.decodeAddress(addr.get).toOption.get)
       unprovenTx <- txBuilder.buildTransferAllTransaction(
         txos,
@@ -280,9 +301,10 @@ case class Bridge() {
       tbtc = txos.find(_.transactionOutput.value.value.isAsset)
     } yield tbtc match {
       case None => () // if the user already claimed the TBTC, do nothing; case 2
-      case Some(_) =>  // if the user has not claimed the TBTC, the bridge reclaims it; case 1
+      case Some(_) => // if the user has not claimed the TBTC, the bridge reclaims it; case 1
         (for {
-          trivialAddr <- toplWallet.walletStateApi.getAddress("nofellowship", "genesis", None)
+          trivialAddr <- toplWallet.walletStateApi
+            .getAddress("nofellowship", "genesis", None)
             .map(addr => AddressCodecs.decodeAddress(addr.get).toOption.get)
           unprovenTx <- txBuilder.buildTransferAllTransaction(
             txos,

@@ -181,11 +181,12 @@ case class User(walletName: String) {
     val txWit = WitnessTransaction.toWitnessTx(tx).updateWitness(0, P2WSHWitnessV0(scriptInner, aliceSig))
     println(s"> $walletName submits TX...")
     IO.fromFuture(IO(rpcCli.getTxOut(utxoToSpend.txIdBE, utxoToSpend.vout.toLong)))
-      .iterateWhile(spendingTx => {
+      .iterateWhile { spendingTx =>
         val canSpend = spendingTx.confirmations >= 1000
-        if(canSpend) println(s"number of confirmations: ${spendingTx.confirmations}")
+        if (canSpend) println(s"number of confirmations: ${spendingTx.confirmations}")
         !canSpend
-      }).unsafeRunSync()
+      }
+      .unsafeRunSync()
     handleCall(rpcCli.sendRawTransaction(txWit, 0), debug = true).get
     mineBlocks(1)
     displayBalance()

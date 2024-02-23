@@ -10,7 +10,7 @@ import co.topl.brambl.builders.TransactionBuilderApi.implicits.lockAddressOps
 import co.topl.brambl.models.LockAddress
 import co.topl.brambl.playground.ScriptBuilder.PegOut
 import co.topl.brambl.playground.monitoring.MonitoringService.ToMonitor
-import co.topl.brambl.playground.{Bridge, genusQueryApi, handleCall, rpcCli}
+import co.topl.brambl.playground.{genusQueryApi, handleCall, rpcCli, Bridge}
 import co.topl.genus.services.{Txo, TxoState}
 import org.bitcoins.core.number.UInt32
 import org.bitcoins.core.protocol.BitcoinAddress

@@ -2,7 +2,7 @@ package co.topl.brambl.playground.monitoring
 
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
-import co.topl.brambl.playground.{User, ec, genusQueryApi, rpcCli}
+import co.topl.brambl.playground.{ec, genusQueryApi, rpcCli, User}
 
 object PegOut_SadPath extends App {
   // Initiate Bob's wallet
@@ -25,9 +25,11 @@ object PegOut_SadPath extends App {
   println("Bob claims TBTC")
   bob.claimTBtc(peginResponse.toplAddress)
 
-  (IO.fromFuture(
-    IO(rpcCli.listUnspent("bob-watcher").map(_.find(_.address.contains(peginResponse.bitcoinAddress))))
-  ).iterateWhile(_.isDefined) *> IO.println("BTC is claimed!")).unsafeRunSync()
+  (IO
+    .fromFuture(
+      IO(rpcCli.listUnspent("bob-watcher").map(_.find(_.address.contains(peginResponse.bitcoinAddress))))
+    )
+    .iterateWhile(_.isDefined) *> IO.println("BTC is claimed!")).unsafeRunSync()
   println("Bob's balance after reclaiming TBTC:")
   bob.displayBalance()
 }
