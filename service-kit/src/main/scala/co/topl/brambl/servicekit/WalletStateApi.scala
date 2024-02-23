@@ -698,7 +698,7 @@ object WalletStateApi {
             stmnt <- Sync[F].blocking(conn.createStatement())
             rs <- Sync[F].blocking(
               stmnt.executeQuery(
-                s"SELECT x_fellowship, y_template, MAX(z_interaction) as z, address FROM cartesian $filter GROUP BY x_fellowship, y_template"
+                s"SELECT x_fellowship, y_template, z_interaction, address FROM cartesian $filter"
               )
             )
           } yield {
@@ -708,7 +708,7 @@ object WalletStateApi {
               val indices = Indices(
                 rs.getInt("x_fellowship"),
                 rs.getInt("y_template"),
-                rs.getInt("z")
+                rs.getInt("z_interaction")
               )
               addresses += (indices -> AddressCodecs.decodeAddress(address).toOption.get)
             }

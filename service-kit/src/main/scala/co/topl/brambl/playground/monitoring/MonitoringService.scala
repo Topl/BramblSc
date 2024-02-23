@@ -6,11 +6,12 @@ import cats.effect.instances.all._
 import cats.effect.kernel.Ref
 import cats.implicits._
 import cats.instances.list._
+import co.topl.brambl.builders.TransactionBuilderApi.implicits.lockAddressOps
 import co.topl.brambl.models.LockAddress
 import co.topl.brambl.playground.ScriptBuilder.PegOut
 import co.topl.brambl.playground.monitoring.MonitoringService.ToMonitor
-import co.topl.brambl.playground.{genusQueryApi, handleCall, rpcCli, Bridge}
-import co.topl.genus.services.TxoState
+import co.topl.brambl.playground.{Bridge, genusQueryApi, handleCall, rpcCli}
+import co.topl.genus.services.{Txo, TxoState}
 import org.bitcoins.core.number.UInt32
 import org.bitcoins.core.protocol.BitcoinAddress
 import org.bitcoins.core.protocol.transaction.{TransactionOutPoint, WitnessTransaction}
@@ -68,7 +69,7 @@ case class MonitoringService(
     val allUtxos =
       handleCall(
         rpcCli.listUnspent(walletName = "bridge-watcher")
-      ).get // can add label since only 10 records will return
+      ).get
     val output = allUtxos.find(_.address.get == expectedAddr)
     output match {
       case Some(utxo) =>
@@ -96,12 +97,9 @@ case class MonitoringService(
       // We expect there to be only one tbtc asset at this LockAddress so we can find it/return it as an Option
       // In production, we would need to check the type of the asset to ensure it is tBTC
       res <- spent.find(_.transactionOutput.value.value.isAsset) match {
-        case Some(
-              txo
-            ) => // TODO: Handle the case where the bridge reclaimed the TBTC.. if that's the case, then the BTC will not be available to spend anymore
-          // TODO: in the future, we will be able to access the STXO of the TXO
-          //          IO.pure(bridge.notifyOfTbtcClaim(???, addr))
-          p(s"placeholder for claiming BTC $addr").start.void
+        case Some(Txo(_, _, _, Some(spender), _)) =>
+          IO.println(s"Found the transaction spending TBTC. Claiming BTC ${addr.toBase58()}") *>
+          IO.pure(bridge.claimBtc(spender.input.attestation, addr)).start.void
         case None =>
           pegInLockAddrsClaim
             .add(addr)
@@ -158,6 +156,8 @@ case class MonitoringService(
       case Some(_) =>
         pegOutDescsClaim.add(desc).start.void // Re-add the descriptor to the monitoring list if it hasn't been claimed
       case None => //  Has been spent
+        // ATTN: This is the least efficient monitoring process. bitcoin-cli does not have a way to monitor for spent transactions *not* in the mempool
+        // ATTN: If only searching mempool is ok, we can use "gettxspendingprevout". If listSinceBlock is the way we want to go, we can optimize by storing the last blockhash we checked
         val sentProof = handleCall(rpcCli.listSinceBlockWallet("bridge-watcher")).get.transactions
           .filter(_.category == "send") // All "sent" transactions
           .map(_.txid)

@@ -29,9 +29,9 @@ case class User(walletName: String) {
   val btcWallet = new BitcoinWallet(walletName) {
 
     override def initBtcFunds(): Unit = {
-      println(s"Mining 101 blocks to $walletName's wallet...")
-      mineBlocks(1, walletName)
-      mineBlocks(100)
+      println(s"Sending 25BTC to $walletName's wallet...")
+      val addr = handleCall(rpcCli.getNewAddress(Some(walletName))).get
+      fundFromDummy(addr)
     }
   }
 
@@ -92,9 +92,6 @@ case class User(walletName: String) {
     con.disconnect()
     resp.toString
   }
-
-  def notifyBridgeOfTbtcClaim(txId: TransactionId, addr: LockAddress): Unit =
-    doRequest("notifyOfTbtcClaim", Map("txId" -> Encoding.encodeToHex(txId.toByteArray), "addr" -> addr.toBase58()))
 
   def initiatePegIn(): BridgeResponse = {
     print("\n============================" + s"$walletName initiates Peg-In" + "============================\n")
@@ -183,8 +180,12 @@ case class User(walletName: String) {
     println(s"> $walletName adds the witness to the TX...")
     val txWit = WitnessTransaction.toWitnessTx(tx).updateWitness(0, P2WSHWitnessV0(scriptInner, aliceSig))
     println(s"> $walletName submits TX...")
-    val spendingTx = handleCall(rpcCli.getTxOut(utxoToSpend.txIdBE, utxoToSpend.vout.toLong), debug = true).get
-    println(s"number of confirmations: ${spendingTx.confirmations}")
+    IO.fromFuture(IO(rpcCli.getTxOut(utxoToSpend.txIdBE, utxoToSpend.vout.toLong)))
+      .iterateWhile(spendingTx => {
+        val canSpend = spendingTx.confirmations >= 1000
+        if(canSpend) println(s"number of confirmations: ${spendingTx.confirmations}")
+        !canSpend
+      }).unsafeRunSync()
     handleCall(rpcCli.sendRawTransaction(txWit, 0), debug = true).get
     mineBlocks(1)
     displayBalance()

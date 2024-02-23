@@ -7,7 +7,7 @@ import co.topl.brambl.builders.TransactionBuilderApi
 import co.topl.brambl.constants.NetworkConstants.{MAIN_LEDGER_ID, PRIVATE_NETWORK_ID}
 import co.topl.brambl.dataApi.{BifrostQueryAlgebra, GenusQueryAlgebra, RpcChannelResource}
 import org.bitcoins.commons.jsonmodels.bitcoind.BalanceInfo
-import org.bitcoins.core.currency.{Bitcoins, CurrencyUnit}
+import org.bitcoins.core.currency.{Bitcoins, BitcoinsInt, CurrencyUnit}
 import org.bitcoins.core.number.{Int32, UInt32}
 import org.bitcoins.core.protocol.script.{RawScriptPubKey, ScriptSignature}
 import org.bitcoins.core.protocol.transaction._
@@ -140,6 +140,23 @@ package object playground {
     val outputs = Map(toAddr -> Bitcoins(fromAmount.toBigDecimal - 1)) // 1 BTC as fee
     println(s"Creating tx with input: $input and outputs: $outputs")
     handleCall(rpcCli.createRawTransaction(Vector(input), outputs)).get
+  }
+
+  def fundFromDummy(recipientAddr: BitcoinAddress): Unit = {
+    val utxo = handleCall(rpcCli.listUnspent("dummy")).get.find(_.amount > 25.bitcoins).get
+    // The input has moret than 25BTC
+    val inputs = Vector(TransactionInput.fromTxidAndVout(utxo.txid, UInt32(utxo.vout)))
+
+    val changeAddr = handleCall(rpcCli.getNewAddress(Some("dummy"))).get
+    val outputs = Map(recipientAddr -> 25.bitcoins, changeAddr -> 24.bitcoins) // 1 btc fee
+
+    val unprovenTx = handleCall(rpcCli.createRawTransaction(inputs, outputs)).get
+    val provenTx = handleCall(rpcCli.signRawTransactionWithWallet(unprovenTx, Some("dummy"))).get.hex
+    println("Sending: ")
+    println(provenTx)
+
+    handleCall(rpcCli.sendRawTransaction(provenTx, 0)).get
+    mineBlocks(1)
   }
 
   implicit val transformType: FunctionK[IO, IO] = FunctionK.id[IO]

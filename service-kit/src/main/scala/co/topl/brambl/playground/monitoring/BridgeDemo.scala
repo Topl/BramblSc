@@ -5,12 +5,11 @@ import cats.effect.unsafe.implicits.global
 import cats.effect.{ExitCode, IO, IOApp}
 import cats.implicits._
 import co.topl.brambl.builders.TransactionBuilderApi.implicits.lockAddressOps
-import co.topl.brambl.codecs.AddressCodecs
-import co.topl.brambl.models.{LockAddress, TransactionId}
+import co.topl.brambl.models.LockAddress
 import co.topl.brambl.playground.ScriptBuilder.{PegIn, PegOut}
 import co.topl.brambl.playground.monitoring.Models.{BridgeRequest, BridgeResponse}
 import co.topl.brambl.playground.monitoring.MonitoringService.ToMonitor
-import co.topl.brambl.playground.{handleCall, rpcCli, txBuilder, Bridge, ScriptBuilder}
+import co.topl.brambl.playground.{Bridge, ScriptBuilder, handleCall, mineBlocks, rpcCli, txBuilder}
 import co.topl.brambl.utils.Encoding
 import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
 import org.bitcoins.core.protocol.BitcoinAddress
@@ -21,6 +20,8 @@ import java.net.InetSocketAddress
 object BridgeDemo extends IOApp {
   println("Initializing bridge...")
   val bridge: Bridge = Bridge()
+  println("funding dummy wallet...")
+  mineBlocks(250)
 
   implicit class HttpReq(req: HttpExchange) {
 
@@ -37,16 +38,6 @@ object BridgeDemo extends IOApp {
       val params = req.getParams
       BridgeRequest(params("hash"), params("bitcoinPk"), params("toplVk"))
     }
-  }
-
-  def test(): HttpHandler = (exchange: HttpExchange) => {
-    val os: OutputStream = exchange.getResponseBody
-    val params = exchange.getParams
-    val response = "data: " + params.map(p => s"${p._1} -> ${p._2}").mkString(", ")
-    println(response)
-    exchange.sendResponseHeaders(200, response.length())
-    os.write(response.getBytes())
-    os.close()
   }
 
   def initiateRequest(request: BridgeRequest, scriptBuilder: ScriptBuilder): BridgeResponse = {
@@ -108,18 +99,6 @@ object BridgeDemo extends IOApp {
       os.close()
     }
 
-  // Temporary until Monitor Service is ready
-  def notifyOfTbtcClaim(): HttpHandler = (exchange: HttpExchange) => {
-    val params = exchange.getParams
-    val txId = TransactionId.parseFrom(Encoding.decodeFromHex(params("txId")).toOption.get)
-    val addr = AddressCodecs.decodeAddress(params("addr")).toOption.get
-    bridge.claimBtc(txId, addr)
-    val response = "notified bridge of tbtc claim"
-    exchange.sendResponseHeaders(200, response.length())
-    val os: OutputStream = exchange.getResponseBody
-    os.write(response.getBytes())
-    os.close()
-  }
 
   override def run(args: List[String]): IO[ExitCode] =
     for {
@@ -133,8 +112,6 @@ object BridgeDemo extends IOApp {
         val server = HttpServer.create(new InetSocketAddress(1997), 0)
         server.createContext("/pegin", handlePegIn(pegInDescsTransfer))
         server.createContext("/pegout", handlePegOut(pegOutLockAddrsTransfer))
-        server.createContext("/notifyOfTbtcClaim", notifyOfTbtcClaim())
-        server.createContext("/test", test())
         server.setExecutor(null) // creates a default executor
         server.start()
         println("Server started on port 1997")
