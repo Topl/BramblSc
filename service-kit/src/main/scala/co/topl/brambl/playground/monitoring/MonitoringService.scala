@@ -54,12 +54,17 @@ case class MonitoringService(
       case Some(desc) => checkPegOutClaimed(desc)
       case None       => IO.unit
     }
+    val monitorPegOutReclaim = pegOutLockAddrsReclaim.take() flatMap {
+      case Some(addr) => checkPegOutReclaim(addr)
+      case None       => IO.unit
+    }
     Seq(
       monitorPegInTransfer,
       monitorPegInClaim,
       monitorPegInReClaim,
       monitorPegOutTransfer,
-      monitorPegOutClaim
+      monitorPegOutClaim,
+      monitorPegOutReclaim
     ).parSequence.foreverM
   }
 
@@ -182,6 +187,18 @@ case class MonitoringService(
         }
     }
   }
+
+  // Monitor that a Topl Address has been spent from (user reclaims TBTC)
+  // Preconditions: address is already funded (has been returned by queryUtxo)
+  def checkPegOutReclaim(addr: LockAddress): IO[Unit] = for {
+    // If we ever get here, then we know the address has been funded
+    spent <- genusQueryApi.queryUtxo(addr, txoState = TxoState.SPENT)
+    res <-
+      if (spent.exists(_.transactionOutput.value.value.isAsset)) {
+        p(s"Lock address has been spent from. Attempting to reclaim BTC ${addr.toBase58()}") *>
+        IO(bridge.reclaimBtc(addr)).start.void
+      } else pegOutLockAddrsReclaim.add(addr).start.void
+  } yield res
 }
 
 object MonitoringService {

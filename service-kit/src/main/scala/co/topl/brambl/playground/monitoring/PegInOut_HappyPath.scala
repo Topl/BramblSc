@@ -38,7 +38,7 @@ object PegInOut_HappyPath extends App {
   val pegoutResponse = alice.initiatePegOut()
   println("Alice sends TBTC to the peg-out address")
   alice.sendTbtcToAddress(pegoutResponse.toplLock)
-  println("Alice waits for the TBTC to be transferred")
+  println("Alice waits for the BTC to be transferred")
 
   (IO
     .fromFuture(

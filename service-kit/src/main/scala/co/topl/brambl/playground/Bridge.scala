@@ -8,7 +8,7 @@ import co.topl.brambl.codecs.AddressCodecs
 import co.topl.brambl.models.Event.{GroupPolicy, SeriesPolicy}
 import co.topl.brambl.models.box.{AssetMintingStatement, Attestation, Lock}
 import co.topl.brambl.models.{Indices, LockAddress, TransactionOutputAddress}
-import co.topl.brambl.playground.ScriptBuilder.PegIn
+import co.topl.brambl.playground.ScriptBuilder.{PegIn, PegOut}
 import co.topl.brambl.playground.SecretExtraction.{extractFromBitcoinTx, extractFromToplTx}
 import co.topl.brambl.syntax.{
   bigIntAsInt128,
@@ -21,7 +21,10 @@ import co.topl.brambl.syntax.{
   LvlType
 }
 import co.topl.brambl.utils.Encoding
+import co.topl.genus.services.TxoState.SPENT
 import org.bitcoins.commons.jsonmodels.bitcoind.GetTxOutResultV22
+import org.bitcoins.core.number.UInt32
+import org.bitcoins.core.protocol.BitcoinAddress
 import org.bitcoins.core.protocol.script.{P2WSHWitnessV0, ScriptWitness}
 import org.bitcoins.core.protocol.transaction.{TransactionOutPoint, WitnessTransaction}
 import quivr.models.VerificationKey
@@ -185,6 +188,7 @@ case class Bridge() {
     displayBalance()
   }
 
+  // peg in
   def triggerMinting(txOut: String, desc: String): LockAddress = {
     println(s"Bridge mints tBTC b/c BTC was sent to $desc")
     val utxo = TransactionOutPoint.fromString(txOut)
@@ -206,9 +210,22 @@ case class Bridge() {
     lockAddress
   }
 
-  // TODO: Handle the case where the bridge reclaimed the TBTC.. if that's the case, then the BTC will not be available to spend anymore
-  // case 1: User claimed TBTC
-  // case 2: Bridge reclaimed BTC
+  // peg-out
+  def triggerBtcTransfer(utxoId: TransactionOutputAddress): String = {
+    val utxo = (for {
+      tx <- bifrostQuery.fetchTransaction(utxoId.id)
+    } yield tx.get.outputs(utxoId.index)).unsafeRunSync()
+    val desc = (for {
+      idx <- toplWallet.walletStateApi.getIndicesByAddress(utxo.address.toBase58())
+    } yield btcWallet.getDescByIndices(idx.get)).unsafeRunSync()
+    val txId = btcWallet.sendBtcToDesc(desc, (utxo.value.value.quantity: BigInt).some)
+    displayBalance()
+    txId
+  }
+
+  // case 1: User claimed TBTC (bridge must claim btc, still exists)
+  // case 2: Bridge reclaimed TBTC (nothing to do, btc already claimed)
+  // peg-in
   def claimBtc(att: Attestation, lockAddr: LockAddress): Unit = {
     print("\n============================" + "Bridge claims BTC" + "============================\n")
     val desc = btcWallet.getDescByAddress(lockAddr)
@@ -240,59 +257,56 @@ case class Bridge() {
     }
   }
 
-  // TODO: Handle the case where the bridge reclaimed the BTC.. if that's the case, then the TBTC will not be available to spend anymore
+  // case 1: User claimed BTC (bridge must claim tBTC, still exists)
+  // case 2: Bridge reclaimed BTC (nothing to do, tBTC already claimed)
+  // peg-out
   def claimTbtc(proof: ScriptWitness, desc: String): Unit = {
     println("\n============================" + "Bridge claims tBTC" + "============================\n")
-    val preimage = extractFromBitcoinTx(proof)
-    val idx = btcWallet.getIndicesByDesc(desc) // should be 5/5/6
-    val digestProp = toplWallet.walletStateApi
-      .getLockByIndex(idx)
-      .map(_.get.challenges.head.getRevealed.getAnd.right.getDigest)
-      .unsafeRunSync()
-    println(preimage, digestProp)
-    toplWallet.walletStateApi.addPreimage(preimage, digestProp).unsafeRunSync()
-    val claimAsset = for {
-      inputLock    <- toplWallet.walletStateApi.getLockByIndex(idx).map(_.get)
-      inputAddress <- txBuilder.lockAddress(Lock().withPredicate(inputLock))
-      txos         <- genusQueryApi.queryUtxo(inputAddress)
-      trivialAddr <- toplWallet.walletStateApi
-        .getAddress("nofellowship", "genesis", None)
-        .map(addr => AddressCodecs.decodeAddress(addr.get).toOption.get)
-      unprovenTx <- txBuilder.buildTransferAllTransaction(
-        txos,
-        inputLock,
-        trivialAddr, // trivial, will remove
-        trivialAddr,
-        0L // TODO: Fee should be able to be a non LVL type
-      )
-      provenTx <- toplWallet.credentialler.prove(unprovenTx.toOption.get)
-      txId     <- bifrostQuery.broadcastTransaction(provenTx)
-    } yield (txId, provenTx, inputAddress)
-    claimAsset.unsafeRunSync()
-    Thread.sleep(15000)
-    println(s"Bridge burned tBTC")
-    displayBalance()
+    val addr = btcWallet.getAddressByDesc(desc)
+    // checking state=Spent because there is a delay for txo to be removed from UNSPENT
+    val isSpendable =
+      !genusQueryApi.queryUtxo(addr, txoState = SPENT).unsafeRunSync().exists(_.transactionOutput.value.value.isAsset)
+    if (isSpendable) { // tBTC is not claimed yet, bridge should claim
+      val preimage = extractFromBitcoinTx(proof)
+      val idx = btcWallet.getIndicesByDesc(desc)
+      val digestProp = toplWallet.walletStateApi
+        .getLockByIndex(idx)
+        .map(_.get.challenges.head.getRevealed.getAnd.right.getDigest)
+        .unsafeRunSync()
+      toplWallet.walletStateApi.addPreimage(preimage, digestProp).unsafeRunSync()
+      val claimAsset = for {
+        inputLock    <- toplWallet.walletStateApi.getLockByIndex(idx).map(_.get)
+        inputAddress <- txBuilder.lockAddress(Lock().withPredicate(inputLock))
+        txos         <- genusQueryApi.queryUtxo(inputAddress)
+        trivialAddr <- toplWallet.walletStateApi
+          .getAddress("nofellowship", "genesis", None)
+          .map(addr => AddressCodecs.decodeAddress(addr.get).toOption.get)
+        unprovenTx <- txBuilder.buildTransferAllTransaction(
+          txos,
+          inputLock,
+          trivialAddr, // trivial, will remove
+          trivialAddr,
+          0L // TODO: Fee should be able to be a non LVL type
+        )
+        provenTx <- toplWallet.credentialler.prove(unprovenTx.toOption.get)
+        txId     <- bifrostQuery.broadcastTransaction(provenTx)
+      } yield (txId, provenTx, inputAddress)
+      claimAsset.unsafeRunSync()
+      Thread.sleep(15000)
+      println(s"Bridge burned tBTC")
+      displayBalance()
+    } else { // tBTC is already claimed (from user). Nothing to do
+      println("tBTC is already claimed... nothing to do")
+    }
   }
 
-  def triggerBtcTransfer(utxoId: TransactionOutputAddress): String = {
-    val utxo = (for {
-      tx <- bifrostQuery.fetchTransaction(utxoId.id)
-    } yield tx.get.outputs(utxoId.index)).unsafeRunSync()
-    val desc = (for {
-      idx <- toplWallet.walletStateApi.getIndicesByAddress(utxo.address.toBase58())
-    } yield btcWallet.getDescByIndices(idx.get)).unsafeRunSync()
-    val txId = btcWallet.sendBtcToDesc(desc, (utxo.value.value.quantity: BigInt).some)
-    displayBalance()
-    txId
-  }
-
+  // peg in
   def reclaimTbtc(desc: String): Unit = {
     // At this point in time, we don't know what triggered this.. The bridge could have claimed BTC, or the user could have reclaimed BTC
     // 1: If the user reclaimed BTC, then the TBTC is still available to be claimed
     // 2: If the bridge claimed the BTC, then the TBTC is no longer available to be claimed (the bridge needs to extract the secret from the Topl TX)
     // Therefore, if the topl LockAddress is still unspent, then we know that the user has reclaimed their BTC, and the bridge can reclaim the TBTC
     val idx = btcWallet.getIndicesByDesc(desc)
-    println(s"reclaim tbtc, idx: $idx")
     (for {
       lock        <- toplWallet.walletStateApi.getLockByIndex(idx).map(_.get)
       lockAddress <- txBuilder.lockAddress(Lock().withPredicate(lock))
@@ -320,6 +334,37 @@ case class Bridge() {
         println(s"Bridge burned tBTC")
     }).unsafeRunSync()
     displayBalance()
+  }
+
+  // peg out
+  def reclaimBtc(addr: LockAddress): Unit = {
+    // At this point in time, we don't know what triggered this.. The bridge could have claimed TBTC, or the user could have reclaimed TBTC
+    // 1: If the user reclaimed TBTC, then the BTC is still available to be claimed
+    // 2: If the bridge claimed the TBTC, then the BTC is no longer available to be claimed (the bridge needs to extract the secret from the Bitcoin TX)
+    // Therefore, if the bitcoin desc is still unspent, then we know that the user has reclaimed their TBTC, and the bridge can reclaim the BTC
+    val desc = btcWallet.getDescByAddress(addr)
+    val expectedAddr = BitcoinAddress(handleCall(rpcCli.deriveOneAddress(walletName = btcWallet.watcherName, desc)).get)
+    val allUtxos = handleCall(rpcCli.listUnspent(walletName = btcWallet.watcherName)).get
+    allUtxos.find(_.address.get == expectedAddr) match {
+      case Some(utxo) => // case 1: user reclaimed TBTC, bridge reclaims BTC
+        println("> Bridge creating unproven TX...")
+        val tx = btcWallet.createToWalletTx(TransactionOutPoint(utxo.txid.flip, UInt32(utxo.vout)))
+        println("> Bridge deriving witnessScript...")
+        val scriptInner = PegOut.descToScriptPubKey(desc)
+        println("> Bridge derives script signature...")
+        val idx = btcWallet.getIndicesByDesc(desc)
+        val bridgeSig = SignatureBuilder.PegOut.getReclaimSig(
+          getTxSignature(tx, scriptInner, btcWallet.getChildSecretKey(idx).hex)
+        )
+        println("> Bridge adds the witness to the TX...")
+        val txWit = WitnessTransaction.toWitnessTx(tx).updateWitness(0, P2WSHWitnessV0(scriptInner, bridgeSig))
+        println("> Bridge submits TX...")
+        handleCall(rpcCli.sendRawTransaction(txWit, 0)).get
+        mineBlocks(1)
+        displayBalance()
+      case None => // case 2: bridge claimed TBTC, nothing to do
+        println("BTC is already claimed... nothing to do")
+    }
   }
 
   def displayBalance(): Unit = {

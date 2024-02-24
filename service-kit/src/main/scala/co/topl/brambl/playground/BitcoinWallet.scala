@@ -114,6 +114,9 @@ class BitcoinWallet(val walletName: String) {
   def getDescByAddress(lockAddr: LockAddress): String =
     cartesianIndexing.find(_.lockAddr == lockAddr).get.desc
 
+  def getAddressByDesc(desc: String): LockAddress =
+    cartesianIndexing.find(_.desc == desc).get.lockAddr
+
   // Storing desc => txOut since ATM we can't query bitcoin core just using desc
   private case class DescTxOut(desc: String, txOut: String)
   private var descTxOutIndexing: Seq[DescTxOut] = Seq()

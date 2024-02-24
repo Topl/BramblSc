@@ -233,6 +233,47 @@ case class User(walletName: String) {
     txId._1
   }
 
+  def reclaimTbtc(inputAddress: LockAddress): TransactionId = {
+    println("\n============================" + s"$walletName reclaims tBTC" + "============================\n")
+    val claimAsset = for {
+      inputLock <- toplWallet.walletStateApi.getLockByAddress(inputAddress.toBase58()).map(_.get)
+      txos      <- genusQueryApi.queryUtxo(inputAddress)
+      claimIdx  <- toplWallet.walletStateApi.getNextIndicesForFunds("self", "default").map(_.get)
+      claimLock <- toplWallet.walletStateApi.getLock("self", "default", claimIdx.z)
+      claimAddr <- txBuilder.lockAddress(claimLock.get)
+      claimVk <- toplWallet.walletStateApi.getEntityVks("self", "default").map(_.get.head) flatMap { vk =>
+        toplWallet.walletApi.deriveChildVerificationKey(
+          VerificationKey.parseFrom(Encoding.decodeFromBase58(vk).toOption.get),
+          claimIdx.z
+        )
+      }
+      _ <- toplWallet.walletStateApi.updateWalletState(
+        Encoding.encodeToBase58Check(claimLock.get.getPredicate.toByteArray),
+        claimAddr.toBase58(),
+        Some("ExtendedEd25519"),
+        Some(Encoding.encodeToBase58(claimVk.toByteArray)),
+        claimIdx
+      )
+      unprovenTx <- txBuilder.buildTransferAllTransaction(
+        txos,
+        inputLock,
+        claimAddr,
+        claimAddr,
+        0L // TODO: Fee should be able to be a non LVL type
+      )
+      provenTx <- toplWallet.credentialler.prove(unprovenTx.toOption.get)
+      txId     <- bifrostQuery.broadcastTransaction(provenTx)
+    } yield (txId, claimAddr)
+    val txId = claimAsset.unsafeRunSync()
+    println("waiting 20 seconds for the transaction to be processed")
+    IO.unit.andWait(20.seconds).unsafeRunSync()
+    println("getting balance")
+    val tbtcBalance = toplWallet.getTbtcBalance(txId._2)
+    println(s"$walletName owns $tbtcBalance tBTC (claimed)")
+    displayBalance()
+    txId._1
+  }
+
   def displayBalance(): Unit = {
     val balance = Seq(
       toplWallet.getBalance(),
