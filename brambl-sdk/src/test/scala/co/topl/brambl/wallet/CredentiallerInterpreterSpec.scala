@@ -730,6 +730,7 @@ class CredentiallerInterpreterSpec extends CatsEffectSuite with MockHelpers {
       override def getPreimage(digestProposition: Proposition.Digest): F[Option[Preimage]] = ???
       override def addPreimage(preimage:          Preimage, digest: Proposition.Digest): IO[Unit] = ???
       override def getCurrentAddress: F[String] = ???
+
       override def updateWalletState(
         lockPredicate: String,
         lockAddress:   String,
@@ -737,11 +738,13 @@ class CredentiallerInterpreterSpec extends CatsEffectSuite with MockHelpers {
         vk:            Option[String],
         indices:       Indices
       ): F[Unit] = ???
+
       override def getCurrentIndicesForFunds(
         fellowship: String,
         contract:   String,
         someState:  Option[Int]
       ): F[Option[Indices]] = ???
+
       override def validateCurrentIndicesForFunds(
         fellowship: String,
         contract:   String,
