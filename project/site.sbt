@@ -1,7 +1,7 @@
 
 Seq(
   "com.eed3si9n"            % "sbt-assembly"              % "2.1.5",
-  "org.scoverage"           % "sbt-scoverage"             % "2.0.9",
+  "org.scoverage"           % "sbt-scoverage"             % "2.0.11",
   "com.github.sbt"          % "sbt-release"               % "1.4.0",
   "org.scalameta"           % "sbt-scalafmt"              % "2.5.2",
   "ch.epfl.scala"           % "sbt-scalafix"              % "0.11.1",
