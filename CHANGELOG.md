@@ -7,9 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - YYYY-MM-DD - TODO replace date after release 
 
+## [v2.0.0-beta3] - 2024-03-04
+
 ### Added
 
 - Support for Sha256 Digest Propositions in the SDK. This change allows successful Quivr validation of a Digest Proposition with routine="Sha256".
+
+### Changed
+
+- Use Async[F].cede to prevent starvation
 
 ## [v2.0.0-beta2] - 2024-01-10
 
