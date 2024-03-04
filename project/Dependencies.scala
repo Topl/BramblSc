@@ -7,7 +7,7 @@ object Dependencies {
     val catsCoreVersion = "2.10.0"
     val simulacrumVersion = "1.0.1"
     val circeVersion = "0.14.6"
-    val protobufSpecsVersion = "2.0.0-beta0"
+    val protobufSpecsVersion = "2.0.0-beta2"
     val mUnitTeVersion = "0.7.29"
   }
 
@@ -30,7 +30,7 @@ object Dependencies {
   )
 
   val scalatest: Seq[ModuleID] = Seq(
-    "org.scalatest"    %% "scalatest"                     % "3.2.17",
+    "org.scalatest"    %% "scalatest"                     % "3.2.18",
     "com.ironcorelabs" %% "cats-scalatest"                % "3.1.1",
     "org.typelevel"    %% "cats-effect-testing-scalatest" % "1.5.0"
   )
@@ -48,9 +48,9 @@ object Dependencies {
 
   val cats: Seq[ModuleID] = Seq(
     "org.typelevel" %% "cats-core"   % catsCoreVersion,
-    "org.typelevel" %% "mouse"       % "1.2.1",
+    "org.typelevel" %% "mouse"       % "1.2.3",
     "org.typelevel" %% "cats-free"   % catsCoreVersion,
-    "org.typelevel" %% "cats-effect" % "3.5.2"
+    "org.typelevel" %% "cats-effect" % "3.5.3"
   )
 
   val simulacrum: Seq[ModuleID] = Seq(
@@ -62,10 +62,10 @@ object Dependencies {
   )
 
   val sqlite: Seq[ModuleID] = Seq(
-    "org.xerial" % "sqlite-jdbc" % "3.44.0.0"
+    "org.xerial" % "sqlite-jdbc" % "3.44.1.0"
   )
 
-  val grpcNetty = "io.grpc" % "grpc-netty" % "1.59.0"
+  val grpcNetty = "io.grpc" % "grpc-netty" % "1.59.1"
 
   object Crypto {
 
