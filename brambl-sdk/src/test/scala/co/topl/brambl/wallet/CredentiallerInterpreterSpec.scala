@@ -11,7 +11,7 @@ import co.topl.brambl.common.ContainsSignable.instances._
 import co.topl.brambl.dataApi.WalletStateAlgebra
 import co.topl.brambl.models.box._
 import co.topl.brambl.models.transaction.IoTransaction
-import co.topl.brambl.models.{Datum, Event, Indices}
+import co.topl.brambl.models.{Datum, Event, Indices, LockAddress}
 import co.topl.brambl.syntax.{cryptoToPbKeyPair, pbKeyPairToCryptoKeyPair}
 import co.topl.brambl.validation.TransactionAuthorizationError.AuthorizationFailed
 import co.topl.brambl.validation.TransactionSyntaxError
@@ -760,6 +760,10 @@ class CredentiallerInterpreterSpec extends CatsEffectSuite with MockHelpers {
       override def getLock(fellowship:          String, contract:     String, nextState: Int): F[Option[Lock]] = ???
 
       override def getLockByAddress(lockAddress: String): F[Option[Lock.Predicate]] = ???
+
+      override def getIndicesByAddress(lockAddress: String): F[Option[Indices]] = ???
+
+      override def getCurrentAddresses(includeGenesis: Boolean): F[Seq[(Indices, LockAddress)]] = ???
     }
     val aliceDataApi = MockWalletStateApi
     val bobDataApi = NewWalletStateApi

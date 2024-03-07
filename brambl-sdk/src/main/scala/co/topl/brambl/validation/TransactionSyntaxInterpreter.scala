@@ -6,14 +6,12 @@ import cats.implicits._
 import co.topl.brambl.common.ContainsImmutable.ContainsImmutableTOps
 import co.topl.brambl.common.ContainsImmutable.instances._
 import co.topl.brambl.models.TransactionOutputAddress
-import co.topl.brambl.models.{SeriesId, TransactionOutputAddress}
-import co.topl.brambl.models.Datum.GroupPolicy
-import co.topl.brambl.models.{SeriesId, TransactionOutputAddress}
 import co.topl.brambl.models.box._
 import co.topl.brambl.models.transaction.{IoTransaction, SpentTransactionOutput, UnspentTransactionOutput}
 import co.topl.brambl.syntax._
 import co.topl.brambl.validation.algebras.TransactionSyntaxVerifier
 import quivr.models.{Int128, Proof, Proposition}
+
 import scala.util.Try
 
 object TransactionSyntaxInterpreter {
@@ -295,6 +293,7 @@ object TransactionSyntaxInterpreter {
       input  <- tupleAndGroup(inputAssets).toEither
       minted <- tupleAndGroup(mintedAsset).toEither
       output <- tupleAndGroup(outputAssets).toEither
+      // TODO: Allow burning of assets
       keySetResult = input.keySet ++ minted.keySet == output.keySet
       compareResult = output.keySet.forall(k =>
         input.getOrElse(k, 0: BigInt) + minted.getOrElse(k, 0) == output.getOrElse(k, 0)
