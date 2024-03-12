@@ -10,7 +10,13 @@ import org.bitcoins.core.protocol.blockchain.Block
 import org.bitcoins.core.protocol.transaction.Transaction
 import org.bitcoins.crypto.DoubleSha256DigestBE
 import org.bitcoins.rpc.client.common.BitcoindRpcClient
-import org.bitcoins.rpc.config.{BitcoindAuthCredentials, BitcoindInstanceLocal}
+import org.bitcoins.rpc.config.{
+  BitcoindAuthCredentials,
+  BitcoindInstance,
+  BitcoindInstanceLocal,
+  BitcoindInstanceRemote
+}
+import org.bitcoins.tor.Socks5ProxyParams
 import org.bitcoins.zmq.ZMQSubscriber
 
 import java.io.File
@@ -52,23 +58,43 @@ object BitcoinMonitor {
      * Connection to the bitcoind RPC server instance
      * @param network Parameters of a given network to be used
      * @param host The host to connect to the bitcoind instance
-     * @param rpcUser rpc username
-     * @param rpcPassword rpc password
+     * @param credentials rpc credentials
      * @param binary the bitcoind executable
      * @return
      */
-    def connection(
+    def localConnection(
       network:     NetworkParameters,
       host:        String,
-      rpcUser:     String,
-      rpcPassword: String,
+      credentials: BitcoindAuthCredentials,
       binary:      File
     ): BitcoindInstanceLocal = BitcoindInstanceLocal(
       network = network,
       uri = new URI(s"$host:${network.port}"),
       rpcUri = new URI(s"$host:${network.rpcPort}"),
-      authCredentials = BitcoindAuthCredentials.PasswordBased(rpcUser, rpcPassword),
+      authCredentials = credentials,
       binary = binary
+    )
+
+    /**
+     * Connection to the bitcoind RPC server instance
+     *
+     * @param network     Parameters of a given network to be used
+     * @param host        The host to connect to the bitcoind instance
+     * @param credentials rpc credentials
+     * @param proxyParams proxy parameters
+     * @return
+     */
+    def remoteConnection(
+      network:     NetworkParameters,
+      host:        String,
+      credentials: BitcoindAuthCredentials,
+      proxyParams: Option[Socks5ProxyParams] = None
+    ): BitcoindInstanceRemote = BitcoindInstanceRemote(
+      network = network,
+      uri = new URI(s"$host:${network.port}"),
+      rpcUri = new URI(s"$host:${network.rpcPort}"),
+      authCredentials = credentials,
+      proxyParams = proxyParams
     )
   }
 
@@ -82,7 +108,6 @@ object BitcoinMonitor {
 
   private def addToQueue(blockQueue: Queue[IO, BitcoinBlock]): Block => Unit = (block: Block) => {
     import cats.effect.unsafe.implicits.global
-    // Using unsafeRunSync since integrating with non-functional code
     blockQueue.offer(BitcoinBlock(block)).unsafeRunSync()
   }
 
@@ -98,14 +123,14 @@ object BitcoinMonitor {
 
   /**
    * Initialize and return a BitcoinMonitor instance.
-   * @param bitcoindInstance The local bitcoind instance to monitor
+   * @param bitcoindInstance The bitcoind instance to monitor
    * @param startBlock The hash of a past block. Used to retroactively report blocks. The bitcoin monitor will report all blocks starting at this block.
    * @param zmqHost The host in which the underlying ZmqSubscriber will be connected to. This is used to capture newly minted blocks.
    * @param zmqPort The port in which the underlying ZmqSubscriber will be connected to. This is used to capture newly minted blocks.
    * @return An instance of a BitcoinMonitor
    */
   def apply(
-    bitcoindInstance: BitcoindInstanceLocal,
+    bitcoindInstance: BitcoindInstance,
     startBlock:       Option[DoubleSha256DigestBE] = None,
     zmqHost:          String = "127.0.0.1",
     zmqPort:          Int = 28332
