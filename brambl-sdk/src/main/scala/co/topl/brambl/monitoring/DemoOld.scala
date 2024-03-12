@@ -7,7 +7,7 @@ import fs2.{Pipe, Stream}
 
 object DemoOld extends App {
   def myPipe: Pipe[IO, BitcoinBlock[IO], String] = _.flatMap(block => {
-    Stream(s"Block: ${block.block.blockHeader.hash.hex}") ++ block.transactions.map(tx => s"   - tx:${tx.txId.flip.hex}")
+    Stream(s"Block: ${block.block.blockHeader.hash.flip.hex}") ++ block.transactions.map(tx => s"   - tx:${tx.txId.flip.hex}")
   })
 
   val bitcoinMonitor = BitcoinMonitorOld().map(_.monitorBlocks().through(myPipe).map(println))

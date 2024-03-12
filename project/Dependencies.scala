@@ -71,7 +71,7 @@ object Dependencies {
   val btc: Seq[ModuleID] = Seq(
     "org.bitcoin-s" %% "bitcoin-s-core" % btcVersion,
     "org.bitcoin-s" %% "bitcoin-s-zmq" % btcVersion,
-    "org.bitcoin-s" %% "bitcoin-s-node" % btcVersion
+    "org.bitcoin-s" %% "bitcoin-s-bitcoind-rpc" % btcVersion
   )
 
   object Crypto {
