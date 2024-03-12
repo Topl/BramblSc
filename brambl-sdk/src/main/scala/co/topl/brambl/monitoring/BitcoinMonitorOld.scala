@@ -3,7 +3,7 @@ package co.topl.brambl.monitoring
 import cats.effect.IO
 import cats.effect.std.Queue
 import cats.effect.unsafe.implicits.global
-import co.topl.brambl.monitoring.BitcoinMonitor.{BitcoinBlock, initZmqSubscriber}
+import co.topl.brambl.monitoring.BitcoinMonitorOld.{BitcoinBlock, initZmqSubscriber}
 import fs2.Stream
 import org.bitcoins.core.protocol.blockchain.Block
 import org.bitcoins.core.protocol.transaction.Transaction
@@ -17,14 +17,14 @@ import java.net.InetSocketAddress
     // With the headers, query for the blocks themselves (???) and add to stream
 // TODO: Try to use Type parameter F
 
-class BitcoinMonitor(val blockQueue: Queue[IO, Block]) {
+class BitcoinMonitorOld(val blockQueue: Queue[IO, Block]) {
   val subscriber: ZMQSubscriber = initZmqSubscriber(blockQueue)
   subscriber.start()
   def monitorBlocks(): Stream[IO, BitcoinBlock[IO]] =
     Stream.fromQueueUnterminated(blockQueue).through(s => s.map(block => BitcoinBlock(block)))
 }
 
-object BitcoinMonitor {
+object BitcoinMonitorOld {
   case class BitcoinBlock[F[_]](block: Block){
     def transactions: Stream[F, Transaction] = Stream.emits(block.transactions)
   }
@@ -32,6 +32,6 @@ object BitcoinMonitor {
     blockQueue.offer(block).unsafeRunSync()
   def initZmqSubscriber(blockQueue: Queue[IO, Block], host: String = "127.0.0.1", port: Int = 28332): ZMQSubscriber =
     new ZMQSubscriber(new InetSocketAddress(host, port), None, None, None, Some(addToQueue(blockQueue)))
-  def apply(startBlock: Option[Block] = None): IO[BitcoinMonitor] =
-    Queue.unbounded[IO, Block].map(q => new BitcoinMonitor(q))
+  def apply(startBlock: Option[Block] = None): IO[BitcoinMonitorOld] =
+    Queue.unbounded[IO, Block].map(q => new BitcoinMonitorOld(q))
 }
