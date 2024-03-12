@@ -3,7 +3,7 @@ package co.topl.brambl.monitoring
 import akka.actor.ActorSystem
 import cats.effect.IO
 import cats.effect.std.Queue
-import co.topl.brambl.monitoring.BitcoinMonitor.{BitcoinBlock, initZmqSubscriber}
+import co.topl.brambl.monitoring.BitcoinMonitor.{initZmqSubscriber, BitcoinBlock}
 import fs2.Stream
 import org.bitcoins.core.config.NetworkParameters
 import org.bitcoins.core.protocol.blockchain.Block
@@ -19,7 +19,6 @@ import scala.annotation.tailrec
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, Future}
 
-
 /**
  * Class to monitor incoming bitcoin blocks via a queue.
  * @param blockQueue The queue in which new blocks will be added to
@@ -27,7 +26,12 @@ import scala.concurrent.{Await, Future}
  * @param zmqHost The host where the monitor will be subscribed to
  * @param zmqPort The port where the monitor will be subscribed to
  */
-class BitcoinMonitor(blockQueue: Queue[IO, BitcoinBlock], startingBlocks: Vector[BitcoinBlock], zmqHost: String, zmqPort: Int) {
+class BitcoinMonitor(
+  blockQueue:     Queue[IO, BitcoinBlock],
+  startingBlocks: Vector[BitcoinBlock],
+  zmqHost:        String,
+  zmqPort:        Int
+) {
   val subscriber: ZMQSubscriber = initZmqSubscriber(blockQueue, zmqHost, zmqPort)
   subscriber.start()
 
@@ -40,6 +44,7 @@ class BitcoinMonitor(blockQueue: Queue[IO, BitcoinBlock], startingBlocks: Vector
 }
 
 object BitcoinMonitor {
+
   object Bitcoind {
     implicit val system: ActorSystem = ActorSystem("System")
 
@@ -52,7 +57,13 @@ object BitcoinMonitor {
      * @param binary the bitcoind executable
      * @return
      */
-    def connection(network: NetworkParameters, host: String, rpcUser: String, rpcPassword: String, binary: File): BitcoindInstanceLocal = BitcoindInstanceLocal(
+    def connection(
+      network:     NetworkParameters,
+      host:        String,
+      rpcUser:     String,
+      rpcPassword: String,
+      binary:      File
+    ): BitcoindInstanceLocal = BitcoindInstanceLocal(
       network = network,
       uri = new URI(s"$host:${network.port}"),
       rpcUri = new URI(s"$host:${network.rpcPort}"),
@@ -65,7 +76,7 @@ object BitcoinMonitor {
    * A wrapper for a bitcoin Block.
    * @param block The bitcoin Block being wrapped
    */
-  case class BitcoinBlock(block: Block){
+  case class BitcoinBlock(block: Block) {
     def transactions[F[_]]: Stream[F, Transaction] = Stream.emits(block.transactions)
   }
 
@@ -93,17 +104,24 @@ object BitcoinMonitor {
    * @param zmqPort The port in which the underlying ZmqSubscriber will be connected to. This is used to capture newly minted blocks.
    * @return An instance of a BitcoinMonitor
    */
-  def apply(bitcoindInstance: BitcoindInstanceLocal, startBlock: Option[DoubleSha256DigestBE] = None, zmqHost: String = "127.0.0.1", zmqPort: Int = 28332): IO[BitcoinMonitor] = {
+  def apply(
+    bitcoindInstance: BitcoindInstanceLocal,
+    startBlock:       Option[DoubleSha256DigestBE] = None,
+    zmqHost:          String = "127.0.0.1",
+    zmqPort:          Int = 28332
+  ): IO[BitcoinMonitor] = {
     import cats.effect.unsafe.implicits.global
     implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
     val bitcoind = BitcoindRpcClient(bitcoindInstance)
 
     @tailrec
-    def getBlockHashes(curHash: Option[DoubleSha256DigestBE], prevHashes: Vector[DoubleSha256DigestBE] = Vector.empty[DoubleSha256DigestBE]): Vector[DoubleSha256DigestBE] = curHash match {
-      case Some(blockHash) => {
+    def getBlockHashes(
+      curHash:    Option[DoubleSha256DigestBE],
+      prevHashes: Vector[DoubleSha256DigestBE] = Vector.empty[DoubleSha256DigestBE]
+    ): Vector[DoubleSha256DigestBE] = curHash match {
+      case Some(blockHash) =>
         val blockRes = Await.result(bitcoind.getBlock(blockHash), 5.seconds)
         getBlockHashes(blockRes.nextblockhash, prevHashes.appended(blockHash))
-      }
       case None => prevHashes
     }
     val existingHashes = getBlockHashes(startBlock)
@@ -114,8 +132,7 @@ object BitcoinMonitor {
       startingBlocks <- IO.fromFuture(
         IO(
           Future.sequence(
-            existingHashes.map(
-              hash => bitcoind.getBlockRaw(hash).map(b => BitcoinBlock(b))(ec))
+            existingHashes.map(hash => bitcoind.getBlockRaw(hash).map(b => BitcoinBlock(b))(ec))
           )
         )
       )
