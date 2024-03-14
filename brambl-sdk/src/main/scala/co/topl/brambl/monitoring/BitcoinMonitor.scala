@@ -10,12 +10,7 @@ import org.bitcoins.core.protocol.blockchain.Block
 import org.bitcoins.core.protocol.transaction.Transaction
 import org.bitcoins.crypto.DoubleSha256DigestBE
 import org.bitcoins.rpc.client.common.BitcoindRpcClient
-import org.bitcoins.rpc.config.{
-  BitcoindAuthCredentials,
-  BitcoindInstance,
-  BitcoindInstanceLocal,
-  BitcoindInstanceRemote
-}
+import org.bitcoins.rpc.config.{BitcoindAuthCredentials, BitcoindInstanceLocal, BitcoindInstanceRemote}
 import org.bitcoins.tor.Socks5ProxyParams
 import org.bitcoins.zmq.ZMQSubscriber
 
@@ -67,12 +62,14 @@ object BitcoinMonitor {
       host:        String,
       credentials: BitcoindAuthCredentials,
       binary:      File
-    ): BitcoindInstanceLocal = BitcoindInstanceLocal(
-      network = network,
-      uri = new URI(s"$host:${network.port}"),
-      rpcUri = new URI(s"$host:${network.rpcPort}"),
-      authCredentials = credentials,
-      binary = binary
+    ): BitcoindRpcClient = BitcoindRpcClient(
+      BitcoindInstanceLocal(
+        network = network,
+        uri = new URI(s"$host:${network.port}"),
+        rpcUri = new URI(s"$host:${network.rpcPort}"),
+        authCredentials = credentials,
+        binary = binary
+      )
     )
 
     /**
@@ -89,12 +86,14 @@ object BitcoinMonitor {
       host:        String,
       credentials: BitcoindAuthCredentials,
       proxyParams: Option[Socks5ProxyParams] = None
-    ): BitcoindInstanceRemote = BitcoindInstanceRemote(
-      network = network,
-      uri = new URI(s"$host:${network.port}"),
-      rpcUri = new URI(s"$host:${network.rpcPort}"),
-      authCredentials = credentials,
-      proxyParams = proxyParams
+    ): BitcoindRpcClient = BitcoindRpcClient(
+      BitcoindInstanceRemote(
+        network = network,
+        uri = new URI(s"$host:${network.port}"),
+        rpcUri = new URI(s"$host:${network.rpcPort}"),
+        authCredentials = credentials,
+        proxyParams = proxyParams
+      )
     )
   }
 
@@ -130,14 +129,12 @@ object BitcoinMonitor {
    * @return An instance of a BitcoinMonitor
    */
   def apply(
-    bitcoindInstance: BitcoindInstance,
-    startBlock:       Option[DoubleSha256DigestBE] = None,
-    zmqHost:          String = "127.0.0.1",
-    zmqPort:          Int = 28332
+    bitcoind:   BitcoindRpcClient,
+    startBlock: Option[DoubleSha256DigestBE] = None,
+    zmqHost:    String = "127.0.0.1",
+    zmqPort:    Int = 28332
   ): IO[BitcoinMonitor] = {
-    import cats.effect.unsafe.implicits.global
     implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
-    val bitcoind = BitcoindRpcClient(bitcoindInstance)
 
     @tailrec
     def getBlockHashes(
