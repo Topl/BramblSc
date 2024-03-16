@@ -14,7 +14,7 @@ import java.nio.file.Paths
 object Demo extends App {
 
   // This (username, password) pair comes from 'rpcuser' and 'rpcpassword' in your bitcoin.conf file
-  val credentials = BitcoindAuthCredentials.PasswordBased("diadem", "NsLbSu6PQc4vYlz")
+  val credentials = BitcoindAuthCredentials.PasswordBased("test", "NsLbSu6PQc4vYlz")
 
   // This is the path to your bitcoind executable
   val BitcoindPath = Paths.get("C:", "Program Files", "Bitcoin", "daemon", "bitcoind.exe")

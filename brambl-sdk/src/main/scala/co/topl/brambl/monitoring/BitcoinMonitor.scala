@@ -42,6 +42,11 @@ class BitcoinMonitor(
    */
   def monitorBlocks(): Stream[IO, BitcoinBlock] =
     Stream.emits(startingBlocks) ++ Stream.fromQueueUnterminated(blockQueue)
+
+  /**
+   * Stop monitorings
+   */
+  def stop(): Unit = subscriber.stop()
 }
 
 object BitcoinMonitor {
@@ -84,13 +89,14 @@ object BitcoinMonitor {
     def remoteConnection(
       network:     NetworkParameters,
       host:        String,
+      rpcPort: Int,
       credentials: BitcoindAuthCredentials,
       proxyParams: Option[Socks5ProxyParams] = None
     ): BitcoindRpcClient = BitcoindRpcClient(
       BitcoindInstanceRemote(
         network = network,
         uri = new URI(s"$host:${network.port}"),
-        rpcUri = new URI(s"$host:${network.rpcPort}"),
+        rpcUri = new URI(s"$host:${rpcPort}"),
         authCredentials = credentials,
         proxyParams = proxyParams
       )
