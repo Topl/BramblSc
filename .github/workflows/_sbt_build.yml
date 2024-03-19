@@ -95,6 +95,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     needs: build
     steps:
+      - name: Start bitcoind
+        uses: docker://docker
+        with:
+          args: docker run -d --rm -p 18444:18444 -p 18443:18443 -p 28332:28332 ruimarinho/bitcoin-core --name=bitcoind -chain=regtest -zmqpubrawblock=tcp://0.0.0.0:28332 -rpcuser=test -rpcpassword=test -port=18444 -rpcport=18443 -rpcbind=:18443 -rpcallowip=0.0.0.0/0
       - name: Checkout current branch
         uses: actions/checkout@v3
         with:
@@ -128,10 +132,6 @@ jobs:
             !**/test-results/**
           key: ${{ format('{0}-project-{1}-{2}', runner.os, github.base_ref, github.run_number) }}
           restore-keys: ${{ inputs.preserve-cache-between-runs && format('{0}-project-{1}-', runner.os, github.base_ref) || format('{0}-project-{1}-{2}', runner.os, github.base_ref, github.run_number) }}
-      - name: Start bitcoind
-        uses: docker://docker
-        with:
-          args: docker run -d --rm -p 18444:18444 -p 18443:18443 -p 28332:28332 ruimarinho/bitcoin-core --name=bitcoind -chain=regtest -zmqpubrawblock=tcp://0.0.0.0:28332 -rpcuser=test -rpcpassword=test -port=18444 -rpcport=18443 -rpcbind=:18443 -rpcallowip=0.0.0.0/0
       - name: Run integration tests
         run: sbt "integration / test"
       - uses: actions/download-artifact@v3
