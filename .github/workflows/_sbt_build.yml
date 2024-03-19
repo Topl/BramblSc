@@ -131,7 +131,7 @@ jobs:
       - name: Start bitcoind
         uses: docker://docker
         with:
-          args: docker run -d --rm -p 18444:18444 -p 18443:18443 -p 28332:28332 ruimarinho/bitcoin-core -chain=regtest -zmqpubrawblock=tcp://0.0.0.0:28332 -rpcuser=test -rpcpassword=test -port=18444 -rpcport=18443 -rpcbind=:18443 -rpcallowip=0.0.0.0/0
+          args: docker run -d --rm -p 18444:18444 -p 18443:18443 -p 28332:28332 ruimarinho/bitcoin-core --name=bitcoind -chain=regtest -zmqpubrawblock=tcp://0.0.0.0:28332 -rpcuser=test -rpcpassword=test -port=18444 -rpcport=18443 -rpcbind=:18443 -rpcallowip=0.0.0.0/0
       - name: Run integration tests
         run: sbt "integration / test"
       - uses: actions/download-artifact@v3
@@ -145,3 +145,7 @@ jobs:
           files: |
             integration/target/test-reports/**/*.xml
             integration/target/it-reports/**/*.xml
+      - name: Kill bitcoind
+        uses: docker://docker
+        with:
+          args: docker kill bitcoind

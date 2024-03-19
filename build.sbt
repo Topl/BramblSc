@@ -62,6 +62,14 @@ lazy val publishSettings = Seq(
         <id>mgrand</id>
         <name>Mark Grand</name>
       </developer>
+      <developer>
+        <id>DiademShoukralla</id>
+        <name>Diadem Shoukralla</name>
+      </developer>
+      <developer>
+        <id>mundacho</id>
+        <name>Edmundo Lopez Bobeda</name>
+      </developer>
     </developers>
 )
 
@@ -131,6 +139,15 @@ lazy val serviceKit = project
     libraryDependencies ++=
       Dependencies.ServiceKit.sources ++
         Dependencies.ServiceKit.tests
+  )
+  .dependsOn(bramblSdk)
+
+lazy val integration = project
+  .in(file("integration"))
+  .settings(
+    name := "integration",
+    publish / skip := true,
+    libraryDependencies ++= Dependencies.IntegrationTests.sources ++ Dependencies.IntegrationTests.tests
   )
   .dependsOn(bramblSdk)
 
