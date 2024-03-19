@@ -98,7 +98,7 @@ jobs:
       - name: Start bitcoind
         uses: docker://docker
         with:
-          args: docker run -d --rm -p 18444:18444 -p 18443:18443 -p 28332:28332 ruimarinho/bitcoin-core --name=bitcoind -chain=regtest -zmqpubrawblock=tcp://0.0.0.0:28332 -rpcuser=test -rpcpassword=test -port=18444 -rpcport=18443 -rpcbind=:18443 -rpcallowip=0.0.0.0/0
+          args: docker run -d --rm -p 18444:18444 -p 18443:18443 -p 28332:28332 ruimarinho/bitcoin-core --name=bitcoind -chain=regtest -zmqpubrawblock=tcp://0.0.0.0:28332 -rpcuser=test -rpcpassword=test -port=18444 -rpcport=18443 -rpcbind=0.0.0.0 -rpcallowip=0.0.0.0/0
       - name: Checkout current branch
         uses: actions/checkout@v3
         with:
