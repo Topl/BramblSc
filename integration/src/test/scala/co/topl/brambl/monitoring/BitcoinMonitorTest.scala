@@ -14,7 +14,7 @@ class BitcoinMonitorTest extends munit.CatsEffectSuite {
   val bitcoind = new Fixture[BitcoindRpcClient]("bitcoin-monitor") {
     val credentials = BitcoindAuthCredentials.PasswordBased(TestWallet, TestWallet)
 
-    val bitcoindInstance: BitcoindRpcClient = BitcoinMonitor.Bitcoind.remoteConnection(RegTest, "http://127.0.0.1", credentials)
+    val bitcoindInstance: BitcoindRpcClient = BitcoinMonitor.Bitcoind.remoteConnection(RegTest, "http://0.0.0.0", credentials)
     def apply() = bitcoindInstance
 
     override def beforeAll(): Unit = {
