@@ -94,14 +94,6 @@ jobs:
         java: ${{fromJson(inputs.java-versions)}}
     runs-on: ${{ matrix.os }}
     needs: build
-    services:
-      bitcoin:
-        image: ruimarinho/bitcoin-core
-        ports:
-          - 18444:18444
-          - 18443:18443
-          - 28332:28332
-        options: --name bitcoind
     steps:
       - name: Checkout current branch
         uses: actions/checkout@v3
@@ -139,7 +131,7 @@ jobs:
       - name: Start bitcoind
         uses: docker://docker
         with:
-          args: docker run ruimarinho/bitcoin-core -chain=regtest -zmqpubrawblock=tcp://0.0.0.0:28332 -rpcuser=test -rpcpassword=test -port=18444 -rpcport=18443 -rpcbind=:18443 -rpcallowip=0.0.0.0/0
+          args: docker run -d --rm -p 18444:18444 -p 18443:18443 -p 28332:28332 ruimarinho/bitcoin-core -chain=regtest -zmqpubrawblock=tcp://0.0.0.0:28332 -rpcuser=test -rpcpassword=test -port=18444 -rpcport=18443 -rpcbind=:18443 -rpcallowip=0.0.0.0/0
       - name: Run integration tests
         run: sbt "integration / test"
       - uses: actions/download-artifact@v3
