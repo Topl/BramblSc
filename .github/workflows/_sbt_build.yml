@@ -99,13 +99,6 @@ jobs:
         uses: docker://docker
         with:
           args: docker -v
-#      - name: Start bitcoind
-#        uses: docker://docker
-#        with:
-#          args: docker run -d --rm -p 18444:18444 -p 18443:18443 -p 28332:28332 ruimarinho/bitcoin-core --name=bitcoind -chain=regtest -zmqpubrawblock=tcp://0.0.0.0:28332 -rpcuser=test -rpcpassword=test -port=18444 -rpcport=18443 -rpcbind=0.0.0.0:18443 -rpcallowip=0.0.0.0/0
-#      - name: Print hosts
-#        run: sudo cat /etc/hosts
-#        shell: bash
       - name: Checkout current branch
         uses: actions/checkout@v3
         with:
@@ -120,34 +113,13 @@ jobs:
           mkdir -p $HOME/bin/sbt
           set -eux && curl --fail --silent --location --retry 3 https://github.com/sbt/sbt/releases/download/v1.7.1/sbt-1.7.1.tgz | gunzip | tar x -C $HOME/bin/sbt
           echo "$HOME/bin/sbt" >> $GITHUB_PATH
-      - name: Cache sbt
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.sbt
-            ~/.ivy2/cache
-            ~/.coursier/cache/v1
-            ~/.cache/coursier/v1
-            ~/AppData/Local/Coursier/Cache/v1
-            ~/Library/Caches/Coursier/v1
-          key: ${{ runner.os }}-sbt-cache-v2-${{ hashFiles('**/*.sbt') }}-${{ hashFiles('project/build.properties') }}
-      - name: Cache project
-        uses: actions/cache@v3
-        with:
-          path: |
-            **/target/**
-            !**/test-results/**
-          key: ${{ format('{0}-project-{1}-{2}', runner.os, github.base_ref, github.run_number) }}
-          restore-keys: ${{ inputs.preserve-cache-between-runs && format('{0}-project-{1}-', runner.os, github.base_ref) || format('{0}-project-{1}-{2}', runner.os, github.base_ref, github.run_number) }}
-#      - name: Sleep for 5 seconds
-#        run: sleep 5s
-#        shell: bash
       - name: Run integration tests
         run: |
-          docker run -d --rm --add-host=host.docker.internal:host-gateway -p 18444:18444 -p 18443:18443 -p 28332:28332 --name=bitcoind ruimarinho/bitcoin-core -chain=regtest -zmqpubrawblock=tcp://0.0.0.0:28332 -rpcuser=test -rpcpassword=test -port=18444 -rpcport=18443 -rpcbind=:18443 -rpcallowip=0.0.0.0/0
+          docker run -d --rm --add-host host.docker.internal:host-gateway -p 18444:18444 -p 18443:18443 -p 28332:28332 --name=bitcoind ruimarinho/bitcoin-core -chain=regtest -zmqpubrawblock=tcp://0.0.0.0:28332 -rpcuser=test -rpcpassword=test -port=18444 -rpcport=18443 -rpcbind=:18443 -rpcallowip=0.0.0.0/0
           sleep 5s
           docker exec -it bitcoind sh -c "cat /etc/hosts"
           sbt "integration / test"
+          docker kill bitcoind
       - uses: actions/download-artifact@v3
         with:
           path: target/test-reports/
@@ -159,7 +131,3 @@ jobs:
           files: |
             integration/target/test-reports/**/*.xml
             integration/target/it-reports/**/*.xml
-      - name: Kill bitcoind
-        uses: docker://docker
-        with:
-          args: docker kill bitcoind
