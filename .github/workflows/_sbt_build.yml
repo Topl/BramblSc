@@ -132,6 +132,9 @@ jobs:
             !**/test-results/**
           key: ${{ format('{0}-project-{1}-{2}', runner.os, github.base_ref, github.run_number) }}
           restore-keys: ${{ inputs.preserve-cache-between-runs && format('{0}-project-{1}-', runner.os, github.base_ref) || format('{0}-project-{1}-{2}', runner.os, github.base_ref, github.run_number) }}
+      - name: Sleep for 5 seconds
+        run: sleep 5s
+        shell: bash
       - name: Run integration tests
         run: sbt "integration / test"
       - uses: actions/download-artifact@v3
