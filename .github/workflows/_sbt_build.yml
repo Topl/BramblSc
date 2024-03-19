@@ -146,7 +146,7 @@ jobs:
         run: |
           docker run -d --rm --add-host host.docker.internal:host-gateway -p 18444:18444 -p 18443:18443 -p 28332:28332 ruimarinho/bitcoin-core --name=bitcoind -chain=regtest -zmqpubrawblock=tcp://0.0.0.0:28332 -rpcuser=test -rpcpassword=test -port=18444 -rpcport=18443 -rpcbind=:18443 -rpcallowip=0.0.0.0/0
           sleep 5s
-          sudo cat /etc/hosts
+          docker exec -it bitcoind sudo cat /etc/hosts
           sbt "integration / test"
       - uses: actions/download-artifact@v3
         with:
