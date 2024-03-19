@@ -124,14 +124,15 @@ jobs:
           docker run -d --rm --add-host host.docker.internal:host-gateway -p 18444:18444 -p 18443:18443 -p 28332:28332 --name=bitcoind ruimarinho/bitcoin-core -chain=regtest -zmqpubrawblock=tcp://0.0.0.0:28332 -rpcuser=test -rpcpassword=test -port=18444 -rpcport=18443 -rpcbind=:18443 -rpcallowip=0.0.0.0/0
           sbt "integration / test"
           docker kill bitcoind
-      - uses: actions/download-artifact@v3
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v3
         with:
-          path: target/test-reports/
-          name: unit-test-reports
+          name: Test Results (Java ${{ matrix.java }})
+          path: target/it-reports/*.xml
       - name: Publish Test Results
         uses: EnricoMi/publish-unit-test-result-action@v2
         if: success()
         with:
           files: |
-            integration/target/test-reports/**/*.xml
-            integration/target/it-reports/**/*.xml
+            target/it-reports/**/*.xml
