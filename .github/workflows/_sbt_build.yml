@@ -76,8 +76,14 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v3
         with:
-          name: unit-test-reports
+          name: Test Results (Java ${{ matrix.java }})
           path: target/test-reports/*.xml
+      - name: Publish Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: success()
+        with:
+          files: |
+            target/test-reports/**/*.xml
       - name: Cleanup before cache
         shell: bash
         run: |
