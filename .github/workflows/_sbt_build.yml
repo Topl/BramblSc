@@ -95,6 +95,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     needs: build
     steps:
+      - name: Echo docker version
+        uses: docker://docker
+        with:
+          args: docker -v
       - name: Start bitcoind
         uses: docker://docker
         with:
