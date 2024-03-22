@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - YYYY-MM-DD - TODO replace date after release 
 
+### Added
+
+- Bitcoin network monitoring. This change allows the ability to monitor a bitcoin network for new blocks, returning a stream.
+
 ## [v2.0.0-beta3] - 2024-03-04
 
 ### Added
