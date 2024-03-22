@@ -63,7 +63,7 @@ object Dependencies {
   )
 
   val sqlite: Seq[ModuleID] = Seq(
-    "org.xerial" % "sqlite-jdbc" % "3.45.1.0"
+    "org.xerial" % "sqlite-jdbc" % "3.45.2.0"
   )
 
   val grpcNetty = "io.grpc" % "grpc-netty" % "1.62.2"
