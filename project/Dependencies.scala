@@ -112,6 +112,12 @@ object Dependencies {
     ).map(_ % Test)
   }
 
+  object IntegrationTests {
+    lazy val sources: Seq[ModuleID] =
+      Crypto.sources ++ BramblSdk.sources ++ ServiceKit.sources
+    lazy val tests: Seq[ModuleID] = (sources ++ mUnitTest).map(_ % Test)
+  }
+
   object Quivr4s {
 
     lazy val sources: Seq[ModuleID] = Dependencies.protobufSpecs

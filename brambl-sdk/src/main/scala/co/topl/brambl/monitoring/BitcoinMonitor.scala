@@ -42,6 +42,11 @@ class BitcoinMonitor(
    */
   def monitorBlocks(): Stream[IO, BitcoinBlock] =
     Stream.emits(startingBlocks) ++ Stream.fromQueueUnterminated(blockQueue)
+
+  /**
+   * Stop monitorings
+   */
+  def stop(): Unit = subscriber.stop()
 }
 
 object BitcoinMonitor {
