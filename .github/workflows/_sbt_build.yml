@@ -76,14 +76,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v3
         with:
-          name: Test Results (Java ${{ matrix.java }})
+          name: unit-test-reports
           path: target/test-reports/*.xml
-      - name: Publish Test Results
-        uses: EnricoMi/publish-unit-test-result-action@v2
-        if: success()
-        with:
-          files: |
-            target/test-reports/**/*.xml
       - name: Cleanup before cache
         shell: bash
         run: |
@@ -92,3 +86,47 @@ jobs:
           find $HOME/.ivy2/cache                       -name "ivydata-*.properties" -delete || true
           find $HOME/.cache/coursier/v1                -name "ivydata-*.properties" -delete || true
           find $HOME/.sbt                              -name "*.lock"               -delete || true
+  it:
+    name: Integration Tests
+    strategy:
+      matrix:
+        os: ${{fromJson(inputs.target-os)}}
+        java: ${{fromJson(inputs.java-versions)}}
+    runs-on: ${{ matrix.os }}
+    needs: build
+    steps:
+      - name: Echo docker version
+        uses: docker://docker
+        with:
+          args: docker -v
+      - name: Checkout current branch
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # Need full history to update last modified time.
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: ${{ matrix.java }}
+      - name: Setup Scala
+        uses: olafurpg/setup-scala@v13
+        with:
+          java-version: ${{ matrix.java }}
+      - name: Run integration tests
+        run: |
+          docker run -d --rm --add-host host.docker.internal:host-gateway -p 18444:18444 -p 18443:18443 -p 28332:28332 --name=bitcoind ruimarinho/bitcoin-core -chain=regtest -zmqpubrawblock=tcp://0.0.0.0:28332 -rpcuser=test -rpcpassword=test -port=18444 -rpcport=18443 -rpcbind=:18443 -rpcallowip=0.0.0.0/0
+          sbt "integration / test"
+          docker kill bitcoind
+      - uses: actions/download-artifact@v3
+        with:
+          path: target/test-reports/
+          name: unit-test-reports
+      - name: Publish Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: success()
+        with:
+          files: |
+            target/test-reports/**/*.xml
+            integration/target/it-reports/**/*.xml
+            integration/target/test-reports/**/*.xml
+            target/it-reports/**/*.xml

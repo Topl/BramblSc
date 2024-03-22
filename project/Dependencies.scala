@@ -9,6 +9,7 @@ object Dependencies {
     val circeVersion = "0.14.6"
     val protobufSpecsVersion = "2.0.0-beta2"
     val mUnitTeVersion = "0.7.29"
+    val btcVersion = "1.9.7"
   }
 
   val catsSlf4j: ModuleID =
@@ -67,6 +68,12 @@ object Dependencies {
 
   val grpcNetty = "io.grpc" % "grpc-netty" % "1.59.1"
 
+  val btc: Seq[ModuleID] = Seq(
+    "org.bitcoin-s" %% "bitcoin-s-core" % btcVersion,
+    "org.bitcoin-s" %% "bitcoin-s-zmq" % btcVersion,
+    "org.bitcoin-s" %% "bitcoin-s-bitcoind-rpc" % btcVersion
+  )
+
   object Crypto {
 
     lazy val sources: Seq[ModuleID] =
@@ -87,7 +94,7 @@ object Dependencies {
 
   object BramblSdk {
 
-    lazy val sources: Seq[ModuleID] = Dependencies.protobufSpecs :+ grpcNetty
+    lazy val sources: Seq[ModuleID] = Dependencies.protobufSpecs ++ btc :+ grpcNetty
 
     lazy val tests: Seq[ModuleID] =
       (
@@ -103,6 +110,12 @@ object Dependencies {
     lazy val tests: Seq[ModuleID] = (
       mUnitTest ++ sqlite
     ).map(_ % Test)
+  }
+
+  object IntegrationTests {
+    lazy val sources: Seq[ModuleID] =
+      Crypto.sources ++ BramblSdk.sources ++ ServiceKit.sources
+    lazy val tests: Seq[ModuleID] = (sources ++ mUnitTest).map(_ % Test)
   }
 
   object Quivr4s {
