@@ -51,7 +51,7 @@ object Dependencies {
     "org.typelevel" %% "cats-core"   % catsCoreVersion,
     "org.typelevel" %% "mouse"       % "1.2.3",
     "org.typelevel" %% "cats-free"   % catsCoreVersion,
-    "org.typelevel" %% "cats-effect" % "3.5.3"
+    "org.typelevel" %% "cats-effect" % "3.5.4"
   )
 
   val simulacrum: Seq[ModuleID] = Seq(
@@ -69,8 +69,8 @@ object Dependencies {
   val grpcNetty = "io.grpc" % "grpc-netty" % "1.62.2"
 
   val btc: Seq[ModuleID] = Seq(
-    "org.bitcoin-s" %% "bitcoin-s-core" % btcVersion,
-    "org.bitcoin-s" %% "bitcoin-s-zmq" % btcVersion,
+    "org.bitcoin-s" %% "bitcoin-s-core"         % btcVersion,
+    "org.bitcoin-s" %% "bitcoin-s-zmq"          % btcVersion,
     "org.bitcoin-s" %% "bitcoin-s-bitcoind-rpc" % btcVersion
   )
 
@@ -113,6 +113,7 @@ object Dependencies {
   }
 
   object IntegrationTests {
+
     lazy val sources: Seq[ModuleID] =
       Crypto.sources ++ BramblSdk.sources ++ ServiceKit.sources
     lazy val tests: Seq[ModuleID] = (sources ++ mUnitTest).map(_ % Test)
