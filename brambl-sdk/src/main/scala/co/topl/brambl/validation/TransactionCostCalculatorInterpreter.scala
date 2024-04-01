@@ -10,19 +10,19 @@ import quivr.models.Proof
 
 object TransactionCostCalculatorInterpreter {
 
-  def make[F[_]: Applicative](transactionCostConfig: TransactionCostConfig): TransactionCostCalculator[F] =
-    new TransactionCostCalculator[F] {
+  def make[F[_]: Applicative](transactionCostConfig: TransactionCostConfig): TransactionCostCalculator =
+    new TransactionCostCalculator {
 
       import transactionCostConfig._
       import proofCostConfig._
 
-      override def costOf(transaction: IoTransaction): F[Long] =
+      override def costOf(transaction: IoTransaction): Long =
         (
           baseCost +
-            transactionDataCost(transaction) +
-            transaction.inputs.map(transactionInputCost).sum +
-            transaction.outputs.map(transactionOutputCost).sum
-        ).pure[F]
+          transactionDataCost(transaction) +
+          transaction.inputs.map(transactionInputCost).sum +
+          transaction.outputs.map(transactionOutputCost).sum
+        )
 
       /**
        * A Transaction consumes disk space and network bandwidth.  The bigger the transaction, the more it
