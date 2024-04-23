@@ -9,7 +9,7 @@ object Dependencies {
     val circeVersion = "0.14.6"
     val protobufSpecsVersion = "2.0.0-beta2"
     val mUnitTeVersion = "0.7.29"
-    val btcVersion = "1.9.7"
+    val btcVersion = "1.9.8"
   }
 
   val catsSlf4j: ModuleID =
