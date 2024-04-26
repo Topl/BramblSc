@@ -2,18 +2,10 @@ package co.topl.brambl.dataApi
 
 import cats.arrow.FunctionK
 import cats.data.Kleisli
-import cats.effect.kernel.{Resource, Sync}
+import cats.effect.kernel.{Async, Resource, Sync}
 import co.topl.brambl.syntax.ioTransactionAsTransactionSyntaxOps
-import co.topl.node.services.{
-  BroadcastTransactionReq,
-  FetchBlockBodyReq,
-  FetchBlockIdAtHeightReq,
-  FetchTransactionReq,
-  NodeRpcGrpc
-}
-import io.grpc.ManagedChannel
-import co.topl.node.services.FetchBlockIdAtDepthReq
-import co.topl.node.services.FetchBlockHeaderReq
+import co.topl.node.services._
+import io.grpc.{ManagedChannel, Metadata}
 
 /**
  * Defines an interpreter for Bifrost Query API.
@@ -108,6 +100,41 @@ trait BifrostQueryInterpreter {
       channel <- channelResource
     } yield channel).use { channel =>
       kleisliComputation.run(NodeRpcGrpc.blockingStub(channel))
+    }
+  }
+
+  def interpretADTStream[A, F[_] : Async](
+                                    channelResource: Resource[F, ManagedChannel],
+                                    computation: BifrostQueryAlgebra.BifrostQueryADTMonad[A]
+                                  ): F[A] = {
+    type ChannelContextKlesli[A] =
+      Kleisli[F, NodeRpcFs2Grpc[F, Metadata], A]
+    val kleisliComputation = computation.foldMap[ChannelContextKlesli](
+      new FunctionK[BifrostQueryAlgebra.BifrostQueryADT, ChannelContextKlesli] {
+
+        override def apply[A](
+                               fa: BifrostQueryAlgebra.BifrostQueryADT[A]
+                             ): ChannelContextKlesli[A] = {
+          import cats.implicits._
+          fa match {
+            case BifrostQueryAlgebra.SynchronizationTraversal() =>
+              Kleisli(blockingStub =>
+                Sync[F]
+                  .blocking(
+                    blockingStub
+                      .synchronizationTraversal(SynchronizationTraversalReq(), new Metadata())
+                  )
+                  .map(_.asInstanceOf[A])
+              )
+          }
+        }
+      }
+    )
+    (for {
+      channel <- channelResource
+      stubResource <- NodeRpcFs2Grpc.stubResource[F](channel)
+    } yield stubResource).use { stubResource =>
+      kleisliComputation.run(stubResource)
     }
   }
 
