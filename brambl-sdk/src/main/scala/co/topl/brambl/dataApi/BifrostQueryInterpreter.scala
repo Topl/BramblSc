@@ -2,10 +2,10 @@ package co.topl.brambl.dataApi
 
 import cats.arrow.FunctionK
 import cats.data.Kleisli
-import cats.effect.kernel.{Async, Resource, Sync}
+import cats.effect.kernel.{Resource, Sync}
 import co.topl.brambl.syntax.ioTransactionAsTransactionSyntaxOps
 import co.topl.node.services._
-import io.grpc.{ManagedChannel, Metadata}
+import io.grpc.ManagedChannel
 
 /**
  * Defines an interpreter for Bifrost Query API.
@@ -81,6 +81,15 @@ trait BifrostQueryInterpreter {
                   )
                   .map(_.blockId.asInstanceOf[A])
               )
+            case BifrostQueryAlgebra.SynchronizationTraversal() =>
+              Kleisli(blockingStub =>
+                Sync[F]
+                  .blocking(
+                    blockingStub
+                      .synchronizationTraversal(SynchronizationTraversalReq())
+                  )
+                  .map(_.asInstanceOf[A])
+              )
             case BifrostQueryAlgebra.BroadcastTransaction(tx) =>
               Kleisli(blockingStub =>
                 Sync[F]
@@ -103,39 +112,39 @@ trait BifrostQueryInterpreter {
     }
   }
 
-  def interpretADTStream[A, F[_] : Async](
-                                    channelResource: Resource[F, ManagedChannel],
-                                    computation: BifrostQueryAlgebra.BifrostQueryADTMonad[A]
-                                  ): F[A] = {
-    type ChannelContextKlesli[A] =
-      Kleisli[F, NodeRpcFs2Grpc[F, Metadata], A]
-    val kleisliComputation = computation.foldMap[ChannelContextKlesli](
-      new FunctionK[BifrostQueryAlgebra.BifrostQueryADT, ChannelContextKlesli] {
-
-        override def apply[A](
-                               fa: BifrostQueryAlgebra.BifrostQueryADT[A]
-                             ): ChannelContextKlesli[A] = {
-          import cats.implicits._
-          fa match {
-            case BifrostQueryAlgebra.SynchronizationTraversal() =>
-              Kleisli(blockingStub =>
-                Sync[F]
-                  .blocking(
-                    blockingStub
-                      .synchronizationTraversal(SynchronizationTraversalReq(), new Metadata())
-                  )
-                  .map(_.asInstanceOf[A])
-              )
-          }
-        }
-      }
-    )
-    (for {
-      channel <- channelResource
-      stubResource <- NodeRpcFs2Grpc.stubResource[F](channel)
-    } yield stubResource).use { stubResource =>
-      kleisliComputation.run(stubResource)
-    }
-  }
+//  def interpretADTStream[A, F[_] : Async](
+//                                    channelResource: Resource[F, ManagedChannel],
+//                                    computation: BifrostQueryAlgebra.BifrostQueryADTMonad[A]
+//                                  ): F[A] = {
+//    type ChannelContextKlesli[A] =
+//      Kleisli[F, NodeRpcFs2Grpc[F, Metadata], A]
+//    val kleisliComputation = computation.foldMap[ChannelContextKlesli](
+//      new FunctionK[BifrostQueryAlgebra.BifrostQueryADT, ChannelContextKlesli] {
+//
+//        override def apply[A](
+//                               fa: BifrostQueryAlgebra.BifrostQueryADT[A]
+//                             ): ChannelContextKlesli[A] = {
+//          import cats.implicits._
+//          fa match {
+//            case BifrostQueryAlgebra.SynchronizationTraversal() =>
+//              Kleisli(blockingStub =>
+//                Sync[F]
+//                  .blocking(
+//                    blockingStub
+//                      .synchronizationTraversal(SynchronizationTraversalReq(), new Metadata())
+//                  )
+//                  .map(_.asInstanceOf[A])
+//              )
+//          }
+//        }
+//      }
+//    )
+//    (for {
+//      channel <- channelResource
+//      stubResource <- NodeRpcFs2Grpc.stubResource[F](channel)
+//    } yield stubResource).use { stubResource =>
+//      kleisliComputation.run(stubResource)
+//    }
+//  }
 
 }
