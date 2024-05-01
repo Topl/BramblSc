@@ -109,6 +109,7 @@ object BifrostQueryAlgebra extends BifrostQueryInterpreter {
 
   def blockByDepthF(depth: Long): BifrostQueryADTMonad[Option[BlockId]] =
     Free.liftF(BlockByDepth(depth))
+
   def synchronizationTraversalF[F[_]](): BifrostQueryADTMonad[Iterator[SynchronizationTraversalRes]] =
     Free.liftF(SynchronizationTraversal())
 

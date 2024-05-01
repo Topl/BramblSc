@@ -17,14 +17,18 @@ import fs2.Stream
  * @param startingBlocks Past blocks that should be reported.
  */
 class BifrostMonitor(
-  blockIterator:     Iterator[SynchronizationTraversalRes],
-  getFullBlock: BlockId => IO[FullBlockBody],
-  startingBlocks: Vector[BifrostBlockSync],
+  blockIterator:  Iterator[SynchronizationTraversalRes],
+  getFullBlock:   BlockId => IO[FullBlockBody],
+  startingBlocks: Vector[BifrostBlockSync]
 ) {
-  def pipe(in: Stream[IO, SynchronizationTraversalRes]): Stream[IO, BifrostBlockSync] = in.evalMap(sync => sync.status match {
-    case Applied(blockId) => getFullBlock(blockId).map(AppliedBifrostBlock)
-    case Unapplied(blockId) => getFullBlock(blockId).map(UnappliedBifrostBlock)
-  })
+
+  def pipe(in: Stream[IO, SynchronizationTraversalRes]): Stream[IO, BifrostBlockSync] = in.evalMap(sync =>
+    sync.status match {
+      case Applied(blockId)   => getFullBlock(blockId).map(AppliedBifrostBlock)
+      case Unapplied(blockId) => getFullBlock(blockId).map(UnappliedBifrostBlock)
+    }
+  )
+
   /**
    * Return a stream of block updates.
    * @return The infinite stream of block updatess. If startingBlocks was provided, they will be at the front of the stream.
@@ -35,6 +39,7 @@ class BifrostMonitor(
 }
 
 object BifrostMonitor {
+
   /**
    * A wrapper for a Bifrost Block Sync update.
    */
@@ -56,18 +61,18 @@ object BifrostMonitor {
    * @return An instance of a BifrostMonitor
    */
   def apply(
-   bifrostQuery:   BifrostQueryAlgebra[IO],
-   startBlock: Option[BlockId] = None
+    bifrostQuery: BifrostQueryAlgebra[IO],
+    startBlock:   Option[BlockId] = None
   ): IO[BifrostMonitor] = {
     def getFullBlock(blockId: BlockId): IO[FullBlockBody] = for {
       block <- bifrostQuery.blockById(blockId)
     } yield block match {
-      case None => throw new Exception(s"Unable to query block ${display(blockId)}")
+      case None                 => throw new Exception(s"Unable to query block ${display(blockId)}")
       case Some((_, _, _, txs)) => FullBlockBody(txs)
     }
     for {
       updates <- bifrostQuery.synchronizationTraversal()
-    } yield new BifrostMonitor(updates,getFullBlock, Vector.empty)
+    } yield new BifrostMonitor(updates, getFullBlock, Vector.empty)
   }
 
 }
