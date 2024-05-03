@@ -1,7 +1,6 @@
 package co.topl.brambl.validation
 
 import cats.Applicative
-import cats.implicits._
 import co.topl.brambl.common.ContainsImmutable.instances.ioTransactionImmutable
 import co.topl.brambl.models.box.Attestation
 import co.topl.brambl.models.transaction._

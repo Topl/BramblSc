@@ -1,18 +1,23 @@
 package co.topl.brambl.display
 
 import cats.effect.unsafe.implicits.global
+import co.topl.brambl.Context
+import co.topl.brambl.MockHelpers
+import co.topl.brambl.MockWalletKeyApi
+import co.topl.brambl.MockWalletStateApi
 import co.topl.brambl.display.DisplayOps.DisplayTOps
+import co.topl.brambl.models.Datum
+import co.topl.brambl.models.Event
 import co.topl.brambl.models.box._
 import co.topl.brambl.models.transaction.Schedule
-import co.topl.brambl.models.{Datum, Event}
-import co.topl.brambl.syntax.{bigIntAsInt128, longAsInt128}
-import co.topl.brambl.wallet.{CredentiallerInterpreter, WalletApi}
-import co.topl.brambl.{Context, MockHelpers, MockWalletKeyApi, MockWalletStateApi}
+import co.topl.brambl.syntax.bigIntAsInt128
+import co.topl.brambl.syntax.longAsInt128
+import co.topl.brambl.wallet.CredentiallerInterpreter
+import co.topl.brambl.wallet.WalletApi
 import co.topl.quivr.api.Proposer
 import com.google.protobuf.ByteString
-import quivr.models.{Proof, SmallData}
-
-import scala.language.implicitConversions
+import quivr.models.Proof
+import quivr.models.SmallData
 
 class DisplaySpec extends munit.FunSuite with MockHelpers {
 

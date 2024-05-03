@@ -7,8 +7,6 @@ import co.topl.brambl.common.ContainsSignable.ContainsSignableTOps
 import co.topl.brambl.common.ContainsSignable.instances._
 import co.topl.brambl.models.box.Attestation
 
-import scala.language.implicitConversions
-
 class ContainsSignableSpec extends munit.FunSuite with MockHelpers {
 
   test("IoTransaction.signable should return the same bytes as IoTransaction.immutable minus the Proofs") {

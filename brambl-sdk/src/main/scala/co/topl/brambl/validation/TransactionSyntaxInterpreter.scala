@@ -6,9 +6,6 @@ import cats.implicits._
 import co.topl.brambl.common.ContainsImmutable.ContainsImmutableTOps
 import co.topl.brambl.common.ContainsImmutable.instances._
 import co.topl.brambl.models.TransactionOutputAddress
-import co.topl.brambl.models.{SeriesId, TransactionOutputAddress}
-import co.topl.brambl.models.Datum.GroupPolicy
-import co.topl.brambl.models.{SeriesId, TransactionOutputAddress}
 import co.topl.brambl.models.box._
 import co.topl.brambl.models.transaction.{IoTransaction, SpentTransactionOutput, UnspentTransactionOutput}
 import co.topl.brambl.syntax._

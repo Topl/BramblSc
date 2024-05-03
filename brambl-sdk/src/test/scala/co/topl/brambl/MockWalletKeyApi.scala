@@ -1,6 +1,5 @@
 package co.topl.brambl
 
-import cats.Id
 import cats.effect.IO
 import co.topl.brambl.dataApi.WalletKeyApiAlgebra
 import co.topl.brambl.dataApi.WalletKeyApiAlgebra.WalletKeyException

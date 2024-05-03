@@ -1,10 +1,10 @@
 package co.topl.brambl.codecs
 
+import co.topl.brambl.constants.NetworkConstants
 import co.topl.brambl.models.LockAddress
 import co.topl.brambl.models.LockId
 import com.google.protobuf.ByteString
-import co.topl.brambl.utils.Encoding
-import co.topl.brambl.constants.NetworkConstants
+
 import scala.util.Random
 
 class AddressCodecsSpec extends munit.FunSuite with AddressCodecTestCases {

@@ -3,11 +3,12 @@ package co.topl.brambl.validation
 import cats.Id
 import cats.implicits._
 import co.topl.brambl.MockHelpers
-import co.topl.brambl.models.box.{AssetMintingStatement, Value}
-import co.topl.brambl.models.transaction.{SpentTransactionOutput, UnspentTransactionOutput}
-import co.topl.brambl.models.{Event, TransactionOutputAddress}
+import co.topl.brambl.models.Event
+import co.topl.brambl.models.TransactionOutputAddress
+import co.topl.brambl.models.box.Value
+import co.topl.brambl.models.transaction.SpentTransactionOutput
+import co.topl.brambl.models.transaction.UnspentTransactionOutput
 import co.topl.brambl.syntax._
-import scala.language.implicitConversions
 
 /**
  * Test to coverage this specific syntax validation: Transfer series
@@ -16,7 +17,7 @@ import scala.language.implicitConversions
 class TransactionSyntaxInterpreterTransferSeriesSpec extends munit.FunSuite with MockHelpers {
 
   private val txoAddress_1 = TransactionOutputAddress(1, 0, 0, dummyTxIdentifier)
-  private val txoAddress_2 = TransactionOutputAddress(2, 0, 0, dummyTxIdentifier)
+  TransactionOutputAddress(2, 0, 0, dummyTxIdentifier)
 
   test("Valid data-input case, transfer a simple series ") {
     val seriesPolicy = Event.SeriesPolicy(label = "seriesLabelB", registrationUtxo = txoAddress_1)

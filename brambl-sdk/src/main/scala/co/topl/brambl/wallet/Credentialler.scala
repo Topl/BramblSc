@@ -3,7 +3,6 @@ package co.topl.brambl.wallet
 import co.topl.brambl.Context
 import co.topl.brambl.models.transaction.IoTransaction
 import co.topl.brambl.validation.ValidationError
-import quivr.models.Proof
 
 /**
  * Defines a Credentialler. A Credentialler is responsible for proving and verifying transactions.

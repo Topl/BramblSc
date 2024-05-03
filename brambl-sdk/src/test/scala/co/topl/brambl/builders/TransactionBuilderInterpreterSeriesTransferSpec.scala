@@ -2,14 +2,9 @@ package co.topl.brambl.builders
 
 import co.topl.brambl.models.box.Value
 import co.topl.brambl.models.transaction.IoTransaction
-import co.topl.brambl.syntax.{
-  bigIntAsInt128,
-  int128AsBigInt,
-  ioTransactionAsTransactionSyntaxOps,
-  valueToQuantitySyntaxOps,
-  valueToTypeIdentifierSyntaxOps,
-  LvlType
-}
+import co.topl.brambl.syntax.LvlType
+import co.topl.brambl.syntax.ioTransactionAsTransactionSyntaxOps
+import co.topl.brambl.syntax.valueToTypeIdentifierSyntaxOps
 
 class TransactionBuilderInterpreterSeriesTransferSpec extends TransactionBuilderInterpreterSpecBase {
 
