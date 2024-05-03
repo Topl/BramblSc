@@ -112,39 +112,4 @@ trait BifrostQueryInterpreter {
     }
   }
 
-//  def interpretADTStream[A, F[_] : Async](
-//                                    channelResource: Resource[F, ManagedChannel],
-//                                    computation: BifrostQueryAlgebra.BifrostQueryADTMonad[A]
-//                                  ): F[A] = {
-//    type ChannelContextKlesli[A] =
-//      Kleisli[F, NodeRpcFs2Grpc[F, Metadata], A]
-//    val kleisliComputation = computation.foldMap[ChannelContextKlesli](
-//      new FunctionK[BifrostQueryAlgebra.BifrostQueryADT, ChannelContextKlesli] {
-//
-//        override def apply[A](
-//                               fa: BifrostQueryAlgebra.BifrostQueryADT[A]
-//                             ): ChannelContextKlesli[A] = {
-//          import cats.implicits._
-//          fa match {
-//            case BifrostQueryAlgebra.SynchronizationTraversal() =>
-//              Kleisli(blockingStub =>
-//                Sync[F]
-//                  .blocking(
-//                    blockingStub
-//                      .synchronizationTraversal(SynchronizationTraversalReq(), new Metadata())
-//                  )
-//                  .map(_.asInstanceOf[A])
-//              )
-//          }
-//        }
-//      }
-//    )
-//    (for {
-//      channel <- channelResource
-//      stubResource <- NodeRpcFs2Grpc.stubResource[F](channel)
-//    } yield stubResource).use { stubResource =>
-//      kleisliComputation.run(stubResource)
-//    }
-//  }
-
 }
