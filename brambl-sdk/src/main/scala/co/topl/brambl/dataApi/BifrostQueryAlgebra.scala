@@ -1,7 +1,7 @@
 package co.topl.brambl.dataApi
 
 import cats.data.OptionT
-import cats.effect.kernel.{Async, Resource}
+import cats.effect.kernel.{Resource, Sync}
 import cats.free.Free
 import co.topl.brambl.models.TransactionId
 import co.topl.brambl.models.transaction.IoTransaction
@@ -114,7 +114,7 @@ object BifrostQueryAlgebra extends BifrostQueryInterpreter {
   def broadcastTransactionF(tx: IoTransaction): BifrostQueryADTMonad[TransactionId] =
     Free.liftF(BroadcastTransaction(tx))
 
-  def make[F[_]: Async](channelResource: Resource[F, ManagedChannel]): BifrostQueryAlgebra[F] =
+  def make[F[_]: Sync](channelResource: Resource[F, ManagedChannel]): BifrostQueryAlgebra[F] =
     new BifrostQueryAlgebra[F] {
 
       override def blockByDepth(depth: Long): F[Option[(BlockId, BlockHeader, BlockBody, Seq[IoTransaction])]] = {
