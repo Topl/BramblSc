@@ -3,8 +3,6 @@ package co.topl.brambl.codecs
 import co.topl.brambl.utils.EncodingError
 import co.topl.brambl.models.LockAddress
 import co.topl.brambl.utils.Encoding._
-import co.topl.brambl.models.Evidence
-import quivr.models.Digest
 import com.google.protobuf.ByteString
 import co.topl.brambl.models.LockId
 

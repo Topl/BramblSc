@@ -3,14 +3,17 @@ package co.topl.brambl.validation
 import cats.Id
 import cats.implicits._
 import co.topl.brambl.MockHelpers
-import co.topl.brambl.models.box.{Attestation, Challenge, Lock, Value}
-import co.topl.brambl.models.transaction.{IoTransaction, Schedule, SpentTransactionOutput, UnspentTransactionOutput}
-import co.topl.brambl.models.{Datum, Event, GroupId, SeriesId}
-import co.topl.brambl.syntax.{groupPolicyAsGroupPolicySyntaxOps, seriesPolicyAsSeriesPolicySyntaxOps}
-import co.topl.quivr.api.{Proposer, Prover}
+import co.topl.brambl.models.box.Attestation
+import co.topl.brambl.models.box.Challenge
+import co.topl.brambl.models.box.Lock
+import co.topl.brambl.models.box.Value
+import co.topl.brambl.models.transaction.Schedule
+import co.topl.quivr.api.Proposer
+import co.topl.quivr.api.Prover
 import com.google.protobuf.ByteString
-import quivr.models.{Int128, Proof, Proposition, SmallData}
-import scala.language.implicitConversions
+import quivr.models.Int128
+import quivr.models.Proof
+import quivr.models.Proposition
 
 class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
 
@@ -156,7 +159,7 @@ class TransactionSyntaxInterpreterSpec extends munit.FunSuite with MockHelpers {
   }
 
   test("Invalid data-length transaction > MaxDataLength ") {
-    val invalidData = ByteString.copyFrom(Array.fill(TransactionSyntaxInterpreter.MaxDataLength + 1)(1.toByte))
+    ByteString.copyFrom(Array.fill(TransactionSyntaxInterpreter.MaxDataLength + 1)(1.toByte))
     val testTx = txFull.copy(outputs = List.fill(5000)(output))
 
     val validator = TransactionSyntaxInterpreter.make[Id]()

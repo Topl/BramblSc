@@ -8,7 +8,6 @@ import co.topl.brambl.models.transaction.IoTransaction
 import co.topl.brambl.models.transaction.SpentTransactionOutput
 import quivr.models._
 
-import scala.language.implicitConversions
 // Long -> longSignable -> longSignableEvidence -> longSignableEvidenceId
 // Long -> longSignable -> longSignableEvidence -> longSingableEvidenceSignable -> longSingableEvidenceSignableEvidence
 // Object -> Signable -> Evidence -> Identifier -> Address -> KnownIdentifier

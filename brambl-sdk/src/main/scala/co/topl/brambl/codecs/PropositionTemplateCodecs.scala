@@ -6,10 +6,8 @@ import co.topl.brambl.builders.locks.PropositionTemplate
 import co.topl.brambl.builders.locks.PropositionTemplate._
 import co.topl.brambl.utils.Encoding.{decodeFromBase58, encodeToBase58}
 import com.google.protobuf.ByteString
-import io.circe.DecodingFailure.Reason.CustomReason
 import io.circe.syntax.EncoderOps
 import io.circe.{Decoder, DecodingFailure, Encoder, HCursor, Json}
-import org.bouncycastle.util.Strings
 import quivr.models.{Data, Digest}
 
 object PropositionTemplateCodecs {

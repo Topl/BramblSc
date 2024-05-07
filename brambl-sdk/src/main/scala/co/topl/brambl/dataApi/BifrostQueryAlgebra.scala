@@ -5,10 +5,10 @@ import cats.effect.kernel.{Resource, Sync}
 import cats.free.Free
 import co.topl.brambl.models.TransactionId
 import co.topl.brambl.models.transaction.IoTransaction
-import co.topl.consensus.models.BlockId
+import co.topl.consensus.models.{BlockHeader, BlockId}
 import co.topl.node.models.BlockBody
+import co.topl.node.services.SynchronizationTraversalRes
 import io.grpc.ManagedChannel
-import co.topl.consensus.models.BlockHeader
 
 /**
  * Defines a Bifrost Query API for interacting with a Bifrost node.
@@ -59,6 +59,12 @@ trait BifrostQueryAlgebra[F[_]] {
    */
   def broadcastTransaction(tx: IoTransaction): F[TransactionId]
 
+  /**
+   * Retrieve an iterator of changes to the canonical head of the chain.
+   * @return an iterator of changes to the chain tip
+   */
+  def synchronizationTraversal(): F[Iterator[SynchronizationTraversalRes]]
+
 }
 
 object BifrostQueryAlgebra extends BifrostQueryInterpreter {
@@ -74,6 +80,8 @@ object BifrostQueryAlgebra extends BifrostQueryInterpreter {
   case class BlockByHeight(height: Long) extends BifrostQueryADT[Option[BlockId]]
 
   case class BlockByDepth(depth: Long) extends BifrostQueryADT[Option[BlockId]]
+
+  case class SynchronizationTraversal() extends BifrostQueryADT[Iterator[SynchronizationTraversalRes]]
 
   case class BroadcastTransaction(tx: IoTransaction) extends BifrostQueryADT[TransactionId]
 
@@ -99,6 +107,9 @@ object BifrostQueryAlgebra extends BifrostQueryInterpreter {
 
   def blockByDepthF(depth: Long): BifrostQueryADTMonad[Option[BlockId]] =
     Free.liftF(BlockByDepth(depth))
+
+  def synchronizationTraversalF[F[_]](): BifrostQueryADTMonad[Iterator[SynchronizationTraversalRes]] =
+    Free.liftF(SynchronizationTraversal())
 
   def broadcastTransactionF(tx: IoTransaction): BifrostQueryADTMonad[TransactionId] =
     Free.liftF(BroadcastTransaction(tx))
@@ -159,6 +170,9 @@ object BifrostQueryAlgebra extends BifrostQueryInterpreter {
 
       override def broadcastTransaction(tx: IoTransaction): F[TransactionId] =
         interpretADT(channelResource, broadcastTransactionF(tx))
+
+      override def synchronizationTraversal(): F[Iterator[SynchronizationTraversalRes]] =
+        interpretADT(channelResource, synchronizationTraversalF[F]())
 
     }
 }

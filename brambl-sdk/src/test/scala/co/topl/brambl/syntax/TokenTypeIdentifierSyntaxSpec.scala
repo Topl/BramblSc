@@ -3,7 +3,6 @@ package co.topl.brambl.syntax
 import cats.implicits.catsSyntaxOptionId
 import co.topl.brambl.MockHelpers
 import co.topl.brambl.models.box.Value
-import co.topl.brambl.models.box.Value.{Value => BoxValue}
 import com.google.protobuf.ByteString
 
 class TokenTypeIdentifierSyntaxSpec extends munit.FunSuite with MockHelpers {

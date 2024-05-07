@@ -4,16 +4,8 @@ import cats.arrow.FunctionK
 import cats.data.Kleisli
 import cats.effect.kernel.{Resource, Sync}
 import co.topl.brambl.syntax.ioTransactionAsTransactionSyntaxOps
-import co.topl.node.services.{
-  BroadcastTransactionReq,
-  FetchBlockBodyReq,
-  FetchBlockIdAtHeightReq,
-  FetchTransactionReq,
-  NodeRpcGrpc
-}
+import co.topl.node.services._
 import io.grpc.ManagedChannel
-import co.topl.node.services.FetchBlockIdAtDepthReq
-import co.topl.node.services.FetchBlockHeaderReq
 
 /**
  * Defines an interpreter for Bifrost Query API.
@@ -88,6 +80,15 @@ trait BifrostQueryInterpreter {
                       )
                   )
                   .map(_.blockId.asInstanceOf[A])
+              )
+            case BifrostQueryAlgebra.SynchronizationTraversal() =>
+              Kleisli(blockingStub =>
+                Sync[F]
+                  .blocking(
+                    blockingStub
+                      .synchronizationTraversal(SynchronizationTraversalReq())
+                  )
+                  .map(_.asInstanceOf[A])
               )
             case BifrostQueryAlgebra.BroadcastTransaction(tx) =>
               Kleisli(blockingStub =>

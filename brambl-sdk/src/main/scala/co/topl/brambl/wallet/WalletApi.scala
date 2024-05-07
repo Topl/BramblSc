@@ -1,9 +1,7 @@
 package co.topl.brambl.wallet
 
-import cats.implicits.catsSyntaxApplicativeId
 import co.topl.crypto.generation.mnemonic.{Entropy, MnemonicSize, MnemonicSizes}
-import cats.{Eq, Monad}
-import cats.implicits.{toFlatMapOps, toFunctorOps}
+import cats.Monad
 import co.topl.brambl.dataApi.WalletKeyApiAlgebra
 import co.topl.crypto.generation.{Bip32Indexes, KeyInitializer}
 import KeyInitializer.Instances.extendedEd25519Initializer
@@ -13,22 +11,14 @@ import co.topl.crypto.encryption.kdf.SCrypt
 import co.topl.crypto.encryption.cipher.Cipher
 import co.topl.crypto.encryption.cipher.Aes
 import co.topl.crypto.signing.ExtendedEd25519
-import co.topl.crypto.signing
-import com.google.protobuf.ByteString
 import quivr.models._
-import quivr.models.VerificationKey._
-import quivr.models.SigningKey._
 import co.topl.brambl.syntax.{cryptoToPbKeyPair, cryptoVkToPbVk, pbKeyPairToCryptoKeyPair, pbVkToCryptoVk}
 import cats.implicits._
 
-import scala.language.implicitConversions
 import cats.data.EitherT
 import cats.arrow.FunctionK
-import cats.effect.IO.asyncForIO
-import cats.effect.kernel.implicits._
-import cats.effect.implicits._
 import cats.effect.kernel.Async
-import cats.effect.{IO, Resource}
+import cats.effect.Resource
 import co.topl.brambl.models.Indices
 import co.topl.brambl.utils.CatsUnsafeResource
 

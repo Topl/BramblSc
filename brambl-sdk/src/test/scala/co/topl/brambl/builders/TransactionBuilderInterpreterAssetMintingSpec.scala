@@ -3,24 +3,25 @@ package co.topl.brambl.builders
 import cats.implicits.catsSyntaxOptionId
 import co.topl.brambl.common.ContainsEvidence.Ops
 import co.topl.brambl.common.ContainsImmutable.instances.lockImmutable
-import co.topl.brambl.models.{LockAddress, LockId}
-import co.topl.brambl.models.box.FungibilityType.{GROUP, SERIES}
-import co.topl.brambl.models.box.QuantityDescriptorType.{ACCUMULATOR, FRACTIONABLE, IMMUTABLE}
-import co.topl.brambl.models.box.{AssetMintingStatement, Value}
-import co.topl.brambl.models.transaction.{IoTransaction, UnspentTransactionOutput}
-import co.topl.brambl.syntax.{
-  assetAsBoxVal,
-  bigIntAsInt128,
-  groupAsBoxVal,
-  groupPolicyAsGroupPolicySyntaxOps,
-  int128AsBigInt,
-  ioTransactionAsTransactionSyntaxOps,
-  seriesAsBoxVal,
-  seriesPolicyAsSeriesPolicySyntaxOps,
-  valueToQuantitySyntaxOps,
-  valueToTypeIdentifierSyntaxOps,
-  LvlType
-}
+import co.topl.brambl.models.LockAddress
+import co.topl.brambl.models.LockId
+import co.topl.brambl.models.box.FungibilityType.GROUP
+import co.topl.brambl.models.box.FungibilityType.SERIES
+import co.topl.brambl.models.box.QuantityDescriptorType.ACCUMULATOR
+import co.topl.brambl.models.box.QuantityDescriptorType.FRACTIONABLE
+import co.topl.brambl.models.box.QuantityDescriptorType.IMMUTABLE
+import co.topl.brambl.models.box.Value
+import co.topl.brambl.models.transaction.IoTransaction
+import co.topl.brambl.syntax.LvlType
+import co.topl.brambl.syntax.assetAsBoxVal
+import co.topl.brambl.syntax.bigIntAsInt128
+import co.topl.brambl.syntax.groupAsBoxVal
+import co.topl.brambl.syntax.groupPolicyAsGroupPolicySyntaxOps
+import co.topl.brambl.syntax.int128AsBigInt
+import co.topl.brambl.syntax.ioTransactionAsTransactionSyntaxOps
+import co.topl.brambl.syntax.seriesAsBoxVal
+import co.topl.brambl.syntax.seriesPolicyAsSeriesPolicySyntaxOps
+import co.topl.brambl.syntax.valueToTypeIdentifierSyntaxOps
 import quivr.models.Int128
 
 class TransactionBuilderInterpreterAssetMintingSpec extends TransactionBuilderInterpreterSpecBase {

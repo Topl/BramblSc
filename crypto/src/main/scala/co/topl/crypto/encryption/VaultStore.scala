@@ -1,14 +1,19 @@
 package co.topl.crypto.encryption
 
 import cats.Monad
-import cats.implicits.{catsSyntaxEitherId, toFlatMapOps, toFunctorOps}
+import cats.implicits.catsSyntaxEitherId
+import cats.implicits.toFlatMapOps
+import cats.implicits.toFunctorOps
 import co.topl.crypto.encryption.cipher.Cipher
-import co.topl.crypto.encryption.kdf.Kdf
-import co.topl.crypto.encryption.kdf.Codecs._
 import co.topl.crypto.encryption.cipher.Codecs._
+import co.topl.crypto.encryption.kdf.Codecs._
+import co.topl.crypto.encryption.kdf.Kdf
+import io.circe.Decoder
 import io.circe.Decoder.Result
-import io.circe.{Decoder, DecodingFailure, Encoder, HCursor, Json}
-import io.circe.generic.codec.DerivedAsObjectCodec.deriveCodec
+import io.circe.DecodingFailure
+import io.circe.Encoder
+import io.circe.HCursor
+import io.circe.Json
 import io.circe.syntax._
 import org.bouncycastle.util.Strings
 
