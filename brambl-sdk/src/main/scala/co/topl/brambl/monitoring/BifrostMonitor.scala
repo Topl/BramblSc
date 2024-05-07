@@ -25,8 +25,8 @@ class BifrostMonitor(
 
   def pipe(in: Stream[IO, SynchronizationTraversalRes]): Stream[IO, BifrostBlockSync] = in.evalMap(sync =>
     sync.status match {
-      case Applied(blockId)   => getFullBlock(blockId).map(AppliedBifrostBlock)
-      case Unapplied(blockId) => getFullBlock(blockId).map(UnappliedBifrostBlock)
+      case Applied(blockId)   => getFullBlock(blockId).map(block => AppliedBifrostBlock(block, blockId))
+      case Unapplied(blockId) => getFullBlock(blockId).map(block => UnappliedBifrostBlock(block, blockId))
     }
   )
 
@@ -47,13 +47,14 @@ object BifrostMonitor {
   trait BifrostBlockSync {
     // The bifrost Block being wrapped. This represents either an Applied block or an Unapplied block
     val block: FullBlockBody
+    val id: BlockId
     def transactions[F[_]]: Stream[F, IoTransaction] = Stream.emits(block.transactions)
   }
 
   // Represents a new block applied to the chain tip
-  case class AppliedBifrostBlock(block: FullBlockBody) extends BifrostBlockSync
+  case class AppliedBifrostBlock(block: FullBlockBody, id: BlockId) extends BifrostBlockSync
   // Represents an existing block that has been unapplied from the chain tip
-  case class UnappliedBifrostBlock(block: FullBlockBody) extends BifrostBlockSync
+  case class UnappliedBifrostBlock(block: FullBlockBody, id: BlockId) extends BifrostBlockSync
 
   /**
    * Initialize and return a BifrostMonitor instance.
@@ -86,8 +87,10 @@ object BifrostMonitor {
       // the height of the chain tip
       tipHeight        <- bifrostQuery.blockByDepth(1).map(_.map(_._2.height))
       startingBlockIds <- getBlockIds(startBlockHeight, tipHeight)
-      startingBlocks   <- startingBlockIds.map(bId => getFullBlock(bId).map(AppliedBifrostBlock)).sequence
-      updates          <- bifrostQuery.synchronizationTraversal()
+      startingBlocks <- startingBlockIds
+        .map(bId => getFullBlock(bId).map(block => AppliedBifrostBlock(block, bId)))
+        .sequence
+      updates <- bifrostQuery.synchronizationTraversal()
     } yield new BifrostMonitor(updates, getFullBlock, startingBlocks)
   }
 
