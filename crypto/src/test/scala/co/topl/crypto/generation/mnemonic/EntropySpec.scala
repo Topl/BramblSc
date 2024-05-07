@@ -8,7 +8,6 @@ import org.scalacheck.Gen
 import org.scalatest.matchers.should.Matchers.convertToAnyShouldWrapper
 import org.scalatest.propspec.AnyPropSpec
 import org.scalatestplus.scalacheck.{ScalaCheckDrivenPropertyChecks, ScalaCheckPropertyChecks}
-import co.topl.crypto.utils.EntropySupport._
 import org.scalatest.EitherValues
 
 class EntropySpec

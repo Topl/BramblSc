@@ -52,7 +52,7 @@ object ContainsEvidence {
               MerkleTree
                 .apply[Blake2b, Digest32](
                   list.zipWithIndex
-                    .map { case (item, index) =>
+                    .map { case (item, _) =>
                       LeafData(ContainsImmutable[T].immutableBytes(item).value.toByteArray)
                     }
                 )

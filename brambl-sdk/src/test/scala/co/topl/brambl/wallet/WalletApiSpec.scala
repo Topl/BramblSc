@@ -1,6 +1,5 @@
 package co.topl.brambl.wallet
 
-import cats.Id
 import co.topl.brambl.{MockHelpers, MockWalletKeyApi}
 import co.topl.crypto.encryption.VaultStore
 import co.topl.crypto.generation.mnemonic.MnemonicSizes
@@ -12,7 +11,7 @@ import io.circe.syntax.EncoderOps
 import co.topl.crypto.encryption.VaultStore.Codecs._
 import co.topl.crypto.generation.mnemonic.EntropyFailures.PhraseToEntropyFailure
 import co.topl.crypto.generation.mnemonic.PhraseFailures.InvalidWordLength
-import co.topl.brambl.syntax.{cryptoToPbKeyPair, cryptoVkToPbVk, pbKeyPairToCryptoKeyPair, pbVkToCryptoVk}
+import co.topl.brambl.syntax.{pbKeyPairToCryptoKeyPair, pbVkToCryptoVk}
 
 class WalletApiSpec extends munit.CatsEffectSuite with MockHelpers {
   implicit val idToId: FunctionK[F, F] = FunctionK.id[F]

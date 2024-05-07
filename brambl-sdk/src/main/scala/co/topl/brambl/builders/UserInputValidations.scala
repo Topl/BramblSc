@@ -1,8 +1,8 @@
 package co.topl.brambl.builders
 
 import cats.data.{Chain, NonEmptyChain, Validated, ValidatedNec}
-import cats.implicits.{catsSyntaxEitherId, catsSyntaxOptionId, catsSyntaxValidatedIdBinCompat0, toFoldableOps}
-import co.topl.brambl.models.box.{AssetMintingStatement, FungibilityType, Lock, QuantityDescriptorType}
+import cats.implicits.{catsSyntaxEitherId, catsSyntaxValidatedIdBinCompat0, toFoldableOps}
+import co.topl.brambl.models.box.{AssetMintingStatement, QuantityDescriptorType}
 import co.topl.brambl.models.{LockAddress, SeriesId, TransactionOutputAddress}
 import co.topl.brambl.models.box.Value._
 import quivr.models.Int128

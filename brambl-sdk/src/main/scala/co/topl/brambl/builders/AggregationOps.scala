@@ -5,7 +5,6 @@ import co.topl.brambl.models.box.Value._
 import co.topl.brambl.syntax.{
   bigIntAsInt128,
   int128AsBigInt,
-  valueToQuantityDescriptorSyntaxOps,
   valueToQuantitySyntaxOps,
   valueToTypeIdentifierSyntaxOps,
   AssetType,
@@ -13,7 +12,6 @@ import co.topl.brambl.syntax.{
   UnknownType
 }
 
-import scala.language.implicitConversions
 import scala.util.{Failure, Success, Try}
 
 /**

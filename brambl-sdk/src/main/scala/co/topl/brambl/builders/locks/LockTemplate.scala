@@ -4,7 +4,7 @@ import co.topl.brambl.builders.BuilderError
 import co.topl.brambl.models.box.{Challenge, Lock}
 import LockTemplate.LockType
 import cats.Monad
-import cats.implicits.{catsSyntaxApplicativeId, catsSyntaxEitherId, toFlatMapOps, toFunctorOps}
+import cats.implicits.{catsSyntaxApplicativeId, catsSyntaxEitherId, toFlatMapOps}
 import co.topl.brambl.builders.locks.PropositionTemplate.ThresholdTemplate
 import quivr.models.{Proposition, VerificationKey}
 
