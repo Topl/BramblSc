@@ -9,7 +9,7 @@ object Dependencies {
     val circeVersion = "0.14.6"
     val protobufSpecsVersion = "2.0.0-beta2"
     val mUnitTeVersion = "0.7.29"
-    val btcVersion = "1.9.8"
+    val btcVersion = "1.9.7"
   }
 
   val catsSlf4j: ModuleID =
@@ -22,12 +22,12 @@ object Dependencies {
   )
 
   val scalacheck: Seq[ModuleID] = Seq(
-    "org.scalacheck"    %% "scalacheck"      % "1.17.1",
+    "org.scalacheck"    %% "scalacheck"      % "1.17.0",
     "org.scalatestplus" %% "scalacheck-1-16" % "3.2.14.0"
   )
 
   val scalamock: Seq[ModuleID] = Seq(
-    "org.scalamock" %% "scalamock" % "6.0.0"
+    "org.scalamock" %% "scalamock" % "5.2.0"
   )
 
   val scalatest: Seq[ModuleID] = Seq(
@@ -63,10 +63,10 @@ object Dependencies {
   )
 
   val sqlite: Seq[ModuleID] = Seq(
-    "org.xerial" % "sqlite-jdbc" % "3.45.3.0"
+    "org.xerial" % "sqlite-jdbc" % "3.45.2.0"
   )
 
-  val grpcNetty = "io.grpc" % "grpc-netty" % "1.63.0"
+  val grpcNetty = "io.grpc" % "grpc-netty" % "1.62.2"
 
   val btc: Seq[ModuleID] = Seq(
     "org.bitcoin-s" %% "bitcoin-s-core"         % btcVersion,
@@ -77,7 +77,7 @@ object Dependencies {
   object Crypto {
 
     lazy val sources: Seq[ModuleID] =
-      Seq("org.bouncycastle" % "bcprov-jdk18on" % "1.78.1") ++
+      Seq("org.bouncycastle" % "bcprov-jdk18on" % "1.77") ++
       circe ++
       newType ++
       cats ++
