@@ -1,6 +1,7 @@
 package co.topl.brambl.monitoring
 
 import cats.effect.IO
+import cats.implicits.{catsSyntaxParallelSequence1, toTraverseOps}
 import co.topl.brambl.dataApi.BifrostQueryAlgebra
 import co.topl.brambl.display.blockIdDisplay.display
 import co.topl.brambl.models.transaction.IoTransaction
@@ -70,9 +71,24 @@ object BifrostMonitor {
       case None                 => throw new Exception(s"Unable to query block ${display(blockId)}")
       case Some((_, _, _, txs)) => FullBlockBody(txs)
     }
+    def getBlockIds(startHeight: Option[Long], tipHeight: Option[Long]): IO[Vector[BlockId]] =
+      (startHeight, tipHeight) match {
+        case (Some(start), Some(tip)) if (start >= 1 && tip > start) =>
+          (for (curHeight <- start to tip)
+            yield
+            // For all blocks from starting Height to current tip height, fetch blockIds
+            bifrostQuery.blockByHeight(curHeight).map(_.map(_._1)).map(_.toList)).toVector.parSequence.map(_.flatten)
+        case _ => IO.pure(Vector.empty)
+      }
     for {
-      updates <- bifrostQuery.synchronizationTraversal()
-    } yield new BifrostMonitor(updates, getFullBlock, Vector.empty)
+      // The height of the startBlock
+      startBlockHeight <- startBlock.map(bId => bifrostQuery.blockById(bId)).sequence.map(_.flatten.map(_._2.height))
+      // the height of the chain tip
+      tipHeight        <- bifrostQuery.blockByDepth(1).map(_.map(_._2.height))
+      startingBlockIds <- getBlockIds(startBlockHeight, tipHeight)
+      startingBlocks   <- startingBlockIds.map(bId => getFullBlock(bId).map(AppliedBifrostBlock)).sequence
+      updates          <- bifrostQuery.synchronizationTraversal()
+    } yield new BifrostMonitor(updates, getFullBlock, startingBlocks)
   }
 
 }
