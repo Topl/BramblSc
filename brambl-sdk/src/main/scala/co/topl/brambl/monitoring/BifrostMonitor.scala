@@ -9,7 +9,7 @@ import co.topl.brambl.monitoring.BifrostMonitor.{AppliedBifrostBlock, BifrostBlo
 import co.topl.consensus.models.BlockId
 import co.topl.node.models.FullBlockBody
 import co.topl.node.services.SynchronizationTraversalRes
-import co.topl.node.services.SynchronizationTraversalRes.Status.{Applied, Unapplied}
+import co.topl.node.services.SynchronizationTraversalRes.Status.{Applied, Empty, Unapplied}
 import fs2.Stream
 
 /**
@@ -23,10 +23,11 @@ class BifrostMonitor(
   startingBlocks: Vector[BifrostBlockSync]
 ) {
 
-  def pipe(in: Stream[IO, SynchronizationTraversalRes]): Stream[IO, BifrostBlockSync] = in.evalMap(sync =>
+  def pipe(in: Stream[IO, SynchronizationTraversalRes]): Stream[IO, BifrostBlockSync] = in.evalMapFilter(sync =>
     sync.status match {
-      case Applied(blockId)   => getFullBlock(blockId).map(block => AppliedBifrostBlock(block, blockId))
-      case Unapplied(blockId) => getFullBlock(blockId).map(block => UnappliedBifrostBlock(block, blockId))
+      case Applied(blockId)   => getFullBlock(blockId).map(block => Some(AppliedBifrostBlock(block, blockId)))
+      case Unapplied(blockId) => getFullBlock(blockId).map(block => Some(UnappliedBifrostBlock(block, blockId)))
+      case Empty              => IO.pure(None)
     }
   )
 
