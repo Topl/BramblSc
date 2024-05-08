@@ -66,4 +66,28 @@ class BifrostMonitorTest extends munit.CatsEffectSuite {
       true
     )
   }
+
+  test("Monitor live and retroactive blocks") {
+    assertIO(for {
+      startingBlockId <- bifrostQuery.blockByDepth(1).map(_.get._1)
+      // At approx. 1 block/10 seconds, we expect there to be at least 2 blocks after 30 seconds
+      _ <- IO.unit.andWait(30.seconds)
+      tipBlockId <- bifrostQuery.blockByDepth(1).map(_.get._1)
+      monitor <- BifrostMonitor(bifrostQuery, Some(startingBlockId))
+      blockStream = monitor.monitorBlocks()
+      // At approx. 1 block/10 seconds, we expect there to be at least 2 blocks after 30 seconds
+      blocks <- blockStream.interruptAfter(30.seconds).compile.toList
+    } yield {
+      val blockIds = blocks.map(_.id)
+      val startingIdx = blockIds.indexOf(startingBlockId)
+      val tipBlockIdx = blockIds.indexOf(tipBlockId)
+      blocks.head.id == startingBlockId &&
+        blocks.slice(startingIdx, tipBlockIdx+1).length >= 2 &&
+        blocks.slice(tipBlockIdx+1, blocks.length).length >= 2 &&
+        blockIds.distinct.length == blockIds.length // ensure no duplicate reporting
+    },
+      true
+    )
+  }
+
 }
