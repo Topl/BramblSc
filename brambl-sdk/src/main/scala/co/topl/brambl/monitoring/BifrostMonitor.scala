@@ -36,7 +36,7 @@ class BifrostMonitor(
    * @return The infinite stream of block updatess. If startingBlocks was provided, they will be at the front of the stream.
    */
   def monitorBlocks(): Stream[IO, BifrostBlockSync] = Stream.emits(startingBlocks) ++
-    Stream.fromIterator[IO](blockIterator, 1).through(pipe)
+    Stream.fromBlockingIterator[IO](blockIterator, 1).through(pipe)
 
 }
 
