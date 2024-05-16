@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Bifrost network monitoring. This change allows the ability to monitor a bifrost network for applied and unapplied blocks, returning a stream.
-
+- Added a height field to the blocks in the Bitcoin monitor stream
 
 ## [v2.0.0-beta4] - 2024-04-23
 
