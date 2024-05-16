@@ -3,7 +3,7 @@ package co.topl.brambl.monitoring
 import akka.actor.ActorSystem
 import cats.effect.IO
 import cats.effect.std.Queue
-import co.topl.brambl.monitoring.BitcoinMonitor.{initZmqSubscriber, BitcoinBlock}
+import co.topl.brambl.monitoring.BitcoinMonitor.BitcoinBlock
 import fs2.Stream
 import org.bitcoins.core.config.NetworkParameters
 import org.bitcoins.core.protocol.blockchain.Block
@@ -22,18 +22,21 @@ import scala.concurrent.{Await, Future}
 
 /**
  * Class to monitor incoming bitcoin blocks via a queue.
+ *
+ * @note This monitor does not do any filtering or self-healing on the block stream if an outage of the bitcoin node or
+ *       monitoring client occurs. For example, if a bitcoin node restart causes the entire chain to get re-applied, then
+ *       the monitor will report all blocks again. In other words, duplicate blocks may appear in the stream.
+ *
  * @param blockQueue The queue in which new blocks will be added to
  * @param startingBlocks Past blocks that should be reported.
- * @param zmqHost The host where the monitor will be subscribed to
- * @param zmqPort The port where the monitor will be subscribed to
+ * @param initZmqSubscriber Zmq Subscriber Initializer
  */
 class BitcoinMonitor(
   blockQueue:     Queue[IO, BitcoinBlock],
   startingBlocks: Vector[BitcoinBlock],
-  zmqHost:        String,
-  zmqPort:        Int
+  initZmqSubscriber: Queue[IO, BitcoinBlock] => ZMQSubscriber
 ) {
-  val subscriber: ZMQSubscriber = initZmqSubscriber(blockQueue, zmqHost, zmqPort)
+  val subscriber: ZMQSubscriber = initZmqSubscriber(blockQueue)
   subscriber.start()
 
   /**
@@ -106,24 +109,29 @@ object BitcoinMonitor {
    * A wrapper for a bitcoin Block.
    * @param block The bitcoin Block being wrapped
    */
-  case class BitcoinBlock(block: Block) {
+  case class BitcoinBlock(block: Block, height: Int) {
     def transactions[F[_]]: Stream[F, Transaction] = Stream.emits(block.transactions)
   }
 
-  private def addToQueue(blockQueue: Queue[IO, BitcoinBlock]): Block => Unit = (block: Block) => {
+  private def addToQueue(blockQueue: Queue[IO, BitcoinBlock], bitcoind: BitcoindRpcClient): Block => Unit = (block: Block) => {
     import cats.effect.unsafe.implicits.global
-    blockQueue.offer(BitcoinBlock(block)).unsafeRunSync()
+
+    (for {
+      height <- IO.fromFuture(IO(bitcoind.getBlockHeight(block.blockHeader.hashBE)))
+      res <- blockQueue.offer(BitcoinBlock(block, height.get))  // getBlockHeight hard-codes Some(_)
+    } yield res).unsafeRunSync()
   }
 
   /**
    * Initialize a ZeroMQ subscriber that adds new blocks to a queue
-   * @param blockQueue The queue to add new blocks to
+   * @param bitcoind The bitcoind instance to query additional data
    * @param host The host in which the ZmqSubscriber will be connected to
    * @param port The port in which the ZmqSubscriber will be connected to
+   * @param blockQueue The queue to add new blocks to
    * @return An initialized ZMQSubcriber instance
    */
-  def initZmqSubscriber(blockQueue: Queue[IO, BitcoinBlock], host: String, port: Int): ZMQSubscriber =
-    new ZMQSubscriber(new InetSocketAddress(host, port), None, None, None, Some(addToQueue(blockQueue)))
+  def initZmqSubscriber(bitcoind: BitcoindRpcClient, host: String, port: Int)(blockQueue: Queue[IO, BitcoinBlock]): ZMQSubscriber =
+    new ZMQSubscriber(new InetSocketAddress(host, port), None, None, None, Some(addToQueue(blockQueue, bitcoind)))
 
   /**
    * Initialize and return a BitcoinMonitor instance.
@@ -151,6 +159,7 @@ object BitcoinMonitor {
         getBlockHashes(blockRes.nextblockhash, prevHashes.appended(blockHash))
       case None => prevHashes
     }
+
     val existingHashes = getBlockHashes(startBlock)
     println("Retroactively fetching blocks:")
     existingHashes.foreach(h => println(h.hex))
@@ -159,11 +168,14 @@ object BitcoinMonitor {
       startingBlocks <- IO.fromFuture(
         IO(
           Future.sequence(
-            existingHashes.map(hash => bitcoind.getBlockRaw(hash).map(b => BitcoinBlock(b))(ec))
+            existingHashes.map(hash => for {
+              b <- bitcoind.getBlockRaw(hash)
+              h <- bitcoind.getBlockHeight(hash)
+            } yield BitcoinBlock(b, h.get)) // .get won't cause issue since the getBlockHeight hardcodes it as Some(_)
           )
         )
       )
-    } yield new BitcoinMonitor(blockQueue, startingBlocks, zmqHost, zmqPort)
+    } yield new BitcoinMonitor(blockQueue, startingBlocks, initZmqSubscriber(bitcoind, zmqHost, zmqPort))
   }
 
 }

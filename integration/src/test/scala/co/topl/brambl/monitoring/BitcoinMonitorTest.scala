@@ -37,7 +37,7 @@ class BitcoinMonitorTest extends munit.CatsEffectSuite {
       // After 0.5 second to allow the minted blocks to occur on the bitcoin instance
       blocks <- blockStream.interruptAfter(500.millis).compile.toList
       _ = monitor.stop()
-    } yield blocks.map(_.block.blockHeader.hashBE).toVector == mintBlocks,
+    } yield blocks.map(_.block.blockHeader.hashBE).toVector == mintBlocks && blocks.map(_.height) == mintBlocks.zipWithIndex.map(_._2 + 1),
       true
     )
   }
@@ -56,7 +56,9 @@ class BitcoinMonitorTest extends munit.CatsEffectSuite {
       println(existingBlocks)
       println(mintBlocks)
       println(blocks.map(_.block.blockHeader.hashBE).toVector)
-      blocks.map(_.block.blockHeader.hashBE).toVector == (existingBlocks ++ mintBlocks)
+      val expectedBlocks = existingBlocks ++ mintBlocks
+      val startingHeight = blocks.head.height
+      blocks.map(_.block.blockHeader.hashBE).toVector == expectedBlocks && blocks.map(_.height) == expectedBlocks.zipWithIndex.map(_._2 + startingHeight)
     },
       true
     )
