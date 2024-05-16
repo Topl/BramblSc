@@ -32,8 +32,8 @@ import scala.concurrent.{Await, Future}
  * @param initZmqSubscriber Zmq Subscriber Initializer
  */
 class BitcoinMonitor(
-  blockQueue:     Queue[IO, BitcoinBlock],
-  startingBlocks: Vector[BitcoinBlock],
+  blockQueue:        Queue[IO, BitcoinBlock],
+  startingBlocks:    Vector[BitcoinBlock],
   initZmqSubscriber: Queue[IO, BitcoinBlock] => ZMQSubscriber
 ) {
   val subscriber: ZMQSubscriber = initZmqSubscriber(blockQueue)
@@ -113,14 +113,15 @@ object BitcoinMonitor {
     def transactions[F[_]]: Stream[F, Transaction] = Stream.emits(block.transactions)
   }
 
-  private def addToQueue(blockQueue: Queue[IO, BitcoinBlock], bitcoind: BitcoindRpcClient): Block => Unit = (block: Block) => {
-    import cats.effect.unsafe.implicits.global
+  private def addToQueue(blockQueue: Queue[IO, BitcoinBlock], bitcoind: BitcoindRpcClient): Block => Unit =
+    (block: Block) => {
+      import cats.effect.unsafe.implicits.global
 
-    (for {
-      height <- IO.fromFuture(IO(bitcoind.getBlockHeight(block.blockHeader.hashBE)))
-      res <- blockQueue.offer(BitcoinBlock(block, height.get))  // getBlockHeight hard-codes Some(_)
-    } yield res).unsafeRunSync()
-  }
+      (for {
+        height <- IO.fromFuture(IO(bitcoind.getBlockHeight(block.blockHeader.hashBE)))
+        res    <- blockQueue.offer(BitcoinBlock(block, height.get)) // getBlockHeight hard-codes Some(_)
+      } yield res).unsafeRunSync()
+    }
 
   /**
    * Initialize a ZeroMQ subscriber that adds new blocks to a queue
@@ -130,7 +131,9 @@ object BitcoinMonitor {
    * @param blockQueue The queue to add new blocks to
    * @return An initialized ZMQSubcriber instance
    */
-  def initZmqSubscriber(bitcoind: BitcoindRpcClient, host: String, port: Int)(blockQueue: Queue[IO, BitcoinBlock]): ZMQSubscriber =
+  def initZmqSubscriber(bitcoind: BitcoindRpcClient, host: String, port: Int)(
+    blockQueue: Queue[IO, BitcoinBlock]
+  ): ZMQSubscriber =
     new ZMQSubscriber(new InetSocketAddress(host, port), None, None, None, Some(addToQueue(blockQueue, bitcoind)))
 
   /**
@@ -168,10 +171,12 @@ object BitcoinMonitor {
       startingBlocks <- IO.fromFuture(
         IO(
           Future.sequence(
-            existingHashes.map(hash => for {
-              b <- bitcoind.getBlockRaw(hash)
-              h <- bitcoind.getBlockHeight(hash)
-            } yield BitcoinBlock(b, h.get)) // .get won't cause issue since the getBlockHeight hardcodes it as Some(_)
+            existingHashes.map(hash =>
+              for {
+                b <- bitcoind.getBlockRaw(hash)
+                h <- bitcoind.getBlockHeight(hash)
+              } yield BitcoinBlock(b, h.get)
+            ) // .get won't cause issue since the getBlockHeight hardcodes it as Some(_)
           )
         )
       )
