@@ -3,7 +3,7 @@ package co.topl.brambl.monitoring
 import akka.actor.ActorSystem
 import cats.effect.IO
 import cats.effect.std.Queue
-import co.topl.brambl.monitoring.BitcoinMonitor.BitcoinBlock
+import co.topl.brambl.monitoring.BitcoinMonitor.BitcoinBlockSync
 import fs2.Stream
 import org.bitcoins.core.config.NetworkParameters
 import org.bitcoins.core.protocol.blockchain.Block
@@ -32,9 +32,9 @@ import scala.concurrent.{Await, Future}
  * @param initZmqSubscriber Zmq Subscriber Initializer
  */
 class BitcoinMonitor(
-  blockQueue:        Queue[IO, BitcoinBlock],
-  startingBlocks:    Vector[BitcoinBlock],
-  initZmqSubscriber: Queue[IO, BitcoinBlock] => ZMQSubscriber
+  blockQueue:        Queue[IO, BitcoinBlockSync],
+  startingBlocks:    Vector[BitcoinBlockSync],
+  initZmqSubscriber: Queue[IO, BitcoinBlockSync] => ZMQSubscriber
 ) {
   val subscriber: ZMQSubscriber = initZmqSubscriber(blockQueue)
   subscriber.start()
@@ -43,7 +43,7 @@ class BitcoinMonitor(
    * Return a stream of blocks.
    * @return The infinite stream of blocks. If startingBlocks was provided, they will be at the front of the stream.
    */
-  def monitorBlocks(): Stream[IO, BitcoinBlock] =
+  def monitorBlocks(): Stream[IO, BitcoinBlockSync] =
     Stream.emits(startingBlocks) ++ Stream.fromQueueUnterminated(blockQueue)
 
   /**
@@ -106,20 +106,28 @@ object BitcoinMonitor {
   }
 
   /**
-   * A wrapper for a bitcoin Block.
-   * @param block The bitcoin Block being wrapped
+   * A wrapper for a bitcoin Block update.
    */
-  case class BitcoinBlock(block: Block, height: Int) {
+  trait BitcoinBlockSync {
+    val block: Block
+    val height: Int
+
     def transactions[F[_]]: Stream[F, Transaction] = Stream.emits(block.transactions)
   }
 
-  private def addToQueue(blockQueue: Queue[IO, BitcoinBlock], bitcoind: BitcoindRpcClient): Block => Unit =
+  // Represents a new block applied to the chain tip
+  case class AppliedBitcoinBlock(block: Block, height: Int) extends BitcoinBlockSync
+
+  // Represents an existing block that has been unapplied from the chain tip
+  case class UnappliedBitcoinBlock(block: Block, height: Int) extends BitcoinBlockSync
+
+  private def addToQueue(blockQueue: Queue[IO, BitcoinBlockSync], bitcoind: BitcoindRpcClient): Block => Unit =
     (block: Block) => {
       import cats.effect.unsafe.implicits.global
 
       (for {
         height <- IO.fromFuture(IO(bitcoind.getBlockHeight(block.blockHeader.hashBE)))
-        res    <- blockQueue.offer(BitcoinBlock(block, height.get)) // getBlockHeight hard-codes Some(_)
+        res    <- blockQueue.offer(AppliedBitcoinBlock(block, height.get)) // getBlockHeight hard-codes Some(_)
       } yield res).unsafeRunSync()
     }
 
@@ -132,7 +140,7 @@ object BitcoinMonitor {
    * @return An initialized ZMQSubcriber instance
    */
   def initZmqSubscriber(bitcoind: BitcoindRpcClient, host: String, port: Int)(
-    blockQueue: Queue[IO, BitcoinBlock]
+    blockQueue: Queue[IO, BitcoinBlockSync]
   ): ZMQSubscriber =
     new ZMQSubscriber(new InetSocketAddress(host, port), None, None, None, Some(addToQueue(blockQueue, bitcoind)))
 
@@ -167,7 +175,7 @@ object BitcoinMonitor {
     println("Retroactively fetching blocks:")
     existingHashes.foreach(h => println(h.hex))
     for {
-      blockQueue <- Queue.unbounded[IO, BitcoinBlock]
+      blockQueue <- Queue.unbounded[IO, BitcoinBlockSync]
       startingBlocks <- IO.fromFuture(
         IO(
           Future.sequence(
@@ -175,7 +183,7 @@ object BitcoinMonitor {
               for {
                 b <- bitcoind.getBlockRaw(hash)
                 h <- bitcoind.getBlockHeight(hash)
-              } yield BitcoinBlock(b, h.get)
+              } yield AppliedBitcoinBlock(b, h.get)
             ) // .get won't cause issue since the getBlockHeight hardcodes it as Some(_)
           )
         )
