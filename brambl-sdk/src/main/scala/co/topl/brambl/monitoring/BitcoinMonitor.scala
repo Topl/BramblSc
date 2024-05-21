@@ -75,6 +75,7 @@ class BitcoinMonitor(
           )
         } yield {
           currentTip = Some(adoptedBlock)
+          println(unappliedChain, appliedChain)
           unappliedChain ++ appliedChain // report the unapplied first, then the applied.
         }
     }
@@ -93,15 +94,23 @@ class BitcoinMonitor(
   ): IO[(Vector[UnappliedBitcoinBlock], Vector[AppliedBitcoinBlock])] =
     for {
       updatedNewTip <-
-        if (newTip.head.height > oldTip.head.height) for {
-          newBlock       <- IO.fromFuture(IO(bitcoind.getBlockRaw(newTip.head.block.blockHeader.hashBE)))
-          newBlockHeight <- IO.fromFuture(IO(bitcoind.getBlockHeight(newTip.head.block.blockHeader.hashBE)))
+        if (
+          newTip.head.height > oldTip.head.height || (newTip.head.height == oldTip.head.height && newTip.head.block.blockHeader.hashBE == newTip.head.block.blockHeader.hashBE)
+        ) for {
+          newBlock <- IO.fromFuture(IO(bitcoind.getBlockRaw(newTip.head.block.blockHeader.previousBlockHashBE)))
+          newBlockHeight <- IO.fromFuture(
+            IO(bitcoind.getBlockHeight(newTip.head.block.blockHeader.previousBlockHashBE))
+          )
         } yield AppliedBitcoinBlock(newBlock, newBlockHeight.get) +: newTip // height should be 1 less than before
         else IO.pure(newTip)
       updatedOldTip <-
-        if (newTip.head.height < oldTip.head.height) for {
-          oldBlock       <- IO.fromFuture(IO(bitcoind.getBlockRaw(oldTip.head.block.blockHeader.hashBE)))
-          oldBlockHeight <- IO.fromFuture(IO(bitcoind.getBlockHeight(oldTip.head.block.blockHeader.hashBE)))
+        if (
+          newTip.head.height < oldTip.head.height || (newTip.head.height == oldTip.head.height && newTip.head.block.blockHeader.hashBE == newTip.head.block.blockHeader.hashBE)
+        ) for {
+          oldBlock <- IO.fromFuture(IO(bitcoind.getBlockRaw(oldTip.head.block.blockHeader.previousBlockHashBE)))
+          oldBlockHeight <- IO.fromFuture(
+            IO(bitcoind.getBlockHeight(oldTip.head.block.blockHeader.previousBlockHashBE))
+          )
         } yield UnappliedBitcoinBlock(oldBlock, oldBlockHeight.get) +: oldTip // height should be 1 less than before
         else IO.pure(oldTip)
       res <-
@@ -159,12 +168,14 @@ object BitcoinMonitor {
       network:     NetworkParameters,
       host:        String,
       credentials: BitcoindAuthCredentials,
-      proxyParams: Option[Socks5ProxyParams] = None
+      proxyParams: Option[Socks5ProxyParams] = None,
+      port:        Option[Int] = None,
+      rpcPort:     Option[Int] = None
     ): BitcoindRpcClient = BitcoindRpcClient(
       BitcoindInstanceRemote(
         network = network,
-        uri = new URI(s"$host:${network.port}"),
-        rpcUri = new URI(s"$host:${network.rpcPort}"),
+        uri = new URI(s"$host:${if (port.isDefined) port.get else network.port}"),
+        rpcUri = new URI(s"$host:${if (rpcPort.isDefined) rpcPort.get else network.rpcPort}"),
         authCredentials = credentials,
         proxyParams = proxyParams
       )
