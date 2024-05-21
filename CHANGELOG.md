@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Fixed responsiveness warning: Bifrost monitor uses fromBlockingIterator
+- Added height field to the Bitcoin Monitor Stream
+- Added support for reorgs to the Bitcoin Monitor Stream. The stream sends back blocks to be either Applied or Unapplied.
 
 ## [v2.0.0-beta5] - 2024-05-08
 
