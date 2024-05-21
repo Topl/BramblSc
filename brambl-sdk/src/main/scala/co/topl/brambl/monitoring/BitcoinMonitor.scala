@@ -75,7 +75,6 @@ class BitcoinMonitor(
           )
         } yield {
           currentTip = Some(adoptedBlock)
-          println(unappliedChain, appliedChain)
           unappliedChain ++ appliedChain // report the unapplied first, then the applied.
         }
     }
@@ -117,7 +116,10 @@ class BitcoinMonitor(
         if (
           updatedNewTip.head.height == updatedOldTip.head.height && updatedNewTip.head.block.blockHeader.hashBE == updatedOldTip.head.block.blockHeader.hashBE
         )
-          IO.pure(updatedOldTip, updatedNewTip) // common ancestor is found
+          IO.pure(
+            updatedOldTip.tail,
+            updatedNewTip.tail
+          ) // common ancestor is found. We return .tail so to not duplicate unapply/apply of the ancestor
         else findCommonAncestor(updatedOldTip, updatedNewTip) // keep traversing
     } yield res
 
