@@ -3,8 +3,8 @@ package co.topl.brambl.monitoring
 import akka.actor.ActorSystem
 import cats.effect.IO
 import cats.effect.std.Queue
-import co.topl.brambl.monitoring.BitcoinMonitor.BitcoinBlockSync
-import fs2.Stream
+import co.topl.brambl.monitoring.BitcoinMonitor.{AppliedBitcoinBlock, BitcoinBlockSync, UnappliedBitcoinBlock}
+import fs2.{Pipe, Stream}
 import org.bitcoins.core.config.NetworkParameters
 import org.bitcoins.core.protocol.blockchain.Block
 import org.bitcoins.core.protocol.transaction.Transaction
@@ -34,17 +34,59 @@ import scala.concurrent.{Await, Future}
 class BitcoinMonitor(
   blockQueue:        Queue[IO, BitcoinBlockSync],
   startingBlocks:    Vector[BitcoinBlockSync],
-  initZmqSubscriber: Queue[IO, BitcoinBlockSync] => ZMQSubscriber
+  initZmqSubscriber: Queue[IO, BitcoinBlockSync] => ZMQSubscriber,
+  bitcoind: BitcoindRpcClient
 ) {
   val subscriber: ZMQSubscriber = initZmqSubscriber(blockQueue)
   subscriber.start()
+
+  // The last live block that was reported by the monitor. Used to detect reorgs
+  var currentTip: Option[DoubleSha256DigestBE] = startingBlocks.lastOption.map(_.block.blockHeader.hashBE)
 
   /**
    * Return a stream of blocks.
    * @return The infinite stream of blocks. If startingBlocks was provided, they will be at the front of the stream.
    */
   def monitorBlocks(): Stream[IO, BitcoinBlockSync] =
-    Stream.emits(startingBlocks) ++ Stream.fromQueueUnterminated(blockQueue)
+    Stream.emits(startingBlocks) ++ Stream.fromQueueUnterminated(blockQueue).through(synchronizeChain)
+
+  /**
+   *
+   * @return
+   */
+  private def synchronizeChain: Pipe[IO, BitcoinBlockSync, BitcoinBlockSync] = in => in.flatMap { adoptedBlock =>
+    if(currentTip.isEmpty || currentTip.contains(adoptedBlock.block.blockHeader.previousBlockHashBE)) {
+      currentTip = Some(adoptedBlock.block.blockHeader.hashBE)
+      Stream.emits(Vector(adoptedBlock))
+    } else {
+      val commonAncestor = findCommonAncestor(currentTip.get, adoptedBlock.block.blockHeader.previousBlockHashBE)
+      val unappliedChain = buildSyncChain(commonAncestor, currentTip.get, UnappliedBitcoinBlock)
+      val appliedChain = buildSyncChain(commonAncestor, adoptedBlock.block.blockHeader.previousBlockHashBE, AppliedBitcoinBlock) :+ adoptedBlock
+      Stream.emits(unappliedChain ++ appliedChain) // report the unapplied first, then the applied.
+    }
+  }
+
+  /**
+   * Find the most recent common ancestor of 2 blocks
+   *
+   * Precondition: block1 and block2 are both valid block IDs from the same network. Consequently, they both are guaranteed to share at least 1 common ancestor (genesis block)
+   * */
+  private def findCommonAncestor(block1: DoubleSha256DigestBE, block2: DoubleSha256DigestBE): DoubleSha256DigestBE = ???
+
+  private def buildSyncChain(start: DoubleSha256DigestBE, end: DoubleSha256DigestBE, constructor: (Block, Int) => BitcoinBlockSync): Vector[BitcoinBlockSync] =
+    buildSyncChainRawBlocks(end, start).map(block => {
+      val h = Await.result(bitcoind.getBlockHeight(block.blockHeader.hashBE), 5.seconds).get // getBlockHeight hard-codes Some(_)
+      constructor(block, h)
+    })
+
+  @tailrec
+  private def buildSyncChainRawBlocks(curId: DoubleSha256DigestBE, firstId: DoubleSha256DigestBE, accBlocks: Vector[Block] = Vector.empty): Vector[Block] = {
+    val curBlock = Await.result(bitcoind.getBlockRaw(curId.flip), 5.seconds)
+    if(curId == firstId)
+      curBlock +: accBlocks
+    else
+      buildSyncChainRawBlocks(curBlock.blockHeader.previousBlockHashBE, firstId, curBlock +: accBlocks)
+  }
 
   /**
    * Stop monitorings
@@ -146,7 +188,7 @@ object BitcoinMonitor {
 
   /**
    * Initialize and return a BitcoinMonitor instance.
-   * @param bitcoindInstance The bitcoind instance to monitor
+   * @param bitcoind The bitcoind instance to monitor
    * @param startBlock The hash of a past block. Used to retroactively report blocks. The bitcoin monitor will report all blocks starting at this block.
    * @param zmqHost The host in which the underlying ZmqSubscriber will be connected to. This is used to capture newly minted blocks.
    * @param zmqPort The port in which the underlying ZmqSubscriber will be connected to. This is used to capture newly minted blocks.
@@ -188,7 +230,7 @@ object BitcoinMonitor {
           )
         )
       )
-    } yield new BitcoinMonitor(blockQueue, startingBlocks, initZmqSubscriber(bitcoind, zmqHost, zmqPort))
+    } yield new BitcoinMonitor(blockQueue, startingBlocks, initZmqSubscriber(bitcoind, zmqHost, zmqPort), bitcoind)
   }
 
 }
