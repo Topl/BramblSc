@@ -1,10 +1,14 @@
 package co.topl.brambl.monitoring
 
 import cats.effect.IO
+import co.topl.brambl.monitoring.BitcoinMonitor.AppliedBitcoinBlock
+import org.bitcoins.commons.jsonmodels.bitcoind.RpcOpts.AddNodeArgument
 import org.bitcoins.core.config.RegTest
+import org.bitcoins.crypto.DoubleSha256DigestBE
 import org.bitcoins.rpc.client.common.BitcoindRpcClient
 import org.bitcoins.rpc.config.BitcoindAuthCredentials
 
+import java.net.URI
 import scala.concurrent.Await
 import scala.concurrent.duration.DurationInt
 
@@ -17,11 +21,24 @@ class BitcoinMonitorTest extends munit.CatsEffectSuite {
     val bitcoindInstance: BitcoindRpcClient = BitcoinMonitor.Bitcoind.remoteConnection(RegTest, "http://localhost", credentials)
     def apply() = bitcoindInstance
 
+    val bitcoindInstance2: BitcoindRpcClient = BitcoinMonitor.Bitcoind.remoteConnection(
+      RegTest,
+      "http://localhost",
+      credentials,
+      port = Some(12224),
+      rpcPort = Some(12223)
+    )
+    val bitcoindInstance2Uri = new URI("http://host.docker.internal:12224")
+
     override def beforeAll(): Unit = {
       println("beforeall")
       Await.result(
         bitcoindInstance.createWallet(TestWallet, descriptors = true)
         .recover(_ => ()), // In case wallet already exists
+        5.seconds)
+      Await.result(
+        bitcoindInstance2.createWallet(TestWallet, descriptors = true)
+          .recover(_ => ()), // In case wallet already exists
         5.seconds)
       println("wallet initialized")
     }
@@ -59,6 +76,35 @@ class BitcoinMonitorTest extends munit.CatsEffectSuite {
       val expectedBlocks = existingBlocks ++ mintBlocks
       val startingHeight = blocks.head.height
       blocks.map(_.block.blockHeader.hashBE).toVector == expectedBlocks && blocks.map(_.height) == expectedBlocks.zipWithIndex.map(_._2 + startingHeight)
+    },
+      true
+    )
+  }
+
+  test("Monitor blocks with a reorg"){
+    val bitcoindInstance = bitcoind()
+    val node2Instance = bitcoind.bitcoindInstance2
+    assertIO(for {
+      monitor <- BitcoinMonitor(bitcoindInstance)
+      blockStream = monitor.monitorBlocks()
+      node1MintBlocks <- IO.fromFuture(IO(bitcoindInstance.getNewAddress(Some(TestWallet)).flatMap(bitcoindInstance.generateToAddress(1, _))))
+      node2MintBlocks <- IO.fromFuture(IO(node2Instance.getNewAddress(Some(TestWallet)).flatMap(node2Instance.generateToAddress(2, _))))
+      _ <- IO.fromFuture(IO(bitcoindInstance.addNode(bitcoind.bitcoindInstance2Uri, AddNodeArgument.Add))).attempt
+      additionalMintBlocks <- IO.fromFuture(IO(node2Instance.getNewAddress(Some(TestWallet)).flatMap(node2Instance.generateToAddress(1, _))))
+      blocks <- blockStream.interruptAfter(1.seconds).compile.toList
+      _ = monitor.stop()
+    } yield {
+      case class BitcoinSyncLite(height: Int, hash: DoubleSha256DigestBE, isApplied: Boolean)
+      val startingHeight = blocks.head.height
+      val expectedBlocks = Seq(
+        BitcoinSyncLite(startingHeight, node1MintBlocks.head, isApplied = true),
+        BitcoinSyncLite(startingHeight, node1MintBlocks.head, isApplied = false),
+        BitcoinSyncLite(startingHeight, node2MintBlocks.head, isApplied = true),
+        BitcoinSyncLite(startingHeight + 1, node2MintBlocks(1), isApplied = true),
+        BitcoinSyncLite(startingHeight + 2, additionalMintBlocks.head, isApplied = true),
+      )
+      val testBlocks = blocks.map(b => BitcoinSyncLite(b.height, b.block.blockHeader.hashBE, b.isInstanceOf[AppliedBitcoinBlock]))
+      expectedBlocks == testBlocks
     },
       true
     )
