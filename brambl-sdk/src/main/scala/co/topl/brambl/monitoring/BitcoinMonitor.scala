@@ -32,61 +32,85 @@ import scala.concurrent.{Await, Future}
  * @param initZmqSubscriber Zmq Subscriber Initializer
  */
 class BitcoinMonitor(
-  blockQueue:        Queue[IO, BitcoinBlockSync],
-  startingBlocks:    Vector[BitcoinBlockSync],
-  initZmqSubscriber: Queue[IO, BitcoinBlockSync] => ZMQSubscriber,
-  bitcoind: BitcoindRpcClient
+  blockQueue:        Queue[IO, AppliedBitcoinBlock],
+  startingBlocks:    Vector[AppliedBitcoinBlock],
+  initZmqSubscriber: Queue[IO, AppliedBitcoinBlock] => ZMQSubscriber,
+  bitcoind:          BitcoindRpcClient
 ) {
   val subscriber: ZMQSubscriber = initZmqSubscriber(blockQueue)
   subscriber.start()
 
   // The last live block that was reported by the monitor. Used to detect reorgs
-  var currentTip: Option[DoubleSha256DigestBE] = startingBlocks.lastOption.map(_.block.blockHeader.hashBE)
+  var currentTip: Option[AppliedBitcoinBlock] = startingBlocks.lastOption
 
   /**
    * Return a stream of blocks.
    * @return The infinite stream of blocks. If startingBlocks was provided, they will be at the front of the stream.
    */
   def monitorBlocks(): Stream[IO, BitcoinBlockSync] =
-    Stream.emits(startingBlocks) ++ Stream.fromQueueUnterminated(blockQueue).through(synchronizeChain)
+    Stream
+      .emits(startingBlocks) ++ Stream.fromQueueUnterminated(blockQueue).through(synchronizeChain).through(flattenChain)
 
   /**
-   *
-   * @return
+   * Synchronize the chain.
+   * Given a new adopted block, check if it was the result of a reorg. If the new block's parent does not match the monitor's last reported block,
+   * we traverse the chain to find the most recent common ancestor. The chain from the last reported block -> ancestor will be added to the monitor queue as "Unapplied" blocks.
+   * The chain from the newly adopted block -> ancestor will be added to the monitor queue as "Applied" blocks.
    */
-  private def synchronizeChain: Pipe[IO, BitcoinBlockSync, BitcoinBlockSync] = in => in.flatMap { adoptedBlock =>
-    if(currentTip.isEmpty || currentTip.contains(adoptedBlock.block.blockHeader.previousBlockHashBE)) {
-      currentTip = Some(adoptedBlock.block.blockHeader.hashBE)
-      Stream.emits(Vector(adoptedBlock))
-    } else {
-      val commonAncestor = findCommonAncestor(currentTip.get, adoptedBlock.block.blockHeader.previousBlockHashBE)
-      val unappliedChain = buildSyncChain(commonAncestor, currentTip.get, UnappliedBitcoinBlock)
-      val appliedChain = buildSyncChain(commonAncestor, adoptedBlock.block.blockHeader.previousBlockHashBE, AppliedBitcoinBlock) :+ adoptedBlock
-      Stream.emits(unappliedChain ++ appliedChain) // report the unapplied first, then the applied.
+  private def synchronizeChain: Pipe[IO, AppliedBitcoinBlock, Vector[BitcoinBlockSync]] = in =>
+    in.evalMap { adoptedBlock =>
+      // Checking if the new block's parent matches our last reported block
+      if (
+        currentTip.isEmpty || currentTip
+          .map(_.block.blockHeader.hashBE)
+          .contains(adoptedBlock.block.blockHeader.previousBlockHashBE)
+      ) {
+        currentTip = Some(adoptedBlock)
+        IO.pure(Vector(adoptedBlock))
+      } else
+        for {
+          (unappliedChain, appliedChain) <- findCommonAncestor(
+            Vector(UnappliedBitcoinBlock(currentTip.get.block, currentTip.get.height)),
+            Vector(adoptedBlock)
+          )
+        } yield {
+          currentTip = Some(adoptedBlock)
+          unappliedChain ++ appliedChain // report the unapplied first, then the applied.
+        }
     }
-  }
+
+  private def flattenChain: Pipe[IO, Vector[BitcoinBlockSync], BitcoinBlockSync] =
+    in => in.flatMap(blocks => Stream.emits(blocks))
 
   /**
-   * Find the most recent common ancestor of 2 blocks
+   * Find the most recent common ancestor of 2 blocks. Return the traversal path to this ancestor for both blocks
    *
    * Precondition: block1 and block2 are both valid block IDs from the same network. Consequently, they both are guaranteed to share at least 1 common ancestor (genesis block)
-   * */
-  private def findCommonAncestor(block1: DoubleSha256DigestBE, block2: DoubleSha256DigestBE): DoubleSha256DigestBE = ???
-
-  private def buildSyncChain(start: DoubleSha256DigestBE, end: DoubleSha256DigestBE, constructor: (Block, Int) => BitcoinBlockSync): Vector[BitcoinBlockSync] =
-    buildSyncChainRawBlocks(end, start).map(block => {
-      val h = Await.result(bitcoind.getBlockHeight(block.blockHeader.hashBE), 5.seconds).get // getBlockHeight hard-codes Some(_)
-      constructor(block, h)
-    })
-
-  @tailrec
-  private def buildSyncChainRawBlocks(curId: DoubleSha256DigestBE, firstId: DoubleSha256DigestBE, accBlocks: Vector[Block] = Vector.empty): Vector[Block] = {
-    val curBlock = Await.result(bitcoind.getBlockRaw(curId.flip), 5.seconds)
-    if(curId == firstId)
-      curBlock +: accBlocks
-    else
-      buildSyncChainRawBlocks(curBlock.blockHeader.previousBlockHashBE, firstId, curBlock +: accBlocks)
-  }
+   */
+  private def findCommonAncestor(
+    oldTip: Vector[UnappliedBitcoinBlock],
+    newTip: Vector[AppliedBitcoinBlock]
+  ): IO[(Vector[UnappliedBitcoinBlock], Vector[AppliedBitcoinBlock])] =
+    for {
+      updatedNewTip <-
+        if (newTip.head.height > oldTip.head.height) for {
+          newBlock       <- IO.fromFuture(IO(bitcoind.getBlockRaw(newTip.head.block.blockHeader.hashBE)))
+          newBlockHeight <- IO.fromFuture(IO(bitcoind.getBlockHeight(newTip.head.block.blockHeader.hashBE)))
+        } yield AppliedBitcoinBlock(newBlock, newBlockHeight.get) +: newTip // height should be 1 less than before
+        else IO.pure(newTip)
+      updatedOldTip <-
+        if (newTip.head.height < oldTip.head.height) for {
+          oldBlock       <- IO.fromFuture(IO(bitcoind.getBlockRaw(oldTip.head.block.blockHeader.hashBE)))
+          oldBlockHeight <- IO.fromFuture(IO(bitcoind.getBlockHeight(oldTip.head.block.blockHeader.hashBE)))
+        } yield UnappliedBitcoinBlock(oldBlock, oldBlockHeight.get) +: oldTip // height should be 1 less than before
+        else IO.pure(oldTip)
+      res <-
+        if (
+          updatedNewTip.head.height == updatedOldTip.head.height && updatedNewTip.head.block.blockHeader.hashBE == updatedOldTip.head.block.blockHeader.hashBE
+        )
+          IO.pure(updatedOldTip, updatedNewTip) // common ancestor is found
+        else findCommonAncestor(updatedOldTip, updatedNewTip) // keep traversing
+    } yield res
 
   /**
    * Stop monitorings
@@ -163,7 +187,7 @@ object BitcoinMonitor {
   // Represents an existing block that has been unapplied from the chain tip
   case class UnappliedBitcoinBlock(block: Block, height: Int) extends BitcoinBlockSync
 
-  private def addToQueue(blockQueue: Queue[IO, BitcoinBlockSync], bitcoind: BitcoindRpcClient): Block => Unit =
+  private def addToQueue(blockQueue: Queue[IO, AppliedBitcoinBlock], bitcoind: BitcoindRpcClient): Block => Unit =
     (block: Block) => {
       import cats.effect.unsafe.implicits.global
 
@@ -182,7 +206,7 @@ object BitcoinMonitor {
    * @return An initialized ZMQSubcriber instance
    */
   def initZmqSubscriber(bitcoind: BitcoindRpcClient, host: String, port: Int)(
-    blockQueue: Queue[IO, BitcoinBlockSync]
+    blockQueue: Queue[IO, AppliedBitcoinBlock]
   ): ZMQSubscriber =
     new ZMQSubscriber(new InetSocketAddress(host, port), None, None, None, Some(addToQueue(blockQueue, bitcoind)))
 
@@ -217,7 +241,7 @@ object BitcoinMonitor {
     println("Retroactively fetching blocks:")
     existingHashes.foreach(h => println(h.hex))
     for {
-      blockQueue <- Queue.unbounded[IO, BitcoinBlockSync]
+      blockQueue <- Queue.unbounded[IO, AppliedBitcoinBlock]
       startingBlocks <- IO.fromFuture(
         IO(
           Future.sequence(
