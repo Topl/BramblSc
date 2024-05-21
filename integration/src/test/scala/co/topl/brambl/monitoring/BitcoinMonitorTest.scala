@@ -45,6 +45,36 @@ class BitcoinMonitorTest extends munit.CatsEffectSuite {
   }
   override def munitFixtures = List(bitcoind)
 
+  test("Monitor blocks with a reorg") {
+    val bitcoindInstance = bitcoind()
+    val node2Instance = bitcoind.bitcoindInstance2
+
+    assertIO(for {
+      monitor <- BitcoinMonitor(bitcoindInstance)
+      blockStream = monitor.monitorBlocks()
+      node1MintBlocks <- IO.fromFuture(IO(bitcoindInstance.getNewAddress(Some(TestWallet)).flatMap(bitcoindInstance.generateToAddress(1, _))))
+      node2MintBlocks <- IO.fromFuture(IO(node2Instance.getNewAddress(Some(TestWallet)).flatMap(node2Instance.generateToAddress(2, _))))
+      _ <- IO.fromFuture(IO(bitcoindInstance.addNode(bitcoind.bitcoindInstance2Uri, AddNodeArgument.Add))).attempt.andWait(5.seconds)
+      additionalMintBlocks <- IO.fromFuture(IO(node2Instance.getNewAddress(Some(TestWallet)).flatMap(node2Instance.generateToAddress(1, _))))
+      blocks <- blockStream.interruptAfter(5.seconds).compile.toList
+      _ = monitor.stop()
+    } yield {
+      case class BitcoinSyncLite(height: Int, hash: DoubleSha256DigestBE, isApplied: Boolean)
+      val startingHeight = blocks.head.height
+      val expectedBlocks = Seq(
+        BitcoinSyncLite(startingHeight, node1MintBlocks.head, isApplied = true),
+        BitcoinSyncLite(startingHeight, node1MintBlocks.head, isApplied = false),
+        BitcoinSyncLite(startingHeight, node2MintBlocks.head, isApplied = true),
+        BitcoinSyncLite(startingHeight + 1, node2MintBlocks(1), isApplied = true),
+        BitcoinSyncLite(startingHeight + 2, additionalMintBlocks.head, isApplied = true),
+      )
+      val testBlocks = blocks.map(b => BitcoinSyncLite(b.height, b.block.blockHeader.hashBE, b.isInstanceOf[AppliedBitcoinBlock]))
+      expectedBlocks == testBlocks
+    },
+      true
+    )
+  }
+
   test("Monitor only new blocks") {
     val bitcoindInstance = bitcoind()
     assertIO(for {
@@ -54,7 +84,10 @@ class BitcoinMonitorTest extends munit.CatsEffectSuite {
       // After 0.5 second to allow the minted blocks to occur on the bitcoin instance
       blocks <- blockStream.interruptAfter(500.millis).compile.toList
       _ = monitor.stop()
-    } yield blocks.map(_.block.blockHeader.hashBE).toVector == mintBlocks && blocks.map(_.height) == mintBlocks.zipWithIndex.map(_._2 + 1),
+    } yield {
+      val startingHeight = blocks.head.height
+      blocks.map(_.block.blockHeader.hashBE).toVector == mintBlocks && blocks.map(_.height) == mintBlocks.zipWithIndex.map(_._2 + startingHeight)
+    },
       true
     )
   }
@@ -70,41 +103,9 @@ class BitcoinMonitorTest extends munit.CatsEffectSuite {
       blocks <- blockStream.interruptAfter(1.seconds).compile.toList
       _ = monitor.stop()
     } yield {
-      println(existingBlocks)
-      println(mintBlocks)
-      println(blocks.map(_.block.blockHeader.hashBE).toVector)
       val expectedBlocks = existingBlocks ++ mintBlocks
       val startingHeight = blocks.head.height
       blocks.map(_.block.blockHeader.hashBE).toVector == expectedBlocks && blocks.map(_.height) == expectedBlocks.zipWithIndex.map(_._2 + startingHeight)
-    },
-      true
-    )
-  }
-
-  test("Monitor blocks with a reorg"){
-    val bitcoindInstance = bitcoind()
-    val node2Instance = bitcoind.bitcoindInstance2
-    assertIO(for {
-      monitor <- BitcoinMonitor(bitcoindInstance)
-      blockStream = monitor.monitorBlocks()
-      node1MintBlocks <- IO.fromFuture(IO(bitcoindInstance.getNewAddress(Some(TestWallet)).flatMap(bitcoindInstance.generateToAddress(1, _))))
-      node2MintBlocks <- IO.fromFuture(IO(node2Instance.getNewAddress(Some(TestWallet)).flatMap(node2Instance.generateToAddress(2, _))))
-      _ <- IO.fromFuture(IO(bitcoindInstance.addNode(bitcoind.bitcoindInstance2Uri, AddNodeArgument.Add))).attempt
-      additionalMintBlocks <- IO.fromFuture(IO(node2Instance.getNewAddress(Some(TestWallet)).flatMap(node2Instance.generateToAddress(1, _))))
-      blocks <- blockStream.interruptAfter(1.seconds).compile.toList
-      _ = monitor.stop()
-    } yield {
-      case class BitcoinSyncLite(height: Int, hash: DoubleSha256DigestBE, isApplied: Boolean)
-      val startingHeight = blocks.head.height
-      val expectedBlocks = Seq(
-        BitcoinSyncLite(startingHeight, node1MintBlocks.head, isApplied = true),
-        BitcoinSyncLite(startingHeight, node1MintBlocks.head, isApplied = false),
-        BitcoinSyncLite(startingHeight, node2MintBlocks.head, isApplied = true),
-        BitcoinSyncLite(startingHeight + 1, node2MintBlocks(1), isApplied = true),
-        BitcoinSyncLite(startingHeight + 2, additionalMintBlocks.head, isApplied = true),
-      )
-      val testBlocks = blocks.map(b => BitcoinSyncLite(b.height, b.block.blockHeader.hashBE, b.isInstanceOf[AppliedBitcoinBlock]))
-      expectedBlocks == testBlocks
     },
       true
     )
