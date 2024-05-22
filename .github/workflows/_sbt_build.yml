@@ -115,9 +115,11 @@ jobs:
       - name: Run integration tests
         run: |
           docker run -d --rm --add-host host.docker.internal:host-gateway -p 18444:18444 -p 18443:18443 -p 28332:28332 --name=bitcoind ruimarinho/bitcoin-core -chain=regtest -zmqpubrawblock=tcp://0.0.0.0:28332 -rpcuser=test -rpcpassword=test -port=18444 -rpcport=18443 -rpcbind=:18443 -rpcallowip=0.0.0.0/0
+          docker run -d --rm --name bitcoind2 --add-host host.docker.internal:host-gateway -p 12224:18444 -p 12223:18443 -p 12222:28332 ruimarinho/bitcoin-core -chain=regtest -zmqpubrawblock=tcp://0.0.0.0:28332 -rpcuser=test -rpcpassword=test -port=18444 -rpcport=18443 -rpcbind=:18443 -rpcallowip=0.0.0.0/0
           docker run -d --rm --name bifrost -p 9084:9084 docker.io/toplprotocol/bifrost-node:2.0.0-beta3
           sbt "integration / test"
           docker kill bitcoind
+          docker kill bitcoind2
           docker kill bifrost
       - uses: actions/download-artifact@v3
         with:
