@@ -1,7 +1,7 @@
 package co.topl.brambl.monitoring
 
 import akka.actor.ActorSystem
-import cats.effect.IO
+import cats.effect.{IO, Ref}
 import cats.effect.std.Queue
 import co.topl.brambl.monitoring.BitcoinMonitor.{AppliedBitcoinBlock, BitcoinBlockSync, UnappliedBitcoinBlock}
 import fs2.{Pipe, Stream}
@@ -30,18 +30,18 @@ import scala.concurrent.{Await, Future}
  * @param blockQueue The queue in which new blocks will be added to
  * @param startingBlocks Past blocks that should be reported.
  * @param initZmqSubscriber Zmq Subscriber Initializer
+ * @param bitcoind Bitcoind RPC client
+ * @param currentTip Reference to the most recent chain tip reported by the monitor
  */
 class BitcoinMonitor(
   blockQueue:        Queue[IO, AppliedBitcoinBlock],
   startingBlocks:    Vector[AppliedBitcoinBlock],
   initZmqSubscriber: Queue[IO, AppliedBitcoinBlock] => ZMQSubscriber,
-  bitcoind:          BitcoindRpcClient
+  bitcoind:          BitcoindRpcClient,
+  currentTip:        Ref[IO, Option[AppliedBitcoinBlock]]
 ) {
   val subscriber: ZMQSubscriber = initZmqSubscriber(blockQueue)
   subscriber.start()
-
-  // The last live block that was reported by the monitor. Used to detect reorgs
-  var currentTip: Option[AppliedBitcoinBlock] = startingBlocks.lastOption
 
   /**
    * Return a stream of blocks.
@@ -59,24 +59,21 @@ class BitcoinMonitor(
    */
   private def synchronizeChain: Pipe[IO, AppliedBitcoinBlock, Vector[BitcoinBlockSync]] = in =>
     in.evalMap { adoptedBlock =>
-      // Checking if the new block's parent matches our last reported block
-      if (
-        currentTip.isEmpty || currentTip
-          .map(_.block.blockHeader.hashBE)
-          .contains(adoptedBlock.block.blockHeader.previousBlockHashBE)
-      ) {
-        currentTip = Some(adoptedBlock)
-        IO.pure(Vector(adoptedBlock))
-      } else
-        for {
-          (unappliedChain, appliedChain) <- findCommonAncestor(
-            Vector(UnappliedBitcoinBlock(currentTip.get.block, currentTip.get.height)),
-            Vector(adoptedBlock)
+      for {
+        tip          <- currentTip.get
+        updatedChain <-
+          // Checking if the new block's parent matches our last reported block
+          if (
+            tip.isEmpty || tip
+              .map(_.block.blockHeader.hashBE)
+              .contains(adoptedBlock.block.blockHeader.previousBlockHashBE)
           )
-        } yield {
-          currentTip = Some(adoptedBlock)
-          unappliedChain ++ appliedChain // report the unapplied first, then the applied.
-        }
+            currentTip.set(Some(adoptedBlock)) >> IO.pure(Vector[BitcoinBlockSync](adoptedBlock))
+          else
+            currentTip.set(Some(adoptedBlock)) >>
+            findCommonAncestor(Vector(UnappliedBitcoinBlock(tip.get.block, tip.get.height)), Vector(adoptedBlock))
+              .map(res => res._1 ++ res._2) // report the unapplied first, then the applied.
+      } yield updatedChain
     }
 
   private def flattenChain: Pipe[IO, Vector[BitcoinBlockSync], BitcoinBlockSync] =
@@ -267,7 +264,14 @@ object BitcoinMonitor {
           )
         )
       )
-    } yield new BitcoinMonitor(blockQueue, startingBlocks, initZmqSubscriber(bitcoind, zmqHost, zmqPort), bitcoind)
+      currentTip <- Ref.of[IO, Option[AppliedBitcoinBlock]](startingBlocks.lastOption)
+    } yield new BitcoinMonitor(
+      blockQueue,
+      startingBlocks,
+      initZmqSubscriber(bitcoind, zmqHost, zmqPort),
+      bitcoind,
+      currentTip
+    )
   }
 
 }
