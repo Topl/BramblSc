@@ -5,6 +5,7 @@ import cats.effect.kernel.{Resource, Sync}
 import cats.implicits._
 import co.topl.brambl.builders.TransactionBuilderApi
 import co.topl.brambl.builders.locks.{LockTemplate, PropositionTemplate}
+import co.topl.brambl.codecs.AddressCodecs
 import co.topl.brambl.codecs.LockTemplateCodecs.{decodeLockTemplate, encodeLockTemplate}
 import co.topl.brambl.common.ContainsEvidence.Ops
 import co.topl.brambl.common.ContainsImmutable.instances._
@@ -19,6 +20,7 @@ import io.circe.syntax.EncoderOps
 import quivr.models.{KeyPair, Preimage, Proposition, VerificationKey}
 
 import java.sql.Statement
+import scala.collection.mutable.ListBuffer
 
 /**
  * An implementation of the WalletInteractionAlgebra that uses a database to store state information.
@@ -95,6 +97,23 @@ object WalletStateApi {
                 s"SELECT x_fellowship, y_template, z_interaction, routine, vk FROM " +
                 s"cartesian WHERE routine = '${signatureProposition.routine}' AND " +
                 s"vk = '${Encoding.encodeToBase58(signatureProposition.verificationKey.toByteArray)}'"
+              )
+            )
+            hasNext <- Sync[F].delay(rs.next())
+            x       <- Sync[F].delay(rs.getInt("x_fellowship"))
+            y       <- Sync[F].delay(rs.getInt("y_template"))
+            z       <- Sync[F].delay(rs.getInt("z_interaction"))
+          } yield if (hasNext) Some(Indices(x, y, z)) else None
+        }
+
+      override def getIndicesByAddress(lockAddress: String): F[Option[Indices]] =
+        connection.use { conn =>
+          for {
+            stmnt <- Sync[F].blocking(conn.createStatement())
+            rs <- Sync[F].blocking(
+              stmnt.executeQuery(
+                s"SELECT x_fellowship, y_template, z_interaction FROM " +
+                s"cartesian WHERE address = '$lockAddress'"
               )
             )
             hasNext <- Sync[F].delay(rs.next())
@@ -671,5 +690,30 @@ object WalletStateApi {
           .sequence
           .map(_.flatten)
       } yield changeLock
+
+      override def getCurrentAddresses(includeGenesis: Boolean = false): F[Seq[(Indices, LockAddress)]] =
+        connection.use { conn =>
+          val filter = if (includeGenesis) "" else "WHERE x_fellowship != 0 or y_template != 2"
+          for {
+            stmnt <- Sync[F].blocking(conn.createStatement())
+            rs <- Sync[F].blocking(
+              stmnt.executeQuery(
+                s"SELECT x_fellowship, y_template, z_interaction, address FROM cartesian $filter"
+              )
+            )
+          } yield {
+            val addresses: ListBuffer[(Indices, LockAddress)] = ListBuffer.empty[(Indices, LockAddress)]
+            while (rs.next()) {
+              val address = rs.getString("address")
+              val indices = Indices(
+                rs.getInt("x_fellowship"),
+                rs.getInt("y_template"),
+                rs.getInt("z_interaction")
+              )
+              addresses += (indices -> AddressCodecs.decodeAddress(address).toOption.get)
+            }
+            addresses.toSeq
+          }
+        }
     }
 }

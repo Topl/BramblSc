@@ -74,6 +74,12 @@ object Dependencies {
     "org.bitcoin-s" %% "bitcoin-s-bitcoind-rpc" % btcVersion
   )
 
+  val btc: Seq[ModuleID] = Seq(
+    "org.bitcoin-s" %% "bitcoin-s-core" % btcVersion,
+    "org.bitcoin-s" %% "bitcoin-s-bitcoind-rpc" % btcVersion,
+    "org.bitcoin-s" %% "bitcoin-s-crypto" % btcVersion
+  )
+
   object Crypto {
 
     lazy val sources: Seq[ModuleID] =
@@ -105,7 +111,7 @@ object Dependencies {
 
   object ServiceKit {
 
-    lazy val sources: Seq[ModuleID] = sqlite
+    lazy val sources: Seq[ModuleID] = sqlite ++ btc
 
     lazy val tests: Seq[ModuleID] = (
       mUnitTest ++ sqlite

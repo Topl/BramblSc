@@ -2,7 +2,7 @@ package co.topl.brambl.dataApi
 
 import cats.data.ValidatedNel
 import co.topl.brambl.builders.locks.LockTemplate
-import co.topl.brambl.models.Indices
+import co.topl.brambl.models.{Indices, LockAddress}
 import co.topl.brambl.models.box.Lock
 import quivr.models.{KeyPair, Preimage, Proposition}
 
@@ -144,6 +144,14 @@ trait WalletStateAlgebra[F[_]] {
   def getLockByAddress(lockAddress: String): F[Option[Lock.Predicate]]
 
   /**
+   * Get the Indices associated to the given lockAddress.
+   *
+   * @param lockAddress The lockAddress for which we are retrieving the indices for
+   * @return The indices for the lockAddress if possible. Else None
+   */
+  def getIndicesByAddress(lockAddress: String): F[Option[Indices]]
+
+  /**
    * Get the lock address associated to the given fellowship, template and optional interaction
    *
    * @param fellowship   A String label of the fellowship to get the lock address for
@@ -202,4 +210,11 @@ trait WalletStateAlgebra[F[_]] {
    * @return A built lock, if possible. Else none
    */
   def getLock(fellowship: String, template: String, nextInteraction: Int): F[Option[Lock]]
+
+  /**
+   * Get all the current lock addresses. That is, lock addresses that are currently in use in the wallet interaction, thus may contain some funds.
+   *
+   * @return The list of current lock addresses with their respective indices
+   */
+  def getCurrentAddresses(includeGenesis: Boolean = false): F[Seq[(Indices, LockAddress)]]
 }

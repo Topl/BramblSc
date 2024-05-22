@@ -54,3 +54,5 @@ docker/*.jar
 
 # Scala Worksheet files
 *.sc
+!*btc.sc
+!*monitoring.sc
