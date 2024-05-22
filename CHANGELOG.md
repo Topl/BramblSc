@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - YYYY-MM-DD - TODO replace date after release 
 
-## [v2.0.0-beta5] - 2024-05-22
+## [v2.0.0-beta6] - 2024-05-22
 
 ### Changed
 
