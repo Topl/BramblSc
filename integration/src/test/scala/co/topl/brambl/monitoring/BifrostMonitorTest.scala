@@ -2,6 +2,7 @@ package co.topl.brambl.monitoring
 
 import cats.effect.IO
 import cats.effect.kernel.Resource
+import cats.implicits.toTraverseOps
 import co.topl.brambl.builders.TransactionBuilderApi
 import co.topl.brambl.builders.locks.LockTemplate.PredicateTemplate
 import co.topl.brambl.builders.locks.PropositionTemplate.HeightTemplate
@@ -61,15 +62,22 @@ class BifrostMonitorTest extends munit.CatsEffectSuite {
       // Then broadcast transaction
       txId <- bifrostQuery.broadcastTransaction(provedTx)
       // At approx. 1 block/10 seconds, we expect the broadcasted tx to be captured after 20 seconds
-      txIds <- blockStream.through(_.flatMap(_.transactions.map(_.computeId))).interruptAfter(20.seconds).compile.toList
-    } yield txIds.contains(txId),
+      blockUpdates <- blockStream.through(_.map(b => (b.block.transactions.map(_.computeId), b.height))).interruptAfter(20.seconds).compile.toList
+      // Ensure the reported height is correct
+      queriedHeights <- blockUpdates.map(b => bifrostQuery.blockByHeight(b._2).map(r => (r.get._4.map(_.computeId), r.get._2.height))).sequence
+    } yield {
+      val foundUpdate = blockUpdates.find(_._1.contains(txId))
+      foundUpdate.isDefined && queriedHeights.exists(_._2 == foundUpdate.get._2) &&
+        (foundUpdate.get._1 equals queriedHeights.find(_._2 == foundUpdate.get._2).get._1)
+    },
       true
     )
   }
 
   test("Monitor live and retroactive blocks") {
     assertIO(for {
-      startingBlockId <- bifrostQuery.blockByDepth(1).map(_.get._1)
+      startingBlockId <- bifrostQuery.blockByDepth(0).map(_.get._1)
+      startingHeight <- bifrostQuery.blockById(startingBlockId).map(_.get._2.height)
       // At approx. 1 block/10 seconds, we expect there to be at least 2 blocks after 30 seconds
       _ <- IO.unit.andWait(30.seconds)
       tipBlockId <- bifrostQuery.blockByDepth(1).map(_.get._1)
@@ -81,9 +89,11 @@ class BifrostMonitorTest extends munit.CatsEffectSuite {
       val blockIds = blocks.map(_.id)
       val startingIdx = blockIds.indexOf(startingBlockId)
       val tipBlockIdx = blockIds.indexOf(tipBlockId)
+      val expectedHeights = Seq.range(startingHeight, startingHeight + blocks.length).toList
       blocks.head.id == startingBlockId &&
         blocks.slice(startingIdx, tipBlockIdx+1).length >= 2 &&
         blocks.slice(tipBlockIdx+1, blocks.length).length >= 2 &&
+        (blocks.map(_.height) equals expectedHeights) && // ensure heights are correct
         blockIds.distinct.length == blockIds.length // ensure no duplicate reporting
     },
       true
