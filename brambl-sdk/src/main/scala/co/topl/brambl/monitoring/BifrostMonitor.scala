@@ -25,9 +25,11 @@ class BifrostMonitor(
 
   def pipe(in: Stream[IO, SynchronizationTraversalRes]): Stream[IO, BifrostBlockSync] = in.evalMapFilter(sync =>
     sync.status match {
-      case Applied(blockId)   => getFullBlock(blockId).map(block => Some(AppliedBifrostBlock(block._2, blockId, block._1.height)))
-      case Unapplied(blockId) => getFullBlock(blockId).map(block => Some(UnappliedBifrostBlock(block._2, blockId, block._1.height)))
-      case Empty              => IO.pure(None)
+      case Applied(blockId) =>
+        getFullBlock(blockId).map(block => Some(AppliedBifrostBlock(block._2, blockId, block._1.height)))
+      case Unapplied(blockId) =>
+        getFullBlock(blockId).map(block => Some(UnappliedBifrostBlock(block._2, blockId, block._1.height)))
+      case Empty => IO.pure(None)
     }
   )
 
@@ -71,7 +73,7 @@ object BifrostMonitor {
     def getFullBlock(blockId: BlockId): IO[(BlockHeader, FullBlockBody)] = for {
       block <- bifrostQuery.blockById(blockId)
     } yield block match {
-      case None                 => throw new Exception(s"Unable to query block ${display(blockId)}")
+      case None                      => throw new Exception(s"Unable to query block ${display(blockId)}")
       case Some((_, header, _, txs)) => (header, FullBlockBody(txs))
     }
     def getBlockIds(startHeight: Option[Long], tipHeight: Option[Long]): IO[Vector[BlockId]] =
