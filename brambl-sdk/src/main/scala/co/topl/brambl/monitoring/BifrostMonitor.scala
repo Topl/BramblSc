@@ -6,7 +6,7 @@ import co.topl.brambl.dataApi.BifrostQueryAlgebra
 import co.topl.brambl.display.blockIdDisplay.display
 import co.topl.brambl.models.transaction.IoTransaction
 import co.topl.brambl.monitoring.BifrostMonitor.{AppliedBifrostBlock, BifrostBlockSync, UnappliedBifrostBlock}
-import co.topl.consensus.models.BlockId
+import co.topl.consensus.models.{BlockHeader, BlockId}
 import co.topl.node.models.FullBlockBody
 import co.topl.node.services.SynchronizationTraversalRes
 import co.topl.node.services.SynchronizationTraversalRes.Status.{Applied, Empty, Unapplied}
@@ -19,15 +19,17 @@ import fs2.Stream
  */
 class BifrostMonitor(
   blockIterator:  Iterator[SynchronizationTraversalRes],
-  getFullBlock:   BlockId => IO[FullBlockBody],
+  getFullBlock:   BlockId => IO[(BlockHeader, FullBlockBody)],
   startingBlocks: Vector[BifrostBlockSync]
 ) {
 
   def pipe(in: Stream[IO, SynchronizationTraversalRes]): Stream[IO, BifrostBlockSync] = in.evalMapFilter(sync =>
     sync.status match {
-      case Applied(blockId)   => getFullBlock(blockId).map(block => Some(AppliedBifrostBlock(block, blockId)))
-      case Unapplied(blockId) => getFullBlock(blockId).map(block => Some(UnappliedBifrostBlock(block, blockId)))
-      case Empty              => IO.pure(None)
+      case Applied(blockId) =>
+        getFullBlock(blockId).map(block => Some(AppliedBifrostBlock(block._2, blockId, block._1.height)))
+      case Unapplied(blockId) =>
+        getFullBlock(blockId).map(block => Some(UnappliedBifrostBlock(block._2, blockId, block._1.height)))
+      case Empty => IO.pure(None)
     }
   )
 
@@ -49,13 +51,14 @@ object BifrostMonitor {
     // The bifrost Block being wrapped. This represents either an Applied block or an Unapplied block
     val block: FullBlockBody
     val id: BlockId
+    val height: Long
     def transactions[F[_]]: Stream[F, IoTransaction] = Stream.emits(block.transactions)
   }
 
   // Represents a new block applied to the chain tip
-  case class AppliedBifrostBlock(block: FullBlockBody, id: BlockId) extends BifrostBlockSync
+  case class AppliedBifrostBlock(block: FullBlockBody, id: BlockId, height: Long) extends BifrostBlockSync
   // Represents an existing block that has been unapplied from the chain tip
-  case class UnappliedBifrostBlock(block: FullBlockBody, id: BlockId) extends BifrostBlockSync
+  case class UnappliedBifrostBlock(block: FullBlockBody, id: BlockId, height: Long) extends BifrostBlockSync
 
   /**
    * Initialize and return a BifrostMonitor instance.
@@ -67,11 +70,11 @@ object BifrostMonitor {
     bifrostQuery: BifrostQueryAlgebra[IO],
     startBlock:   Option[BlockId] = None
   ): IO[BifrostMonitor] = {
-    def getFullBlock(blockId: BlockId): IO[FullBlockBody] = for {
+    def getFullBlock(blockId: BlockId): IO[(BlockHeader, FullBlockBody)] = for {
       block <- bifrostQuery.blockById(blockId)
     } yield block match {
-      case None                 => throw new Exception(s"Unable to query block ${display(blockId)}")
-      case Some((_, _, _, txs)) => FullBlockBody(txs)
+      case None                      => throw new Exception(s"Unable to query block ${display(blockId)}")
+      case Some((_, header, _, txs)) => (header, FullBlockBody(txs))
     }
     def getBlockIds(startHeight: Option[Long], tipHeight: Option[Long]): IO[Vector[BlockId]] =
       (startHeight, tipHeight) match {
@@ -86,10 +89,10 @@ object BifrostMonitor {
       // The height of the startBlock
       startBlockHeight <- startBlock.map(bId => bifrostQuery.blockById(bId)).sequence.map(_.flatten.map(_._2.height))
       // the height of the chain tip
-      tipHeight        <- bifrostQuery.blockByDepth(1).map(_.map(_._2.height))
+      tipHeight        <- bifrostQuery.blockByDepth(0).map(_.map(_._2.height))
       startingBlockIds <- getBlockIds(startBlockHeight, tipHeight)
       startingBlocks <- startingBlockIds
-        .map(bId => getFullBlock(bId).map(block => AppliedBifrostBlock(block, bId)))
+        .map(bId => getFullBlock(bId).map(block => AppliedBifrostBlock(block._2, bId, block._1.height)))
         .sequence
       updates <- bifrostQuery.synchronizationTraversal()
     } yield new BifrostMonitor(updates, getFullBlock, startingBlocks)

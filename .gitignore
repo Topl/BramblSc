@@ -54,3 +54,4 @@ docker/*.jar
 
 # Scala Worksheet files
 *.sc
+playground/

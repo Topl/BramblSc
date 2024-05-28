@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - YYYY-MM-DD - TODO replace date after release 
 
+### Added
+
+- Added a height field to the blocks in the Bifrost monitor stream
+
 ## [v2.0.0-beta6] - 2024-05-22
 
 ### Changed
