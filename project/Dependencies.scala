@@ -27,7 +27,7 @@ object Dependencies {
   )
 
   val scalamock: Seq[ModuleID] = Seq(
-    "org.scalamock" %% "scalamock" % "5.2.0"
+    "org.scalamock" %% "scalamock" % "6.0.0"
   )
 
   val scalatest: Seq[ModuleID] = Seq(
