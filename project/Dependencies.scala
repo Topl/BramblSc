@@ -4,12 +4,12 @@ import sbt._
 object Dependencies {
 
   object Versions {
-    val catsCoreVersion = "2.10.0"
+    val catsCoreVersion = "2.12.0"
     val simulacrumVersion = "1.0.1"
-    val circeVersion = "0.14.6"
+    val circeVersion = "0.14.7"
     val protobufSpecsVersion = "2.0.0-beta2"
-    val mUnitTeVersion = "0.7.29"
-    val btcVersion = "1.9.7"
+    val mUnitTeVersion = "1.0.0"
+    val btcVersion = "1.9.9"
   }
 
   val catsSlf4j: ModuleID =
@@ -22,12 +22,12 @@ object Dependencies {
   )
 
   val scalacheck: Seq[ModuleID] = Seq(
-    "org.scalacheck"    %% "scalacheck"      % "1.17.0",
+    "org.scalacheck"    %% "scalacheck"      % "1.17.1",
     "org.scalatestplus" %% "scalacheck-1-16" % "3.2.14.0"
   )
 
   val scalamock: Seq[ModuleID] = Seq(
-    "org.scalamock" %% "scalamock" % "5.2.0"
+    "org.scalamock" %% "scalamock" % "6.0.0"
   )
 
   val scalatest: Seq[ModuleID] = Seq(
@@ -39,7 +39,7 @@ object Dependencies {
   val mUnitTest: Seq[ModuleID] = Seq(
     "org.scalameta" %% "munit"                   % mUnitTeVersion,
     "org.scalameta" %% "munit-scalacheck"        % mUnitTeVersion,
-    "org.typelevel" %% "munit-cats-effect-3"     % "1.0.7",
+    "org.typelevel" %% "munit-cats-effect"       % "2.0.0",
     "org.typelevel" %% "scalacheck-effect-munit" % "1.0.4"
   )
 
@@ -63,10 +63,10 @@ object Dependencies {
   )
 
   val sqlite: Seq[ModuleID] = Seq(
-    "org.xerial" % "sqlite-jdbc" % "3.45.2.0"
+    "org.xerial" % "sqlite-jdbc" % "3.45.3.0"
   )
 
-  val grpcNetty = "io.grpc" % "grpc-netty" % "1.62.2"
+  val grpcNetty = "io.grpc" % "grpc-netty" % "1.64.0"
 
   val btc: Seq[ModuleID] = Seq(
     "org.bitcoin-s" %% "bitcoin-s-core"         % btcVersion,
@@ -77,7 +77,7 @@ object Dependencies {
   object Crypto {
 
     lazy val sources: Seq[ModuleID] =
-      Seq("org.bouncycastle" % "bcprov-jdk18on" % "1.77") ++
+      Seq("org.bouncycastle" % "bcprov-jdk18on" % "1.78.1") ++
       circe ++
       newType ++
       cats ++
