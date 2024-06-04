@@ -6,7 +6,7 @@ description: Create a new Wallet from scratch
 
 import ScaladocLink from '@site/src/components/ScaladocLink';
 
-Creating a wallet involves generating your Topl main key pair. This main key pair is used to derive all keys that a user would
+Creating a wallet involves generating your main key pair. This main key pair is used to derive all keys that a user would
 use to create and prove transactions.
 
 ## Create a Wallet
@@ -23,7 +23,7 @@ def createNewWallet(
 ): F[Either[WalletApi.WalletApiFailure, WalletApi.NewWalletResult[F]]]
 ```
 
-This function generates a Topl main key pair and encrypts it with the provided password.
+This function generates a main key pair and encrypts it with the provided password.
 
 The parameters are as follows:
 - `password`: The password to encrypt the main key pair with
@@ -32,8 +32,8 @@ The parameters are as follows:
 
 On success, this function returns
 a <ScaladocLink path="co/topl/brambl/wallet/WalletApi$$NewWalletResult.html"><code>NewWalletResult</code></ScaladocLink>
-which contains the Topl main key pair encrypted into a `VaultStore` instance, as well as the mnemonic which can be used
-to later import the derived Topl main key pair. On failure, this
+which contains the main key pair encrypted into a `VaultStore` instance, as well as the mnemonic which can be used
+to later import the derived main key pair. On failure, this
 function returns
 a <ScaladocLink path="co/topl/brambl/wallet/WalletApi$$WalletApiFailure.html"><code>WalletApiFailure</code></ScaladocLink>
 which specifies the reason for failure.
@@ -76,7 +76,7 @@ def createAndSaveNewWallet[G[_]: Monad: FunctionK[F, G]](
 ): G[Either[WalletApi.WalletApiFailure, WalletApi.NewWalletResult[F]]]
 ```
 
-This function generates a Topl main key pair, encrypts it with the provided password, and stores it in
+This function generates a main key pair, encrypts it with the provided password, and stores it in
 the `WalletKeyApiAlgebra` used to initialize the Wallet API instance.
 
 The parameters are as follows:
@@ -93,8 +93,8 @@ using `FunctionK.id[F]`.
 
 On success, this function returns
 a <ScaladocLink path="co/topl/brambl/wallet/WalletApi$$NewWalletResult.html"><code>NewWalletResult</code></ScaladocLink>
-which contains the Topl main key pair encrypted into a `VaultStore` instance, as well as the mnemonic which can be used
-to later import the derived Topl main key pair. Both this `VaultStore` instance and mnemonic are persisted, and can be accessed
+which contains the main key pair encrypted into a `VaultStore` instance, as well as the mnemonic which can be used
+to later import the derived main key pair. Both this `VaultStore` instance and mnemonic are persisted, and can be accessed
 using `name` and `mnemonicName` respectively. On failure, this function returns
 a <ScaladocLink path="co/topl/brambl/wallet/WalletApi$$WalletApiFailure.html"><code>WalletApiFailure</code></ScaladocLink>
 which specifies the reason for failure.

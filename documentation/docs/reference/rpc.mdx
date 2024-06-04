@@ -124,7 +124,7 @@ import co.topl.brambl.syntax.cryptoToPbKeyPair
 // Replace with the location of your wallet state file
 val walletConnection = WalletStateResource.walletResource("wallet.db")
 
-// Some mock key pair. Do not use. Replace with your Topl main key pair.
+// Some mock key pair. Do not use. Replace with your own main key pair.
 val mainKey = (new ExtendedEd25519).deriveKeyPairFromSeed(Array.fill(96)(0: Byte))
 
 // Replace with the address and port of your node's gRPC endpoint

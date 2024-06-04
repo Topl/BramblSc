@@ -5,7 +5,7 @@ sidebar_position: 3
 # Usage of the Service Kit
 
 In this document we are showing how to use the service kit to interact with the
-Topl Network. We will be showing code snippets in Scala.
+ Network. We will be showing code snippets in Scala.
 
 ## Creating a Vault and a Wallet Database
 

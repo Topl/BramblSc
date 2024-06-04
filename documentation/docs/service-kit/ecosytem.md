@@ -2,9 +2,9 @@
 sidebar_position: 1
 ---
 
-# The Topl Ecosystem
+# The Apparatus Ecosystem
 
-The Topl Ecosystem is a collection of tools and services that enable the creation of a Topl Network. The Topl Ecosystem is comprised of the following components:
+The Apparatus Ecosystem is a collection of tools and services that enable the creation of a Network. The Ecosystem is comprised of the following components:
 
 - The Bifrost Node
 - The Genus Node
@@ -15,39 +15,39 @@ The Topl Ecosystem is a collection of tools and services that enable the creatio
 
 ## The Bifrost Node
 
-The Bifrost Node is the core of the Topl Ecosystem. It is a node that runs on the Topl Network and is responsible for the following:
+The Bifrost Node is the core of the Ecosystem. It is a node that runs on the Apparatus Network and is responsible for the following:
 
-- Maintaining the Topl Network's ledger
-- Maintaining consensus with other nodes on the Topl Network using the proof-of-stake consensus algorithm.
+- Maintaining the Network's ledger
+- Maintaining consensus with other nodes on the Network using the proof-of-stake consensus algorithm.
 
 ## The Genus Node
 
-The Genus Node runs as part of the Bifrost Node, but it is responsible for the following aggregating transactions from the Topl to make querying easier for clients.
+The Genus Node runs as part of the Bifrost Node, but it is responsible for the following aggregating transactions from the blockchain to make querying easier for clients.
 
 ## The brambl-cli
 
-The brambl-cli is a command line interface that allows users to interact with the Topl Network. 
-I can perform the following actions:
+The brambl-cli is a command line interface that allows users to interact with the Network. 
+It can perform the following actions:
 
 - Create a new wallet
 - Transfer tokens
-- Query the Topl Network (Both Genus and Bifrost Nodes)
+- Query the Apparatus Network (Both Genus and Bifrost Nodes)
 - Mint new tokens
 
 ## The brambl-sdks
 
-The brambl-sdks are a collection of software development kits that allow developers to interact with the Topl Network. There are currently SDKs for the following languages:
+The brambl-sdks are a collection of software development kits that allow developers to interact with the Network. There are currently SDKs for the following languages:
 
 - Scala (BramblSc)
 - Dart (BramblDart)
 
 ## The annulus block explorer
 
-The annulus block explorer is a web application that allows users to view the contents of the Topl Network's ledger. The annulus block explorer is hosted at https://explore.topl.co/.
+The annulus block explorer is a web application that allows users to view the contents of the Apparatus Network's ledger. The annulus block explorer is hosted at https://explore.topl.co/.
 
 ## The various networks
 
-The Topl Ecosystem has a number of test networks that allow developers to test their applications before deploying them to the main network. The test networks are as follows:
+The Apparatus Ecosystem has a number of test networks that allow developers to test their applications before deploying them to the main network. The test networks are as follows:
 
 - The local network
 - The public test network

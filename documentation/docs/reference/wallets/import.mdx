@@ -7,7 +7,7 @@ description: Import an existing Wallet
 
 import ScaladocLink from '@site/src/components/ScaladocLink';
 
-Importing a wallet involves generating your existing Topl main key pair using your passphrase and your previously-derived mnemonic.
+Importing a wallet involves generating your existing main key pair using your passphrase and your previously-derived mnemonic.
 This is also referred to as "Recovering a Wallet". If you do not have an existing wallet to import (or recover), see
 [Create a Wallet](./create).
 
@@ -25,20 +25,20 @@ def importWallet(
 ): F[Either[WalletApi.WalletApiFailure, VaultStore[F]]]
 ```
 
-This function generates the Topl main key pair associated to the mnemonic and passphrase, and encrypts it with the provided password.
+This function generates the main key pair associated to the mnemonic and passphrase, and encrypts it with the provided password.
 
 The parameters are as follows:
-- `mnemonic`: The mnemonic used to regenerate the existing Topl main key pair
-- `password`: The password to encrypt the generated Topl main key pair with
-- `passphrase`: An optional passphrase used to regenerate the existing Topl main key pair. The default is no passphrase.
+- `mnemonic`: The mnemonic used to regenerate the existing main key pair
+- `password`: The password to encrypt the generated main key pair with
+- `passphrase`: An optional passphrase used to regenerate the existing main key pair. The default is no passphrase.
 
-On success, this function returns the regenerated Topl main key pair encrypted into a `VaultStore` instance. On failure, this
+On success, this function returns the regenerated main key pair encrypted into a `VaultStore` instance. On failure, this
 function returns
 a <ScaladocLink path="co/topl/brambl/wallet/WalletApi$$WalletApiFailure.html"><code>WalletApiFailure</code></ScaladocLink>
 which specifies the reason for failure.
 
 :::note
-The provided mnemonic and passphrase **must** be the same as the mnemonic and passphrase used to generate the original Topl main key pair.
+The provided mnemonic and passphrase **must** be the same as the mnemonic and passphrase used to generate the original main key pair.
 The password could be different.
 :::
 
@@ -78,13 +78,13 @@ def importWalletAndSave[G[_]: Monad: FunctionK[F, G]](
 ): G[Either[WalletApi.WalletApiFailure, VaultStore[F]]]
 ```
 
-This function generates the Topl main key pair associated to the mnemonic and passphrase, encrypts it with the provided
+This function generates the main key pair associated to the mnemonic and passphrase, encrypts it with the provided
 password, and stores it in the `WalletKeyApiAlgebra` used to initialize the Wallet API instance.
 
 The parameters are as follows:
-- `mnemonic`: The mnemonic used to regenerate the existing Topl main key pair
-- `password`: The password to encrypt the generated Topl main key pair with
-- `passphrase`: An optional passphrase used to regenerate the existing Topl main key pair. The default is no passphrase.
+- `mnemonic`: The mnemonic used to regenerate the existing main key pair
+- `password`: The password to encrypt the generated main key pair with
+- `passphrase`: An optional passphrase used to regenerate the existing main key pair. The default is no passphrase.
 - `name`: The name of the wallet to save. The default is "default". Most commonly, only one wallet identity will be used.
 
 Type parameters:
@@ -92,13 +92,13 @@ Type parameters:
 where `F` is the type parameter used in the WalletApi instance. Most commonly, `G` will be the same as `F` and will be transformed
 using `FunctionK.id[F]`.
 
-On success, this function returns the regenerated Topl main key pair encrypted into a `VaultStore` instance. This
+On success, this function returns the regenerated main key pair encrypted into a `VaultStore` instance. This
 `VaultStore` instance is persisted and can be later accessed using the specified `name`. On failure, this function returns
 a <ScaladocLink path="co/topl/brambl/wallet/WalletApi$$WalletApiFailure.html"><code>WalletApiFailure</code></ScaladocLink>
 which specifies the reason for failure.
 
 :::note
-The provided mnemonic and passphrase **must** be the same as the mnemonic and passphrase used to generate the original Topl main key pair.
+The provided mnemonic and passphrase **must** be the same as the mnemonic and passphrase used to generate the original main key pair.
 The password could be different.
 :::
 
