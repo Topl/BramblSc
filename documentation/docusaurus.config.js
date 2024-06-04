@@ -6,13 +6,13 @@ const darkCodeTheme = require('prism-react-renderer/themes/dracula');
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
-  title: 'BramblSc',
+  title: 'Apparatus',
   tagline: 'Build using the Brambl Scala Software Development Kit',
   url: 'https://topl.github.io/',
   baseUrl: '/BramblSc',
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
-  favicon: 'img/favicon.ico',
+  favicon: 'img/apparatus-favicon.png',
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
@@ -58,7 +58,7 @@ const config = {
         title: '',
         logo: {
           alt: 'Apparatus Logo',
-          src: 'img/logo.svg',
+          src: 'img/apparatus-logo.svg',
         },
         items: [
           {
