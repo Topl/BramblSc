@@ -146,8 +146,8 @@ Before we can send tokens to the recipient, the recipient needs to have a wallet
 Initializing the recipient's wallet is similar to initializing the sender's wallet. For more details you can read
 [Create and Initialize a Wallet](./obtain-funds#step-1-create-and-initialize-a-wallet) in the Load Wallet with Funds tutorial.
 
-1. Create the Topl main key for the Recipient's wallet. For more details see the 
-[Create the Wallet's Topl Main Key](./obtain-funds#create-the-wallets-topl-main-key)'s section in a previous tutorial.
+1. Create the main key for the Recipient's wallet. For more details see the 
+[Create the Wallet's Main Key](./obtain-funds#create-the-wallets-main-key)'s section in a previous tutorial.
 2. Using the main key from the previous step, initialize the Recipient's Wallet State. For more details see the
 [Initialize the Wallet State](./obtain-funds#initialize-the-wallet-state) section in a previous tutorial.
 
@@ -224,7 +224,7 @@ val res1: String = ptetP7jshHVVBsmyLd5ugb9mVSehmtFdZHYQZqG3zaFtWSfiX79kYt9obJea
 ```
 
 It is important to note that your LockAddress will be different from the one shown above. Everytime the code is run, a new
-Topl main key is generated, thus resulting in a new LockAddress. 
+ main key is generated, thus resulting in a new LockAddress. 
 
 ## Step 2: Sender
 
@@ -287,7 +287,7 @@ Once we have built the unproven transaction, we must prove (and then validate) i
 [Prove Transaction](./obtain-funds#step-3-prove-transaction) section in the Obtain Funds tutorial, with a couple differences.
 
 We must load the main key from the Sender's existing wallet to intialize the Credentialler with. 
-See [Load and Decrypt a Topl Main Key Pair](../../reference/wallets/usage#load-and-decrypt-a-topl-main-key-pair).
+See [Load and Decrypt a Main Key Pair](../../reference/wallets/usage#load-and-decrypt-a-main-key-pair).
 
 ```scala
 mainKey <- walletApi.loadAndExtractMainKey[IO]("password".getBytes, keyFile)

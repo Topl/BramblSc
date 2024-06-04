@@ -32,7 +32,7 @@ export default function Home() {
   return (
     <Layout
       title={`Documentation Portal`}
-      description="Documentation for Topl's BramblSc SDK">
+      description="Documentation for Apparatus' BramblSc SDK">
       <HomepageHeader />
       <main>
         <HomepageFeatures />

@@ -6,13 +6,13 @@ const darkCodeTheme = require('prism-react-renderer/themes/dracula');
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
-  title: 'BramblSc',
-  tagline: 'Build using Topl\'s Scala Software Development Kit',
+  title: 'Apparatus',
+  tagline: 'Build using the Brambl Scala Software Development Kit',
   url: 'https://topl.github.io/',
   baseUrl: '/BramblSc',
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
-  favicon: 'img/favicon.ico',
+  favicon: 'img/apparatus-favicon.png',
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
@@ -57,8 +57,8 @@ const config = {
         style: 'dark',
         title: '',
         logo: {
-          alt: 'Topl Logo',
-          src: 'img/logo.svg',
+          alt: 'Apparatus Logo',
+          src: 'img/apparatus-logo.svg',
         },
         items: [
           {
@@ -118,7 +118,7 @@ const config = {
             ],
           },
         ],
-        copyright: `Copyright © ${new Date().getFullYear()} Topl, Built with Docusaurus.`,
+        copyright: `Copyright © ${new Date().getFullYear()} Apparatus, Built with Docusaurus.`,
       },
       prism: {
         theme: lightCodeTheme,

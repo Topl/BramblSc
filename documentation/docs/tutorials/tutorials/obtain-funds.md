@@ -32,11 +32,11 @@ Get started with launching a Local Node:
 ## Step 1: Create and Initialize a Wallet
 
 Before we can load a wallet with funds, we need to create the wallet. There are 2 steps to this process: creating the wallet's 
-Topl main key and initializing the wallet state.
+ main key and initializing the wallet state.
 
-### Create the Wallet's Topl Main Key
+### Create the Wallet's Main Key
 
-We will generate a new Topl Main Key for the wallet using `createAndSaveNewWallet`. This will also save the keyfile and 
+We will generate a new Main Key for the wallet using `createAndSaveNewWallet`. This will also save the keyfile and 
 mnemonic to the local file system. See [Create a Wallet](../../reference/wallets/create).
 
 1. Initialize a Wallet Key API to persist the keyfile and mnemonic. Here we are using the provided default implementation
@@ -62,11 +62,11 @@ provided by the Service Kit to persist to a SQLite database file. See [Initializ
    ```scala
    val walletStateApi = WalletStateApi.make[IO](WalletStateResource.walletResource("wallet.db"), walletApi)
    ```
-2. Using the `walletResult` created above, extract the Topl main key.
+2. Using the `walletResult` created above, extract the main key.
    ```scala
    mainKeyPair <- walletApi.extractMainKey(walletResult.mainKeyVaultStore, "password".getBytes())
    ```
-3. Using the Topl main key and `walletStateApi` created above, initialize the wallet state using `initWalletState`
+3. Using the main key and `walletStateApi` created above, initialize the wallet state using `initWalletState`
    ```scala
    walletStateApi.initWalletState(PRIVATE_NETWORK_ID, MAIN_LEDGER_ID, mainKeyPair)
    ```
@@ -260,7 +260,7 @@ unprovenTransaction.unsafeRunSync()
 In order for the funds to be transferred, we need to prove the Lock encumbering the funds in the Genesis block. You can think of this as
 "unlocking" the funds. See [Prove Transaction](../../reference/prove). It is best practice to validate the transaction as well.
 
-1. Create a Credentialler using your Topl main key.
+1. Create a Credentialler using your main key.
     ```scala
     val credentialler = CredentiallerInterpreter.make[IO](walletApi, walletStateApi, mainKey)
     ```

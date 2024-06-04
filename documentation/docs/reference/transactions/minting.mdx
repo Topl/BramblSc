@@ -11,7 +11,7 @@ import ScaladocLink from '@site/src/components/ScaladocLink';
 
 # Build a Minting Transaction
 
-The first step to minting new tokens on the Topl Blockchain is to build an unproven minting transaction. There are three
+The first step to minting new tokens on the Blockchain is to build an unproven minting transaction. There are three
 types of tokens you can mint; group constructor tokens, series constructor tokens, and asset tokens. The transaction
 builder offers a way to build each.
 
@@ -247,7 +247,7 @@ val bifrostQuery = BifrostQueryAlgebra.make[IO](channelResource)
 // Replace with the location of your wallet state file
 val walletConnection = WalletStateResource.walletResource("wallet.db")
 
-// Some mock key pair. Do not use. Replace with your Topl main key pair.
+// Some mock key pair. Do not use. Replace with your own main key pair.
 val mainKey = (new ExtendedEd25519).deriveKeyPairFromSeed(Array.fill(96)(0: Byte))
 
 val walletApi = WalletApi.make[IO](WalletKeyApi.make())

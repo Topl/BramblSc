@@ -8,7 +8,7 @@ import Link from '@docusaurus/Link';
 
 The SDK provides a set of functions to perform some common RPC calls to interact with the blockchain. To see all the RPC
 functions available on the SDK, see the Scaladoc
-for <ScaladocLink path="co/topl/brambl/dataApi/BifrostQueryAlgebra"><code>BifrostQueryAlgebra</code></ScaladocLink>
+for <ScaladocLink path="co/topl/brambl/dataApi/BifrostQueryAlgebra.html"><code>BifrostQueryAlgebra</code></ScaladocLink>
 and <ScaladocLink path="co/topl/brambl/dataApi/GenusQueryAlgebra.html"><code>GenusQueryAlgebra</code></ScaladocLink>.
 To see all the RPC functions available on the Bifrost and Genus nodes, see the protocol buffer definitions
 for <Link href="https://github.com/Topl/protobuf-specs/blob/main/proto/node/services/bifrost_rpc.proto">Bifrost</Link>
@@ -124,7 +124,7 @@ import co.topl.brambl.syntax.cryptoToPbKeyPair
 // Replace with the location of your wallet state file
 val walletConnection = WalletStateResource.walletResource("wallet.db")
 
-// Some mock key pair. Do not use. Replace with your Topl main key pair.
+// Some mock key pair. Do not use. Replace with your own main key pair.
 val mainKey = (new ExtendedEd25519).deriveKeyPairFromSeed(Array.fill(96)(0: Byte))
 
 // Replace with the address and port of your node's gRPC endpoint

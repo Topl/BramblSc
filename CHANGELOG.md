@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added a height field to the blocks in the Bifrost monitor stream
 
+### Changed
+
+- Removed specific Topl branding from documentation site. Documentation will be more generic or refer to "Apparatus"
+
 ## [v2.0.0-beta6] - 2024-05-22
 
 ### Changed

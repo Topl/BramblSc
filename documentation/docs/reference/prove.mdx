@@ -20,7 +20,7 @@ val credentialler = CredentiallerInterpreter.make[F](walletApi, walletStateApi, 
 Where `F` is a type parameter bound to a context parameter of type `Monad[F]`, `walletApi` is an instance of
 a [Wallet Api](./wallets#prerequisites), `walletStateApi` is an initialized instance of
 the <ScaladocLink path="co/topl/brambl/dataApi/WalletStateAlgebra.html"><code>WalletStateAlgebra</code></ScaladocLink>,
-and `mainKey` is your ExtendedEd25519 Topl main key pair. See the `make`
+and `mainKey` is your ExtendedEd25519 main key pair. See the `make`
 function's <ScaladocLink path="co/topl/brambl/wallet/CredentiallerInterpreter$.html#make[F[_]](WalletApi[F],WalletStateAlgebra[F],KeyPair)(Monad[F]):Credentialler[F]"><code>signature</code></ScaladocLink>.
 For example, if you are using Cats Effect `IO` and the default implementation of
 the <ScaladocLink path="co/topl/brambl/servicekit/index.html"><code>ServiceKit</code></ScaladocLink>, you can initialize
@@ -40,7 +40,7 @@ val walletConnection = WalletStateResource.walletResource(DB_FILE)
 
 val walletApi = WalletApi.make[IO](WalletKeyApi.make())
 val walletStateApi = WalletStateApi.make[IO](walletConnection, walletApi)
-// Some mock key pair. Do not use. Replace with your Topl main key pair.
+// Some mock key pair. Do not use. Replace with your own main key pair.
 val mainKey = (new ExtendedEd25519).deriveKeyPairFromSeed(Array.fill(96)(0: Byte))
 
 // Credentialler initialization starts:
@@ -101,7 +101,7 @@ import co.topl.brambl.syntax.cryptoToPbKeyPair
 // Replace with the location of your wallet state file
 val walletConnection = WalletStateResource.walletResource("wallet.db")
 
-// Some mock key pair. Do not use. Replace with your Topl main key pair.
+// Some mock key pair. Do not use. Replace with your own main key pair.
 val mainKey = (new ExtendedEd25519).deriveKeyPairFromSeed(Array.fill(96)(0: Byte))
 
 // Replace with the address and port of your node's gRPC endpoint
@@ -194,7 +194,7 @@ import co.topl.brambl.syntax.cryptoToPbKeyPair
 // Replace with the location of your wallet state file
 val walletConnection = WalletStateResource.walletResource("wallet.db")
 
-// Some mock key pair. Do not use. Replace with your Topl main key pair.
+// Some mock key pair. Do not use. Replace with your own main key pair.
 val mainKey = (new ExtendedEd25519).deriveKeyPairFromSeed(Array.fill(96)(0: Byte))
 
 // Replace with the address and port of your node's gRPC endpoint
