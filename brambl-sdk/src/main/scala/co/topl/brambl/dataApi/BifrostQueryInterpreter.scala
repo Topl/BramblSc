@@ -35,6 +35,7 @@ trait BifrostQueryInterpreter {
                         MakeBlocksReq(nbOfBlocks)
                       )
                   )
+                  .map(_ => ())
                   .map(_.asInstanceOf[A])
               )
             case BifrostQueryAlgebra.BlockByDepth(depth) =>
