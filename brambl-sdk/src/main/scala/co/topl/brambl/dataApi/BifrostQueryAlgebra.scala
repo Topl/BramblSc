@@ -65,6 +65,15 @@ trait BifrostQueryAlgebra[F[_]] {
    */
   def synchronizationTraversal(): F[Iterator[SynchronizationTraversalRes]]
 
+  /**
+   * Make a block in regtest mode.
+   *
+   * @param nbOfBlocks the number of blocks to mint.
+   */
+  def makeBlock(
+    nbOfBlocks: Int
+  ): F[Unit]
+
 }
 
 object BifrostQueryAlgebra extends BifrostQueryInterpreter {
@@ -89,7 +98,7 @@ object BifrostQueryAlgebra extends BifrostQueryInterpreter {
 
   type BifrostQueryADTMonad[A] = Free[BifrostQueryADT, A]
 
-  def makeBlock(
+  def makeBlockF(
     nbOfBlocks: Int
   ): BifrostQueryADTMonad[Unit] =
     Free.liftF(MakeBlock(nbOfBlocks))
@@ -123,6 +132,8 @@ object BifrostQueryAlgebra extends BifrostQueryInterpreter {
 
   def make[F[_]: Sync](channelResource: Resource[F, ManagedChannel]): BifrostQueryAlgebra[F] =
     new BifrostQueryAlgebra[F] {
+
+      override def makeBlock(nbOfBlocks: Int): F[Unit] = interpretADT(channelResource, makeBlockF(nbOfBlocks))
 
       override def blockByDepth(depth: Long): F[Option[(BlockId, BlockHeader, BlockBody, Seq[IoTransaction])]] = {
         import cats.implicits._
