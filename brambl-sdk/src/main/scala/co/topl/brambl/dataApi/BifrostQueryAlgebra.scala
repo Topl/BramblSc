@@ -81,6 +81,8 @@ object BifrostQueryAlgebra extends BifrostQueryInterpreter {
 
   case class BlockByDepth(depth: Long) extends BifrostQueryADT[Option[BlockId]]
 
+  case class MakeBlock(nbOfBlocks: Int) extends BifrostQueryADT[Option[BlockId]]
+
   case class SynchronizationTraversal() extends BifrostQueryADT[Iterator[SynchronizationTraversalRes]]
 
   case class BroadcastTransaction(tx: IoTransaction) extends BifrostQueryADT[TransactionId]
