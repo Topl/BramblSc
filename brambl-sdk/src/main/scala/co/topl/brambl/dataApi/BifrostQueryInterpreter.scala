@@ -17,7 +17,7 @@ trait BifrostQueryInterpreter {
     computation:     BifrostQueryAlgebra.BifrostQueryADTMonad[A]
   ): F[A] = {
     type ChannelContextKlesli[A] =
-      Kleisli[F, NodeRpcGrpc.NodeRpcBlockingStub, A]
+      Kleisli[F, (NodeRpcGrpc.NodeRpcBlockingStub, RegtestRpcGrpc.RegtestRpcBlockingStub), A]
     val kleisliComputation = computation.foldMap[ChannelContextKlesli](
       new FunctionK[BifrostQueryAlgebra.BifrostQueryADT, ChannelContextKlesli] {
 
@@ -26,11 +26,23 @@ trait BifrostQueryInterpreter {
         ): ChannelContextKlesli[A] = {
           import cats.implicits._
           fa match {
-            case BifrostQueryAlgebra.BlockByDepth(depth) =>
-              Kleisli(blockingStub =>
+            case BifrostQueryAlgebra.MakeBlock(nbOfBlocks) =>
+              Kleisli(blockingStubAndRegTestStub =>
                 Sync[F]
                   .blocking(
-                    blockingStub
+                    blockingStubAndRegTestStub._2
+                      .makeBlocks(
+                        MakeBlocksReq(nbOfBlocks)
+                      )
+                  )
+                  .map(_ => ())
+                  .map(_.asInstanceOf[A])
+              )
+            case BifrostQueryAlgebra.BlockByDepth(depth) =>
+              Kleisli(blockingStubAndRegTestStub =>
+                Sync[F]
+                  .blocking(
+                    blockingStubAndRegTestStub._1
                       .fetchBlockIdAtDepth(
                         FetchBlockIdAtDepthReq(depth)
                       )
@@ -38,10 +50,10 @@ trait BifrostQueryInterpreter {
                   .map(_.blockId.asInstanceOf[A])
               )
             case BifrostQueryAlgebra.FetchBlockHeader(blockId) =>
-              Kleisli(blockingStub =>
+              Kleisli(blockingStubAndRegTestStub =>
                 Sync[F]
                   .blocking(
-                    blockingStub
+                    blockingStubAndRegTestStub._1
                       .fetchBlockHeader(
                         FetchBlockHeaderReq(blockId)
                       )
@@ -49,10 +61,10 @@ trait BifrostQueryInterpreter {
                   .map(_.header.asInstanceOf[A])
               )
             case BifrostQueryAlgebra.FetchBlockBody(blockId) =>
-              Kleisli(blockingStub =>
+              Kleisli(blockingStubAndRegTestStub =>
                 Sync[F]
                   .blocking(
-                    blockingStub
+                    blockingStubAndRegTestStub._1
                       .fetchBlockBody(
                         FetchBlockBodyReq(blockId)
                       )
@@ -60,10 +72,10 @@ trait BifrostQueryInterpreter {
                   .map(_.body.asInstanceOf[A])
               )
             case BifrostQueryAlgebra.FetchTransaction(txId) =>
-              Kleisli(blockingStub =>
+              Kleisli(blockingStubAndRegTestStub =>
                 Sync[F]
                   .blocking(
-                    blockingStub
+                    blockingStubAndRegTestStub._1
                       .fetchTransaction(
                         FetchTransactionReq(txId)
                       )
@@ -71,30 +83,39 @@ trait BifrostQueryInterpreter {
                   .map(_.transaction.asInstanceOf[A])
               )
             case BifrostQueryAlgebra.BlockByHeight(height) =>
-              Kleisli(blockingStub =>
+              Kleisli(blockingStubAndRegTestStub =>
                 Sync[F]
                   .blocking(
-                    blockingStub
+                    blockingStubAndRegTestStub._1
                       .fetchBlockIdAtHeight(
                         FetchBlockIdAtHeightReq(height)
                       )
                   )
                   .map(_.blockId.asInstanceOf[A])
               )
-            case BifrostQueryAlgebra.SynchronizationTraversal() =>
-              Kleisli(blockingStub =>
-                Sync[F]
-                  .blocking(
-                    blockingStub
-                      .synchronizationTraversal(SynchronizationTraversalReq())
-                  )
-                  .map(_.asInstanceOf[A])
+            case BifrostQueryAlgebra.SynchronizationTraversal(respObserver) =>
+//              Kleisli(blockingStubAndRegTestStub =>
+//                Sync[F]
+//                  .blocking(
+//                    blockingStubAndRegTestStub._1
+//                      .synchronizationTraversal(SynchronizationTraversalReq())
+//                  )
+//                  .map(_.asInstanceOf[A])
+              Kleisli(_ => // FIXME: did not make a difference
+                channelResource.allocated
+                  .flatMap { channel =>
+                    Sync[F]
+                      .blocking(
+                        NodeRpcGrpc.stub(channel._1).synchronizationTraversal(SynchronizationTraversalReq(), respObserver)
+                      )
+                      .map(_.asInstanceOf[A])
+                  }
               )
             case BifrostQueryAlgebra.BroadcastTransaction(tx) =>
-              Kleisli(blockingStub =>
+              Kleisli(blockingStubAndRegTestStub =>
                 Sync[F]
                   .blocking(
-                    blockingStub
+                    blockingStubAndRegTestStub._1
                       .broadcastTransaction(
                         BroadcastTransactionReq(tx)
                       )
@@ -108,7 +129,7 @@ trait BifrostQueryInterpreter {
     (for {
       channel <- channelResource
     } yield channel).use { channel =>
-      kleisliComputation.run(NodeRpcGrpc.blockingStub(channel))
+      kleisliComputation.run((NodeRpcGrpc.blockingStub(channel), RegtestRpcGrpc.blockingStub(channel)))
     }
   }
 

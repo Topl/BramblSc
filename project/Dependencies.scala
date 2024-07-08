@@ -7,13 +7,15 @@ object Dependencies {
     val catsCoreVersion = "2.10.0"
     val simulacrumVersion = "1.0.1"
     val circeVersion = "0.14.6"
-    val protobufSpecsVersion = "2.0.0-beta2"
+    val protobufSpecsVersion = "2.0.0-beta3"
     val mUnitTeVersion = "0.7.29"
     val btcVersion = "1.9.7"
   }
 
   val catsSlf4j: ModuleID =
     "org.typelevel" %% "log4cats-slf4j" % "2.4.0"
+
+  val fs2Io: ModuleID = "co.fs2" %% "fs2-io" % "3.10.2"
 
   val circe: Seq[ModuleID] = Seq(
     "io.circe" %% "circe-core"    % circeVersion,
@@ -115,7 +117,7 @@ object Dependencies {
   object IntegrationTests {
 
     lazy val sources: Seq[ModuleID] =
-      Crypto.sources ++ BramblSdk.sources ++ ServiceKit.sources
+      Crypto.sources ++ BramblSdk.sources ++ ServiceKit.sources :+ fs2Io
     lazy val tests: Seq[ModuleID] = (sources ++ mUnitTest).map(_ % Test)
   }
 
