@@ -11,7 +11,7 @@ import co.topl.brambl.common.ContainsSignable.instances.ioTransactionSignable
 import co.topl.brambl.constants.NetworkConstants.{MAIN_LEDGER_ID, PRIVATE_NETWORK_ID}
 import co.topl.brambl.dataApi.{BifrostQueryAlgebra, GenusQueryAlgebra, RpcChannelResource}
 import co.topl.brambl.models.box.Attestation
-import co.topl.brambl.monitoring.BifrostMonitor.AppliedBifrostBlock
+import co.topl.brambl.monitoring.BifrostMonitor.{AppliedBifrostBlock, UnappliedBifrostBlock}
 import co.topl.brambl.syntax.{LvlType, ioTransactionAsTransactionSyntaxOps}
 import co.topl.quivr.api.Prover
 import io.grpc.ManagedChannel
@@ -33,107 +33,52 @@ class BifrostMonitorTest extends munit.CatsEffectSuite {
 
   test("Monitor blocks with a reorg") {
     assertIO(for {
-      _ <- IO.println("node 1 tip:")
+      // ensure the 2 nodes are in sync prior to starting
+      _ <- IO.println("connecting the nodes")
+      _ <- connectBifrostNodes("bridge", "bifrost02").start.allocated.andWait(2.seconds)
       node1Tip <- bifrostQuery1.blockByDepth(0)
       _ <- IO.println(node1Tip)
-      _ <- IO.println("node 2 tip:")
       node2Tip <- bifrostQuery2.blockByDepth(0)
       _ <- IO.println(node2Tip)
-      _ <- IO.println("disconnecting node 2 from network")
-      _ <- disconnectBifrostNodes("bridge", "bifrost02").start.allocated // The 2 nodes start disconnected
-      _ <- IO.println("starting monitor service")
+//      // The 2 nodes start disconnected
+      _ <- IO.println("disconnecting the nodes")
+      _ <- disconnectBifrostNodes("bridge", "bifrost02").start.allocated.andWait(2.seconds)
+      _ <- IO.println("starting monitor")
       monitor <- BifrostMonitor(bifrostQuery1) // monitoring node 1
       blockStream = monitor.monitorBlocks().through(s => s.map(r => {
         println(r)
         r
       }))
-      _ <- IO.println("node 1 making 1 block")
-      node1MintBlocks <- bifrostQuery1.makeBlock(1) // monitor should report this 1 block
-      _ <- IO.println("node 2 making 2 blocks")
-      node2MintBlocks <- bifrostQuery2.makeBlock(2)
+      _ <- IO.println("making blocks: node 1")
+      _ <- bifrostQuery1.makeBlock(1)
+//      _ <- IO.println("making blocks: node 2")
+      _ <- bifrostQuery2.makeBlock(2)
 
       // connect blocks. the monitor should unapply the 1 block, and then apply the 2 new blocks
-      _ <- IO.println("reconnecting node 2 from network")
-      _ <- connectBifrostNodes("bridge", "bifrost02").start.allocated
+      _ <- IO.println("connecting the nodes")
+      _ <- connectBifrostNodes("bridge", "bifrost02").start.allocated.andWait(2.seconds)
+      _ <- bifrostQuery2.makeBlock(1).andWait(5.seconds) // monitor should report this
 
-      _ <- IO.println("node 2 making 1 block").andWait(5.seconds)
-      additionalMintBlocks <- bifrostQuery2.makeBlock(1) // monitor should report this
-
-      _ <- IO.println("compiling stream")
-      blocks <- blockStream.interruptAfter(10.seconds).compile.toList
+      blocks <- blockStream.interruptAfter(5.seconds).compile.toList
     } yield {
       println(s"blocks:  $blocks")
-      blocks.length == 5
+      blocks.length == 5 &&
+        blocks.head.isInstanceOf[AppliedBifrostBlock] &&
+        blocks(1).isInstanceOf[UnappliedBifrostBlock] &&
+        blocks(2).isInstanceOf[AppliedBifrostBlock] &&
+        blocks(3).isInstanceOf[AppliedBifrostBlock] &&
+        blocks(4).isInstanceOf[AppliedBifrostBlock]
     } // applied, unapplied, applied, applied, applied
       , true )
-  }
-
-  /**
-
-   --- works
-
-   new version, no staker arguments (works):
-   docker run --rm -d -p 9085:9085 -p 9084:9084 -p 9091:9091 ghcr.io/topl/bifrost-node:2.0.0-beta3-24-7fd725a9
-
-   old version, no staker arguments (works):
-   docker run --rm -d -p 9085:9085 -p 9084:9084 -p 9091:9091 ghcr.io/topl/bifrost-node:2.0.0-beta3
-
-   --- does not work (TimeoutException)
-
-   old version, with staker arguments; config.yaml does not contain line "regtest-enabled" (does not work):
-   docker run --rm -d -p 9085:9085 -p 9084:9084 -p 9091:9091 -v /home/diadem/node01:/bifrost-staking:rw ghcr.io/topl/bifrost-node:2.0.0-beta3 -- --config /bifrost-staking/config.yaml
-
-   new version, with staker arguments; not regtest mode & config.yaml does not contain line "regtest-enabled" (does not work):
-   docker run --rm -d -p 9085:9085 -p 9084:9084 -p 9091:9091 -v /home/diadem/node01:/bifrost-staking:rw ghcr.io/topl/bifrost-node:2.0.0-beta3-24-7fd725a9 -- --config /bifrost-staking/config.yaml
-
-   new version, with staker arguments and regtest mode (config.yaml contains "regtest-enabled: true") (does not work):
-   docker run --rm -d -p 9085:9085 -p 9084:9084 -p 9091:9091 -v /home/diadem/node01:/bifrost-staking:rw ghcr.io/topl/bifrost-node:2.0.0-beta3-24-7fd725a9 -- --config /bifrost-staking/config.yaml --regtest
-
-   new version, no staker arguments but with regtest mode (only via flag)
-   docker run --rm -d -p 9085:9085 -p 9084:9084 -p 9091:9091 ghcr.io/topl/bifrost-node:2.0.0-beta3-24-7fd725a9 -- --regtest
-
-   */
-
-  // works without staker arguments
-  // does not work with staker arguments (regtest not enabled, without flag and disabled in config file).
-  // does not work with staker arguments (regtest enabled)
-  // Staker arguments include volume mounting and config
-  // "does not work" most of the time is TimeoutException.
-  // try old version but with staker arguments? => does not work
-  test("control") {
-    import cats.effect.std.Queue
-    assertIO(for {
-      randomCall <- bifrostQuery1.blockByDepth(0)
-      _ <- IO.println((randomCall)) // to verify that its not ALL rpc functions that are broken.
-      _ <- IO.println("starting stream")
-      monitor <- BifrostMonitor(bifrostQuery1) // monitoring node 1
-      blockStream = monitor.monitorBlocks().through(s => s.map(r => {
-        println(r)
-        r
-      }))
-      _ <- IO.println("make block")
-      _ <- bifrostQuery1.makeBlock(1)
-      _ <- IO.println("make block")
-      _ <- bifrostQuery1.makeBlock(1)
-      _ <- IO.println("before interrupt")
-//      blocks <- (IO.println("delayed block by depth").andWait(22.seconds) *> bifrostQuery1.blockByDepth(0)) &> blockStream.interruptAfter(20.seconds).compile.toList
-      blocks <- blockStream.interruptAfter(20.seconds).compile.toList
-      _ <- IO.println("D")
-    } yield {
-      println(blocks)
-      true
-    },
-      true
-    )
   }
 
   test("Monitor only new blocks (empty)") {
     assertIO(for {
       monitor <- BifrostMonitor(bifrostQuery1)
       blockStream = monitor.monitorBlocks()
-      // At approx. 1 block/10 seconds, we expect there to be at least 2 blocks after 30 seconds
-      blocks <- blockStream.interruptAfter(30.seconds).compile.toList
-    } yield blocks.count(_.isInstanceOf[AppliedBifrostBlock]) >= 2,
+      _ <- bifrostQuery1.makeBlock(2)
+      blocks <- blockStream.interruptAfter(5.seconds).compile.toList
+    } yield blocks.count(_.isInstanceOf[AppliedBifrostBlock]) == 2,
       true
     )
   }
@@ -162,8 +107,8 @@ class BifrostMonitorTest extends munit.CatsEffectSuite {
       blockStream = monitor.monitorBlocks()
       // Then broadcast transaction
       txId <- bifrostQuery1.broadcastTransaction(provedTx)
-      // At approx. 1 block/10 seconds, we expect the broadcasted tx to be captured after 20 seconds
-      blockUpdates <- blockStream.through(_.map(b => (b.block.transactions.map(_.computeId), b.height))).interruptAfter(20.seconds).compile.toList
+      _ <- bifrostQuery1.makeBlock(1)
+      blockUpdates <- blockStream.through(_.map(b => (b.block.transactions.map(_.computeId), b.height))).interruptAfter(5.seconds).compile.toList
       // Ensure the reported height is correct
       queriedHeights <- blockUpdates.map(b => bifrostQuery1.blockByHeight(b._2).map(r => (r.get._4.map(_.computeId), r.get._2.height))).sequence
     } yield {
@@ -179,13 +124,13 @@ class BifrostMonitorTest extends munit.CatsEffectSuite {
     assertIO(for {
       startingBlockId <- bifrostQuery1.blockByDepth(0).map(_.get._1)
       startingHeight <- bifrostQuery1.blockById(startingBlockId).map(_.get._2.height)
-      // At approx. 1 block/10 seconds, we expect there to be at least 2 blocks after 30 seconds
-      _ <- IO.unit.andWait(30.seconds)
+      _ <- bifrostQuery1.makeBlock(2)
+      _ <- IO.unit.andWait(5.seconds)
       tipBlockId <- bifrostQuery1.blockByDepth(1).map(_.get._1)
       monitor <- BifrostMonitor(bifrostQuery1, Some(startingBlockId))
       blockStream = monitor.monitorBlocks()
-      // At approx. 1 block/10 seconds, we expect there to be at least 2 blocks after 30 seconds
-      blocks <- blockStream.interruptAfter(30.seconds).compile.toList
+      _ <- bifrostQuery1.makeBlock(2)
+      blocks <- blockStream.interruptAfter(5.seconds).compile.toList
     } yield {
       val blockIds = blocks.map(_.id)
       val startingIdx = blockIds.indexOf(startingBlockId)
