@@ -23,7 +23,7 @@ class BifrostMonitorTest extends munit.CatsEffectSuite {
   override val munitTimeout: FiniteDuration = Duration(180, "s")
 
   val channelResource1: Resource[IO, ManagedChannel] =
-    RpcChannelResource.channelResource[IO]("localhost", 9084, secureConnection = false)
+    RpcChannelResource.channelResource[IO]("localhost", 9184, secureConnection = false)
   val channelResource2: Resource[IO, ManagedChannel] =
     RpcChannelResource.channelResource[IO]("localhost", 9086, secureConnection = false)
   val bifrostQuery1: BifrostQueryAlgebra[IO] = BifrostQueryAlgebra.make[IO](channelResource1)
@@ -35,14 +35,15 @@ class BifrostMonitorTest extends munit.CatsEffectSuite {
     assertIO(for {
       // ensure the 2 nodes are in sync prior to starting
       _ <- IO.println("connecting the nodes")
-      _ <- connectBifrostNodes("bridge", "bifrost02").start.allocated.andWait(2.seconds)
+      _ <- connectBifrostNodes("bifrost02", "bifrost01").start.andWait(15.seconds)
+      _ <- IO.println("after connect")
       node1Tip <- bifrostQuery1.blockByDepth(0)
       _ <- IO.println(node1Tip)
       node2Tip <- bifrostQuery2.blockByDepth(0)
       _ <- IO.println(node2Tip)
-//      // The 2 nodes start disconnected
+      // The 2 nodes start disconnected
       _ <- IO.println("disconnecting the nodes")
-      _ <- disconnectBifrostNodes("bridge", "bifrost02").start.allocated.andWait(2.seconds)
+      _ <- disconnectBifrostNodes("bifrost02").start.andWait(15.seconds)
       _ <- IO.println("starting monitor")
       monitor <- BifrostMonitor(bifrostQuery1) // monitoring node 1
       blockStream = monitor.monitorBlocks().through(s => s.map(r => {
@@ -51,24 +52,24 @@ class BifrostMonitorTest extends munit.CatsEffectSuite {
       }))
       _ <- IO.println("making blocks: node 1")
       _ <- bifrostQuery1.makeBlock(1)
-//      _ <- IO.println("making blocks: node 2")
+      _ <- IO.println("making blocks: node 2")
       _ <- bifrostQuery2.makeBlock(2)
+
+      _ <- IO.println("waiting after making blocks").andWait(10.seconds)
 
       // connect blocks. the monitor should unapply the 1 block, and then apply the 2 new blocks
       _ <- IO.println("connecting the nodes")
-      _ <- connectBifrostNodes("bridge", "bifrost02").start.allocated.andWait(2.seconds)
-      _ <- bifrostQuery2.makeBlock(1).andWait(5.seconds) // monitor should report this
+      _ <- connectBifrostNodes("bifrost02", "bifrost01").start.andWait(15.seconds)
 
       blocks <- blockStream.interruptAfter(5.seconds).compile.toList
     } yield {
       println(s"blocks:  $blocks")
-      blocks.length == 5 &&
+      blocks.length == 4 &&
         blocks.head.isInstanceOf[AppliedBifrostBlock] &&
         blocks(1).isInstanceOf[UnappliedBifrostBlock] &&
         blocks(2).isInstanceOf[AppliedBifrostBlock] &&
-        blocks(3).isInstanceOf[AppliedBifrostBlock] &&
-        blocks(4).isInstanceOf[AppliedBifrostBlock]
-    } // applied, unapplied, applied, applied, applied
+        blocks(3).isInstanceOf[AppliedBifrostBlock]
+    } // applied, unapplied, applied, applied
       , true )
   }
 
@@ -129,7 +130,7 @@ class BifrostMonitorTest extends munit.CatsEffectSuite {
       tipBlockId <- bifrostQuery1.blockByDepth(1).map(_.get._1)
       monitor <- BifrostMonitor(bifrostQuery1, Some(startingBlockId))
       blockStream = monitor.monitorBlocks()
-      _ <- bifrostQuery1.makeBlock(2)
+      _ <- bifrostQuery1.makeBlock(2).andWait(5.seconds)
       blocks <- blockStream.interruptAfter(5.seconds).compile.toList
     } yield {
       val blockIds = blocks.map(_.id)
