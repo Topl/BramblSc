@@ -1,6 +1,7 @@
 package co.topl.brambl.monitoring
 
 import cats.effect.IO
+import cats.effect.kernel.{Resource, Sync}
 import cats.effect.std.Queue
 import cats.effect.unsafe.implicits.global
 import cats.implicits.{catsSyntaxParallelSequence1, toTraverseOps}
@@ -10,18 +11,41 @@ import co.topl.brambl.models.transaction.IoTransaction
 import co.topl.brambl.monitoring.BifrostMonitor.{AppliedBifrostBlock, BifrostBlockSync, UnappliedBifrostBlock}
 import co.topl.consensus.models.{BlockHeader, BlockId}
 import co.topl.node.models.FullBlockBody
-import co.topl.node.services.SynchronizationTraversalRes
+import co.topl.node.services.{NodeRpcFs2Grpc, SynchronizationTraversalReq, SynchronizationTraversalRes}
 import co.topl.node.services.SynchronizationTraversalRes.Status.{Applied, Empty, Unapplied}
 import fs2.Stream
+import fs2.grpc.syntax.all.fs2GrpcSyntaxManagedChannelBuilder
+import io.grpc.{ManagedChannelBuilder, Metadata}
 import io.grpc.stub.StreamObserver
+import cats.effect.IO
+import cats.effect.kernel.Resource
+import cats.effect.kernel.Sync
+import cats.implicits.catsSyntaxParallelSequence1
+import cats.implicits.toTraverseOps
+import co.topl.brambl.dataApi.BifrostQueryAlgebra
+import co.topl.brambl.display.blockIdDisplay.display
+import co.topl.brambl.models.transaction.IoTransaction
+import co.topl.consensus.models.BlockHeader
+import co.topl.consensus.models.BlockId
+import co.topl.node.models.FullBlockBody
+import co.topl.node.services.NodeRpcFs2Grpc
+import co.topl.node.services.SynchronizationTraversalReq
+import co.topl.node.services.SynchronizationTraversalRes
+import co.topl.node.services.SynchronizationTraversalRes.Status.Applied
+import co.topl.node.services.SynchronizationTraversalRes.Status.Empty
+import co.topl.node.services.SynchronizationTraversalRes.Status.Unapplied
+import fs2.Stream
+import fs2.grpc.syntax.all._
+import io.grpc.ManagedChannelBuilder
+import io.grpc.Metadata
 
 /**
  * Class to monitor incoming bifrost blocks via an iterator.
- * @param blockIterator The iterator in which block changes will be added to
+ * @param blockStream The stream in which block changes are reported through
  * @param startingBlocks Past blocks that should be reported.
  */
 class BifrostMonitor(
-  blockQueue:     Queue[IO, SynchronizationTraversalRes],
+  blockStream: Stream[IO, SynchronizationTraversalRes],
   getFullBlock:   BlockId => IO[(BlockHeader, FullBlockBody)],
   startingBlocks: Vector[BifrostBlockSync]
 ) {
@@ -40,12 +64,24 @@ class BifrostMonitor(
    * Return a stream of block updates.
    * @return The infinite stream of block updatess. If startingBlocks was provided, they will be at the front of the stream.
    */
-  def monitorBlocks(): Stream[IO, BifrostBlockSync] = Stream.emits(startingBlocks) ++
-    Stream.fromQueueUnterminated(blockQueue).through(pipe)
+  def monitorBlocks(): Stream[IO, BifrostBlockSync] = Stream.emits(startingBlocks) ++ blockStream.through(pipe)
 
 }
 
 object BifrostMonitor {
+
+  def getChannelResource[F[_] : Sync](address: String, port: Int, secureConnection: Boolean) = {
+    val x = (if (secureConnection)
+      ManagedChannelBuilder
+        .forAddress(address, port)
+        .useTransportSecurity()
+    else
+      ManagedChannelBuilder
+        .forAddress(address, port)
+        .usePlaintext())
+    val y = ManagedChannelBuilder
+      .forAddress(address, port).resource[F].resource[F]
+  }
 
   /**
    * A wrapper for a Bifrost Block Sync update.
@@ -70,9 +106,12 @@ object BifrostMonitor {
    * @return An instance of a BifrostMonitor
    */
   def apply(
+    address: String,
+    port: Int,
+    secureConnection: Boolean,
     bifrostQuery: BifrostQueryAlgebra[IO],
     startBlock:   Option[BlockId] = None
-  ): IO[BifrostMonitor] = {
+  ): IO[Resource[IO, BifrostMonitor]] = {
     def getFullBlock(blockId: BlockId): IO[(BlockHeader, FullBlockBody)] = for {
       block <- bifrostQuery.blockById(blockId)
     } yield block match {
@@ -89,8 +128,6 @@ object BifrostMonitor {
         case _ => IO.pure(Vector.empty)
       }
     for {
-      blockQueue <- Queue.unbounded[IO, SynchronizationTraversalRes]
-
       // The height of the startBlock
       startBlockHeight <- startBlock.map(bId => bifrostQuery.blockById(bId)).sequence.map(_.flatten.map(_._2.height))
       // the height of the chain tip
@@ -99,14 +136,15 @@ object BifrostMonitor {
       startingBlocks <- startingBlockIds
         .map(bId => getFullBlock(bId).map(block => AppliedBifrostBlock(block._2, bId, block._1.height)))
         .sequence
-      _ <- bifrostQuery.synchronizationTraversal(new StreamObserver[SynchronizationTraversalRes] {
-        override def onNext(value: SynchronizationTraversalRes): Unit = blockQueue.offer(value).unsafeRunSync()
-
-        override def onError(t: Throwable): Unit = println("ERROR: " + t.getMessage) // TODO: Properly log
-
-        override def onCompleted(): Unit = ()
-      })
-    } yield new BifrostMonitor(blockQueue, getFullBlock, startingBlocks)
+    } yield for {
+      channel <- getChannelResource[IO](address, port, secureConnection)
+      stub <- NodeRpcFs2Grpc.stubResource[IO](channel)
+      stream <- IO(stub.synchronizationTraversal(SynchronizationTraversalReq(), new Metadata()).handleErrorWith { e =>
+        e.printStackTrace()
+        println("Error in BifrostMonitorBis")
+        Stream.empty[IO]
+      }).toResource
+    } yield new BifrostMonitor(stream, getFullBlock, startingBlocks)
   }
 
 }

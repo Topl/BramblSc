@@ -17,7 +17,7 @@ trait BifrostQueryInterpreter {
     computation:     BifrostQueryAlgebra.BifrostQueryADTMonad[A]
   ): F[A] = {
     type ChannelContextKlesli[A] =
-      Kleisli[F, (NodeRpcGrpc.NodeRpcBlockingStub, RegtestRpcGrpc.RegtestRpcBlockingStub, NodeRpcGrpc.NodeRpcStub), A]
+      Kleisli[F, (NodeRpcGrpc.NodeRpcBlockingStub, RegtestRpcGrpc.RegtestRpcBlockingStub), A]
     val kleisliComputation = computation.foldMap[ChannelContextKlesli](
       new FunctionK[BifrostQueryAlgebra.BifrostQueryADT, ChannelContextKlesli] {
 
@@ -93,11 +93,13 @@ trait BifrostQueryInterpreter {
                   )
                   .map(_.blockId.asInstanceOf[A])
               )
-            case BifrostQueryAlgebra.SynchronizationTraversal(respObserver) =>
+
+            case BifrostQueryAlgebra.SynchronizationTraversal() =>
               Kleisli(blockingStubAndRegTestStub =>
                 Sync[F]
                   .blocking(
-                    blockingStubAndRegTestStub._3.synchronizationTraversal(SynchronizationTraversalReq(), respObserver)
+                    blockingStubAndRegTestStub._1
+                      .synchronizationTraversal(SynchronizationTraversalReq())
                   )
                   .map(_.asInstanceOf[A])
               )
@@ -120,7 +122,7 @@ trait BifrostQueryInterpreter {
       channel <- channelResource
     } yield channel).use { channel =>
       kleisliComputation.run(
-        (NodeRpcGrpc.blockingStub(channel), RegtestRpcGrpc.blockingStub(channel), NodeRpcGrpc.stub(channel))
+        (NodeRpcGrpc.blockingStub(channel), RegtestRpcGrpc.blockingStub(channel))
       )
     }
   }

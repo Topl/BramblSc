@@ -9,7 +9,6 @@ import co.topl.consensus.models.{BlockHeader, BlockId}
 import co.topl.node.models.BlockBody
 import co.topl.node.services.SynchronizationTraversalRes
 import io.grpc.ManagedChannel
-import io.grpc.stub.StreamObserver
 
 /**
  * Defines a Bifrost Query API for interacting with a Bifrost node.
@@ -61,10 +60,11 @@ trait BifrostQueryAlgebra[F[_]] {
   def broadcastTransaction(tx: IoTransaction): F[TransactionId]
 
   /**
-   * Observe the stream of changes to the canonical head of the chain.
-   * @param observer the observer of the stream
+   * Retrieve an iterator of changes to the canonical head of the chain.
+   *
+   * @return an iterator of changes to the chain tip
    */
-  def synchronizationTraversal(observer: StreamObserver[SynchronizationTraversalRes]): F[Unit]
+  def synchronizationTraversal(): F[Iterator[SynchronizationTraversalRes]]
 
   /**
    * Make a block in regtest mode.
@@ -91,10 +91,9 @@ object BifrostQueryAlgebra extends BifrostQueryInterpreter {
 
   case class BlockByDepth(depth: Long) extends BifrostQueryADT[Option[BlockId]]
 
-  case class MakeBlock(nbOfBlocks: Int) extends BifrostQueryADT[Unit]
+  case class SynchronizationTraversal() extends BifrostQueryADT[Iterator[SynchronizationTraversalRes]]
 
-  case class SynchronizationTraversal(observer: StreamObserver[SynchronizationTraversalRes])
-      extends BifrostQueryADT[Unit]
+  case class MakeBlock(nbOfBlocks: Int) extends BifrostQueryADT[Unit]
 
   case class BroadcastTransaction(tx: IoTransaction) extends BifrostQueryADT[TransactionId]
 
@@ -126,8 +125,8 @@ object BifrostQueryAlgebra extends BifrostQueryInterpreter {
   def blockByDepthF(depth: Long): BifrostQueryADTMonad[Option[BlockId]] =
     Free.liftF(BlockByDepth(depth))
 
-  def synchronizationTraversalF(observer: StreamObserver[SynchronizationTraversalRes]): BifrostQueryADTMonad[Unit] =
-    Free.liftF(SynchronizationTraversal(observer))
+  def synchronizationTraversalF[F[_]](): BifrostQueryADTMonad[Iterator[SynchronizationTraversalRes]] =
+    Free.liftF(SynchronizationTraversal())
 
   def broadcastTransactionF(tx: IoTransaction): BifrostQueryADTMonad[TransactionId] =
     Free.liftF(BroadcastTransaction(tx))
@@ -191,8 +190,8 @@ object BifrostQueryAlgebra extends BifrostQueryInterpreter {
       override def broadcastTransaction(tx: IoTransaction): F[TransactionId] =
         interpretADT(channelResource, broadcastTransactionF(tx))
 
-      override def synchronizationTraversal(observer: StreamObserver[SynchronizationTraversalRes]): F[Unit] =
-        interpretADT(channelResource, synchronizationTraversalF(observer))
+      override def synchronizationTraversal(): F[Iterator[SynchronizationTraversalRes]] =
+        interpretADT(channelResource, synchronizationTraversalF[F]())
 
     }
 }

@@ -10,6 +10,7 @@ object Dependencies {
     val protobufSpecsVersion = "2.0.0-beta3"
     val mUnitTeVersion = "0.7.29"
     val btcVersion = "1.9.7"
+    val btcVersionZmq = "1.9.8"
   }
 
   val catsSlf4j: ModuleID =
@@ -72,7 +73,7 @@ object Dependencies {
 
   val btc: Seq[ModuleID] = Seq(
     "org.bitcoin-s" %% "bitcoin-s-core"         % btcVersion,
-    "org.bitcoin-s" %% "bitcoin-s-zmq"          % btcVersion,
+    "org.bitcoin-s" %% "bitcoin-s-zmq"          % btcVersionZmq,
     "org.bitcoin-s" %% "bitcoin-s-bitcoind-rpc" % btcVersion
   )
 
