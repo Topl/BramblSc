@@ -49,7 +49,7 @@ class BitcoinMonitor(
    */
   def monitorBlocks(): Stream[IO, BitcoinBlockSync] =
     Stream
-      .emits(startingBlocks) ++ Stream.fromQueueUnterminated(blockQueue).through(synchronizeChain).through(flattenChain)
+      .emits(startingBlocks) ++ Stream.fromQueueUnterminated(blockQueue, 1).through(synchronizeChain).through(flattenChain)
 
   /**
    * Synchronize the chain.
@@ -60,6 +60,7 @@ class BitcoinMonitor(
   private def synchronizeChain: Pipe[IO, AppliedBitcoinBlock, Vector[BitcoinBlockSync]] = in =>
     in.evalMap { adoptedBlock =>
       for {
+        _ <- IO.println(s"Applied BTC block")
         tip          <- currentTip.get
         updatedChain <-
           // Checking if the new block's parent matches our last reported block

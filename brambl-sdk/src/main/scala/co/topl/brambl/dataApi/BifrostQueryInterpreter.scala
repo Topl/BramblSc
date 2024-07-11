@@ -94,23 +94,23 @@ trait BifrostQueryInterpreter {
                   .map(_.blockId.asInstanceOf[A])
               )
             case BifrostQueryAlgebra.SynchronizationTraversal() =>
-              Kleisli(_ => // FIXME: check if this fixes bug
-                channelResource.allocated
-                  .flatMap { channel =>
-                    Sync[F]
-                      .blocking(
-                        NodeRpcGrpc
-                          .blockingStub(channel._1)
-                          .synchronizationTraversal(SynchronizationTraversalReq())
-                      )
-                      .map(_.asInstanceOf[A])
-                  }
-              // Sync[F]
-              //   .blocking(
-              //     NodeRpcGrpc.blockingStub()
-              //       .synchronizationTraversal(SynchronizationTraversalReq())
-              //   )
-              //   .map(_.asInstanceOf[A])
+              Kleisli(x => // FIXME: check if this fixes bug
+                // channelResource.allocated
+                //   .flatMap { channel =>
+                //     Sync[F]
+                //       .blocking(
+                //         NodeRpcGrpc
+                //           .blockingStub(channel._1)
+                //           .synchronizationTraversal(SynchronizationTraversalReq())
+                //       )
+                //       .map(_.asInstanceOf[A])
+                //   }
+              Sync[F]
+                .blocking(
+                  x._1
+                    .synchronizationTraversal(SynchronizationTraversalReq())
+                )
+                .map(_.asInstanceOf[A])
               )
             case BifrostQueryAlgebra.BroadcastTransaction(tx) =>
               Kleisli(blockingStubAndRegTestStub =>
