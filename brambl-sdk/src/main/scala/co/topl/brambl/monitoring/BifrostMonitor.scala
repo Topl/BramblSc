@@ -1,42 +1,18 @@
 package co.topl.brambl.monitoring
 
 import cats.effect.IO
-import cats.effect.kernel.{Resource, Sync}
-import cats.effect.std.Queue
-import cats.effect.unsafe.implicits.global
+import cats.effect.kernel.Resource
 import cats.implicits.{catsSyntaxParallelSequence1, toTraverseOps}
 import co.topl.brambl.dataApi.BifrostQueryAlgebra
+import co.topl.brambl.dataApi.RpcChannelResource.channelResource
 import co.topl.brambl.display.blockIdDisplay.display
 import co.topl.brambl.models.transaction.IoTransaction
 import co.topl.brambl.monitoring.BifrostMonitor.{AppliedBifrostBlock, BifrostBlockSync, UnappliedBifrostBlock}
 import co.topl.consensus.models.{BlockHeader, BlockId}
 import co.topl.node.models.FullBlockBody
-import co.topl.node.services.{NodeRpcFs2Grpc, SynchronizationTraversalReq, SynchronizationTraversalRes}
 import co.topl.node.services.SynchronizationTraversalRes.Status.{Applied, Empty, Unapplied}
+import co.topl.node.services.{NodeRpcFs2Grpc, SynchronizationTraversalReq, SynchronizationTraversalRes}
 import fs2.Stream
-import fs2.grpc.syntax.all.fs2GrpcSyntaxManagedChannelBuilder
-import io.grpc.{ManagedChannelBuilder, Metadata}
-import io.grpc.stub.StreamObserver
-import cats.effect.IO
-import cats.effect.kernel.Resource
-import cats.effect.kernel.Sync
-import cats.implicits.catsSyntaxParallelSequence1
-import cats.implicits.toTraverseOps
-import co.topl.brambl.dataApi.BifrostQueryAlgebra
-import co.topl.brambl.display.blockIdDisplay.display
-import co.topl.brambl.models.transaction.IoTransaction
-import co.topl.consensus.models.BlockHeader
-import co.topl.consensus.models.BlockId
-import co.topl.node.models.FullBlockBody
-import co.topl.node.services.NodeRpcFs2Grpc
-import co.topl.node.services.SynchronizationTraversalReq
-import co.topl.node.services.SynchronizationTraversalRes
-import co.topl.node.services.SynchronizationTraversalRes.Status.Applied
-import co.topl.node.services.SynchronizationTraversalRes.Status.Empty
-import co.topl.node.services.SynchronizationTraversalRes.Status.Unapplied
-import fs2.Stream
-import fs2.grpc.syntax.all._
-import io.grpc.ManagedChannelBuilder
 import io.grpc.Metadata
 
 /**
@@ -69,20 +45,6 @@ class BifrostMonitor(
 }
 
 object BifrostMonitor {
-
-  def getChannelResource[F[_] : Sync](address: String, port: Int, secureConnection: Boolean) = {
-    val x = (if (secureConnection)
-      ManagedChannelBuilder
-        .forAddress(address, port)
-        .useTransportSecurity()
-    else
-      ManagedChannelBuilder
-        .forAddress(address, port)
-        .usePlaintext())
-    val y = ManagedChannelBuilder
-      .forAddress(address, port).resource[F].resource[F]
-  }
-
   /**
    * A wrapper for a Bifrost Block Sync update.
    */
@@ -99,6 +61,9 @@ object BifrostMonitor {
   // Represents an existing block that has been unapplied from the chain tip
   case class UnappliedBifrostBlock(block: FullBlockBody, id: BlockId, height: Long) extends BifrostBlockSync
 
+  def apply(bifrostQuery: BifrostQueryAlgebra[IO]): IO[BifrostMonitor] = ???
+  def apply(bifrostQuery: BifrostQueryAlgebra[IO], startBlock:   Option[BlockId]): IO[BifrostMonitor] = ???
+
   /**
    * Initialize and return a BifrostMonitor instance.
    * @param bifrostQuery The bifrost query api to retrieve updates from
@@ -111,7 +76,7 @@ object BifrostMonitor {
     secureConnection: Boolean,
     bifrostQuery: BifrostQueryAlgebra[IO],
     startBlock:   Option[BlockId] = None
-  ): IO[Resource[IO, BifrostMonitor]] = {
+  ): Resource[IO, BifrostMonitor] = {
     def getFullBlock(blockId: BlockId): IO[(BlockHeader, FullBlockBody)] = for {
       block <- bifrostQuery.blockById(blockId)
     } yield block match {
@@ -129,15 +94,14 @@ object BifrostMonitor {
       }
     for {
       // The height of the startBlock
-      startBlockHeight <- startBlock.map(bId => bifrostQuery.blockById(bId)).sequence.map(_.flatten.map(_._2.height))
+      startBlockHeight <- startBlock.map(bId => bifrostQuery.blockById(bId)).sequence.map(_.flatten.map(_._2.height)).toResource
       // the height of the chain tip
-      tipHeight        <- bifrostQuery.blockByDepth(0).map(_.map(_._2.height))
-      startingBlockIds <- getBlockIds(startBlockHeight, tipHeight)
+      tipHeight        <- bifrostQuery.blockByDepth(0).map(_.map(_._2.height)).toResource
+      startingBlockIds <- getBlockIds(startBlockHeight, tipHeight).toResource
       startingBlocks <- startingBlockIds
         .map(bId => getFullBlock(bId).map(block => AppliedBifrostBlock(block._2, bId, block._1.height)))
-        .sequence
-    } yield for {
-      channel <- getChannelResource[IO](address, port, secureConnection)
+        .sequence.toResource
+      channel <- channelResource[IO](address, port, secureConnection)
       stub <- NodeRpcFs2Grpc.stubResource[IO](channel)
       stream <- IO(stub.synchronizationTraversal(SynchronizationTraversalReq(), new Metadata()).handleErrorWith { e =>
         e.printStackTrace()

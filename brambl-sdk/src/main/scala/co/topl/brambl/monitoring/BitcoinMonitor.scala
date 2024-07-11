@@ -1,6 +1,7 @@
 package co.topl.brambl.monitoring
 
 import akka.actor.ActorSystem
+import cats.effect.kernel.Resource
 import cats.effect.{IO, Ref}
 import cats.effect.std.Queue
 import co.topl.brambl.monitoring.BitcoinMonitor.{AppliedBitcoinBlock, BitcoinBlockSync, UnappliedBitcoinBlock}
@@ -233,7 +234,7 @@ object BitcoinMonitor {
     startBlock: Option[DoubleSha256DigestBE] = None,
     zmqHost:    String = "127.0.0.1",
     zmqPort:    Int = 28332
-  ): IO[BitcoinMonitor] = {
+  ): Resource[IO, BitcoinMonitor] = {
     implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
 
     @tailrec
@@ -250,7 +251,7 @@ object BitcoinMonitor {
     val existingHashes = getBlockHashes(startBlock)
     println("Retroactively fetching blocks:")
     existingHashes.foreach(h => println(h.hex))
-    for {
+    (for {
       blockQueue <- Queue.unbounded[IO, AppliedBitcoinBlock]
       startingBlocks <- IO.fromFuture(
         IO(
@@ -271,7 +272,7 @@ object BitcoinMonitor {
       initZmqSubscriber(bitcoind, zmqHost, zmqPort),
       bitcoind,
       currentTip
-    )
+    )).toResource
   }
 
 }
