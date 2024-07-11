@@ -95,12 +95,11 @@ trait BifrostQueryInterpreter {
               )
             case BifrostQueryAlgebra.SynchronizationTraversal(respObserver) =>
               Kleisli(blockingStubAndRegTestStub =>
-                    Sync[F]
-                      .blocking(
-                        blockingStubAndRegTestStub._3.synchronizationTraversal(SynchronizationTraversalReq(), respObserver)
-                      )
-                      .map(_.asInstanceOf[A])
-
+                Sync[F]
+                  .blocking(
+                    blockingStubAndRegTestStub._3.synchronizationTraversal(SynchronizationTraversalReq(), respObserver)
+                  )
+                  .map(_.asInstanceOf[A])
               )
             case BifrostQueryAlgebra.BroadcastTransaction(tx) =>
               Kleisli(blockingStubAndRegTestStub =>
@@ -120,7 +119,9 @@ trait BifrostQueryInterpreter {
     (for {
       channel <- channelResource
     } yield channel).use { channel =>
-      kleisliComputation.run((NodeRpcGrpc.blockingStub(channel), RegtestRpcGrpc.blockingStub(channel), NodeRpcGrpc.stub(channel)))
+      kleisliComputation.run(
+        (NodeRpcGrpc.blockingStub(channel), RegtestRpcGrpc.blockingStub(channel), NodeRpcGrpc.stub(channel))
+      )
     }
   }
 

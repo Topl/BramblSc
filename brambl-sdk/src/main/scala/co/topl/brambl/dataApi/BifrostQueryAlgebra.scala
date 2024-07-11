@@ -72,8 +72,8 @@ trait BifrostQueryAlgebra[F[_]] {
    * @param nbOfBlocks the number of blocks to mint.
    */
   def makeBlock(
-                 nbOfBlocks: Int
-               ): F[Unit]
+    nbOfBlocks: Int
+  ): F[Unit]
 
 }
 
@@ -93,15 +93,16 @@ object BifrostQueryAlgebra extends BifrostQueryInterpreter {
 
   case class MakeBlock(nbOfBlocks: Int) extends BifrostQueryADT[Unit]
 
-  case class SynchronizationTraversal(observer: StreamObserver[SynchronizationTraversalRes]) extends BifrostQueryADT[Unit]
+  case class SynchronizationTraversal(observer: StreamObserver[SynchronizationTraversalRes])
+      extends BifrostQueryADT[Unit]
 
   case class BroadcastTransaction(tx: IoTransaction) extends BifrostQueryADT[TransactionId]
 
   type BifrostQueryADTMonad[A] = Free[BifrostQueryADT, A]
 
   def makeBlockF(
-                  nbOfBlocks: Int
-                ): BifrostQueryADTMonad[Unit] =
+    nbOfBlocks: Int
+  ): BifrostQueryADTMonad[Unit] =
     Free.liftF(MakeBlock(nbOfBlocks))
 
   def fetchBlockBodyF(
