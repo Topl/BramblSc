@@ -18,9 +18,7 @@ bifrost:
 "
 chmod 777 node01/config.yaml
 echo $(pwd)
-export cmd="docker run -d --name bifrost01 -p 9085:9085 -p 9084:9084 -p 9091:9091 --network  -v "$(pwd)/node01:/bifrost-staking:rw" ghcr.io/topl/bifrost-node:2.0.0-beta3-24-7fd725a9 --  --config /bifrost-staking/config.yaml --regtest"
-echo $cmd
-export CONTAINER_ID=$(docker run -d --name bifrost01 -p 9085:9085 -p 9084:9084 -p 9091:9091 -v $(pwd)/node01:/bifrost-staking:rw ghcr.io/topl/bifrost-node:2.0.0-beta3-24-7fd725a9 --  --config=/bifrost-staking/config.yaml --regtest)
+export CONTAINER_ID=$(docker run -d --name bifrost01 -p 9185:9085 -p 9184:9084 -p 9191:9091 -v $(pwd)/node01:/bifrost-staking:rw ghcr.io/topl/bifrost-node:2.0.0-beta3-24-7fd725a9 --  --config=/bifrost-staking/config.yaml --regtest)
 export IP_CONTAINER=$(docker network inspect bridge | jq  ".[0].Containers.\"$CONTAINER_ID\".IPv4Address" | sed  's:"::g' | sed -n 's:\(.*\)/.*:\1:p')
 echo "IP_CONTAINER: $IP_CONTAINER"
 echo > node02/config.yaml "\
