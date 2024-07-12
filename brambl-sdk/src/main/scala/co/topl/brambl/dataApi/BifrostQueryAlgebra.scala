@@ -61,9 +61,19 @@ trait BifrostQueryAlgebra[F[_]] {
 
   /**
    * Retrieve an iterator of changes to the canonical head of the chain.
+   *
    * @return an iterator of changes to the chain tip
    */
   def synchronizationTraversal(): F[Iterator[SynchronizationTraversalRes]]
+
+  /**
+   * Make a block in regtest mode.
+   *
+   * @param nbOfBlocks the number of blocks to mint.
+   */
+  def makeBlock(
+    nbOfBlocks: Int
+  ): F[Unit]
 
 }
 
@@ -83,9 +93,16 @@ object BifrostQueryAlgebra extends BifrostQueryInterpreter {
 
   case class SynchronizationTraversal() extends BifrostQueryADT[Iterator[SynchronizationTraversalRes]]
 
+  case class MakeBlock(nbOfBlocks: Int) extends BifrostQueryADT[Unit]
+
   case class BroadcastTransaction(tx: IoTransaction) extends BifrostQueryADT[TransactionId]
 
   type BifrostQueryADTMonad[A] = Free[BifrostQueryADT, A]
+
+  def makeBlockF(
+    nbOfBlocks: Int
+  ): BifrostQueryADTMonad[Unit] =
+    Free.liftF(MakeBlock(nbOfBlocks))
 
   def fetchBlockBodyF(
     blockId: BlockId
@@ -116,6 +133,8 @@ object BifrostQueryAlgebra extends BifrostQueryInterpreter {
 
   def make[F[_]: Sync](channelResource: Resource[F, ManagedChannel]): BifrostQueryAlgebra[F] =
     new BifrostQueryAlgebra[F] {
+
+      override def makeBlock(nbOfBlocks: Int): F[Unit] = interpretADT(channelResource, makeBlockF(nbOfBlocks))
 
       override def blockByDepth(depth: Long): F[Option[(BlockId, BlockHeader, BlockBody, Seq[IoTransaction])]] = {
         import cats.implicits._

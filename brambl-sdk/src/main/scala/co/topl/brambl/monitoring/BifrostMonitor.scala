@@ -1,24 +1,27 @@
 package co.topl.brambl.monitoring
 
 import cats.effect.IO
+import cats.effect.kernel.Resource
 import cats.implicits.{catsSyntaxParallelSequence1, toTraverseOps}
 import co.topl.brambl.dataApi.BifrostQueryAlgebra
+import co.topl.brambl.dataApi.RpcChannelResource.channelResource
 import co.topl.brambl.display.blockIdDisplay.display
 import co.topl.brambl.models.transaction.IoTransaction
 import co.topl.brambl.monitoring.BifrostMonitor.{AppliedBifrostBlock, BifrostBlockSync, UnappliedBifrostBlock}
 import co.topl.consensus.models.{BlockHeader, BlockId}
 import co.topl.node.models.FullBlockBody
-import co.topl.node.services.SynchronizationTraversalRes
 import co.topl.node.services.SynchronizationTraversalRes.Status.{Applied, Empty, Unapplied}
+import co.topl.node.services.{NodeRpcFs2Grpc, SynchronizationTraversalReq, SynchronizationTraversalRes}
 import fs2.Stream
+import io.grpc.Metadata
 
 /**
  * Class to monitor incoming bifrost blocks via an iterator.
- * @param blockIterator The iterator in which block changes will be added to
+ * @param blockStream The stream in which block changes are reported through
  * @param startingBlocks Past blocks that should be reported.
  */
 class BifrostMonitor(
-  blockIterator:  Iterator[SynchronizationTraversalRes],
+  blockStream:    Stream[IO, SynchronizationTraversalRes],
   getFullBlock:   BlockId => IO[(BlockHeader, FullBlockBody)],
   startingBlocks: Vector[BifrostBlockSync]
 ) {
@@ -37,8 +40,7 @@ class BifrostMonitor(
    * Return a stream of block updates.
    * @return The infinite stream of block updatess. If startingBlocks was provided, they will be at the front of the stream.
    */
-  def monitorBlocks(): Stream[IO, BifrostBlockSync] = Stream.emits(startingBlocks) ++
-    Stream.fromBlockingIterator[IO](blockIterator, 1).through(pipe)
+  def monitorBlocks(): Stream[IO, BifrostBlockSync] = Stream.emits(startingBlocks) ++ blockStream.through(pipe)
 
 }
 
@@ -67,9 +69,12 @@ object BifrostMonitor {
    * @return An instance of a BifrostMonitor
    */
   def apply(
-    bifrostQuery: BifrostQueryAlgebra[IO],
-    startBlock:   Option[BlockId] = None
-  ): IO[BifrostMonitor] = {
+    address:          String,
+    port:             Int,
+    secureConnection: Boolean,
+    bifrostQuery:     BifrostQueryAlgebra[IO],
+    startBlock:       Option[BlockId] = None
+  ): Resource[IO, Stream[IO, BifrostBlockSync]] = {
     def getFullBlock(blockId: BlockId): IO[(BlockHeader, FullBlockBody)] = for {
       block <- bifrostQuery.blockById(blockId)
     } yield block match {
@@ -78,7 +83,7 @@ object BifrostMonitor {
     }
     def getBlockIds(startHeight: Option[Long], tipHeight: Option[Long]): IO[Vector[BlockId]] =
       (startHeight, tipHeight) match {
-        case (Some(start), Some(tip)) if (start >= 1 && tip > start) =>
+        case (Some(start), Some(tip)) if (start >= 1 && tip >= start) =>
           (for (curHeight <- start to tip)
             yield
             // For all blocks from starting Height to current tip height, fetch blockIds
@@ -87,15 +92,26 @@ object BifrostMonitor {
       }
     for {
       // The height of the startBlock
-      startBlockHeight <- startBlock.map(bId => bifrostQuery.blockById(bId)).sequence.map(_.flatten.map(_._2.height))
+      startBlockHeight <- startBlock
+        .map(bId => bifrostQuery.blockById(bId))
+        .sequence
+        .map(_.flatten.map(_._2.height))
+        .toResource
       // the height of the chain tip
-      tipHeight        <- bifrostQuery.blockByDepth(0).map(_.map(_._2.height))
-      startingBlockIds <- getBlockIds(startBlockHeight, tipHeight)
+      tipHeight        <- bifrostQuery.blockByDepth(0).map(_.map(_._2.height)).toResource
+      startingBlockIds <- getBlockIds(startBlockHeight, tipHeight).toResource
       startingBlocks <- startingBlockIds
         .map(bId => getFullBlock(bId).map(block => AppliedBifrostBlock(block._2, bId, block._1.height)))
         .sequence
-      updates <- bifrostQuery.synchronizationTraversal()
-    } yield new BifrostMonitor(updates, getFullBlock, startingBlocks)
+        .toResource
+      channel <- channelResource[IO](address, port, secureConnection)
+      stub    <- NodeRpcFs2Grpc.stubResource[IO](channel)
+      stream <- IO(stub.synchronizationTraversal(SynchronizationTraversalReq(), new Metadata()).handleErrorWith { e =>
+        e.printStackTrace()
+        println("Error in BifrostMonitor")
+        Stream.empty[IO]
+      }).toResource
+    } yield new BifrostMonitor(stream, getFullBlock, startingBlocks).monitorBlocks()
   }
 
 }
