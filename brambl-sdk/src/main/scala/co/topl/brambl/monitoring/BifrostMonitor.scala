@@ -21,7 +21,7 @@ import io.grpc.Metadata
  * @param startingBlocks Past blocks that should be reported.
  */
 class BifrostMonitor(
-  blockStream: Stream[IO, SynchronizationTraversalRes],
+  blockStream:    Stream[IO, SynchronizationTraversalRes],
   getFullBlock:   BlockId => IO[(BlockHeader, FullBlockBody)],
   startingBlocks: Vector[BifrostBlockSync]
 ) {
@@ -45,6 +45,7 @@ class BifrostMonitor(
 }
 
 object BifrostMonitor {
+
   /**
    * A wrapper for a Bifrost Block Sync update.
    */
@@ -68,11 +69,11 @@ object BifrostMonitor {
    * @return An instance of a BifrostMonitor
    */
   def apply(
-    address: String,
-    port: Int,
+    address:          String,
+    port:             Int,
     secureConnection: Boolean,
-    bifrostQuery: BifrostQueryAlgebra[IO],
-    startBlock:   Option[BlockId] = None
+    bifrostQuery:     BifrostQueryAlgebra[IO],
+    startBlock:       Option[BlockId] = None
   ): Resource[IO, Stream[IO, BifrostBlockSync]] = {
     def getFullBlock(blockId: BlockId): IO[(BlockHeader, FullBlockBody)] = for {
       block <- bifrostQuery.blockById(blockId)
@@ -91,15 +92,20 @@ object BifrostMonitor {
       }
     for {
       // The height of the startBlock
-      startBlockHeight <- startBlock.map(bId => bifrostQuery.blockById(bId)).sequence.map(_.flatten.map(_._2.height)).toResource
+      startBlockHeight <- startBlock
+        .map(bId => bifrostQuery.blockById(bId))
+        .sequence
+        .map(_.flatten.map(_._2.height))
+        .toResource
       // the height of the chain tip
       tipHeight        <- bifrostQuery.blockByDepth(0).map(_.map(_._2.height)).toResource
       startingBlockIds <- getBlockIds(startBlockHeight, tipHeight).toResource
       startingBlocks <- startingBlockIds
         .map(bId => getFullBlock(bId).map(block => AppliedBifrostBlock(block._2, bId, block._1.height)))
-        .sequence.toResource
+        .sequence
+        .toResource
       channel <- channelResource[IO](address, port, secureConnection)
-      stub <- NodeRpcFs2Grpc.stubResource[IO](channel)
+      stub    <- NodeRpcFs2Grpc.stubResource[IO](channel)
       stream <- IO(stub.synchronizationTraversal(SynchronizationTraversalReq(), new Metadata()).handleErrorWith { e =>
         e.printStackTrace()
         println("Error in BifrostMonitor")

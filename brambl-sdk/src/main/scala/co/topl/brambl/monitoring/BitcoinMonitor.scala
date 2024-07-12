@@ -35,11 +35,11 @@ import scala.concurrent.{Await, Future}
  * @param currentTip Reference to the most recent chain tip reported by the monitor
  */
 class BitcoinMonitor(
-  blockQueue:        Queue[IO, AppliedBitcoinBlock],
-  startingBlocks:    Vector[AppliedBitcoinBlock],
-  bitcoind:          BitcoindRpcClient,
-  currentTip:        Ref[IO, Option[AppliedBitcoinBlock]],
-  val subscriber: ZMQSubscriber,
+  blockQueue:     Queue[IO, AppliedBitcoinBlock],
+  startingBlocks: Vector[AppliedBitcoinBlock],
+  bitcoind:       BitcoindRpcClient,
+  currentTip:     Ref[IO, Option[AppliedBitcoinBlock]],
+  val subscriber: ZMQSubscriber
 ) {
   subscriber.start()
 
@@ -243,23 +243,27 @@ object BitcoinMonitor {
     }
 
     val existingHashes = getBlockHashes(startBlock)
-    Resource.make(for {
-      blockQueue <- Queue.unbounded[IO, AppliedBitcoinBlock]
-      startingBlocks <- IO.fromFuture(
-        IO(
-          Future.sequence(
-            existingHashes.map(hash =>
-              for {
-                b <- bitcoind.getBlockRaw(hash)
-                h <- bitcoind.getBlockHeight(hash)
-              } yield AppliedBitcoinBlock(b, h.get)
-            ) // .get won't cause issue since the getBlockHeight hardcodes it as Some(_)
+    Resource
+      .make(for {
+        blockQueue <- Queue.unbounded[IO, AppliedBitcoinBlock]
+        startingBlocks <- IO.fromFuture(
+          IO(
+            Future.sequence(
+              existingHashes.map(hash =>
+                for {
+                  b <- bitcoind.getBlockRaw(hash)
+                  h <- bitcoind.getBlockHeight(hash)
+                } yield AppliedBitcoinBlock(b, h.get)
+              ) // .get won't cause issue since the getBlockHeight hardcodes it as Some(_)
+            )
           )
         )
+        currentTip <- Ref.of[IO, Option[AppliedBitcoinBlock]](startingBlocks.lastOption)
+        subscriber <- IO(initZmqSubscriber(bitcoind, zmqHost, zmqPort)(blockQueue))
+      } yield (new BitcoinMonitor(blockQueue, startingBlocks, bitcoind, currentTip, subscriber)))(btcMonitor =>
+        IO(btcMonitor.subscriber.stop())
       )
-      currentTip <- Ref.of[IO, Option[AppliedBitcoinBlock]](startingBlocks.lastOption)
-      subscriber <- IO(initZmqSubscriber(bitcoind, zmqHost, zmqPort)(blockQueue))
-    } yield (new BitcoinMonitor(blockQueue, startingBlocks, bitcoind, currentTip, subscriber)))(btcMonitor => IO(btcMonitor.subscriber.stop())).map(_.monitorBlocks())
+      .map(_.monitorBlocks())
   }
 
 }
