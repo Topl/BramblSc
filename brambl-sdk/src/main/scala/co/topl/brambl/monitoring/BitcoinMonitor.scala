@@ -2,8 +2,8 @@ package co.topl.brambl.monitoring
 
 import akka.actor.ActorSystem
 import cats.effect.kernel.Resource
-import cats.effect.{IO, Ref}
 import cats.effect.std.Queue
+import cats.effect.{IO, Ref}
 import co.topl.brambl.monitoring.BitcoinMonitor.{AppliedBitcoinBlock, BitcoinBlockSync, UnappliedBitcoinBlock}
 import fs2.{Pipe, Stream}
 import org.bitcoins.core.config.NetworkParameters
@@ -37,11 +37,10 @@ import scala.concurrent.{Await, Future}
 class BitcoinMonitor(
   blockQueue:        Queue[IO, AppliedBitcoinBlock],
   startingBlocks:    Vector[AppliedBitcoinBlock],
-  initZmqSubscriber: Queue[IO, AppliedBitcoinBlock] => ZMQSubscriber,
   bitcoind:          BitcoindRpcClient,
-  currentTip:        Ref[IO, Option[AppliedBitcoinBlock]]
+  currentTip:        Ref[IO, Option[AppliedBitcoinBlock]],
+  val subscriber: ZMQSubscriber,
 ) {
-  val subscriber: ZMQSubscriber = initZmqSubscriber(blockQueue)
   subscriber.start()
 
   /**
@@ -120,11 +119,6 @@ class BitcoinMonitor(
           ) // common ancestor is found. We return .tail so to not duplicate unapply/apply of the ancestor
         else findCommonAncestor(updatedOldTip, updatedNewTip) // keep traversing
     } yield res
-
-  /**
-   * Stop monitorings
-   */
-  def stop(): Unit = subscriber.stop()
 }
 
 object BitcoinMonitor {
@@ -234,7 +228,7 @@ object BitcoinMonitor {
     startBlock: Option[DoubleSha256DigestBE] = None,
     zmqHost:    String = "127.0.0.1",
     zmqPort:    Int = 28332
-  ): Resource[IO, BitcoinMonitor] = {
+  ): Resource[IO, Stream[IO, BitcoinBlockSync]] = {
     implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
 
     @tailrec
@@ -249,8 +243,7 @@ object BitcoinMonitor {
     }
 
     val existingHashes = getBlockHashes(startBlock)
-    existingHashes.foreach(h => println(h.hex))
-    (for {
+    Resource.make(for {
       blockQueue <- Queue.unbounded[IO, AppliedBitcoinBlock]
       startingBlocks <- IO.fromFuture(
         IO(
@@ -265,13 +258,8 @@ object BitcoinMonitor {
         )
       )
       currentTip <- Ref.of[IO, Option[AppliedBitcoinBlock]](startingBlocks.lastOption)
-    } yield new BitcoinMonitor(
-      blockQueue,
-      startingBlocks,
-      initZmqSubscriber(bitcoind, zmqHost, zmqPort),
-      bitcoind,
-      currentTip
-    )).toResource
+      subscriber <- IO(initZmqSubscriber(bitcoind, zmqHost, zmqPort)(blockQueue))
+    } yield (new BitcoinMonitor(blockQueue, startingBlocks, bitcoind, currentTip, subscriber)))(btcMonitor => IO(btcMonitor.subscriber.stop())).map(_.monitorBlocks())
   }
 
 }

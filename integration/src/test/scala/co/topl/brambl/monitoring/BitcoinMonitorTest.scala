@@ -49,15 +49,13 @@ class BitcoinMonitorTest extends munit.CatsEffectSuite {
     val bitcoindInstance = bitcoind()
     val node2Instance = bitcoind.bitcoindInstance2
     assertIO(
-      BitcoinMonitor(bitcoindInstance).use(monitor => {
-        val blockStream = monitor.monitorBlocks()
+      BitcoinMonitor(bitcoindInstance).use(blockStream => {
         for {
           node1MintBlocks <- IO.fromFuture(IO(bitcoindInstance.getNewAddress(Some(TestWallet)).flatMap(bitcoindInstance.generateToAddress(1, _))))
           node2MintBlocks <- IO.fromFuture(IO(node2Instance.getNewAddress(Some(TestWallet)).flatMap(node2Instance.generateToAddress(2, _))))
           _ <- IO.fromFuture(IO(bitcoindInstance.addNode(bitcoind.bitcoindInstance2Uri, AddNodeArgument.Add))).attempt.andWait(5.seconds)
           additionalMintBlocks <- IO.fromFuture(IO(node2Instance.getNewAddress(Some(TestWallet)).flatMap(node2Instance.generateToAddress(1, _))))
           blocks <- blockStream.interruptAfter(5.seconds).compile.toList
-          _ = monitor.stop()
         } yield {
           case class BitcoinSyncLite(height: Int, hash: DoubleSha256DigestBE, isApplied: Boolean)
           val startingHeight = blocks.head.height
@@ -79,13 +77,11 @@ class BitcoinMonitorTest extends munit.CatsEffectSuite {
   test("Monitor only new blocks") {
     val bitcoindInstance = bitcoind()
     assertIO(
-      BitcoinMonitor(bitcoindInstance).use(monitor => {
-        val blockStream = monitor.monitorBlocks()
+      BitcoinMonitor(bitcoindInstance).use(blockStream => {
         for {
           mintBlocks <- IO.fromFuture(IO(bitcoindInstance.getNewAddress(Some(TestWallet)).flatMap(bitcoindInstance.generateToAddress(NumBlocks, _))))
           // After 0.5 second to allow the minted blocks to occur on the bitcoin instance
           blocks <- blockStream.interruptAfter(500.millis).compile.toList
-          _ = monitor.stop()
         } yield {
           val startingHeight = blocks.head.height
           blocks.map(_.block.blockHeader.hashBE).toVector == mintBlocks && blocks.map(_.height) == mintBlocks.zipWithIndex.map(_._2 + startingHeight)
@@ -100,12 +96,10 @@ class BitcoinMonitorTest extends munit.CatsEffectSuite {
     // Allow 1 second to allow the minted blocks to occur on the bitcoin instance
     Thread.sleep(1000)
     assertIO(
-      BitcoinMonitor(bitcoindInstance, Some(existingBlocks.head)).use(monitor => {
-        val blockStream = monitor.monitorBlocks()
+      BitcoinMonitor(bitcoindInstance, Some(existingBlocks.head)).use(blockStream => {
         for {
           mintBlocks <- IO.fromFuture(IO(bitcoindInstance.getNewAddress(Some(TestWallet)).flatMap(bitcoindInstance.generateToAddress(NumBlocks, _))))
           blocks <- blockStream.interruptAfter(1.seconds).compile.toList
-          _ = monitor.stop()
         } yield {
           val expectedBlocks = existingBlocks ++ mintBlocks
           val startingHeight = blocks.head.height
