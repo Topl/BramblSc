@@ -10,10 +10,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added a height field to the blocks in the Bifrost monitor stream
+- Added integration test for the Bifrost Monitor to ensure reorgs are handled as expected
+- Added the bifrost RPC function "makeBlock" to the BifrostQuery API. This is to force block production and is only meant to be used in "RegTest" mode.
 
 ### Changed
 
 - Removed specific Topl branding from documentation site. Documentation will be more generic or refer to "Apparatus"
+- Bifrost and Bitcoin monitor APIs now return a resource containing their respective block stream.
+- Retroactive reporting of existing blocks in the bifrost monitor is now inclusive (includes the starting block).
+- Bifrost monitor's update stream is now self-contained. It's channel will now shutdown when the monitor is released. 
+- The ZMQ subscriber that is used in the Bitcoin Monitor now stops when the monitor is released. Users no longer have to explicitly call ".stop()"
+- Updated existing BitcoinMonitor and BifrostMonitor tests (including the workflow in GH actions) to account for these changes.
 
 ## [v2.0.0-beta6] - 2024-05-22
 
