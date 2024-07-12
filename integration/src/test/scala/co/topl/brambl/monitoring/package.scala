@@ -13,15 +13,6 @@ package object monitoring {
       .map(_.trim)
   private def runProcess(args: Seq[String]): IO[String] =
     process.ProcessBuilder(args.head, args.tail.toList).spawn[IO].use(getText)
-
-  def startDockerContainer(container: String): IO[Unit] = runProcess(
-    Seq("docker", "start", container)
-  ).void
-
-  def stopDockerContainer(container: String): IO[Unit] = runProcess(
-    Seq("docker", "stop", container)
-  ).void
-
   def restartDockerContainer(container: String): IO[Unit] = runProcess(
     Seq("docker", "restart", container)
   ).void
@@ -43,27 +34,19 @@ package object monitoring {
 
   def connectBifrostNodes(node: String, otherNode: String): IO[Unit] = for {
     oldConfig <- getConfig(node)
-    _ <- IO.println(oldConfig)
     ip <- getIpAddr(otherNode)
     newConfig = addKnownPeer(oldConfig, ip)
     _ <- IO.println(newConfig)
     _ <- updateConfig(node, newConfig)
-//    _ <- stopDockerContainer(otherNode)
     _ <- restartDockerContainer(node)
-//    _ <- startDockerContainer(otherNode)
   } yield ()
 
   def disconnectBifrostNodes(node: String): IO[Unit] = for {
     oldConfig <- getConfig(node)
-    _ <- IO.println(oldConfig)
-
     newConfig = removeKnownPeer(oldConfig)
     _ <- IO.println(newConfig)
-
     _ <- updateConfig(node, newConfig)
-    //    _ <- stopDockerContainer(otherNode)
     _ <- restartDockerContainer(node)
-    //    _ <- startDockerContainer(otherNode)
   } yield ()
 
   def isRunning(container: String): IO[Boolean] = runProcess(

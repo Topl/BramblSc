@@ -61,9 +61,6 @@ object BifrostMonitor {
   // Represents an existing block that has been unapplied from the chain tip
   case class UnappliedBifrostBlock(block: FullBlockBody, id: BlockId, height: Long) extends BifrostBlockSync
 
-  def apply(bifrostQuery: BifrostQueryAlgebra[IO]): IO[BifrostMonitor] = ???
-  def apply(bifrostQuery: BifrostQueryAlgebra[IO], startBlock:   Option[BlockId]): IO[BifrostMonitor] = ???
-
   /**
    * Initialize and return a BifrostMonitor instance.
    * @param bifrostQuery The bifrost query api to retrieve updates from
@@ -76,7 +73,7 @@ object BifrostMonitor {
     secureConnection: Boolean,
     bifrostQuery: BifrostQueryAlgebra[IO],
     startBlock:   Option[BlockId] = None
-  ): Resource[IO, BifrostMonitor] = {
+  ): Resource[IO, Stream[IO, BifrostBlockSync]] = {
     def getFullBlock(blockId: BlockId): IO[(BlockHeader, FullBlockBody)] = for {
       block <- bifrostQuery.blockById(blockId)
     } yield block match {
@@ -85,7 +82,7 @@ object BifrostMonitor {
     }
     def getBlockIds(startHeight: Option[Long], tipHeight: Option[Long]): IO[Vector[BlockId]] =
       (startHeight, tipHeight) match {
-        case (Some(start), Some(tip)) if (start >= 1 && tip > start) =>
+        case (Some(start), Some(tip)) if (start >= 1 && tip >= start) =>
           (for (curHeight <- start to tip)
             yield
             // For all blocks from starting Height to current tip height, fetch blockIds
@@ -105,10 +102,10 @@ object BifrostMonitor {
       stub <- NodeRpcFs2Grpc.stubResource[IO](channel)
       stream <- IO(stub.synchronizationTraversal(SynchronizationTraversalReq(), new Metadata()).handleErrorWith { e =>
         e.printStackTrace()
-        println("Error in BifrostMonitorBis")
+        println("Error in BifrostMonitor")
         Stream.empty[IO]
       }).toResource
-    } yield new BifrostMonitor(stream, getFullBlock, startingBlocks)
+    } yield new BifrostMonitor(stream, getFullBlock, startingBlocks).monitorBlocks()
   }
 
 }

@@ -249,7 +249,6 @@ object BitcoinMonitor {
     }
 
     val existingHashes = getBlockHashes(startBlock)
-    println("Retroactively fetching blocks:")
     existingHashes.foreach(h => println(h.hex))
     (for {
       blockQueue <- Queue.unbounded[IO, AppliedBitcoinBlock]
