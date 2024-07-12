@@ -39,7 +39,7 @@ class BitcoinMonitor(
   startingBlocks: Vector[AppliedBitcoinBlock],
   bitcoind:       BitcoindRpcClient,
   currentTip:     Ref[IO, Option[AppliedBitcoinBlock]],
-  val subscriber: ZMQSubscriber
+  subscriber:     ZMQSubscriber
 ) {
   subscriber.start()
 
@@ -243,10 +243,10 @@ object BitcoinMonitor {
     }
 
     val existingHashes = getBlockHashes(startBlock)
-    Resource
-      .make(for {
-        blockQueue <- Queue.unbounded[IO, AppliedBitcoinBlock]
-        startingBlocks <- IO.fromFuture(
+    for {
+      blockQueue <- Queue.unbounded[IO, AppliedBitcoinBlock].toResource
+      startingBlocks <- IO
+        .fromFuture(
           IO(
             Future.sequence(
               existingHashes.map(hash =>
@@ -258,12 +258,10 @@ object BitcoinMonitor {
             )
           )
         )
-        currentTip <- Ref.of[IO, Option[AppliedBitcoinBlock]](startingBlocks.lastOption)
-        subscriber <- IO(initZmqSubscriber(bitcoind, zmqHost, zmqPort)(blockQueue))
-      } yield (new BitcoinMonitor(blockQueue, startingBlocks, bitcoind, currentTip, subscriber)))(btcMonitor =>
-        IO(btcMonitor.subscriber.stop())
-      )
-      .map(_.monitorBlocks())
+        .toResource
+      currentTip <- Ref.of[IO, Option[AppliedBitcoinBlock]](startingBlocks.lastOption).toResource
+      subscriber <- Resource.make(IO(initZmqSubscriber(bitcoind, zmqHost, zmqPort)(blockQueue)))(sub => IO(sub.stop()))
+    } yield new BitcoinMonitor(blockQueue, startingBlocks, bitcoind, currentTip, subscriber).monitorBlocks()
   }
 
 }
