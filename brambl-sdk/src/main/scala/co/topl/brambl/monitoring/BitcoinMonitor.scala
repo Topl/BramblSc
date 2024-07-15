@@ -1,6 +1,5 @@
 package co.topl.brambl.monitoring
 
-import akka.actor.ActorSystem
 import cats.effect.kernel.Resource
 import cats.effect.std.Queue
 import cats.effect.{IO, Ref}
@@ -12,7 +11,6 @@ import org.bitcoins.core.protocol.transaction.Transaction
 import org.bitcoins.crypto.DoubleSha256DigestBE
 import org.bitcoins.rpc.client.common.BitcoindRpcClient
 import org.bitcoins.rpc.config.{BitcoindAuthCredentials, BitcoindInstanceLocal, BitcoindInstanceRemote}
-import org.bitcoins.tor.Socks5ProxyParams
 import org.bitcoins.zmq.ZMQSubscriber
 
 import java.io.File
@@ -20,6 +18,8 @@ import java.net.{InetSocketAddress, URI}
 import scala.annotation.tailrec
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, Future}
+import org.bitcoins.core.api.tor.Socks5ProxyParams
+import org.apache.pekko.actor.ActorSystem
 
 /**
  * Class to monitor incoming bitcoin blocks via a queue.

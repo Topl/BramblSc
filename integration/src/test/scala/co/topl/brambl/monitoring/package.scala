@@ -49,6 +49,13 @@ package object monitoring {
     _ <- restartDockerContainer(node)
   } yield ()
 
+  def connectBitcoinNodes(node: String, otherNode: String, wallet: String): IO[Unit] = for {
+    ip <- getIpAddr(otherNode)
+    _ <- runProcess(
+      Seq("docker", "exec", node, "bitcoin-cli", "-regtest", s"-rpcuser=$wallet", s"-rpcpassword=$wallet", "addnode", ip, "add")
+    )
+  } yield ()
+
   def isRunning(container: String): IO[Boolean] = runProcess(
     Seq("docker", "inspect", container, "--format", "{{.State.Running}}")
   ).map(_.equals("true"))
