@@ -2,7 +2,6 @@ package co.topl.brambl.monitoring
 
 import cats.effect.IO
 import co.topl.brambl.monitoring.BitcoinMonitor.AppliedBitcoinBlock
-import org.bitcoins.commons.jsonmodels.bitcoind.RpcOpts.AddNodeArgument
 import org.bitcoins.core.config.RegTest
 import org.bitcoins.crypto.DoubleSha256DigestBE
 import org.bitcoins.rpc.client.common.BitcoindRpcClient
@@ -53,7 +52,7 @@ class BitcoinMonitorTest extends munit.CatsEffectSuite {
         for {
           node1MintBlocks <- IO.fromFuture(IO(bitcoindInstance.getNewAddress(walletName = TestWallet).flatMap(bitcoindInstance.generateToAddress(1, _))))
           node2MintBlocks <- IO.fromFuture(IO(node2Instance.getNewAddress(walletName = TestWallet).flatMap(node2Instance.generateToAddress(2, _))))
-          _ <- IO.fromFuture(IO(bitcoindInstance.addNode(bitcoind.bitcoindInstance2Uri, AddNodeArgument.Add))).attempt.andWait(5.seconds)
+          _ <- connectBitcoinNodes("bitcoind", "bitcoind2", TestWallet).start.andWait(5.seconds)
           additionalMintBlocks <- IO.fromFuture(IO(node2Instance.getNewAddress(walletName = TestWallet).flatMap(node2Instance.generateToAddress(1, _))))
           blocks <- blockStream.interruptAfter(5.seconds).compile.toList
         } yield {
