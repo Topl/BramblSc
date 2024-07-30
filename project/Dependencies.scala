@@ -52,7 +52,7 @@ object Dependencies {
 
   val cats: Seq[ModuleID] = Seq(
     "org.typelevel" %% "cats-core"   % catsCoreVersion,
-    "org.typelevel" %% "mouse"       % "1.2.3",
+    "org.typelevel" %% "mouse"       % "1.2.4",
     "org.typelevel" %% "cats-free"   % catsCoreVersion,
     "org.typelevel" %% "cats-effect" % "3.5.4"
   )
