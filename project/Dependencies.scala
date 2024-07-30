@@ -42,7 +42,7 @@ object Dependencies {
   val mUnitTest: Seq[ModuleID] = Seq(
     "org.scalameta" %% "munit"                   % mUnitTeVersion,
     "org.scalameta" %% "munit-scalacheck"        % mUnitTeVersion,
-    "org.typelevel" %% "munit-cats-effect-3"     % "1.0.7",
+    "org.typelevel" %% "munit-cats-effect"       % "2.0.0",
     "org.typelevel" %% "scalacheck-effect-munit" % "1.0.4"
   )
 
