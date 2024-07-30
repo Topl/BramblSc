@@ -25,7 +25,7 @@ object Dependencies {
   )
 
   val scalacheck: Seq[ModuleID] = Seq(
-    "org.scalacheck"    %% "scalacheck"      % "1.17.0",
+    "org.scalacheck"    %% "scalacheck"      % "1.17.1",
     "org.scalatestplus" %% "scalacheck-1-16" % "3.2.14.0"
   )
 
