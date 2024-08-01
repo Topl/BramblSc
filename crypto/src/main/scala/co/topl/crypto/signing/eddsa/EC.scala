@@ -53,7 +53,11 @@ trait EC {
   private[signing] val PUBLIC_KEY_SIZE: Int = POINT_BYTES
   private[signing] val SECRET_KEY_SIZE: Int = 32
   private[signing] val SIGNATURE_SIZE: Int = POINT_BYTES + SCALAR_BYTES
-  private[signing] val DOM2_PREFIX: Array[Byte] = "SigEd25519 no Ed25519 collisions".getBytes()
+
+  // private[signing] val DOM2_PREFIX: Array[Byte] = "SigEd25519 no Ed25519 collisions".getBytes(StandardCharsets.UTF_8)
+  private[signing] val DOM2_PREFIX: Array[Byte] = Array(0x53, 0x69, 0x67, 0x45, 0x64, 0x32, 0x35, 0x35, 0x31, 0x39,
+    0x20, 0x6e, 0x6f, 0x20, 0x45, 0x64, 0x32, 0x35, 0x35, 0x31, 0x39, 0x20, 0x63, 0x6f, 0x6c, 0x6c, 0x69, 0x73, 0x69,
+    0x6f, 0x6e, 0x73)
 
   private val M28L = 0x0fffffffL
   private val M32L = 0xffffffffL
