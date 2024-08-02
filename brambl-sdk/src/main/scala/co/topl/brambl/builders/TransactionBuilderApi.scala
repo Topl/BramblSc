@@ -298,7 +298,7 @@ trait TransactionBuilderApi[F[_]] {
   ): F[Either[BuilderError, IoTransaction]]
 
   def buildAssetMergeTransaction(
-    mergingStatement: AssetMergingStatement,
+    utxosToMerge: Seq[TransactionOutputAddress],
     txos: Seq[Txo],
     locks: Map[LockAddress, Lock.Predicate],
     fee: Long,
@@ -749,18 +749,35 @@ object TransactionBuilderApi {
           )
         ).pure[F]
 
-      override def buildAssetMergeTransaction(mergingStatement: AssetMergingStatement, txos: Seq[Txo], locks: Map[LockAddress, Lock.Predicate], fee: Long, mergedAssetLockAddress: LockAddress, changeAddress: LockAddress, ephemeralMetadata: Option[Struct], commitment: Option[ByteString]): F[Either[BuilderError, IoTransaction]] = {
-        // validate arguments
-          // verify all the input utxos are present in the txos
-          // verify the other stuff (same as the other functions)
-        // separate the TXOs. the ones to be merged, vs the ones to go to change
-        // validate that the txos to be merged are all compatible
-        // create a single merged utxo for the ones to be merged. (MergingOps)
-          // merging ops takes all the txos to be merged together, and either throws a validation error or returns a single utxo
-        // merging ops will verify that they are all compatible
-        // use applyFee for the ones to go to change, and create the utxos for that
-        // in the unit tests, test diff cases (its own test suite file, try different utxo combinations (not compatible)).
-        ???
-      }
+      // validate arguments
+      // verify all the input utxos are present in the txos
+      // verify the other stuff (same as the other functions)
+      // separate the TXOs. the ones to be merged, vs the ones to go to change
+      // validate that the txos to be merged are all compatible
+      // create a single merged utxo for the ones to be merged. (MergingOps)
+      // merging ops takes all the txos to be merged together, and either throws a validation error or returns a single utxo
+      // merging ops will verify that they are all compatible
+      // use applyFee for the ones to go to change, and create the utxos for that
+      // in the unit tests, test diff cases (its own test suite file, try different utxo combinations (not compatible)).
+      override def buildAssetMergeTransaction(utxosToMerge: Seq[TransactionOutputAddress], txos: Seq[Txo], locks: Map[LockAddress, Lock.Predicate], fee: Long, mergedAssetLockAddress: LockAddress, changeAddress: LockAddress, ephemeralMetadata: Option[Struct], commitment: Option[ByteString]): F[Either[BuilderError, IoTransaction]] = (
+        for {
+          datum <- EitherT.right[BuilderError](datum())
+          filteredTxos = txos.filter(_.transactionOutput.value.value.typeIdentifier != UnknownType)
+          _ <- EitherT
+            .fromEither[F](validateAssetMergingParams(utxosToMerge, filteredTxos, locks.keySet, fee))
+            .leftMap(errs => UserInputErrors(errs.toList))
+          attestations <- toAttestationMap(filteredTxos, locks)
+          stxos <- attestations.map(el => buildStxos(el._1, el._2)).toSeq.sequence.map(_.flatten)
+          (txosToMerge, otherTxos) = filteredTxos.partition(txo => utxosToMerge.contains(txo.outputAddress))
+          utxosChange <- buildUtxos(otherTxos, None, None, changeAddress, changeAddress, fee)
+          mergedUtxo = MergingOps.merge(txosToMerge)
+          asm = AssetMergingStatement(utxosToMerge, utxosChange.length)
+        } yield IoTransaction(
+          inputs = stxos,
+          outputs = utxosChange :+ mergedUtxo,
+          datum = datum,
+          mergingStatements = Seq(asm)
+        )
+      ).value
     }
 }
