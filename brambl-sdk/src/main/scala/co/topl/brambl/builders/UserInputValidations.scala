@@ -2,22 +2,12 @@ package co.topl.brambl.builders
 
 import cats.data.{Chain, NonEmptyChain, Validated, ValidatedNec}
 import cats.implicits.{catsSyntaxEitherId, catsSyntaxValidatedIdBinCompat0, toFoldableOps}
+import co.topl.brambl.models.box.Value._
 import co.topl.brambl.models.box.{AssetMintingStatement, QuantityDescriptorType}
 import co.topl.brambl.models.{LockAddress, SeriesId, TransactionOutputAddress}
-import co.topl.brambl.models.box.Value._
-import quivr.models.Int128
-import co.topl.brambl.syntax.{
-  int128AsBigInt,
-  longAsInt128,
-  valueToQuantityDescriptorSyntaxOps,
-  valueToQuantitySyntaxOps,
-  valueToTypeIdentifierSyntaxOps,
-  LvlType,
-  ToplType,
-  UnknownType,
-  ValueTypeIdentifier
-}
+import co.topl.brambl.syntax.{LvlType, ToplType, UnknownType, ValueTypeIdentifier, int128AsBigInt, longAsInt128, valueToQuantityDescriptorSyntaxOps, valueToQuantitySyntaxOps, valueToTypeIdentifierSyntaxOps}
 import co.topl.genus.services.Txo
+import quivr.models.Int128
 
 import scala.util.{Failure, Success, Try}
 
@@ -291,5 +281,12 @@ object UserInputValidations {
       case Success(value) => value
       case Failure(err)   => NonEmptyChain.one(UserInputError(err.getMessage)).asLeft
     }
+
+    def validateAssetMergingParams( // verify that utxosToMerge is not empty
+      utxosToMerge: Seq[TransactionOutputAddress], // validate that they are all present in txos, and that they are all compatible
+      txos:             Seq[Txo], // ensure all have a lock
+      locks:            Set[LockAddress],
+      fee:              Long
+    ): Either[NonEmptyChain[UserInputError], Unit] = ???
   }
 }
