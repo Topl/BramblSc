@@ -8,10 +8,10 @@ import co.topl.brambl.codecs.AddressCodecs
 import co.topl.brambl.common.ContainsEvidence.Ops
 import co.topl.brambl.common.ContainsImmutable.instances._
 import co.topl.brambl.models.Event.{GroupPolicy, SeriesPolicy}
+import co.topl.brambl.models._
 import co.topl.brambl.models.box.Value.{Value => BoxValue}
 import co.topl.brambl.models.box._
 import co.topl.brambl.models.transaction.{IoTransaction, Schedule, SpentTransactionOutput, UnspentTransactionOutput}
-import co.topl.brambl.models._
 import co.topl.brambl.syntax.{LvlType, UnknownType, ValueTypeIdentifier, bigIntAsInt128, groupPolicyAsGroupPolicySyntaxOps, int128AsBigInt, longAsInt128, seriesPolicyAsSeriesPolicySyntaxOps, valueToQuantitySyntaxOps, valueToTypeIdentifierSyntaxOps}
 import co.topl.genus.services.Txo
 import com.google.protobuf.ByteString
@@ -297,6 +297,7 @@ trait TransactionBuilderApi[F[_]] {
     commitment:             Option[ByteString] = None
   ): F[Either[BuilderError, IoTransaction]]
 
+  // TODO
   def buildAssetMergeTransaction(
     utxosToMerge: Seq[TransactionOutputAddress],
     txos: Seq[Txo],
@@ -749,16 +750,6 @@ object TransactionBuilderApi {
           )
         ).pure[F]
 
-      // validate arguments
-      // verify all the input utxos are present in the txos
-      // verify the other stuff (same as the other functions)
-      // separate the TXOs. the ones to be merged, vs the ones to go to change
-      // validate that the txos to be merged are all compatible
-      // create a single merged utxo for the ones to be merged. (MergingOps)
-      // merging ops takes all the txos to be merged together, and either throws a validation error or returns a single utxo
-      // merging ops will verify that they are all compatible
-      // use applyFee for the ones to go to change, and create the utxos for that
-      // in the unit tests, test diff cases (its own test suite file, try different utxo combinations (not compatible)).
       override def buildAssetMergeTransaction(utxosToMerge: Seq[TransactionOutputAddress], txos: Seq[Txo], locks: Map[LockAddress, Lock.Predicate], fee: Long, mergedAssetLockAddress: LockAddress, changeAddress: LockAddress, ephemeralMetadata: Option[Struct], commitment: Option[ByteString]): F[Either[BuilderError, IoTransaction]] = (
         for {
           datum <- EitherT.right[BuilderError](datum())
@@ -770,7 +761,7 @@ object TransactionBuilderApi {
           stxos <- attestations.map(el => buildStxos(el._1, el._2)).toSeq.sequence.map(_.flatten)
           (txosToMerge, otherTxos) = filteredTxos.partition(txo => utxosToMerge.contains(txo.outputAddress))
           utxosChange <- buildUtxos(otherTxos, None, None, changeAddress, changeAddress, fee)
-          mergedUtxo = MergingOps.merge(txosToMerge)
+          mergedUtxo = MergingOps.merge(txosToMerge, mergedAssetLockAddress, ephemeralMetadata, commitment)
           asm = AssetMergingStatement(utxosToMerge, utxosChange.length)
         } yield IoTransaction(
           inputs = stxos,
