@@ -282,11 +282,24 @@ object UserInputValidations {
       case Failure(err)   => NonEmptyChain.one(UserInputError(err.getMessage)).asLeft
     }
 
-    def validateAssetMergingParams( // verify that utxosToMerge is not empty
-      utxosToMerge: Seq[TransactionOutputAddress], // validate that they are all present in txos, and that they are all compatible
-      txos:             Seq[Txo], // ensure all have a lock
+    def validateAssetMergingParams(
+      utxosToMerge: Seq[TransactionOutputAddress],
+      txos:             Seq[Txo],
       locks:            Set[LockAddress],
       fee:              Long
-    ): Either[NonEmptyChain[UserInputError], Unit] = ???
+    ): Either[NonEmptyChain[UserInputError], Unit] = Try {
+      val txoLocks = txos.map(_.transactionOutput.address).toSet
+      val txosToMerge = txos.filter(txo => utxosToMerge.contains(txo.outputAddress))
+      Chain(
+        Validated.condNec(utxosToMerge.length == txosToMerge.length, (), UserInputError("All UTXOs to merge must be accounted for in txos")),
+        MergingOps.validMerge(txosToMerge).leftMap(_.map(UserInputError)),
+        allInputLocksMatch(txoLocks, locks, "the txos", "a lock in the lock map"),
+        allInputLocksMatch(locks, txoLocks, "the lock map", "a lock in the txos"),
+        validFee(fee, txos.map(_.transactionOutput.value.value))
+      ).fold.toEither
+    } match {
+      case Success(value) => value
+      case Failure(err) => NonEmptyChain.one(UserInputError(err.getMessage)).asLeft
+    }
   }
 }
