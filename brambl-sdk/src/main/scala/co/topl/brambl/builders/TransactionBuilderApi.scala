@@ -755,19 +755,19 @@ object TransactionBuilderApi {
           datum <- EitherT.right[BuilderError](datum())
           filteredTxos = txos.filter(_.transactionOutput.value.value.typeIdentifier != UnknownType)
           _ <- EitherT
-            .fromEither[F](validateAssetMergingParams(utxosToMerge, filteredTxos, locks.keySet, fee))
+            .fromEither[F](validateAssetMergingParams(utxosToMerge.toSeq, filteredTxos.toSeq, locks.keySet, fee))
             .leftMap(errs => UserInputErrors(errs.toList))
           attestations <- toAttestationMap(filteredTxos, locks)
           stxos <- attestations.map(el => buildStxos(el._1, el._2)).toSeq.sequence.map(_.flatten)
           (txosToMerge, otherTxos) = filteredTxos.partition(txo => utxosToMerge.contains(txo.outputAddress))
           utxosChange <- buildUtxos(otherTxos, None, None, changeAddress, changeAddress, fee)
-          mergedUtxo = MergingOps.merge(txosToMerge, mergedAssetLockAddress, ephemeralMetadata, commitment)
-          asm = AssetMergingStatement(utxosToMerge, utxosChange.length)
+          mergedUtxo = MergingOps.merge(txosToMerge.toSeq, mergedAssetLockAddress, ephemeralMetadata, commitment)
+          asm = AssetMergingStatement(utxosToMerge.toSeq, utxosChange.length)
         } yield IoTransaction(
           inputs = stxos,
-          outputs = utxosChange :+ mergedUtxo,
+          outputs = (utxosChange :+ mergedUtxo).toSeq,
           datum = datum,
-          mergingStatements = Seq(asm)
+          mergingStatements = Seq(asm).toSeq
         )
       ).value
     }

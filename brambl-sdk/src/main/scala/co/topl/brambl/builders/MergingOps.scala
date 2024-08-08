@@ -4,30 +4,45 @@ import cats.data.{Chain, Validated, ValidatedNec}
 import cats.implicits.{catsSyntaxValidatedIdBinCompat0, toFoldableOps}
 import co.topl.brambl.common.ContainsImmutable.ContainsImmutableTOps
 import co.topl.brambl.common.ContainsImmutable.instances._
-import co.topl.brambl.models.LockAddress
+import co.topl.brambl.models.box.Value.Asset
 import co.topl.brambl.models.box.{FungibilityType, Value}
 import co.topl.brambl.models.transaction.UnspentTransactionOutput
-import co.topl.brambl.syntax.{AssetType, assetToAssetTypeSyntaxOps, valueToTypeIdentifierSyntaxOps}
+import co.topl.brambl.models.{GroupId, LockAddress, SeriesId}
+import co.topl.brambl.syntax.{AssetType, assetToAssetTypeSyntaxOps, bigIntAsInt128, int128AsBigInt, valueToTypeIdentifierSyntaxOps}
+import co.topl.brambl.utils.Encoding.encodeToHex
+import co.topl.crypto.accumulators.LeafData
+import co.topl.crypto.accumulators.merkle.MerkleTree
+import co.topl.crypto.hash.Sha
+import co.topl.crypto.hash.digest.Digest32
+import co.topl.crypto.hash.implicits.{digestDigest32, sha256Hash}
 import co.topl.genus.services.Txo
 import com.google.protobuf.ByteString
 import com.google.protobuf.struct.Struct
+import quivr.models.Int128
 
+import scala.math.Ordering.Implicits._
 import scala.util.{Failure, Success, Try}
 
 object MergingOps {
-  // TODO: strip ephermeral metadata and commitment??..
-  implicit def getPreimageBytes(utxo: UnspentTransactionOutput): Array[Byte] = utxo.value.immutable.toByteArray // includes quantity
+  // We strip ephemeral metadata and commitment because when splitting the alloy in the future, these fields may be different in the outputs.
+  implicit def getPreimageBytes(asset: Value.Asset): Array[Byte] = asset.clearEphemeralMetadata.clearCommitment.immutable.value.toByteArray
+  // Get alloy preimages, sort, then construct merkle proof using Sha256.
+  def getAlloy(values: Seq[Asset]): ByteString = ByteString.copyFrom(
+    MerkleTree[Sha, Digest32](values.map(getPreimageBytes).sortBy(encodeToHex).map(LeafData)).rootHash.value
+  )
+
   // Precondition: the values represent a valid merge
   def merge(values: Seq[Txo], mergedAssetLockAddress: LockAddress, ephemeralMetadata: Option[Struct], commitment: Option[ByteString]): UnspentTransactionOutput = {
-    val quantity = ??? // fold the values
+    val quantity: Int128 = values.map(v => (v.transactionOutput.value.getAsset.quantity: BigInt)).sum
+    val isGroupFungible = values.head.transactionOutput.value.getAsset.fungibility == FungibilityType.GROUP
     UnspentTransactionOutput(
       mergedAssetLockAddress,
       Value.defaultInstance.withAsset(
         Value.Asset(
-          groupId = ???, // based on fungibility
-          seriesId = ???, // based on fungibility
-          groupAlloy = ???, // based on fungibility AND merkle root - what about case where we are merging pre-existing alloys.. do we overwrite these fields?.. prob not bc the new merkle root will contain them
-          seriesAlloy = ???, // based on fungibility AND merkle root
+          groupId = Option.when(isGroupFungible)(GroupId(values.head.transactionOutput.value.getAsset.typeIdentifier.groupIdOrAlloy)),
+          seriesId = Option.when(!isGroupFungible)(SeriesId(values.head.transactionOutput.value.getAsset.typeIdentifier.seriesIdOrAlloy)),
+          groupAlloy = Option.when(!isGroupFungible)(getAlloy(values.map(_.transactionOutput.value.getAsset))),
+          seriesAlloy = Option.when(isGroupFungible)(getAlloy(values.map(_.transactionOutput.value.getAsset))),
           quantity = quantity,
           fungibility = values.head.transactionOutput.value.getAsset.fungibility,
           quantityDescriptor = values.head.transactionOutput.value.getAsset.quantityDescriptor,
