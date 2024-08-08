@@ -5,7 +5,17 @@ import cats.implicits.{catsSyntaxEitherId, catsSyntaxValidatedIdBinCompat0, toFo
 import co.topl.brambl.models.box.Value._
 import co.topl.brambl.models.box.{AssetMintingStatement, QuantityDescriptorType}
 import co.topl.brambl.models.{LockAddress, SeriesId, TransactionOutputAddress}
-import co.topl.brambl.syntax.{LvlType, ToplType, UnknownType, ValueTypeIdentifier, int128AsBigInt, longAsInt128, valueToQuantityDescriptorSyntaxOps, valueToQuantitySyntaxOps, valueToTypeIdentifierSyntaxOps}
+import co.topl.brambl.syntax.{
+  int128AsBigInt,
+  longAsInt128,
+  valueToQuantityDescriptorSyntaxOps,
+  valueToQuantitySyntaxOps,
+  valueToTypeIdentifierSyntaxOps,
+  LvlType,
+  ToplType,
+  UnknownType,
+  ValueTypeIdentifier
+}
 import co.topl.genus.services.Txo
 import quivr.models.Int128
 
@@ -284,14 +294,18 @@ object UserInputValidations {
 
     def validateAssetMergingParams(
       utxosToMerge: Seq[TransactionOutputAddress],
-      txos:             Seq[Txo],
-      locks:            Set[LockAddress],
-      fee:              Long
+      txos:         Seq[Txo],
+      locks:        Set[LockAddress],
+      fee:          Long
     ): Either[NonEmptyChain[UserInputError], Unit] = Try {
       val txoLocks = txos.map(_.transactionOutput.address).toSet
       val txosToMerge = txos.filter(txo => utxosToMerge.contains(txo.outputAddress))
       Chain(
-        Validated.condNec(utxosToMerge.length == txosToMerge.length, (), UserInputError("All UTXOs to merge must be accounted for in txos")),
+        Validated.condNec(
+          utxosToMerge.length == txosToMerge.length,
+          (),
+          UserInputError("All UTXOs to merge must be accounted for in txos")
+        ),
         MergingOps.validMerge(txosToMerge).leftMap(_.map(UserInputError)),
         allInputLocksMatch(txoLocks, locks, "the txos", "a lock in the lock map"),
         allInputLocksMatch(locks, txoLocks, "the lock map", "a lock in the txos"),
@@ -299,7 +313,7 @@ object UserInputValidations {
       ).fold.toEither
     } match {
       case Success(value) => value
-      case Failure(err) => NonEmptyChain.one(UserInputError(err.getMessage)).asLeft
+      case Failure(err)   => NonEmptyChain.one(UserInputError(err.getMessage)).asLeft
     }
   }
 }

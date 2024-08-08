@@ -17,6 +17,7 @@ import co.topl.genus.services.Txo
 import com.google.protobuf.ByteString
 import com.google.protobuf.struct.Struct
 import quivr.models.{Int128, Proof, SmallData}
+import scala.collection.immutable._
 
 import scala.language.implicitConversions
 import scala.util.{Failure, Success, Try}
@@ -299,14 +300,14 @@ trait TransactionBuilderApi[F[_]] {
 
   // TODO
   def buildAssetMergeTransaction(
-    utxosToMerge: Seq[TransactionOutputAddress],
-    txos: Seq[Txo],
-    locks: Map[LockAddress, Lock.Predicate],
-    fee: Long,
+    utxosToMerge:           Seq[TransactionOutputAddress],
+    txos:                   Seq[Txo],
+    locks:                  Map[LockAddress, Lock.Predicate],
+    fee:                    Long,
     mergedAssetLockAddress: LockAddress,
-    changeAddress: LockAddress,
-    ephemeralMetadata: Option[Struct] = None,
-    commitment: Option[ByteString] = None
+    changeAddress:          LockAddress,
+    ephemeralMetadata:      Option[Struct] = None,
+    commitment:             Option[ByteString] = None
   ): F[Either[BuilderError, IoTransaction]]
 }
 
@@ -750,24 +751,33 @@ object TransactionBuilderApi {
           )
         ).pure[F]
 
-      override def buildAssetMergeTransaction(utxosToMerge: Seq[TransactionOutputAddress], txos: Seq[Txo], locks: Map[LockAddress, Lock.Predicate], fee: Long, mergedAssetLockAddress: LockAddress, changeAddress: LockAddress, ephemeralMetadata: Option[Struct], commitment: Option[ByteString]): F[Either[BuilderError, IoTransaction]] = (
+      override def buildAssetMergeTransaction(
+        utxosToMerge:           Seq[TransactionOutputAddress],
+        txos:                   Seq[Txo],
+        locks:                  Map[LockAddress, Lock.Predicate],
+        fee:                    Long,
+        mergedAssetLockAddress: LockAddress,
+        changeAddress:          LockAddress,
+        ephemeralMetadata:      Option[Struct],
+        commitment:             Option[ByteString]
+      ): F[Either[BuilderError, IoTransaction]] = (
         for {
           datum <- EitherT.right[BuilderError](datum())
           filteredTxos = txos.filter(_.transactionOutput.value.value.typeIdentifier != UnknownType)
           _ <- EitherT
-            .fromEither[F](validateAssetMergingParams(utxosToMerge.toSeq, filteredTxos.toSeq, locks.keySet, fee))
+            .fromEither[F](validateAssetMergingParams(utxosToMerge, filteredTxos, locks.keySet, fee))
             .leftMap(errs => UserInputErrors(errs.toList))
           attestations <- toAttestationMap(filteredTxos, locks)
-          stxos <- attestations.map(el => buildStxos(el._1, el._2)).toSeq.sequence.map(_.flatten)
+          stxos        <- attestations.map(el => buildStxos(el._1, el._2)).toSeq.sequence.map(_.flatten)
           (txosToMerge, otherTxos) = filteredTxos.partition(txo => utxosToMerge.contains(txo.outputAddress))
           utxosChange <- buildUtxos(otherTxos, None, None, changeAddress, changeAddress, fee)
-          mergedUtxo = MergingOps.merge(txosToMerge.toSeq, mergedAssetLockAddress, ephemeralMetadata, commitment)
-          asm = AssetMergingStatement(utxosToMerge.toSeq, utxosChange.length)
+          mergedUtxo = MergingOps.merge(txosToMerge, mergedAssetLockAddress, ephemeralMetadata, commitment)
+          asm = AssetMergingStatement(utxosToMerge, utxosChange.length)
         } yield IoTransaction(
           inputs = stxos,
-          outputs = (utxosChange :+ mergedUtxo).toSeq,
+          outputs = utxosChange :+ mergedUtxo,
           datum = datum,
-          mergingStatements = Seq(asm).toSeq
+          mergingStatements = Seq(asm)
         )
       ).value
     }

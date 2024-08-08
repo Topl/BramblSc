@@ -16,6 +16,7 @@ trait TokenTypeIdentifierSyntax {
 }
 
 class AssetToAssetTypeSyntaxOps(val a: Asset) extends AnyVal {
+
   def typeIdentifier: AssetType = (a.groupId, a.seriesId, a.groupAlloy, a.seriesAlloy) match {
     // If seriesAlloy is provided, the seriesId is ignored. In this case, groupAlloy should not exist
     case (Some(gId), _, None, Some(sAlloy)) => AssetType(gId.value, sAlloy)
@@ -41,8 +42,8 @@ class ValueToTypeIdentifierSyntaxOps(val value: Value) extends AnyVal {
     case Value.Topl(t)   => ToplType(t.registration)
     case Value.Group(g)  => GroupType(g.groupId)
     case Value.Series(s) => SeriesType(s.seriesId)
-    case Value.Asset(a) => a.typeIdentifier
-    case _ => UnknownType
+    case Value.Asset(a)  => a.typeIdentifier
+    case _               => UnknownType
   }
 }
 
