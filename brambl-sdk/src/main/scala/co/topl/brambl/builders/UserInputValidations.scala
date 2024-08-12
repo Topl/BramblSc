@@ -301,11 +301,13 @@ object UserInputValidations {
       val txoLocks = txos.map(_.transactionOutput.address).toSet
       val txosToMerge = txos.filter(txo => utxosToMerge.contains(txo.outputAddress))
       Chain(
-        Validated.condNec(
-          utxosToMerge.length == txosToMerge.length,
-          (),
-          UserInputError("All UTXOs to merge must be accounted for in txos")
-        ).andThen(_ => MergingOps.validMerge(txosToMerge).leftMap(_.map(UserInputError))),
+        Validated
+          .condNec(
+            utxosToMerge.length == txosToMerge.length,
+            (),
+            UserInputError("All UTXOs to merge must be accounted for in txos")
+          )
+          .andThen(_ => MergingOps.validMerge(txosToMerge).leftMap(_.map(UserInputError))),
         allInputLocksMatch(txoLocks, locks, "the txos", "a lock in the lock map"),
         allInputLocksMatch(locks, txoLocks, "the lock map", "a lock in the txos"),
         validFee(fee, txos.map(_.transactionOutput.value.value))

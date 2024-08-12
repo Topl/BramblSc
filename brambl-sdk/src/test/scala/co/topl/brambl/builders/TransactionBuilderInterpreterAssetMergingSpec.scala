@@ -9,8 +9,8 @@ import co.topl.brambl.syntax.bigIntAsInt128
 import com.google.protobuf.struct.{Struct, Value => StructValue}
 import com.google.protobuf.struct.Value.Kind.StringValue
 
-
 class TransactionBuilderInterpreterAssetMergingSpec extends MergingSpecBase {
+
   test("Invalid user params > a UTXO in UTXOs to merge does not exist in TXOs") {
     val testTx = buildAssertMergeTransaction
       .removeTxo(groupTxos.head.outputAddress)
@@ -24,6 +24,7 @@ class TransactionBuilderInterpreterAssetMergingSpec extends MergingSpecBase {
       )
     )
   }
+
   test("Invalid user params > UTXOs to merge are not compatible") {
     val txos = valuesToTxos(Seq(assetGroup, assetSeries))
     val testTx = buildAssertMergeTransaction
@@ -39,6 +40,7 @@ class TransactionBuilderInterpreterAssetMergingSpec extends MergingSpecBase {
       )
     )
   }
+
   test("Invalid user params > a TXO does not have a corresponding lock") {
     val testTx = buildAssertMergeTransaction
       .addTxo(valToTxo(lvlValue, trivialLockAddress.withLedger(3), dummyTxoAddress.withIndex(99)))
@@ -52,6 +54,7 @@ class TransactionBuilderInterpreterAssetMergingSpec extends MergingSpecBase {
       )
     )
   }
+
   test("Invalid user params > a lock does not have a corresponding TXO") {
     val testTx = buildAssertMergeTransaction
       .addLock(trivialLockAddress.withLedger(3) -> trivialOutLock.getPredicate)
@@ -65,6 +68,7 @@ class TransactionBuilderInterpreterAssetMergingSpec extends MergingSpecBase {
       )
     )
   }
+
   test("Invalid user params > insufficient funds for fees") {
     val testTx = buildAssertMergeTransaction
       .updateFee(4L)
@@ -78,6 +82,7 @@ class TransactionBuilderInterpreterAssetMergingSpec extends MergingSpecBase {
       )
     )
   }
+
   test("Fee edge case (exact funds, no change)") {
     val testTx = buildAssertMergeTransaction
       .updateFee(3L)
@@ -88,26 +93,30 @@ class TransactionBuilderInterpreterAssetMergingSpec extends MergingSpecBase {
       .withMergingStatements(Seq(AssetMergingStatement(groupTxos.map(_.outputAddress), 0)))
       .withInputs(buildStxos(valuesToTxos(groupValues ++ Seq(lvlValue, lvlValue, lvlValue))))
       .withOutputs(
-        buildRecipientUtxos(List(
-          Value.defaultInstance.withAsset(
-            Value.Asset(
-              groupId = groupValues.head.getAsset.groupId,
-              seriesId = None,
-              groupAlloy = None,
-              seriesAlloy = Some(merkleRoot),
-              quantity = BigInt(groupValues.length),
-              fungibility = GROUP,
-              quantityDescriptor = LIQUID,
-              ephemeralMetadata = None,
-              commitment = None
+        buildRecipientUtxos(
+          List(
+            Value.defaultInstance.withAsset(
+              Value.Asset(
+                groupId = groupValues.head.getAsset.groupId,
+                seriesId = None,
+                groupAlloy = None,
+                seriesAlloy = Some(merkleRoot),
+                quantity = BigInt(groupValues.length),
+                fungibility = GROUP,
+                quantityDescriptor = LIQUID,
+                ephemeralMetadata = None,
+                commitment = None
+              )
             )
           )
-        ))
+        )
       )
     assert(testTx.isRight && sortedTx(testTx.toOption.get).computeId == sortedTx(expectedTx).computeId)
   }
+
   test("Generic case") {
-    val assetValues = groupValues :+ assetGroup.withAsset(assetGroup.getAsset.clearSeriesId.withSeriesAlloy(trivialByte32))
+    val assetValues =
+      groupValues :+ assetGroup.withAsset(assetGroup.getAsset.clearSeriesId.withSeriesAlloy(trivialByte32))
     val assetTxos = valuesToTxos(assetValues)
     val testTx = buildAssertMergeTransaction
       .withTxos(assetTxos ++ valuesToTxos(Seq(lvlValue, lvlValue, lvlValue), assetTxos.length))
@@ -120,29 +129,35 @@ class TransactionBuilderInterpreterAssetMergingSpec extends MergingSpecBase {
       .withInputs(buildStxos(valuesToTxos(assetValues ++ Seq(lvlValue, lvlValue, lvlValue))))
       .withOutputs(
         buildChangeUtxos(List(lvlValue.withLvl(lvlValue.getLvl.withQuantity(BigInt(2)))))
-          ++
-        buildRecipientUtxos(List(
-          Value.defaultInstance.withAsset(
-            Value.Asset(
-              groupId = assetValues.head.getAsset.groupId,
-              seriesId = None,
-              groupAlloy = None,
-              seriesAlloy = Some(merkleRoot),
-              quantity = BigInt(assetValues.length),
-              fungibility = GROUP,
-              quantityDescriptor = LIQUID,
-              ephemeralMetadata = None,
-              commitment = None
+        ++
+        buildRecipientUtxos(
+          List(
+            Value.defaultInstance.withAsset(
+              Value.Asset(
+                groupId = assetValues.head.getAsset.groupId,
+                seriesId = None,
+                groupAlloy = None,
+                seriesAlloy = Some(merkleRoot),
+                quantity = BigInt(assetValues.length),
+                fungibility = GROUP,
+                quantityDescriptor = LIQUID,
+                ephemeralMetadata = None,
+                commitment = None
+              )
             )
           )
-        ))
+        )
       )
     assert(testTx.isRight && sortedTx(testTx.toOption.get).computeId == sortedTx(expectedTx).computeId)
     // Ensure split utxo's commitment and metadata does not affect merkle root
     // Ensure split order does not matter
-    val testSplit = assetValues.map(
-      _.getAsset.withCommitment(trivialByte32).withEphemeralMetadata(Struct(Map("test" -> StructValue(StringValue("test")))))
-    ).reverse
+    val testSplit = assetValues
+      .map(
+        _.getAsset
+          .withCommitment(trivialByte32)
+          .withEphemeralMetadata(Struct(Map("test" -> StructValue(StringValue("test")))))
+      )
+      .reverse
     val testSplitMerkle = MergingOps.getAlloy(testSplit)
     assertEquals(testSplitMerkle, merkleRoot)
   }

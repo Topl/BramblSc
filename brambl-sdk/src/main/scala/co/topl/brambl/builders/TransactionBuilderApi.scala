@@ -12,7 +12,18 @@ import co.topl.brambl.models._
 import co.topl.brambl.models.box.Value.{Value => BoxValue}
 import co.topl.brambl.models.box._
 import co.topl.brambl.models.transaction.{IoTransaction, Schedule, SpentTransactionOutput, UnspentTransactionOutput}
-import co.topl.brambl.syntax.{LvlType, UnknownType, ValueTypeIdentifier, bigIntAsInt128, groupPolicyAsGroupPolicySyntaxOps, int128AsBigInt, longAsInt128, seriesPolicyAsSeriesPolicySyntaxOps, valueToQuantitySyntaxOps, valueToTypeIdentifierSyntaxOps}
+import co.topl.brambl.syntax.{
+  bigIntAsInt128,
+  groupPolicyAsGroupPolicySyntaxOps,
+  int128AsBigInt,
+  longAsInt128,
+  seriesPolicyAsSeriesPolicySyntaxOps,
+  valueToQuantitySyntaxOps,
+  valueToTypeIdentifierSyntaxOps,
+  LvlType,
+  UnknownType,
+  ValueTypeIdentifier
+}
 import co.topl.genus.services.Txo
 import com.google.protobuf.ByteString
 import com.google.protobuf.struct.Struct

@@ -8,7 +8,14 @@ import co.topl.brambl.models.box.Value.Asset
 import co.topl.brambl.models.box.{FungibilityType, Value}
 import co.topl.brambl.models.transaction.UnspentTransactionOutput
 import co.topl.brambl.models.{GroupId, LockAddress, SeriesId}
-import co.topl.brambl.syntax.{AssetType, ValueTypeIdentifier, assetToAssetTypeSyntaxOps, bigIntAsInt128, int128AsBigInt, valueToTypeIdentifierSyntaxOps}
+import co.topl.brambl.syntax.{
+  assetToAssetTypeSyntaxOps,
+  bigIntAsInt128,
+  int128AsBigInt,
+  valueToTypeIdentifierSyntaxOps,
+  AssetType,
+  ValueTypeIdentifier
+}
 import co.topl.crypto.accumulators.LeafData
 import co.topl.crypto.accumulators.merkle.MerkleTree
 import co.topl.crypto.hash.Sha
