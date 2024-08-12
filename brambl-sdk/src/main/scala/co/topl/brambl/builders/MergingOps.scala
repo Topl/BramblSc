@@ -8,8 +8,7 @@ import co.topl.brambl.models.box.Value.Asset
 import co.topl.brambl.models.box.{FungibilityType, Value}
 import co.topl.brambl.models.transaction.UnspentTransactionOutput
 import co.topl.brambl.models.{GroupId, LockAddress, SeriesId}
-import co.topl.brambl.syntax.{AssetType, assetToAssetTypeSyntaxOps, bigIntAsInt128, int128AsBigInt, valueToTypeIdentifierSyntaxOps}
-import co.topl.brambl.utils.Encoding.encodeToHex
+import co.topl.brambl.syntax.{AssetType, ValueTypeIdentifier, assetToAssetTypeSyntaxOps, bigIntAsInt128, int128AsBigInt, valueToTypeIdentifierSyntaxOps}
 import co.topl.crypto.accumulators.LeafData
 import co.topl.crypto.accumulators.merkle.MerkleTree
 import co.topl.crypto.hash.Sha
@@ -31,7 +30,7 @@ object MergingOps {
 
   // Get alloy preimages, sort, then construct merkle proof using Sha256.
   def getAlloy(values: Seq[Asset]): ByteString = ByteString.copyFrom(
-    MerkleTree[Sha, Digest32](values.map(getPreimageBytes).sortBy(encodeToHex).map(LeafData)).rootHash.value
+    MerkleTree[Sha, Digest32](values.map(getPreimageBytes).sortBy(_.mkString).map(LeafData(_))).rootHash.value
   )
 
   // Precondition: the values represent a valid merge
@@ -75,34 +74,11 @@ object MergingOps {
       "UTXOs to merge must not have duplicates"
     )
 
-  private def validIdentifiersValidation(values: Seq[Txo]): ValidatedNec[String, Unit] = Try {
-    values.map(_.transactionOutput.value.value.typeIdentifier)
-  } match {
-    case Success(v) =>
-      if (
-        v.forall {
-          case AssetType(_, _) => true
-          case _               => false
-        }
-      ) ().validNec[String]
-      else "UTXOs to merge must all be assets".invalidNec[Unit]
-    case Failure(err) => err.getMessage.invalidNec[Unit]
-  }
-
-  private def distinctIdentifierValidation(values: Seq[Txo]): ValidatedNec[String, Unit] =
+  private def distinctIdentifierValidation(values: Seq[ValueTypeIdentifier]): ValidatedNec[String, Unit] =
     Validated.condNec(
-      values.map(_.transactionOutput.value.value.typeIdentifier).distinct.length == values.length,
+      values.distinct.length == values.length,
       (),
       "UTXOs to merge must all be distinct (per type identifier)"
-    )
-
-  private def sameFungibilityTypeValidation(values: Seq[Txo]): ValidatedNec[String, Unit] =
-    Validated.condNec(
-      values.forall(
-        _.transactionOutput.value.getAsset.fungibility == values.head.transactionOutput.value.getAsset.fungibility
-      ),
-      (),
-      "Assets to merge must all share the same fungibility type"
     )
 
   private def validFungibilityTypeValidation(values: Seq[Txo]): ValidatedNec[String, Unit] =
@@ -129,12 +105,35 @@ object MergingOps {
       case _ => "Merging Group or Series fungible assets do not have valid AssetType identifiers".invalidNec[Unit]
     }
 
+  private def validIdentifiersValidation(values: Seq[Txo]): ValidatedNec[String, Unit] = Try {
+    values.map(_.transactionOutput.value.value.typeIdentifier)
+  } match {
+    case Success(v) =>
+      if (
+        v.forall {
+          case AssetType(_, _) => true
+          case _               => false
+        }
+      ) distinctIdentifierValidation(v).combine(validFungibilityTypeValidation(values))
+      else "UTXOs to merge must all be assets".invalidNec[Unit]
+    case Failure(err) => err.getMessage.invalidNec[Unit]
+  }
+
+  private def sameFungibilityTypeValidation(values: Seq[Txo]): ValidatedNec[String, Unit] =
+    Validated.condNec(
+      values.forall(
+        _.transactionOutput.value.getAsset.fungibility == values.head.transactionOutput.value.getAsset.fungibility
+      ),
+      (),
+      "Assets to merge must all share the same fungibility type"
+    )
+
   private def sameQuantityDescriptorValidation(values: Seq[Txo]): ValidatedNec[String, Unit] =
     Validated.condNec(
-      values.nonEmpty,
       values.forall(
         _.transactionOutput.value.getAsset.quantityDescriptor == values.head.transactionOutput.value.getAsset.quantityDescriptor
       ),
+      (),
       "Merging assets must all share the same Quantity Descriptor Type"
     )
 
@@ -142,9 +141,7 @@ object MergingOps {
     insufficientAssetsValidation, // seq not empty
     noDuplicatesValidation, // UTXO address does not repeat
     validIdentifiersValidation, // All TXOs have a valid identifier
-    distinctIdentifierValidation, // IDs of all TXOs are distinct (combination of group/series ID/alloy)
     sameFungibilityTypeValidation, // All TXOs have same fungibility type
-    validFungibilityTypeValidation, // not group_and_Series fungible, group or series fungibility have common ID
     sameQuantityDescriptorValidation // ensure all TXOs have same quantity descriptor types
   )
 
