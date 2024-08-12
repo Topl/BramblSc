@@ -298,7 +298,27 @@ trait TransactionBuilderApi[F[_]] {
     commitment:             Option[ByteString] = None
   ): F[Either[BuilderError, IoTransaction]]
 
-  // TODO
+  /**
+   * Builds a transaction to merge distinct, but compatible, assets. If successful, the transaction will have one or more
+   * outputs; the merged asset and, optionally, the change. The merged asset will contain the sum of the quantities of the
+   * merged inputs. The change will contain the remaining tokens that were not merged into the merged asset.
+   *
+   * @note The assets to merge must be valid. To be valid, the assets must have the same fungibility type and quantity descriptor
+   *       type. The fungibility type must be one of "GROUP" or "SERIES". If "GROUP", then the assets must share the same Group ID.
+   *       If "SERIES", then the assets must share the same Series ID. Fields such as "commitment" and "ephermeralMetadata" do not
+   *       carryover; if desired, these fields in the merged output can be specified using the "ephemeralMetadata" and "commitment"
+   *       arguments.
+   *
+   * @param utxosToMerge The UTXOs to merge. These UTXOs must contain assets that are compatible to merge.
+   * @param txos All the TXOs encumbered by the Locks given by locks. These represent the inputs of the transaction.
+   * @param locks A mapping of Predicate Locks that encumbers the funds in the txos. This will be used in the attestations of the txos' inputs.
+   * @param fee The transaction fee. The txos must contain enough LVLs to satisfy this fee
+   * @param mergedAssetLockAddress The LockAddress to send the merged asset tokens to.
+   * @param changeAddress The LockAddress to send any change to.
+   * @param ephemeralMetadata Optional ephemeral metadata to include in the merged asset token.
+   * @param commitment Optional commitment to include in the merged asset token.
+   * @return An unproven asset merge transaction if possible. Else, an error
+   */
   def buildAssetMergeTransaction(
     utxosToMerge:           Seq[TransactionOutputAddress],
     txos:                   Seq[Txo],

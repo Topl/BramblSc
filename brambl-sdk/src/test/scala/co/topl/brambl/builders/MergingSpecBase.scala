@@ -21,7 +21,7 @@ trait MergingSpecBase extends munit.FunSuite with TransactionBuilderInterpreterS
   def withUpdatedGroupId(asset: Value): Value = asset.withAsset(
     asset.getAsset.withGroupId(mockGroupPolicyAlt.computeId)
   )
-  def withUpdatedQuantityDescriptor(asset: Value) = asset.withAsset(
+  def withUpdatedQuantityDescriptor(asset: Value): Value = asset.withAsset(
     asset.getAsset.withQuantityDescriptor(QuantityDescriptorType.ACCUMULATOR)
   )
 
