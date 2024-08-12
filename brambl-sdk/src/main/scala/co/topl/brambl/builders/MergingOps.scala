@@ -65,8 +65,8 @@ object MergingOps {
     )
   }
 
-  private def nonEmptyValidation(values: Seq[Txo]): ValidatedNec[String, Unit] =
-    Validated.condNec(values.nonEmpty, (), "UTXOs to merge must not be empty")
+  private def insufficientAssetsValidation(values: Seq[Txo]): ValidatedNec[String, Unit] =
+    Validated.condNec(values.length >= 2, (), "There must be at least 2 UTXOs to merge")
 
   private def noDuplicatesValidation(values: Seq[Txo]): ValidatedNec[String, Unit] =
     Validated.condNec(
@@ -139,7 +139,7 @@ object MergingOps {
     )
 
   private val validators: Chain[Seq[Txo] => ValidatedNec[String, Unit]] = Chain(
-    nonEmptyValidation, // seq not empty
+    insufficientAssetsValidation, // seq not empty
     noDuplicatesValidation, // UTXO address does not repeat
     validIdentifiersValidation, // All TXOs have a valid identifier
     distinctIdentifierValidation, // IDs of all TXOs are distinct (combination of group/series ID/alloy)
