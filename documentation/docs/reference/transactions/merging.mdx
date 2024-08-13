@@ -1,0 +1,254 @@
+---
+sidebar_position: 3
+title: Merge Tokens
+description: Build a transaction to merge asset tokens.
+---
+
+import RevealedLock from './_revealed-lock.mdx';
+import TxReturn from './_tx-return.mdx';
+import ScaladocLink from '@site/src/components/ScaladocLink';
+
+
+# Build a Merging Transaction
+
+Our asset management system allows merging of distinct, yet compatible, asset tokens. The first step to merging these
+existing asset tokens on the Blockchain is to build an unproven merging transaction. There are restrictions on the
+types of tokens that can be merged. Continue reading to learn more.
+
+<RevealedLock/>
+
+## Merge Asset Tokens
+
+You can create a transaction to merge asset tokens using
+the <ScaladocLink path="co/topl/brambl/builders/TransactionBuilderApi.html#buildAssetMergeTransaction(Seq[TransactionOutputAddress],Seq[Txo],Map[LockAddress,Predicate],Long,LockAddress,LockAddress,Option[Struct],Option[ByteString]):F[Either[BuilderError,IoTransaction]]"><code>buildAssetMergeTransaction</code></ScaladocLink>
+function of a Transaction Builder API instance.
+
+```scala
+def buildAssetMergeTransaction(
+  utxosToMerge:           Seq[TransactionOutputAddress],
+  txos:                   Seq[Txo],
+  locks:                  Map[LockAddress, Lock.Predicate],
+  fee:                    Long,
+  mergedAssetLockAddress: LockAddress,
+  changeAddress:          LockAddress,
+  ephemeralMetadata:      Option[Struct] = None,
+  commitment:             Option[ByteString] = None
+): F[Either[BuilderError, IoTransaction]]
+```
+
+This function builds a transaction to merge existing distinct asset tokens to create a new type of asset. The asset
+tokens to be merged must be considered compatible. The resulting merged asset token is considered an "alloy" asset. See
+the note below for more information on compatible asset tokens.
+
+
+The parameters are as follows:
+- `utxosToMerge` - A sequence of TransactionOutputAddress representing the asset tokens to be merged. These asset tokens must be compatible with each other.
+- `txos` - A sequence of TXOs to be the inputs of the created transaction. Any extra tokens that are not being merged or used as fees will be returned as change.
+- `locks` - A map of LockAddress to Predicate Locks that encumber the funds in the txos. This will be used in the attestations of the txos' inputs.
+- `fee` - The transaction fee. The txos must contain enough LVLs to satisfy this fee
+- `mergedAssetLockAddress` - The LockAddress to send the resulting merged alloy asset to.
+- `changeAddress` - The LockAddress to send any change to.
+- `ephemeralMetadata` - Optional metadata to be included in merged alloy asset. The `ephemeralMetadata` of the input
+assets will not be carried over to the resulting alloy asset and thus should be specified, if so desired. `ephemeralMetadata` and `commitment`
+are the only fields in an asset that are not used in the merging process.
+- `commitment` - Optional commitment to be included in the merged alloy asset. The `commitment` of the input assets will
+not be carried over to the resulting alloy asset and thus should be specified, if so desired. `ephemeralMetadata` and `commitment`
+are the only fields in an asset that are not used in the merging process.
+
+:::note
+To be considered compatible, assets must all share the same `fungibility` and `quantityDescriptor` types. The `fungibility`
+type must be either `GROUP` or `SERIES`. If the assets are `GROUP` fungible, then they must all share the same `groupId`.
+Similarly, if the assets are `SERIES` fungible, then they must all share the same `seriesId`.
+:::
+
+<TxReturn tokenType="new alloy asset tokens" />
+
+### Example
+
+The following example shows how to mint assets and then build a transaction to merge them. In this example, we first mint
+a group constructor token and then mint 2 series constructor tokens. This is because we will create group fungible assets
+that share a Group ID. Using these 3 constructor tokens, we mint 2 different group fungible assets in 2 separate transactions.
+Finally, we merge these 2 group fungible assets into 1. Notice that we wait 15 seconds before re-querying Genus for spendable
+UTXOs. This is because it takes some time for the transactions to be included in Genus. The delay on the Bifrost node,
+however, is much shorter thus we were able to only wait 1 second in the example.
+
+```scala
+import cats.effect.IO
+import cats.effect.unsafe.implicits.global
+import co.topl.brambl.builders.TransactionBuilderApi
+import co.topl.brambl.builders.locks.LockTemplate
+import co.topl.brambl.builders.locks.LockTemplate.PredicateTemplate
+import co.topl.brambl.builders.locks.PropositionTemplate.HeightTemplate
+import co.topl.brambl.constants.NetworkConstants.{MAIN_LEDGER_ID, PRIVATE_NETWORK_ID}
+import co.topl.brambl.dataApi.{BifrostQueryAlgebra, GenusQueryAlgebra, RpcChannelResource}
+import co.topl.brambl.models.Event.{GroupPolicy, SeriesPolicy}
+import co.topl.brambl.models.box.AssetMintingStatement
+import co.topl.brambl.servicekit.{WalletKeyApi, WalletStateApi, WalletStateResource}
+import co.topl.brambl.syntax.{GroupType, SeriesType, cryptoToPbKeyPair, groupPolicyAsGroupPolicySyntaxOps, longAsInt128, seriesPolicyAsSeriesPolicySyntaxOps, valueToTypeIdentifierSyntaxOps}
+import co.topl.brambl.wallet.{CredentiallerInterpreter, WalletApi}
+import co.topl.crypto.signing.ExtendedEd25519
+
+// Replace with the address and port of your node's gRPC endpoint
+val channelResource = RpcChannelResource.channelResource[IO]("localhost", 9084, secureConnection = false)
+val genusQuery = GenusQueryAlgebra.make[IO](channelResource)
+val bifrostQuery = BifrostQueryAlgebra.make[IO](channelResource)
+
+// Replace with the location of your wallet state file
+val walletConnection = WalletStateResource.walletResource("wallet.db")
+
+// Some mock key pair. Do not use. Replace with your own main key pair.
+val mainKey = (new ExtendedEd25519).deriveKeyPairFromSeed(Array.fill(96)(0: Byte))
+
+val walletApi = WalletApi.make[IO](WalletKeyApi.make())
+val walletStateApi = WalletStateApi.make[IO](walletConnection, walletApi)
+val credentialler = CredentiallerInterpreter.make[IO](walletApi, walletStateApi, mainKey)
+val transactionBuilderApi = TransactionBuilderApi.make[IO](PRIVATE_NETWORK_ID, MAIN_LEDGER_ID)
+val predicateTemplate: LockTemplate[IO] = PredicateTemplate[IO](Seq(HeightTemplate("header", 1, Long.MaxValue)), 1)
+
+// Build, prove, and broadcast a transaction to mint a Group Constructor Token:
+val groupTx = for {
+  fromLock <- predicateTemplate.build(List.empty).map(_.toOption.get)
+  fromAddr <- transactionBuilderApi.lockAddress(fromLock)
+  // Replace with the address you want to send the token and change to. for this example, we'll send the token to the input address for simplicity.
+  // In production, you'll want to send it to a different address for security.
+  toAddr = fromAddr
+  fromTxos <- genusQuery.queryUtxo(fromAddr)
+  policy = GroupPolicy("Group Policy Label", fromTxos.filter(_.transactionOutput.value.value.isLvl).head.outputAddress)
+  unprovenTx <- transactionBuilderApi.buildGroupMintingTransaction(fromTxos, fromLock.getPredicate, policy, 1L, toAddr, toAddr, 1L)
+  provenTx <- credentialler.prove(unprovenTx.toOption.get)
+  broadcast <- bifrostQuery.broadcastTransaction(provenTx)
+} yield (broadcast, policy.computeId)
+
+val groupId = groupTx.unsafeRunSync()._2
+
+// Allow some time to pass before querying the transaction
+Thread.sleep(15000)
+
+// Build, prove, and broadcast a transaction to mint a Series Constructor Token:
+val seriesTx1 = for {
+  fromLock <- predicateTemplate.build(List.empty).map(_.toOption.get)
+  fromAddr <- transactionBuilderApi.lockAddress(fromLock)
+  // Replace with the address you want to send the token and change to. for this example, we'll send the token to the input address for simplicity.
+  // In production, you'll want to send it to a different address for security.
+  toAddr = fromAddr
+  fromTxos <- genusQuery.queryUtxo(fromAddr)
+  policy = SeriesPolicy("Series Policy Label", registrationUtxo= fromTxos.filter(_.transactionOutput.value.value.isLvl).head.outputAddress)
+  unprovenTx <- transactionBuilderApi.buildSeriesMintingTransaction(fromTxos, fromLock.getPredicate, policy, 1L, toAddr, toAddr, 1L)
+  provenTx <- credentialler.prove(unprovenTx.toOption.get)
+  broadcast <- bifrostQuery.broadcastTransaction(provenTx)
+} yield (broadcast, policy.computeId)
+
+val seriedId1 = seriesTx1.unsafeRunSync()._2
+
+// Allow some time to pass before querying the transaction
+Thread.sleep(15000)
+
+// Build, prove, and broadcast a transaction to mint a Series Constructor Token:
+val seriesTx2 = for {
+  fromLock <- predicateTemplate.build(List.empty).map(_.toOption.get)
+  fromAddr <- transactionBuilderApi.lockAddress(fromLock)
+  // Replace with the address you want to send the token and change to. for this example, we'll send the token to the input address for simplicity.
+  // In production, you'll want to send it to a different address for security.
+  toAddr = fromAddr
+  fromTxos <- genusQuery.queryUtxo(fromAddr)
+  policy = SeriesPolicy("Series Policy 2 Label", registrationUtxo= fromTxos.filter(_.transactionOutput.value.value.isLvl).head.outputAddress)
+  unprovenTx <- transactionBuilderApi.buildSeriesMintingTransaction(fromTxos, fromLock.getPredicate, policy, 1L, toAddr, toAddr, 1L)
+  provenTx <- credentialler.prove(unprovenTx.toOption.get)
+  broadcast <- bifrostQuery.broadcastTransaction(provenTx)
+} yield (broadcast, policy.computeId)
+
+val seriedId2 = seriesTx2.unsafeRunSync()._2
+
+// Allow some time to pass before querying the transaction
+Thread.sleep(15000)
+
+// Build, prove, and broadcast a transaction to mint a Asset Token begins here:
+val assetTx1 = for {
+  fromLock <- predicateTemplate.build(List.empty).map(_.toOption.get)
+  fromAddr <- transactionBuilderApi.lockAddress(fromLock)
+  // Replace with the address you want to send the token and change to. for this example, we'll send the token to the input address for simplicity.
+  // In production, you'll want to send it to a different address for security.
+  toAddr = fromAddr
+  fromTxos <- genusQuery.queryUtxo(fromAddr)
+  mintingStatement = AssetMintingStatement(
+    fromTxos.filter(_.transactionOutput.value.value.typeIdentifier == GroupType(groupId)).head.outputAddress,
+    fromTxos.filter(_.transactionOutput.value.value.typeIdentifier == SeriesType(seriedId1)).head.outputAddress,
+    1
+  )
+  unprovenTx <- transactionBuilderApi.buildAssetMintingTransaction(
+    mintingStatement,
+    fromTxos,
+    Map(fromAddr -> fromLock.getPredicate),
+    1L,
+    toAddr,
+    toAddr
+  )
+  provenTx <- credentialler.prove(unprovenTx.toOption.get)
+  broadcast <- bifrostQuery.broadcastTransaction(provenTx)
+} yield broadcast
+
+assetTx1.unsafeRunSync()
+
+// Allow some time to pass before querying the transaction
+Thread.sleep(15000)
+
+// Build, prove, and broadcast a transaction to mint a Asset Token begins here:
+val assetTx2 = for {
+  fromLock <- predicateTemplate.build(List.empty).map(_.toOption.get)
+  fromAddr <- transactionBuilderApi.lockAddress(fromLock)
+  // Replace with the address you want to send the token and change to. for this example, we'll send the token to the input address for simplicity.
+  // In production, you'll want to send it to a different address for security.
+  toAddr = fromAddr
+  fromTxos <- genusQuery.queryUtxo(fromAddr)
+  mintingStatement = AssetMintingStatement(
+    fromTxos.filter(_.transactionOutput.value.value.typeIdentifier == GroupType(groupId)).head.outputAddress,
+    fromTxos.filter(_.transactionOutput.value.value.typeIdentifier == SeriesType(seriedId2)).head.outputAddress,
+    1
+  )
+  unprovenTx <- transactionBuilderApi.buildAssetMintingTransaction(
+    mintingStatement,
+    fromTxos,
+    Map(fromAddr -> fromLock.getPredicate),
+    1L,
+    toAddr,
+    toAddr
+  )
+  provenTx <- credentialler.prove(unprovenTx.toOption.get)
+  broadcast <- bifrostQuery.broadcastTransaction(provenTx)
+} yield broadcast
+
+assetTx2.unsafeRunSync()
+
+// Allow some time to pass before querying the transaction
+Thread.sleep(15000)
+
+// Build, prove, and broadcast a transaction to merge Asset Tokens begins here:
+val mergeTx = for {
+  fromLock <- predicateTemplate.build(List.empty).map(_.toOption.get)
+  fromAddr <- transactionBuilderApi.lockAddress(fromLock)
+  // Replace with the address you want to send the token and change to. for this example, we'll send the token to the input address for simplicity.
+  // In production, you'll want to send it to a different address for security.
+  toAddr = fromAddr
+  fromTxos <- genusQuery.queryUtxo(fromAddr)
+  utxosToMerge = fromTxos.filter(_.transactionOutput.value.value.isAsset).map(_.outputAddress)
+  unprovenTx <- transactionBuilderApi.buildAssetMergeTransaction(
+    utxosToMerge,
+    fromTxos,
+    Map(fromAddr -> fromLock.getPredicate),
+    1L,
+    toAddr,
+    toAddr
+  )
+  provenTx <- credentialler.prove(unprovenTx.toOption.get)
+  broadcast <- bifrostQuery.broadcastTransaction(provenTx)
+} yield broadcast
+
+val mergeTxId = mergeTx.unsafeRunSync()
+
+// Allow some time to pass before querying the transaction
+Thread.sleep(1000)
+
+val postedTransaction = bifrostQuery.fetchTransaction(mergeTxId).unsafeRunSync()
+```
+
+For a more in-depth step-by-step guide on merging assets, read the [tutorial](#step-by-step-guide).

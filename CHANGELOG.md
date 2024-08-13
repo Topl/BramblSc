@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Support for merging distinct, but compatible, assets.
+- Documentation and a tutorial for merging assets.
 
 ## [v2.0.0-beta7] - 2024-07-12
 

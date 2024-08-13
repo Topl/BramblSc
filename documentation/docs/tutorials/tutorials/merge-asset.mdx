@@ -1,0 +1,232 @@
+---
+sidebar_position: 4
+title: Merge Assets
+description: Merge Compatible Assets Into a Single Alloy Asset
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+## Use Case
+
+TBD
+"For the purposes of this tutorial " > Primary and secondary. Mention this tutorial builds upon the other tutorials
+it will go a lot more smoothly if you have already completed them in order.
+
+**Objectives:**
+- TBD
+
+## Set-Up
+
+To follow along with this tutorial, you will need to initialize and fund a wallet with some LVLs. 
+
+If you were following the instructions in the [Load Wallet with Funds](./obtain-funds) tutorial, the code to set up the 
+Senders wallet should look something like:
+
+```scala title="Initializing a Wallet and Funding it with LVLs"
+import cats.arrow.FunctionK
+import cats.effect.IO
+import cats.effect.unsafe.implicits.global
+import co.topl.brambl.Context
+import co.topl.brambl.builders.TransactionBuilderApi
+import co.topl.brambl.constants.NetworkConstants.{MAIN_LEDGER_ID, PRIVATE_NETWORK_ID}
+import co.topl.brambl.dataApi.{BifrostQueryAlgebra, GenusQueryAlgebra, RpcChannelResource}
+import co.topl.brambl.models.{Datum, Event}
+import co.topl.brambl.servicekit.{WalletKeyApi, WalletStateApi, WalletStateResource}
+import co.topl.brambl.syntax.{LvlType, valueToQuantitySyntaxOps, valueToTypeIdentifierSyntaxOps, int128AsBigInt}
+import co.topl.brambl.wallet.{CredentiallerInterpreter, WalletApi}
+
+import java.io.File
+import java.nio.file.Paths
+
+implicit val transformType: FunctionK[IO, IO] = FunctionK.id[IO]
+
+// Replace with the desired location for your tutorial directory
+val tutorialDir = Paths.get(System.getProperty("user.home"), "tutorial").toString
+new File(tutorialDir).mkdirs() // Create the directory if it doesn't exist
+
+def initFilePath(fileName: String): String = {
+  val filePath = Paths.get(tutorialDir, fileName).toString
+  new File(filePath).delete() // Clear the file if it already exists
+  filePath
+}
+
+// Replace with the desired location for your key file
+val keyFile = initFilePath("keyfile.json")
+// Replace with the desired location of for your mnemonic file
+val mnemonicFile = initFilePath("mnemonic.txt")
+// Replace with the desired location of for your wallet state DB file
+val walletDb = initFilePath("wallet.db")
+
+val walletKeyApi = WalletKeyApi.make[IO]()
+val walletApi = WalletApi.make(walletKeyApi)
+val conn = WalletStateResource.walletResource(walletDb)
+val walletStateApi = WalletStateApi.make[IO](conn, walletApi)
+
+val initializeWallet = for {
+  walletResult <- walletApi.createAndSaveNewWallet[IO]("password".getBytes, name = keyFile, mnemonicName = mnemonicFile)
+  mainKeyPair <- walletApi.extractMainKey(walletResult.toOption.get.mainKeyVaultStore, "password".getBytes())
+  _ <- walletStateApi.initWalletState(PRIVATE_NETWORK_ID, MAIN_LEDGER_ID, mainKeyPair.toOption.get)
+} yield mainKeyPair
+
+// Replace with the address and port of your node's gRPC endpoint
+val channelResource = RpcChannelResource.channelResource[IO]("localhost", 9084, secureConnection = false)
+val genusQueryApi = GenusQueryAlgebra.make[IO](channelResource)
+val txBuilder = TransactionBuilderApi.make[IO](PRIVATE_NETWORK_ID, MAIN_LEDGER_ID)
+
+val unprovenTransaction = for {
+  _ <- initializeWallet
+  heightLock <- walletStateApi.getLock("nofellowship", "genesis", 1)
+  heightAddress <- txBuilder.lockAddress(heightLock.get)
+  txos <- genusQueryApi.queryUtxo(heightAddress)
+  sigLock <- walletStateApi.getLock("self", "default", 1)
+  sigAddress <- txBuilder.lockAddress(sigLock.get)
+  tx <- txBuilder.buildTransferAmountTransaction(
+    LvlType,
+    txos,
+    heightLock.get.getPredicate,
+    100L,
+    sigAddress,
+    heightAddress,
+    1L
+  )
+} yield tx.toOption.get
+
+val proveAndValidateResult = for {
+  tx <- unprovenTransaction
+  mainKey <- walletApi.loadAndExtractMainKey[IO]("password".getBytes, keyFile)
+  credentialler = CredentiallerInterpreter.make[IO](walletApi, walletStateApi, mainKey.toOption.get)
+  ctx = Context[IO](tx, 50, Map("header" -> Datum().withHeader(Datum.Header(Event.Header(50)))).lift)
+  res <- credentialler.proveAndValidate(tx, ctx)
+} yield res
+
+val bifrostQuery = BifrostQueryAlgebra.make[IO](channelResource)
+
+val broadcastTransaction = for {
+  provenTx <- proveAndValidateResult
+  txId <- bifrostQuery.broadcastTransaction(provenTx.toOption.get)
+} yield txId
+
+broadcastTransaction.unsafeRunSync()
+
+// Allow some time to pass before querying the transaction
+Thread.sleep(15000)
+
+// optionally view your funds
+val queryFunds = for {
+  sigLock <- walletStateApi.getLock("self", "default", 1)
+  sigAddress <- txBuilder.lockAddress(sigLock.get)
+  txos <- genusQueryApi.queryUtxo(sigAddress)
+} yield txos.map(_.transactionOutput.value.value).map(value => s"${value.typeIdentifier}: ${value.quantity.intValue}")
+
+queryFunds.unsafeRunSync().foreach(println)
+```
+
+After running that file, you should see that the Sender's wallet has been initialized with 100 LVLs:
+
+```bash title="output"
+LvlType: 100
+```
+
+Keep the same local node instance running. We will be using it for the rest of this tutorial.
+
+## Step 1: Mint Group and Series Constructor Tokens 
+
+TBD > Very similar to asset minting. explain the differences (we need 2 series constructor tokens)
+
+### Putting it all together
+
+TBD > Add it into tabs (Group, Primary Series, Secondary Series)
+
+Your code should look something like this:
+
+<Tabs>
+  <TabItem value="group" label="Mint Group Constructor Tokens">
+
+```scala
+TBD group
+```
+
+  </TabItem>
+  <TabItem value="series_1" label="Mint Primary Series Constructor Tokens">
+
+```scala
+TBD series 1
+```
+
+  </TabItem>
+  <TabItem value="series_2" label="Mint Secondary Series Constructor Tokens">
+
+```scala
+TBD series 2
+```
+
+  </TabItem>
+</Tabs>
+
+Try running the code. If all went well, you should see that you have 99 LVLs and 5 Group Constructor Token in your wallet,
+ready to be spent by you.
+
+```bash title="output"
+LvlType$: 99
+GroupType: 5
+```
+
+Keep the same local node instance running.
+
+## Step 2: Mint Asset Tokens
+
+TBD > Very similar to asset minting. explain the differences (using 2 different series constructor tokens to create compatible assets)
+
+### Putting it all together
+
+TBD > Add it into tabs (Primary Asset, Secondary Asset)
+
+Your code should look something like this:
+
+<Tabs>
+  <TabItem value="asset_1" label="Mint Primary Asset Tokens">
+
+```scala
+TBD asset 1
+```
+
+  </TabItem>
+  <TabItem value="asset_2" label="Mint Secondary Asset Tokens">
+
+```scala
+TBD asset 2
+```
+
+  </TabItem>
+</Tabs>
+
+After ensuring that some time has passed since minting the Group Constructor Tokens from Step 1 (15-20 seconds), try 
+running the code. If all went well, you should see that you have 98 LVLs, 5 Group Constructor Token, and 5 Series 
+Constructor token in your wallet, ready to be spent by you.
+
+```bash title="output"
+GroupType: 5
+LvlType$: 98
+SeriesType: 5
+```
+
+Keep the same local node instance running.
+
+## Step 3: Merge Primary and Secondary Asset Tokens
+
+TBD > Detailed steps
+
+### Putting it all together
+
+Your code should look something like this:
+
+```scala title="Merge Assets"
+
+```
+
+TBD
+
+```bash title="output"
+TBD
+```
