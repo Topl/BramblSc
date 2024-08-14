@@ -27,6 +27,10 @@ Asset Minting Statements
 ========================
 ${tx.mintingStatements.map(ams => ams.display).mkString("\n-----------\n")}
 
+Asset Merging Statements
+========================
+${tx.mergingStatements.map(ams => ams.display).mkString("\n-----------\n")}
+
 Inputs
 ======
 ${if (tx.inputs.isEmpty) ("No inputs")

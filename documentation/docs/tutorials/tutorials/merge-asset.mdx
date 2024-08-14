@@ -24,6 +24,8 @@ If you were following the instructions in the [Load Wallet with Funds](./obtain-
 Senders wallet should look something like:
 
 ```scala title="Initializing a Wallet and Funding it with LVLs"
+package co.topl.brambl.servicekit
+
 import cats.arrow.FunctionK
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
@@ -32,94 +34,96 @@ import co.topl.brambl.builders.TransactionBuilderApi
 import co.topl.brambl.constants.NetworkConstants.{MAIN_LEDGER_ID, PRIVATE_NETWORK_ID}
 import co.topl.brambl.dataApi.{BifrostQueryAlgebra, GenusQueryAlgebra, RpcChannelResource}
 import co.topl.brambl.models.{Datum, Event}
-import co.topl.brambl.servicekit.{WalletKeyApi, WalletStateApi, WalletStateResource}
-import co.topl.brambl.syntax.{LvlType, valueToQuantitySyntaxOps, valueToTypeIdentifierSyntaxOps, int128AsBigInt}
+import co.topl.brambl.syntax.{LvlType, int128AsBigInt, valueToQuantitySyntaxOps, valueToTypeIdentifierSyntaxOps}
 import co.topl.brambl.wallet.{CredentiallerInterpreter, WalletApi}
 
 import java.io.File
 import java.nio.file.Paths
 
-implicit val transformType: FunctionK[IO, IO] = FunctionK.id[IO]
+object Setup extends App {
 
-// Replace with the desired location for your tutorial directory
-val tutorialDir = Paths.get(System.getProperty("user.home"), "tutorial").toString
-new File(tutorialDir).mkdirs() // Create the directory if it doesn't exist
+  implicit val transformType: FunctionK[IO, IO] = FunctionK.id[IO]
 
-def initFilePath(fileName: String): String = {
-  val filePath = Paths.get(tutorialDir, fileName).toString
-  new File(filePath).delete() // Clear the file if it already exists
-  filePath
+  // Replace with the desired location for your tutorial directory
+  val tutorialDir = Paths.get(System.getProperty("user.home"), "tutorial").toString
+  new File(tutorialDir).mkdirs() // Create the directory if it doesn't exist
+
+  def initFilePath(fileName: String): String = {
+    val filePath = Paths.get(tutorialDir, fileName).toString
+    new File(filePath).delete() // Clear the file if it already exists
+    filePath
+  }
+
+  // Replace with the desired location for your key file
+  val keyFile = initFilePath("keyfile.json")
+  // Replace with the desired location of for your mnemonic file
+  val mnemonicFile = initFilePath("mnemonic.txt")
+  // Replace with the desired location of for your wallet state DB file
+  val walletDb = initFilePath("wallet.db")
+
+  val walletKeyApi = WalletKeyApi.make[IO]()
+  val walletApi = WalletApi.make(walletKeyApi)
+  val conn = WalletStateResource.walletResource(walletDb)
+  val walletStateApi = WalletStateApi.make[IO](conn, walletApi)
+
+  val initializeWallet = for {
+    walletResult <- walletApi.createAndSaveNewWallet[IO]("password".getBytes, name = keyFile, mnemonicName = mnemonicFile)
+    mainKeyPair <- walletApi.extractMainKey(walletResult.toOption.get.mainKeyVaultStore, "password".getBytes())
+    _ <- walletStateApi.initWalletState(PRIVATE_NETWORK_ID, MAIN_LEDGER_ID, mainKeyPair.toOption.get)
+  } yield mainKeyPair
+
+  // Replace with the address and port of your node's gRPC endpoint
+  val channelResource = RpcChannelResource.channelResource[IO]("localhost", 9084, secureConnection = false)
+  val genusQueryApi = GenusQueryAlgebra.make[IO](channelResource)
+  val txBuilder = TransactionBuilderApi.make[IO](PRIVATE_NETWORK_ID, MAIN_LEDGER_ID)
+
+  val unprovenTransaction = for {
+    _ <- initializeWallet
+    heightLock <- walletStateApi.getLock("nofellowship", "genesis", 1)
+    heightAddress <- txBuilder.lockAddress(heightLock.get)
+    txos <- genusQueryApi.queryUtxo(heightAddress)
+    sigLock <- walletStateApi.getLock("self", "default", 1)
+    sigAddress <- txBuilder.lockAddress(sigLock.get)
+    tx <- txBuilder.buildTransferAmountTransaction(
+      LvlType,
+      txos,
+      heightLock.get.getPredicate,
+      100L,
+      sigAddress,
+      heightAddress,
+      1L
+    )
+  } yield tx.toOption.get
+
+  val proveAndValidateResult = for {
+    tx <- unprovenTransaction
+    mainKey <- walletApi.loadAndExtractMainKey[IO]("password".getBytes, keyFile)
+    credentialler = CredentiallerInterpreter.make[IO](walletApi, walletStateApi, mainKey.toOption.get)
+    ctx = Context[IO](tx, 50, Map("header" -> Datum().withHeader(Datum.Header(Event.Header(50)))).lift)
+    res <- credentialler.proveAndValidate(tx, ctx)
+  } yield res
+
+  val bifrostQuery = BifrostQueryAlgebra.make[IO](channelResource)
+
+  val broadcastTransaction = for {
+    provenTx <- proveAndValidateResult
+    txId <- bifrostQuery.broadcastTransaction(provenTx.toOption.get)
+  } yield txId
+
+  broadcastTransaction.unsafeRunSync()
+
+  // Allow some time to pass before querying the transaction
+  Thread.sleep(15000)
+
+  // optionally view your funds
+  val queryFunds = for {
+    sigLock <- walletStateApi.getLock("self", "default", 1)
+    sigAddress <- txBuilder.lockAddress(sigLock.get)
+    txos <- genusQueryApi.queryUtxo(sigAddress)
+  } yield txos.map(_.transactionOutput.value.value).map(value => s"${value.typeIdentifier}: ${value.quantity.intValue}")
+
+  queryFunds.unsafeRunSync().foreach(println)
 }
-
-// Replace with the desired location for your key file
-val keyFile = initFilePath("keyfile.json")
-// Replace with the desired location of for your mnemonic file
-val mnemonicFile = initFilePath("mnemonic.txt")
-// Replace with the desired location of for your wallet state DB file
-val walletDb = initFilePath("wallet.db")
-
-val walletKeyApi = WalletKeyApi.make[IO]()
-val walletApi = WalletApi.make(walletKeyApi)
-val conn = WalletStateResource.walletResource(walletDb)
-val walletStateApi = WalletStateApi.make[IO](conn, walletApi)
-
-val initializeWallet = for {
-  walletResult <- walletApi.createAndSaveNewWallet[IO]("password".getBytes, name = keyFile, mnemonicName = mnemonicFile)
-  mainKeyPair <- walletApi.extractMainKey(walletResult.toOption.get.mainKeyVaultStore, "password".getBytes())
-  _ <- walletStateApi.initWalletState(PRIVATE_NETWORK_ID, MAIN_LEDGER_ID, mainKeyPair.toOption.get)
-} yield mainKeyPair
-
-// Replace with the address and port of your node's gRPC endpoint
-val channelResource = RpcChannelResource.channelResource[IO]("localhost", 9084, secureConnection = false)
-val genusQueryApi = GenusQueryAlgebra.make[IO](channelResource)
-val txBuilder = TransactionBuilderApi.make[IO](PRIVATE_NETWORK_ID, MAIN_LEDGER_ID)
-
-val unprovenTransaction = for {
-  _ <- initializeWallet
-  heightLock <- walletStateApi.getLock("nofellowship", "genesis", 1)
-  heightAddress <- txBuilder.lockAddress(heightLock.get)
-  txos <- genusQueryApi.queryUtxo(heightAddress)
-  sigLock <- walletStateApi.getLock("self", "default", 1)
-  sigAddress <- txBuilder.lockAddress(sigLock.get)
-  tx <- txBuilder.buildTransferAmountTransaction(
-    LvlType,
-    txos,
-    heightLock.get.getPredicate,
-    100L,
-    sigAddress,
-    heightAddress,
-    1L
-  )
-} yield tx.toOption.get
-
-val proveAndValidateResult = for {
-  tx <- unprovenTransaction
-  mainKey <- walletApi.loadAndExtractMainKey[IO]("password".getBytes, keyFile)
-  credentialler = CredentiallerInterpreter.make[IO](walletApi, walletStateApi, mainKey.toOption.get)
-  ctx = Context[IO](tx, 50, Map("header" -> Datum().withHeader(Datum.Header(Event.Header(50)))).lift)
-  res <- credentialler.proveAndValidate(tx, ctx)
-} yield res
-
-val bifrostQuery = BifrostQueryAlgebra.make[IO](channelResource)
-
-val broadcastTransaction = for {
-  provenTx <- proveAndValidateResult
-  txId <- bifrostQuery.broadcastTransaction(provenTx.toOption.get)
-} yield txId
-
-broadcastTransaction.unsafeRunSync()
-
-// Allow some time to pass before querying the transaction
-Thread.sleep(15000)
-
-// optionally view your funds
-val queryFunds = for {
-  sigLock <- walletStateApi.getLock("self", "default", 1)
-  sigAddress <- txBuilder.lockAddress(sigLock.get)
-  txos <- genusQueryApi.queryUtxo(sigAddress)
-} yield txos.map(_.transactionOutput.value.value).map(value => s"${value.typeIdentifier}: ${value.quantity.intValue}")
-
-queryFunds.unsafeRunSync().foreach(println)
 ```
 
 After running that file, you should see that the Sender's wallet has been initialized with 100 LVLs:
@@ -141,7 +145,9 @@ Your code should look something like this:
 <Tabs>
   <TabItem value="group" label="Mint Group Constructor Tokens">
 
-```scala
+```scala title="Mint Group Constructor Tokens"
+package co.topl.brambl.servicekit
+
 import cats.arrow.FunctionK
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
@@ -150,9 +156,9 @@ import co.topl.brambl.builders.TransactionBuilderApi
 import co.topl.brambl.builders.TransactionBuilderApi.implicits.lockAddressOps
 import co.topl.brambl.constants.NetworkConstants.{MAIN_LEDGER_ID, PRIVATE_NETWORK_ID}
 import co.topl.brambl.dataApi.{BifrostQueryAlgebra, GenusQueryAlgebra, RpcChannelResource}
+import co.topl.brambl.display.DisplayOps.DisplayTOps
 import co.topl.brambl.models.Event.GroupPolicy
 import co.topl.brambl.models.Indices
-import co.topl.brambl.servicekit.{WalletKeyApi, WalletStateApi, WalletStateResource}
 import co.topl.brambl.syntax.{int128AsBigInt, valueToQuantitySyntaxOps, valueToTypeIdentifierSyntaxOps}
 import co.topl.brambl.utils.Encoding
 import co.topl.brambl.wallet.{CredentiallerInterpreter, WalletApi}
@@ -160,294 +166,115 @@ import quivr.models.VerificationKey
 
 import java.nio.file.Paths
 
-implicit val transformType: FunctionK[IO, IO] = FunctionK.id[IO]
+object Step1aGroup extends App {
+  implicit val transformType: FunctionK[IO, IO] = FunctionK.id[IO]
 
-// Replace with the desired location for your tutorial directory
-val tutorialDir = Paths.get(System.getProperty("user.home"), "tutorial").toString
-// Replace with the desired location for your key file
-val keyFile = Paths.get(tutorialDir, "keyfile.json").toString
-// Replace with the desired location of for your wallet state DB file
-val walletDb = Paths.get(tutorialDir, "wallet.db").toString
-val conn = WalletStateResource.walletResource(walletDb)
-// Replace with the address and port of your node's gRPC endpoint
-val channelResource = RpcChannelResource.channelResource[IO]("localhost", 9084, secureConnection = false)
+  // Replace with the desired location for your tutorial directory
+  val tutorialDir = Paths.get(System.getProperty("user.home"), "tutorial").toString
+  // Replace with the desired location for your key file
+  val keyFile = Paths.get(tutorialDir, "keyfile.json").toString
+  // Replace with the desired location of for your wallet state DB file
+  val walletDb = Paths.get(tutorialDir, "wallet.db").toString
+  val conn = WalletStateResource.walletResource(walletDb)
+  // Replace with the address and port of your node's gRPC endpoint
+  val channelResource = RpcChannelResource.channelResource[IO]("localhost", 9084, secureConnection = false)
 
-val walletKeyApi = WalletKeyApi.make[IO]()
-val walletApi = WalletApi.make(walletKeyApi)
-val walletStateApi = WalletStateApi.make[IO](conn, walletApi)
-val genusQueryApi = GenusQueryAlgebra.make[IO](channelResource)
-val txBuilder = TransactionBuilderApi.make[IO](PRIVATE_NETWORK_ID, MAIN_LEDGER_ID)
+  val walletKeyApi = WalletKeyApi.make[IO]()
+  val walletApi = WalletApi.make(walletKeyApi)
+  val walletStateApi = WalletStateApi.make[IO](conn, walletApi)
+  val genusQueryApi = GenusQueryAlgebra.make[IO](channelResource)
+  val txBuilder = TransactionBuilderApi.make[IO](PRIVATE_NETWORK_ID, MAIN_LEDGER_ID)
 
-val unprovenTransaction = for {
-  inputLock <- walletStateApi.getLock("self", "default", 1)
-  inputAddress <- txBuilder.lockAddress(inputLock.get)
-  txos <- genusQueryApi.queryUtxo(inputAddress)
-  groupPolicy = GroupPolicy("Group Policy Label", txos.head.outputAddress)
-  outputLock <- walletStateApi.getLock("self", "default", 2)
-  outputAddress <- txBuilder.lockAddress(outputLock.get)
-  outputVk <- walletStateApi.getEntityVks("self", "default").map(_.get.head) flatMap { vk =>
-    // Derive the verification key at path 1/1/2 (used in outputLock)
-    walletApi.deriveChildVerificationKey(VerificationKey.parseFrom(Encoding.decodeFromBase58(vk).toOption.get), 2)
-  }
-  _ <- walletStateApi.updateWalletState(
-    Encoding.encodeToBase58(outputLock.get.getPredicate.toByteArray),
-    outputAddress.toBase58(),
-    Some("ExtendedEd25519"),
-    Some(Encoding.encodeToBase58(outputVk.toByteArray)),
-    Indices(1, 1, 2)
+  val unprovenTransaction = for {
+    inputLock <- walletStateApi.getLock("self", "default", 1)
+    inputAddress <- txBuilder.lockAddress(inputLock.get)
+    txos <- genusQueryApi.queryUtxo(inputAddress)
+    groupPolicy = GroupPolicy("Group Policy Label", txos.head.outputAddress)
+    outputLock <- walletStateApi.getLock("self", "default", 2)
+    outputAddress <- txBuilder.lockAddress(outputLock.get)
+    outputVk <- walletStateApi.getEntityVks("self", "default").map(_.get.head) flatMap { vk =>
+      // Derive the verification key at path 1/1/2 (used in outputLock)
+      walletApi.deriveChildVerificationKey(VerificationKey.parseFrom(Encoding.decodeFromBase58(vk).toOption.get), 2)
+    }
+    _ <- walletStateApi.updateWalletState(
+      Encoding.encodeToBase58(outputLock.get.getPredicate.toByteArray),
+      outputAddress.toBase58(),
+      Some("ExtendedEd25519"),
+      Some(Encoding.encodeToBase58(outputVk.toByteArray)),
+      Indices(1, 1, 2)
+    )
+    tx <- txBuilder.buildGroupMintingTransaction(
+      txos,
+      inputLock.get.getPredicate,
+      groupPolicy,
+      5L,
+      outputAddress,
+      outputAddress,
+      1L
+    )
+  } yield tx.toOption.get
+
+  val provenTx = for {
+    mainKey <- walletApi.loadAndExtractMainKey[IO]("password".getBytes, keyFile)
+    credentialler = CredentiallerInterpreter.make[IO](walletApi, walletStateApi, mainKey.toOption.get)
+    tx <- unprovenTransaction
+    ctx = Context[IO](tx, 50, _ => None)
+    res <- credentialler.proveAndValidate(tx, ctx)
+  } yield res.toOption.get
+
+
+  val bifrostQuery = BifrostQueryAlgebra.make[IO](channelResource)
+
+  val broadcastTransaction = for {
+    tx <- provenTx
+    _ <- bifrostQuery.broadcastTransaction(tx)
+  } yield ()
+
+  broadcastTransaction.unsafeRunSync()
+
+  val queryFunds = for {
+    // The tokens were sent to the address derived from (self, default, 2)
+    sigLock <- walletStateApi.getLock("self", "default", 2)
+    sigAddress <- txBuilder.lockAddress(sigLock.get)
+    txos <- genusQueryApi.queryUtxo(sigAddress)
+  } yield txos.map(_.transactionOutput.value.value).map(value =>
+    s"${value.typeIdentifier.display}: ${value.quantity.intValue}"
   )
-  tx <- txBuilder.buildGroupMintingTransaction(
-    txos,
-    inputLock.get.getPredicate,
-    groupPolicy,
-    5L,
-    outputAddress,
-    outputAddress,
-    1L
-  )
-} yield tx.toOption.get
 
-val provenTx = for {
-  mainKey <- walletApi.loadAndExtractMainKey[IO]("password".getBytes, keyFile)
-  credentialler = CredentiallerInterpreter.make[IO](walletApi, walletStateApi, mainKey.toOption.get)
-  tx <- unprovenTransaction
-  ctx = Context[IO](tx, 50, _ => None)
-  res <- credentialler.proveAndValidate(tx, ctx)
-} yield res.toOption.get
+  // Allow some time to pass before querying the transaction
+  Thread.sleep(15000)
 
-
-val bifrostQuery = BifrostQueryAlgebra.make[IO](channelResource)
-
-val broadcastTransaction = for {
-  tx <- provenTx
-  _ <- bifrostQuery.broadcastTransaction(tx)
-} yield ()
-
-broadcastTransaction.unsafeRunSync()
-
-val queryFunds = for {
-  // The tokens were sent to the address derived from (self, default, 2)
-  sigLock <- walletStateApi.getLock("self", "default", 2)
-  sigAddress <- txBuilder.lockAddress(sigLock.get)
-  txos <- genusQueryApi.queryUtxo(sigAddress)
-} yield txos.map(_.transactionOutput.value.value).map(value =>
-  s"${value.typeIdentifier.getClass.getSimpleName}: ${value.quantity.intValue}"
-)
-
-// Allow some time to pass before querying the transaction
-Thread.sleep(15000)
-
-queryFunds.unsafeRunSync().foreach(println)
+  queryFunds.unsafeRunSync().foreach(println)
+}
+```
+```bash title="output"
+LVL: 99
+Group(5ae9d0660dc70f19bcaacc65387ca31b7226fe21440d500d6eb5f9126f85d042): 5
 ```
 
   </TabItem>
   <TabItem value="series_1" label="Mint Primary Series Constructor Tokens">
 
-```scala
-import cats.arrow.FunctionK
-import cats.effect.IO
-import cats.effect.unsafe.implicits.global
-import co.topl.brambl.Context
-import co.topl.brambl.builders.TransactionBuilderApi
-import co.topl.brambl.builders.TransactionBuilderApi.implicits.lockAddressOps
-import co.topl.brambl.constants.NetworkConstants.{MAIN_LEDGER_ID, PRIVATE_NETWORK_ID}
-import co.topl.brambl.dataApi.{BifrostQueryAlgebra, GenusQueryAlgebra, RpcChannelResource}
-import co.topl.brambl.models.Event.SeriesPolicy
-import co.topl.brambl.models.Indices
-import co.topl.brambl.servicekit.{WalletKeyApi, WalletStateApi, WalletStateResource}
-import co.topl.brambl.syntax.{LvlType, int128AsBigInt, valueToQuantitySyntaxOps, valueToTypeIdentifierSyntaxOps}
-import co.topl.brambl.utils.Encoding
-import co.topl.brambl.wallet.{CredentiallerInterpreter, WalletApi}
-import quivr.models.VerificationKey
+```scala title="Mint Primary Series Constructor Tokens"
 
-import java.nio.file.Paths
-
-implicit val transformType: FunctionK[IO, IO] = FunctionK.id[IO]
-
-// Replace with the desired location for your tutorial directory
-val tutorialDir = Paths.get(System.getProperty("user.home"), "tutorial").toString
-// Replace with the desired location for your key file
-val keyFile = Paths.get(tutorialDir, "keyfile.json").toString
-// Replace with the desired location of for your wallet state DB file
-val walletDb = Paths.get(tutorialDir, "wallet.db").toString
-val conn = WalletStateResource.walletResource(walletDb)
-// Replace with the address and port of your node's gRPC endpoint
-val channelResource = RpcChannelResource.channelResource[IO]("localhost", 9084, secureConnection = false)
-
-val walletKeyApi = WalletKeyApi.make[IO]()
-val walletApi = WalletApi.make(walletKeyApi)
-val walletStateApi = WalletStateApi.make[IO](conn, walletApi)
-val genusQueryApi = GenusQueryAlgebra.make[IO](channelResource)
-val txBuilder = TransactionBuilderApi.make[IO](PRIVATE_NETWORK_ID, MAIN_LEDGER_ID)
-
-val unprovenTransaction = for {
-  inputLock <- walletStateApi.getLock("self", "default", 2)
-  inputAddress <- txBuilder.lockAddress(inputLock.get)
-  txos <- genusQueryApi.queryUtxo(inputAddress)
-  seriesPolicy = SeriesPolicy(
-    "Primary Series Policy Label",
-    registrationUtxo = txos.filter(_.transactionOutput.value.value.typeIdentifier == LvlType).head.outputAddress
-  )
-  outputLock <- walletStateApi.getLock("self", "default", 3)
-  outputAddress <- txBuilder.lockAddress(outputLock.get)
-  outputVk <- walletStateApi.getEntityVks("self", "default").map(_.get.head) flatMap { vk =>
-    // Derive the verification key at path 1/1/3 (used in outputLock)
-    walletApi.deriveChildVerificationKey(VerificationKey.parseFrom(Encoding.decodeFromBase58(vk).toOption.get), 3)
-  }
-  _ <- walletStateApi.updateWalletState(
-    Encoding.encodeToBase58(outputLock.get.getPredicate.toByteArray),
-    outputAddress.toBase58(),
-    Some("ExtendedEd25519"),
-    Some(Encoding.encodeToBase58(outputVk.toByteArray)),
-    Indices(1, 1, 3)
-  )
-  tx <- txBuilder.buildSeriesMintingTransaction(
-    txos,
-    inputLock.get.getPredicate,
-    seriesPolicy,
-    5L,
-    outputAddress,
-    outputAddress,
-    1L
-  )
-} yield tx.toOption.get
-
-val provenTx = for {
-  mainKey <- walletApi.loadAndExtractMainKey[IO]("password".getBytes, keyFile)
-  credentialler = CredentiallerInterpreter.make[IO](walletApi, walletStateApi, mainKey.toOption.get)
-  tx <- unprovenTransaction
-  ctx = Context[IO](tx, 50, _ => None)
-  res <- credentialler.proveAndValidate(tx, ctx)
-} yield res.toOption.get
-
-
-val bifrostQuery = BifrostQueryAlgebra.make[IO](channelResource)
-
-val broadcastTransaction = for {
-  tx <- provenTx
-  _ <- bifrostQuery.broadcastTransaction(tx)
-} yield ()
-
-broadcastTransaction.unsafeRunSync()
-
-val queryFunds = for {
-  // The tokens were sent to the address derived from (self, default, 3)
-  sigLock <- walletStateApi.getLock("self", "default", 3)
-  sigAddress <- txBuilder.lockAddress(sigLock.get)
-  txos <- genusQueryApi.queryUtxo(sigAddress)
-} yield txos.map(_.transactionOutput.value.value).map(value =>
-  s"${value.typeIdentifier.getClass.getSimpleName}: ${value.quantity.intValue}"
-)
-
-// Allow some time to pass before querying the transaction
-Thread.sleep(15000)
-
-queryFunds.unsafeRunSync().foreach(println)
+```
+```bash title="output"
+Group(5ae9d0660dc70f19bcaacc65387ca31b7226fe21440d500d6eb5f9126f85d042): 5
+LVL: 98
+Series(b789bd118dcb6dab6fa3e6ef5b894a6b1138c44e9796f4722528c8a135c25685): 5
 ```
 
   </TabItem>
   <TabItem value="series_2" label="Mint Secondary Series Constructor Tokens">
 
-```scala
-import cats.arrow.FunctionK
-import cats.effect.IO
-import cats.effect.unsafe.implicits.global
-import co.topl.brambl.Context
-import co.topl.brambl.builders.TransactionBuilderApi
-import co.topl.brambl.builders.TransactionBuilderApi.implicits.lockAddressOps
-import co.topl.brambl.constants.NetworkConstants.{MAIN_LEDGER_ID, PRIVATE_NETWORK_ID}
-import co.topl.brambl.dataApi.{BifrostQueryAlgebra, GenusQueryAlgebra, RpcChannelResource}
-import co.topl.brambl.models.Event.SeriesPolicy
-import co.topl.brambl.models.Indices
-import co.topl.brambl.servicekit.{WalletKeyApi, WalletStateApi, WalletStateResource}
-import co.topl.brambl.syntax.{LvlType, int128AsBigInt, valueToQuantitySyntaxOps, valueToTypeIdentifierSyntaxOps}
-import co.topl.brambl.utils.Encoding
-import co.topl.brambl.wallet.{CredentiallerInterpreter, WalletApi}
-import quivr.models.VerificationKey
+```scala title="Mint Secondary Series Constructor Tokens"
 
-import java.nio.file.Paths
-
-implicit val transformType: FunctionK[IO, IO] = FunctionK.id[IO]
-
-// Replace with the desired location for your tutorial directory
-val tutorialDir = Paths.get(System.getProperty("user.home"), "tutorial").toString
-// Replace with the desired location for your key file
-val keyFile = Paths.get(tutorialDir, "keyfile.json").toString
-// Replace with the desired location of for your wallet state DB file
-val walletDb = Paths.get(tutorialDir, "wallet.db").toString
-val conn = WalletStateResource.walletResource(walletDb)
-// Replace with the address and port of your node's gRPC endpoint
-val channelResource = RpcChannelResource.channelResource[IO]("localhost", 9084, secureConnection = false)
-
-val walletKeyApi = WalletKeyApi.make[IO]()
-val walletApi = WalletApi.make(walletKeyApi)
-val walletStateApi = WalletStateApi.make[IO](conn, walletApi)
-val genusQueryApi = GenusQueryAlgebra.make[IO](channelResource)
-val txBuilder = TransactionBuilderApi.make[IO](PRIVATE_NETWORK_ID, MAIN_LEDGER_ID)
-
-val unprovenTransaction = for {
-  inputLock <- walletStateApi.getLock("self", "default", 3)
-  inputAddress <- txBuilder.lockAddress(inputLock.get)
-  txos <- genusQueryApi.queryUtxo(inputAddress)
-  seriesPolicy = SeriesPolicy(
-    "Secondary Series Policy Label",
-    registrationUtxo = txos.filter(_.transactionOutput.value.value.typeIdentifier == LvlType).head.outputAddress
-  )
-  outputLock <- walletStateApi.getLock("self", "default", 4)
-  outputAddress <- txBuilder.lockAddress(outputLock.get)
-  outputVk <- walletStateApi.getEntityVks("self", "default").map(_.get.head) flatMap { vk =>
-    // Derive the verification key at path 1/1/4 (used in outputLock)
-    walletApi.deriveChildVerificationKey(VerificationKey.parseFrom(Encoding.decodeFromBase58(vk).toOption.get), 4)
-  }
-  _ <- walletStateApi.updateWalletState(
-    Encoding.encodeToBase58(outputLock.get.getPredicate.toByteArray),
-    outputAddress.toBase58(),
-    Some("ExtendedEd25519"),
-    Some(Encoding.encodeToBase58(outputVk.toByteArray)),
-    Indices(1, 1, 4)
-  )
-  tx <- txBuilder.buildSeriesMintingTransaction(
-    txos,
-    inputLock.get.getPredicate,
-    seriesPolicy,
-    5L,
-    outputAddress,
-    outputAddress,
-    1L
-  )
-} yield tx.toOption.get
-
-val provenTx = for {
-  mainKey <- walletApi.loadAndExtractMainKey[IO]("password".getBytes, keyFile)
-  credentialler = CredentiallerInterpreter.make[IO](walletApi, walletStateApi, mainKey.toOption.get)
-  tx <- unprovenTransaction
-  ctx = Context[IO](tx, 50, _ => None)
-  res <- credentialler.proveAndValidate(tx, ctx)
-} yield res.toOption.get
-
-
-val bifrostQuery = BifrostQueryAlgebra.make[IO](channelResource)
-
-val broadcastTransaction = for {
-  tx <- provenTx
-  _ <- bifrostQuery.broadcastTransaction(tx)
-} yield ()
-
-broadcastTransaction.unsafeRunSync()
-
-val queryFunds = for {
-  // The tokens were sent to the address derived from (self, default, 4)
-  sigLock <- walletStateApi.getLock("self", "default", 4)
-  sigAddress <- txBuilder.lockAddress(sigLock.get)
-  txos <- genusQueryApi.queryUtxo(sigAddress)
-} yield txos.map(_.transactionOutput.value.value).map(value =>
-  s"${value.typeIdentifier.getClass.getSimpleName}: ${value.quantity.intValue}"
-)
-
-// Allow some time to pass before querying the transaction
-Thread.sleep(15000)
-
-queryFunds.unsafeRunSync().foreach(println)
+```
+```bash title="output"
+Group(5ae9d0660dc70f19bcaacc65387ca31b7226fe21440d500d6eb5f9126f85d042): 5
+LVL: 97
+Series(b789bd118dcb6dab6fa3e6ef5b894a6b1138c44e9796f4722528c8a135c25685): 5
+Series(c4b5db2f8f3f21a9027a24d57e2da4605deb3d6aa4bd58f6c7127e5ed87a13ce): 5
 ```
 
   </TabItem>
@@ -455,11 +282,6 @@ queryFunds.unsafeRunSync().foreach(println)
 
 Try running the code. If all went well, you should see that you have 99 LVLs and 5 Group Constructor Token in your wallet,
 ready to be spent by you.
-
-```bash title="output"
-LvlType$: 99
-GroupType: 5
-```
 
 Keep the same local node instance running.
 
@@ -474,211 +296,31 @@ Your code should look something like this:
 <Tabs>
   <TabItem value="asset_1" label="Mint Primary Asset Tokens">
 
-```scala
-import cats.arrow.FunctionK
-import cats.effect.IO
-import cats.effect.unsafe.implicits.global
-import co.topl.brambl.Context
-import co.topl.brambl.builders.TransactionBuilderApi
-import co.topl.brambl.builders.TransactionBuilderApi.implicits.lockAddressOps
-import co.topl.brambl.constants.NetworkConstants.{MAIN_LEDGER_ID, PRIVATE_NETWORK_ID}
-import co.topl.brambl.dataApi.{BifrostQueryAlgebra, GenusQueryAlgebra, RpcChannelResource}
-import co.topl.brambl.models.Indices
-import co.topl.brambl.models.box.AssetMintingStatement
-import co.topl.brambl.servicekit.{WalletKeyApi, WalletStateApi, WalletStateResource}
-import co.topl.brambl.syntax.{bigIntAsInt128, int128AsBigInt, valueToQuantitySyntaxOps, valueToTypeIdentifierSyntaxOps}
-import co.topl.brambl.utils.Encoding
-import co.topl.brambl.wallet.{CredentiallerInterpreter, WalletApi}
-import quivr.models.VerificationKey
+```scala title="Mint Primary Asset Tokens"
 
-import java.nio.file.Paths
+```
+```bash title="output"
+Group(5ae9d0660dc70f19bcaacc65387ca31b7226fe21440d500d6eb5f9126f85d042): 5
+LVL: 96
+Series(c4b5db2f8f3f21a9027a24d57e2da4605deb3d6aa4bd58f6c7127e5ed87a13ce): 5
+Series(b789bd118dcb6dab6fa3e6ef5b894a6b1138c44e9796f4722528c8a135c25685): 5
+Asset(5ae9d0660dc70f19bcaacc65387ca31b7226fe21440d500d6eb5f9126f85d042, b789bd118dcb6dab6fa3e6ef5b894a6b1138c44e9796f4722528c8a135c25685): 10
 
-implicit val transformType: FunctionK[IO, IO] = FunctionK.id[IO]
-
-// Replace with the desired location for your tutorial directory
-val tutorialDir = Paths.get(System.getProperty("user.home"), "tutorial").toString
-// Replace with the desired location for your key file
-val keyFile = Paths.get(tutorialDir, "keyfile.json").toString
-// Replace with the desired location of for your wallet state DB file
-val walletDb = Paths.get(tutorialDir, "wallet.db").toString
-val conn = WalletStateResource.walletResource(walletDb)
-// Replace with the address and port of your node's gRPC endpoint
-val channelResource = RpcChannelResource.channelResource[IO]("localhost", 9084, secureConnection = false)
-
-val walletKeyApi = WalletKeyApi.make[IO]()
-val walletApi = WalletApi.make(walletKeyApi)
-val walletStateApi = WalletStateApi.make[IO](conn, walletApi)
-val genusQueryApi = GenusQueryAlgebra.make[IO](channelResource)
-val txBuilder = TransactionBuilderApi.make[IO](PRIVATE_NETWORK_ID, MAIN_LEDGER_ID)
-
-val unprovenTransaction = for {
-  inputLock <- walletStateApi.getLock("self", "default", 4)
-  inputAddress <- txBuilder.lockAddress(inputLock.get)
-  txos <- genusQueryApi.queryUtxo(inputAddress)
-  mintingStatement = AssetMintingStatement(
-    txos.filter(_.transactionOutput.value.value.isGroup).head.outputAddress,
-    txos.filter(_.transactionOutput.value.value.isSeries).head.outputAddress,
-    BigInt(10)
-  )
-  outputLock <- walletStateApi.getLock("self", "default", 5)
-  outputAddress <- txBuilder.lockAddress(outputLock.get)
-  outputVk <- walletStateApi.getEntityVks("self", "default").map(_.get.head) flatMap { vk =>
-    // Derive the verification key at path 1/1/5 (used in outputLock)
-    walletApi.deriveChildVerificationKey(VerificationKey.parseFrom(Encoding.decodeFromBase58(vk).toOption.get), 5)
-  }
-  _ <- walletStateApi.updateWalletState(
-    Encoding.encodeToBase58(outputLock.get.getPredicate.toByteArray),
-    outputAddress.toBase58(),
-    Some("ExtendedEd25519"),
-    Some(Encoding.encodeToBase58(outputVk.toByteArray)),
-    Indices(1, 1, 5)
-  )
-  tx <- txBuilder.buildAssetMintingTransaction(
-    mintingStatement,
-    txos,
-    Map(inputAddress -> inputLock.get.getPredicate),
-    1L,
-    outputAddress,
-    outputAddress
-  )
-} yield tx.toOption.get
-
-val provenTx = for {
-  mainKey <- walletApi.loadAndExtractMainKey[IO]("password".getBytes, keyFile)
-  credentialler = CredentiallerInterpreter.make[IO](walletApi, walletStateApi, mainKey.toOption.get)
-  tx <- unprovenTransaction
-  ctx = Context[IO](tx, 50, _ => None)
-  res <- credentialler.proveAndValidate(tx, ctx)
-} yield res.toOption.get
-
-
-val bifrostQuery = BifrostQueryAlgebra.make[IO](channelResource)
-
-val broadcastTransaction = for {
-  tx <- provenTx
-  _ <- bifrostQuery.broadcastTransaction(tx)
-} yield ()
-
-broadcastTransaction.unsafeRunSync()
-
-val queryFunds = for {
-  // The tokens were sent to the address derived from (self, default, 5)
-  sigLock <- walletStateApi.getLock("self", "default", 5)
-  sigAddress <- txBuilder.lockAddress(sigLock.get)
-  txos <- genusQueryApi.queryUtxo(sigAddress)
-} yield txos.map(_.transactionOutput.value.value).map(value =>
-  s"${value.typeIdentifier.getClass.getSimpleName}: ${value.quantity.intValue}"
-)
-
-// Allow some time to pass before querying the transaction
-Thread.sleep(15000)
-
-queryFunds.unsafeRunSync().foreach(println)
 ```
 
   </TabItem>
   <TabItem value="asset_2" label="Mint Secondary Asset Tokens">
 
-```scala
-import cats.arrow.FunctionK
-import cats.effect.IO
-import cats.effect.unsafe.implicits.global
-import co.topl.brambl.Context
-import co.topl.brambl.builders.TransactionBuilderApi
-import co.topl.brambl.builders.TransactionBuilderApi.implicits.lockAddressOps
-import co.topl.brambl.constants.NetworkConstants.{MAIN_LEDGER_ID, PRIVATE_NETWORK_ID}
-import co.topl.brambl.dataApi.{BifrostQueryAlgebra, GenusQueryAlgebra, RpcChannelResource}
-import co.topl.brambl.models.Indices
-import co.topl.brambl.models.box.AssetMintingStatement
-import co.topl.brambl.servicekit.{WalletKeyApi, WalletStateApi, WalletStateResource}
-import co.topl.brambl.syntax.{bigIntAsInt128, int128AsBigInt, valueToQuantitySyntaxOps, valueToTypeIdentifierSyntaxOps}
-import co.topl.brambl.utils.Encoding
-import co.topl.brambl.wallet.{CredentiallerInterpreter, WalletApi}
-import quivr.models.VerificationKey
+```scala title="Mint Secondary Asset Tokens"
 
-import java.nio.file.Paths
-
-implicit val transformType: FunctionK[IO, IO] = FunctionK.id[IO]
-
-// Replace with the desired location for your tutorial directory
-val tutorialDir = Paths.get(System.getProperty("user.home"), "tutorial").toString
-// Replace with the desired location for your key file
-val keyFile = Paths.get(tutorialDir, "keyfile.json").toString
-// Replace with the desired location of for your wallet state DB file
-val walletDb = Paths.get(tutorialDir, "wallet.db").toString
-val conn = WalletStateResource.walletResource(walletDb)
-// Replace with the address and port of your node's gRPC endpoint
-val channelResource = RpcChannelResource.channelResource[IO]("localhost", 9084, secureConnection = false)
-
-val walletKeyApi = WalletKeyApi.make[IO]()
-val walletApi = WalletApi.make(walletKeyApi)
-val walletStateApi = WalletStateApi.make[IO](conn, walletApi)
-val genusQueryApi = GenusQueryAlgebra.make[IO](channelResource)
-val txBuilder = TransactionBuilderApi.make[IO](PRIVATE_NETWORK_ID, MAIN_LEDGER_ID)
-
-val unprovenTransaction = for {
-  inputLock <- walletStateApi.getLock("self", "default", 5)
-  inputAddress <- txBuilder.lockAddress(inputLock.get)
-  txos <- genusQueryApi.queryUtxo(inputAddress)
-  mintingStatement = AssetMintingStatement(
-    txos.filter(_.transactionOutput.value.value.isGroup).head.outputAddress,
-    txos.filter(_.transactionOutput.value.value.isSeries).head.outputAddress,
-    BigInt(10)
-  )
-  outputLock <- walletStateApi.getLock("self", "default", 6)
-  outputAddress <- txBuilder.lockAddress(outputLock.get)
-  outputVk <- walletStateApi.getEntityVks("self", "default").map(_.get.head) flatMap { vk =>
-    // Derive the verification key at path 1/1/6 (used in outputLock)
-    walletApi.deriveChildVerificationKey(VerificationKey.parseFrom(Encoding.decodeFromBase58(vk).toOption.get), 6)
-  }
-  _ <- walletStateApi.updateWalletState(
-    Encoding.encodeToBase58(outputLock.get.getPredicate.toByteArray),
-    outputAddress.toBase58(),
-    Some("ExtendedEd25519"),
-    Some(Encoding.encodeToBase58(outputVk.toByteArray)),
-    Indices(1, 1, 6)
-  )
-  tx <- txBuilder.buildAssetMintingTransaction(
-    mintingStatement,
-    txos,
-    Map(inputAddress -> inputLock.get.getPredicate),
-    1L,
-    outputAddress,
-    outputAddress
-  )
-} yield tx.toOption.get
-
-val provenTx = for {
-  mainKey <- walletApi.loadAndExtractMainKey[IO]("password".getBytes, keyFile)
-  credentialler = CredentiallerInterpreter.make[IO](walletApi, walletStateApi, mainKey.toOption.get)
-  tx <- unprovenTransaction
-  ctx = Context[IO](tx, 50, _ => None)
-  res <- credentialler.proveAndValidate(tx, ctx)
-} yield res.toOption.get
-
-
-val bifrostQuery = BifrostQueryAlgebra.make[IO](channelResource)
-
-val broadcastTransaction = for {
-  tx <- provenTx
-  _ <- bifrostQuery.broadcastTransaction(tx)
-} yield ()
-
-broadcastTransaction.unsafeRunSync()
-
-val queryFunds = for {
-  // The tokens were sent to the address derived from (self, default, 6)
-  sigLock <- walletStateApi.getLock("self", "default", 6)
-  sigAddress <- txBuilder.lockAddress(sigLock.get)
-  txos <- genusQueryApi.queryUtxo(sigAddress)
-} yield txos.map(_.transactionOutput.value.value).map(value =>
-  s"${value.typeIdentifier.getClass.getSimpleName}: ${value.quantity.intValue}"
-)
-
-// Allow some time to pass before querying the transaction
-Thread.sleep(15000)
-
-queryFunds.unsafeRunSync().foreach(println)
+```
+```bash title="output"
+Group(5ae9d0660dc70f19bcaacc65387ca31b7226fe21440d500d6eb5f9126f85d042): 5
+LVL: 95
+Series(c4b5db2f8f3f21a9027a24d57e2da4605deb3d6aa4bd58f6c7127e5ed87a13ce): 5
+Series(b789bd118dcb6dab6fa3e6ef5b894a6b1138c44e9796f4722528c8a135c25685): 5
+Asset(5ae9d0660dc70f19bcaacc65387ca31b7226fe21440d500d6eb5f9126f85d042, b789bd118dcb6dab6fa3e6ef5b894a6b1138c44e9796f4722528c8a135c25685): 10
+Asset(5ae9d0660dc70f19bcaacc65387ca31b7226fe21440d500d6eb5f9126f85d042, c4b5db2f8f3f21a9027a24d57e2da4605deb3d6aa4bd58f6c7127e5ed87a13ce): 10
 ```
 
   </TabItem>
@@ -688,119 +330,202 @@ After ensuring that some time has passed since minting the Group Constructor Tok
 running the code. If all went well, you should see that you have 98 LVLs, 5 Group Constructor Token, and 5 Series 
 Constructor token in your wallet, ready to be spent by you.
 
-```bash title="output"
-GroupType: 5
-LvlType$: 98
-SeriesType: 5
-```
-
 Keep the same local node instance running.
 
-## Step 3: Merge Primary and Secondary Asset Tokens
+## Step 3: Merge Asset Tokens
 
 TBD > Detailed steps
 
 Your code should look something like this:
 
 ```scala title="Merge Assets"
+package co.topl.brambl.servicekit
+
 import cats.arrow.FunctionK
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
-import co.topl.brambl.Context
 import co.topl.brambl.builders.TransactionBuilderApi
 import co.topl.brambl.builders.TransactionBuilderApi.implicits.lockAddressOps
 import co.topl.brambl.constants.NetworkConstants.{MAIN_LEDGER_ID, PRIVATE_NETWORK_ID}
-import co.topl.brambl.dataApi.{BifrostQueryAlgebra, GenusQueryAlgebra, RpcChannelResource}
+import co.topl.brambl.dataApi.{GenusQueryAlgebra, RpcChannelResource}
+import co.topl.brambl.display.DisplayOps.DisplayTOps
 import co.topl.brambl.models.Indices
-import co.topl.brambl.servicekit.{WalletKeyApi, WalletStateApi, WalletStateResource}
-import co.topl.brambl.syntax.{int128AsBigInt, valueToQuantitySyntaxOps, valueToTypeIdentifierSyntaxOps}
 import co.topl.brambl.utils.Encoding
-import co.topl.brambl.wallet.{CredentiallerInterpreter, WalletApi}
+import co.topl.brambl.wallet.WalletApi
 import quivr.models.VerificationKey
 
 import java.nio.file.Paths
 
-implicit val transformType: FunctionK[IO, IO] = FunctionK.id[IO]
+object Step3Merge extends App {
+  implicit val transformType: FunctionK[IO, IO] = FunctionK.id[IO]
 
-// Replace with the desired location for your tutorial directory
-val tutorialDir = Paths.get(System.getProperty("user.home"), "tutorial").toString
-// Replace with the desired location for your key file
-val keyFile = Paths.get(tutorialDir, "keyfile.json").toString
-// Replace with the desired location of for your wallet state DB file
-val walletDb = Paths.get(tutorialDir, "wallet.db").toString
-val conn = WalletStateResource.walletResource(walletDb)
-// Replace with the address and port of your node's gRPC endpoint
-val channelResource = RpcChannelResource.channelResource[IO]("localhost", 9084, secureConnection = false)
+  // Replace with the desired location for your tutorial directory
+  val tutorialDir = Paths.get(System.getProperty("user.home"), "tutorial").toString
+  // Replace with the desired location for your key file
+  val keyFile = Paths.get(tutorialDir, "keyfile.json").toString
+  // Replace with the desired location of for your wallet state DB file
+  val walletDb = Paths.get(tutorialDir, "wallet.db").toString
+  val conn = WalletStateResource.walletResource(walletDb)
+  // Replace with the address and port of your node's gRPC endpoint
+  val channelResource = RpcChannelResource.channelResource[IO]("localhost", 9084, secureConnection = false)
 
-val walletKeyApi = WalletKeyApi.make[IO]()
-val walletApi = WalletApi.make(walletKeyApi)
-val walletStateApi = WalletStateApi.make[IO](conn, walletApi)
-val genusQueryApi = GenusQueryAlgebra.make[IO](channelResource)
-val txBuilder = TransactionBuilderApi.make[IO](PRIVATE_NETWORK_ID, MAIN_LEDGER_ID)
+  val walletKeyApi = WalletKeyApi.make[IO]()
+  val walletApi = WalletApi.make(walletKeyApi)
+  val walletStateApi = WalletStateApi.make[IO](conn, walletApi)
+  val genusQueryApi = GenusQueryAlgebra.make[IO](channelResource)
+  val txBuilder = TransactionBuilderApi.make[IO](PRIVATE_NETWORK_ID, MAIN_LEDGER_ID)
 
-val unprovenTransaction = for {
-  inputLock <- walletStateApi.getLock("self", "default", 6)
-  inputAddress <- txBuilder.lockAddress(inputLock.get)
-  txos <- genusQueryApi.queryUtxo(inputAddress)
-  outputLock <- walletStateApi.getLock("self", "default", 7)
-  outputAddress <- txBuilder.lockAddress(outputLock.get)
-  outputVk <- walletStateApi.getEntityVks("self", "default").map(_.get.head) flatMap { vk =>
-    // Derive the verification key at path 1/1/7 (used in outputLock)
-    walletApi.deriveChildVerificationKey(VerificationKey.parseFrom(Encoding.decodeFromBase58(vk).toOption.get), 7)
-  }
-  _ <- walletStateApi.updateWalletState(
-    Encoding.encodeToBase58(outputLock.get.getPredicate.toByteArray),
-    outputAddress.toBase58(),
-    Some("ExtendedEd25519"),
-    Some(Encoding.encodeToBase58(outputVk.toByteArray)),
-    Indices(1, 1, 7)
-  )
-  utxosToMerge = txos.filter(_.transactionOutput.value.value.isAsset).map(_.outputAddress)
-  tx <- txBuilder.buildAssetMergeTransaction(
-    utxosToMerge,
-    txos,
-    Map(inputAddress -> inputLock.get.getPredicate),
-    1L,
-    outputAddress,
-    outputAddress
-  )
-} yield tx.toOption.get
+  val unprovenTransaction = for {
+    inputLock <- walletStateApi.getLock("self", "default", 6)
+    inputAddress <- txBuilder.lockAddress(inputLock.get)
+    txos <- genusQueryApi.queryUtxo(inputAddress)
+    outputLock <- walletStateApi.getLock("self", "default", 7)
+    outputAddress <- txBuilder.lockAddress(outputLock.get)
+    outputVk <- walletStateApi.getEntityVks("self", "default").map(_.get.head) flatMap { vk =>
+      // Derive the verification key at path 1/1/7 (used in outputLock)
+      walletApi.deriveChildVerificationKey(VerificationKey.parseFrom(Encoding.decodeFromBase58(vk).toOption.get), 7)
+    }
+    _ <- walletStateApi.updateWalletState(
+      Encoding.encodeToBase58(outputLock.get.getPredicate.toByteArray),
+      outputAddress.toBase58(),
+      Some("ExtendedEd25519"),
+      Some(Encoding.encodeToBase58(outputVk.toByteArray)),
+      Indices(1, 1, 7)
+    )
+    utxosToMerge = txos.filter(_.transactionOutput.value.value.isAsset).map(_.outputAddress)
+    tx <- txBuilder.buildAssetMergeTransaction(
+      utxosToMerge,
+      txos,
+      Map(inputAddress -> inputLock.get.getPredicate),
+      1L,
+      outputAddress,
+      outputAddress
+    )
+  } yield tx.toOption.get
 
-val provenTx = for {
-  mainKey <- walletApi.loadAndExtractMainKey[IO]("password".getBytes, keyFile)
-  credentialler = CredentiallerInterpreter.make[IO](walletApi, walletStateApi, mainKey.toOption.get)
-  tx <- unprovenTransaction
-  ctx = Context[IO](tx, 50, _ => None)
-  res <- credentialler.proveAndValidate(tx, ctx)
-} yield res.toOption.get
-
-
-val bifrostQuery = BifrostQueryAlgebra.make[IO](channelResource)
-
-val broadcastTransaction = for {
-  tx <- provenTx
-  _ <- bifrostQuery.broadcastTransaction(tx)
-} yield ()
-
-broadcastTransaction.unsafeRunSync()
-
-val queryFunds = for {
-  // The tokens were sent to the address derived from (self, default, 7)
-  sigLock <- walletStateApi.getLock("self", "default", 7)
-  sigAddress <- txBuilder.lockAddress(sigLock.get)
-  txos <- genusQueryApi.queryUtxo(sigAddress)
-} yield txos.map(_.transactionOutput.value.value).map(value =>
-  s"${value.typeIdentifier.getClass.getSimpleName}: ${value.quantity.intValue}"
-)
-
-// Allow some time to pass before querying the transaction
-Thread.sleep(15000)
-
-queryFunds.unsafeRunSync().foreach(println)
+  // View the transaction that was built
+  println(unprovenTransaction.unsafeRunSync().display)
+}
 ```
 
 TBD
 
 ```bash title="output"
-TBD
+TransactionId              : 4tDeiPf5JwgYKwBhFhrkJnfS5MZdtcRHw3NCDM7EbJx9
+
+Group Policies
+==============
+
+
+Series Policies
+===============
+
+
+Asset Minting Statements
+========================
+
+
+Asset Merging Statements
+========================
+Input-Utxos                : 2dNE1Fshw2VfkXYBebG4cEoaQAjAAZLoLLEMzxtnwK9f#4, 2dNE1Fshw2VfkXYBebG4cEoaQAjAAZLoLLEMzxtnwK9f#5
+Output-Index               : 4
+
+Inputs
+======
+TxoAddress                 : 2dNE1Fshw2VfkXYBebG4cEoaQAjAAZLoLLEMzxtnwK9f#0
+Attestation                : Not implemented
+Type                       : Group Constructor
+Id                         : 5ae9d0660dc70f19bcaacc65387ca31b7226fe21440d500d6eb5f9126f85d042
+Fixed-Series               : NO FIXED SERIES
+Value                      : 5
+-----------
+TxoAddress                 : 2dNE1Fshw2VfkXYBebG4cEoaQAjAAZLoLLEMzxtnwK9f#1
+Attestation                : Not implemented
+Type                       : LVL
+Value                      : 95
+-----------
+TxoAddress                 : 2dNE1Fshw2VfkXYBebG4cEoaQAjAAZLoLLEMzxtnwK9f#2
+Attestation                : Not implemented
+Type                       : Series Constructor
+Id                         : c4b5db2f8f3f21a9027a24d57e2da4605deb3d6aa4bd58f6c7127e5ed87a13ce
+Fungibility                : group
+Token-Supply               : UNLIMITED
+Quant-Descr.               : liquid
+Value                      : 5
+-----------
+TxoAddress                 : 2dNE1Fshw2VfkXYBebG4cEoaQAjAAZLoLLEMzxtnwK9f#3
+Attestation                : Not implemented
+Type                       : Series Constructor
+Id                         : b789bd118dcb6dab6fa3e6ef5b894a6b1138c44e9796f4722528c8a135c25685
+Fungibility                : group
+Token-Supply               : UNLIMITED
+Quant-Descr.               : liquid
+Value                      : 5
+-----------
+TxoAddress                 : 2dNE1Fshw2VfkXYBebG4cEoaQAjAAZLoLLEMzxtnwK9f#4
+Attestation                : Not implemented
+Type                       : Asset
+GroupId                    : 5ae9d0660dc70f19bcaacc65387ca31b7226fe21440d500d6eb5f9126f85d042
+SeriesId                   : b789bd118dcb6dab6fa3e6ef5b894a6b1138c44e9796f4722528c8a135c25685
+GroupAlloy                 : N/A
+SeriesAlloy                : N/A
+Commitment                 : No commitment
+Ephemeral-Metadata         :
+No ephemeral metadata
+Value                      : 10
+-----------
+TxoAddress                 : 2dNE1Fshw2VfkXYBebG4cEoaQAjAAZLoLLEMzxtnwK9f#5
+Attestation                : Not implemented
+Type                       : Asset
+GroupId                    : 5ae9d0660dc70f19bcaacc65387ca31b7226fe21440d500d6eb5f9126f85d042
+SeriesId                   : c4b5db2f8f3f21a9027a24d57e2da4605deb3d6aa4bd58f6c7127e5ed87a13ce
+GroupAlloy                 : N/A
+SeriesAlloy                : N/A
+Commitment                 : No commitment
+Ephemeral-Metadata         :
+No ephemeral metadata
+Value                      : 10
+
+Outputs
+=======
+LockAddress                : ptetP7jshHUAY7BDXaLR2WBzeKzztryJSAgaV6rhwLDVBYyeXiNhwZDdw8zA
+Type                       : Group Constructor
+Id                         : 5ae9d0660dc70f19bcaacc65387ca31b7226fe21440d500d6eb5f9126f85d042
+Fixed-Series               : NO FIXED SERIES
+Value                      : 5
+-----------
+LockAddress                : ptetP7jshHUAY7BDXaLR2WBzeKzztryJSAgaV6rhwLDVBYyeXiNhwZDdw8zA
+Type                       : LVL
+Value                      : 94
+-----------
+LockAddress                : ptetP7jshHUAY7BDXaLR2WBzeKzztryJSAgaV6rhwLDVBYyeXiNhwZDdw8zA
+Type                       : Series Constructor
+Id                         : c4b5db2f8f3f21a9027a24d57e2da4605deb3d6aa4bd58f6c7127e5ed87a13ce
+Fungibility                : group
+Token-Supply               : UNLIMITED
+Quant-Descr.               : liquid
+Value                      : 5
+-----------
+LockAddress                : ptetP7jshHUAY7BDXaLR2WBzeKzztryJSAgaV6rhwLDVBYyeXiNhwZDdw8zA
+Type                       : Series Constructor
+Id                         : b789bd118dcb6dab6fa3e6ef5b894a6b1138c44e9796f4722528c8a135c25685
+Fungibility                : group
+Token-Supply               : UNLIMITED
+Quant-Descr.               : liquid
+Value                      : 5
+-----------
+LockAddress                : ptetP7jshHUAY7BDXaLR2WBzeKzztryJSAgaV6rhwLDVBYyeXiNhwZDdw8zA
+Type                       : Asset
+GroupId                    : 5ae9d0660dc70f19bcaacc65387ca31b7226fe21440d500d6eb5f9126f85d042
+SeriesId                   : N/A
+GroupAlloy                 : N/A
+SeriesAlloy                : a5b4c94fb0b7dde622ab4ee2641d83d5a81b727157392ffacc52ad185451179f
+Commitment                 : No commitment
+Ephemeral-Metadata         :
+No ephemeral metadata
+Value                      : 20
+
+Datum
+=====
+Value                      :
 ```

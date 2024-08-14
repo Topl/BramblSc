@@ -83,6 +83,10 @@ Series-Token-Utxo          : 4pX2G4weCKBHDT9axEm3HChq6jURV7ZYRPgeb7KWkEzm#0
 Quantity                   : 1
 Permanent-Metadata         : \nNo permanent metadata
 
+Asset Merging Statements
+========================
+
+
 Inputs
 ======
 TxoAddress                 : 4pX2G4weCKBHDT9axEm3HChq6jURV7ZYRPgeb7KWkEzm#0
@@ -111,6 +115,8 @@ Attestation                : Not implemented
 Type                       : Asset
 GroupId                    : cabf98baf365915d2282eca423bfae4a6425bad6064b8d97f2c39ba6e9fceafb
 SeriesId                   : 094c5a3acf338bcca90c91c9adcae5f4b59dec385740e80660111a3d6b10a8ce
+GroupAlloy                 : N/A
+SeriesAlloy                : N/A
 Commitment                 : No commitment
 Ephemeral-Metadata         : \nNo ephemeral metadata
 Value                      : 1
@@ -139,6 +145,8 @@ LockAddress                : 1111111145ALDDRQ2EubxAYgTNdCKvTaP6GZXEWzi2vz6JmTAvr
 Type                       : Asset
 GroupId                    : cabf98baf365915d2282eca423bfae4a6425bad6064b8d97f2c39ba6e9fceafb
 SeriesId                   : 094c5a3acf338bcca90c91c9adcae5f4b59dec385740e80660111a3d6b10a8ce
+GroupAlloy                 : N/A
+SeriesAlloy                : N/A
 Commitment                 : No commitment
 Ephemeral-Metadata         : \nNo ephemeral metadata
 Value                      : 1
