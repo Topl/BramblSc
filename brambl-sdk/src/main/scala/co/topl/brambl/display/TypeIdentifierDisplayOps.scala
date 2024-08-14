@@ -1,7 +1,6 @@
 package co.topl.brambl.display
 
 import co.topl.brambl.display.DisplayOps.DisplayTOps
-import co.topl.brambl.models.box.Value.Value._
 import co.topl.brambl.syntax.{AssetType, GroupType, LvlType, SeriesType, ToplType, ValueTypeIdentifier}
 import co.topl.brambl.utils.Encoding
 
