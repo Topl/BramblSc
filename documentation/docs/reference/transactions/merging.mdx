@@ -65,12 +65,4 @@ Similarly, if the assets are `SERIES` fungible, then they must all share the sam
 
 ### Example
 
-The following example shows how to mint assets and then build a transaction to merge them. In this example, we first mint
-a group constructor token and then mint 2 series constructor tokens. This is because we will create group fungible assets
-that share a Group ID. Using these 3 constructor tokens, we mint 2 different group fungible assets in 2 separate transactions.
-Finally, we merge these 2 group fungible assets into 1. Notice that we wait 15 seconds before re-querying Genus for spendable
-UTXOs. This is because it takes some time for the transactions to be included in Genus. The delay on the Bifrost node,
-however, is much shorter thus we were able to only wait 1 second in the example.
-
-
-For a more in-depth step-by-step guide on merging assets, read the [tutorial](../../tutorials/tutorials/merge-asset#step-3-merge-asset-tokens).
+An example of how this merging transaction can be built is outlined in the following [tutorial](../../tutorials/tutorials/merge-asset#step-3-merge-asset-tokens).
