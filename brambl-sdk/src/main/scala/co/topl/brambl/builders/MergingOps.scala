@@ -16,6 +16,7 @@ import co.topl.brambl.syntax.{
   AssetType,
   ValueTypeIdentifier
 }
+import co.topl.brambl.utils.Encoding
 import co.topl.crypto.accumulators.LeafData
 import co.topl.crypto.accumulators.merkle.MerkleTree
 import co.topl.crypto.hash.Sha
@@ -37,7 +38,18 @@ object MergingOps {
 
   // Get alloy preimages, sort, then construct merkle proof using Sha256.
   def getAlloy(values: Seq[Asset]): ByteString = ByteString.copyFrom(
-    MerkleTree[Sha, Digest32](values.map(getPreimageBytes).sortBy(_.mkString).map(LeafData(_))).rootHash.value
+    MerkleTree[Sha, Digest32](
+      values
+        .map(getPreimageBytes)
+        .sortWith((p1, p2) =>
+          (
+            Encoding.encodeToHex(p1) // encode in hex for consistent comparison
+            compareTo // Compares two strings lexicographically per TIP-003.
+            Encoding.encodeToHex(p2)
+          ) < 0
+        )
+        .map(LeafData(_))
+    ).rootHash.value
   )
 
   // Precondition: the values represent a valid merge
