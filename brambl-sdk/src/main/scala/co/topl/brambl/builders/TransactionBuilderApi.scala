@@ -2,26 +2,16 @@ package co.topl.brambl.builders
 
 import cats.Monad
 import cats.data.EitherT
-import co.topl.brambl.codecs.AddressCodecs
-import co.topl.brambl.models.{Datum, Event, GroupId, LockAddress, LockId, SeriesId}
-import co.topl.brambl.models.box.{
-  AssetMintingStatement,
-  Attestation,
-  FungibilityType,
-  Lock,
-  QuantityDescriptorType,
-  Value
-}
-import co.topl.brambl.models.transaction.{IoTransaction, Schedule, SpentTransactionOutput, UnspentTransactionOutput}
-import co.topl.genus.services.Txo
-import com.google.protobuf.ByteString
-import quivr.models.{Int128, Proof, SmallData}
-import co.topl.brambl.common.ContainsEvidence.Ops
-import co.topl.brambl.common.ContainsImmutable.instances._
 import cats.implicits._
 import co.topl.brambl.builders.UserInputValidations.TransactionBuilder._
+import co.topl.brambl.codecs.AddressCodecs
+import co.topl.brambl.common.ContainsEvidence.Ops
+import co.topl.brambl.common.ContainsImmutable.instances._
 import co.topl.brambl.models.Event.{GroupPolicy, SeriesPolicy}
+import co.topl.brambl.models._
 import co.topl.brambl.models.box.Value.{Value => BoxValue}
+import co.topl.brambl.models.box._
+import co.topl.brambl.models.transaction.{IoTransaction, Schedule, SpentTransactionOutput, UnspentTransactionOutput}
 import co.topl.brambl.syntax.{
   bigIntAsInt128,
   groupPolicyAsGroupPolicySyntaxOps,
@@ -34,7 +24,11 @@ import co.topl.brambl.syntax.{
   UnknownType,
   ValueTypeIdentifier
 }
+import co.topl.genus.services.Txo
+import com.google.protobuf.ByteString
 import com.google.protobuf.struct.Struct
+import quivr.models.{Int128, Proof, SmallData}
+import scala.collection.immutable._
 
 import scala.language.implicitConversions
 import scala.util.{Failure, Success, Try}
@@ -310,6 +304,38 @@ trait TransactionBuilderApi[F[_]] {
     locks:                  Map[LockAddress, Lock.Predicate],
     fee:                    Long,
     mintedAssetLockAddress: LockAddress,
+    changeAddress:          LockAddress,
+    ephemeralMetadata:      Option[Struct] = None,
+    commitment:             Option[ByteString] = None
+  ): F[Either[BuilderError, IoTransaction]]
+
+  /**
+   * Builds a transaction to merge distinct, but compatible, assets. If successful, the transaction will have one or more
+   * outputs; the merged asset and, optionally, the change. The merged asset will contain the sum of the quantities of the
+   * merged inputs. The change will contain the remaining tokens that were not merged into the merged asset.
+   *
+   * @note The assets to merge must be valid. To be valid, the assets must have the same fungibility type and quantity descriptor
+   *       type. The fungibility type must be one of "GROUP" or "SERIES". If "GROUP", then the assets must share the same Group ID.
+   *       If "SERIES", then the assets must share the same Series ID. Fields such as "commitment" and "ephermeralMetadata" do not
+   *       carryover; if desired, these fields in the merged output can be specified using the "ephemeralMetadata" and "commitment"
+   *       arguments.
+   *
+   * @param utxosToMerge The UTXOs to merge. These UTXOs must contain assets that are compatible to merge.
+   * @param txos All the TXOs encumbered by the Locks given by locks. These represent the inputs of the transaction.
+   * @param locks A mapping of Predicate Locks that encumbers the funds in the txos. This will be used in the attestations of the txos' inputs.
+   * @param fee The transaction fee. The txos must contain enough LVLs to satisfy this fee
+   * @param mergedAssetLockAddress The LockAddress to send the merged asset tokens to.
+   * @param changeAddress The LockAddress to send any change to.
+   * @param ephemeralMetadata Optional ephemeral metadata to include in the merged asset token.
+   * @param commitment Optional commitment to include in the merged asset token.
+   * @return An unproven asset merge transaction if possible. Else, an error
+   */
+  def buildAssetMergeTransaction(
+    utxosToMerge:           Seq[TransactionOutputAddress],
+    txos:                   Seq[Txo],
+    locks:                  Map[LockAddress, Lock.Predicate],
+    fee:                    Long,
+    mergedAssetLockAddress: LockAddress,
     changeAddress:          LockAddress,
     ephemeralMetadata:      Option[Struct] = None,
     commitment:             Option[ByteString] = None
@@ -756,5 +782,34 @@ object TransactionBuilderApi {
           )
         ).pure[F]
 
+      override def buildAssetMergeTransaction(
+        utxosToMerge:           Seq[TransactionOutputAddress],
+        txos:                   Seq[Txo],
+        locks:                  Map[LockAddress, Lock.Predicate],
+        fee:                    Long,
+        mergedAssetLockAddress: LockAddress,
+        changeAddress:          LockAddress,
+        ephemeralMetadata:      Option[Struct],
+        commitment:             Option[ByteString]
+      ): F[Either[BuilderError, IoTransaction]] = (
+        for {
+          datum <- EitherT.right[BuilderError](datum())
+          filteredTxos = txos.filter(_.transactionOutput.value.value.typeIdentifier != UnknownType)
+          _ <- EitherT
+            .fromEither[F](validateAssetMergingParams(utxosToMerge, filteredTxos, locks.keySet, fee))
+            .leftMap(errs => UserInputErrors(errs.toList))
+          attestations <- toAttestationMap(filteredTxos, locks)
+          stxos        <- attestations.map(el => buildStxos(el._1, el._2)).toSeq.sequence.map(_.flatten)
+          (txosToMerge, otherTxos) = filteredTxos.partition(txo => utxosToMerge.contains(txo.outputAddress))
+          utxosChange <- buildUtxos(otherTxos, None, None, changeAddress, changeAddress, fee)
+          mergedUtxo = MergingOps.merge(txosToMerge, mergedAssetLockAddress, ephemeralMetadata, commitment)
+          asm = AssetMergingStatement(utxosToMerge, utxosChange.length)
+        } yield IoTransaction(
+          inputs = stxos,
+          outputs = utxosChange :+ mergedUtxo,
+          datum = datum,
+          mergingStatements = Seq(asm)
+        )
+      ).value
     }
 }

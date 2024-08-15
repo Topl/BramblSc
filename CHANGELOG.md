@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Support for merging distinct, but compatible, assets.
+
+## [v2.0.0-beta7] - 2024-07-12
+
+### Added
+
 - Added a height field to the blocks in the Bifrost monitor stream
 - Added integration test for the Bifrost Monitor to ensure reorgs are handled as expected
 - Added the bifrost RPC function "makeBlock" to the BifrostQuery API. This is to force block production and is only meant to be used in "RegTest" mode.

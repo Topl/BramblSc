@@ -141,7 +141,7 @@ trait TransactionBuilderInterpreterSpecBase extends munit.FunSuite with MockHelp
   val assetGroupImmutableAlt: Value = toAltAsset(assetGroupImmutable)
   val assetSeriesImmutableAlt: Value = toAltAsset(assetSeriesImmutable)
 
-  private val trivialByte32 = ByteString.copyFrom(Array.fill(32)(0: Byte))
+  val trivialByte32: ByteString = ByteString.copyFrom(Array.fill(32)(0: Byte))
 
   private val trivialSignatureKesSum =
     SignatureKesSum(trivialByte32, trivialByte32 concat trivialByte32, Seq(trivialByte32))

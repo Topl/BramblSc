@@ -2,10 +2,9 @@ package co.topl.brambl.builders
 
 import cats.data.{Chain, NonEmptyChain, Validated, ValidatedNec}
 import cats.implicits.{catsSyntaxEitherId, catsSyntaxValidatedIdBinCompat0, toFoldableOps}
+import co.topl.brambl.models.box.Value._
 import co.topl.brambl.models.box.{AssetMintingStatement, QuantityDescriptorType}
 import co.topl.brambl.models.{LockAddress, SeriesId, TransactionOutputAddress}
-import co.topl.brambl.models.box.Value._
-import quivr.models.Int128
 import co.topl.brambl.syntax.{
   int128AsBigInt,
   longAsInt128,
@@ -18,6 +17,7 @@ import co.topl.brambl.syntax.{
   ValueTypeIdentifier
 }
 import co.topl.genus.services.Txo
+import quivr.models.Int128
 
 import scala.util.{Failure, Success, Try}
 
@@ -285,6 +285,31 @@ object UserInputValidations {
             .andThen(s => validMintingSupply(mintingStatement.quantity, s).map(_ => s))
         ).andThen(res => fixedSeriesMatch(res._1.fixedSeries, res._2.seriesId)),
         positiveQuantity(mintingStatement.quantity, "quantity to mint"),
+        validFee(fee, txos.map(_.transactionOutput.value.value))
+      ).fold.toEither
+    } match {
+      case Success(value) => value
+      case Failure(err)   => NonEmptyChain.one(UserInputError(err.getMessage)).asLeft
+    }
+
+    def validateAssetMergingParams(
+      utxosToMerge: Seq[TransactionOutputAddress],
+      txos:         Seq[Txo],
+      locks:        Set[LockAddress],
+      fee:          Long
+    ): Either[NonEmptyChain[UserInputError], Unit] = Try {
+      val txoLocks = txos.map(_.transactionOutput.address).toSet
+      val txosToMerge = txos.filter(txo => utxosToMerge.contains(txo.outputAddress))
+      Chain(
+        Validated
+          .condNec(
+            utxosToMerge.length == txosToMerge.length,
+            (),
+            UserInputError("All UTXOs to merge must be accounted for in txos")
+          )
+          .andThen(_ => MergingOps.validMerge(txosToMerge).leftMap(_.map(UserInputError))),
+        allInputLocksMatch(txoLocks, locks, "the txos", "a lock in the lock map"),
+        allInputLocksMatch(locks, txoLocks, "the lock map", "a lock in the txos"),
         validFee(fee, txos.map(_.transactionOutput.value.value))
       ).fold.toEither
     } match {
