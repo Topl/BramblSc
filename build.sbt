@@ -58,7 +58,7 @@ def fallbackVersion(d: java.util.Date): String =
   s"HEAD-${sbtdynver.DynVer timestamp d}"
 
 lazy val publishSettings = Seq(
-  version := dynverGitDescribeOutput.value
+  ThisBuild / version := dynverGitDescribeOutput.value
     .mkVersion(versionFmt, fallbackVersion(dynverCurrentDate.value)),
   homepage := Some(url("https://github.com/Topl/BramblSc")),
   ThisBuild / sonatypeCredentialHost := "s01.oss.sonatype.org",
