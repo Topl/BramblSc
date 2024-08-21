@@ -46,20 +46,7 @@ lazy val commonSettings = Seq(
   testFrameworks += TestFrameworks.MUnit
 )
 
-def versionFmt(out: sbtdynver.GitDescribeOutput): String = {
-  val dirtySuffix = out.dirtySuffix.dropPlus.mkString("-", "")
-  if (out.isCleanAfterTag)
-    out.ref.dropPrefix + dirtySuffix // no commit info if clean after tag
-  else
-    out.ref.dropPrefix + out.commitSuffix.mkString("-", "-", "") + dirtySuffix
-}
-
-def fallbackVersion(d: java.util.Date): String =
-  s"HEAD-${sbtdynver.DynVer timestamp d}"
-
 lazy val publishSettings = Seq(
-  ThisBuild / version := dynverGitDescribeOutput.value
-    .mkVersion(versionFmt, fallbackVersion(dynverCurrentDate.value)),
   homepage := Some(url("https://github.com/Topl/BramblSc")),
   ThisBuild / sonatypeCredentialHost := "s01.oss.sonatype.org",
   sonatypeRepository := "https://s01.oss.sonatype.org/service/local",
