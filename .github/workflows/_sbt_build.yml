@@ -77,7 +77,8 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: unit-test-reports
-          path: target/test-reports/*.xml
+          path: /**/target/test-reports/*.xml
+          overwrite: true
       - name: Cleanup before cache
         shell: bash
         run: |
@@ -128,6 +129,13 @@ jobs:
           docker kill bifrost02
           docker rm bifrost01
           docker rm bifrost02
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: it-reports
+          path: integration/target/test-reports/**/*.xml
+          overwrite: true
       - uses: actions/download-artifact@v3
         with:
           path: target/test-reports/
