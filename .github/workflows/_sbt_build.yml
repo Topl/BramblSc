@@ -77,7 +77,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: unit-test-reports
-          path: /**/target/test-reports/*.xml
+          path: "**/target/test-reports/*.xml"
           overwrite: true
       - name: Cleanup before cache
         shell: bash
