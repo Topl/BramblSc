@@ -10,6 +10,7 @@ package object display
     with SeriesDisplayOps
     with TransactionDisplayOps
     with QuivrDisplayOps
+    with TypeIdentifierDisplayOps
     with ValidationErrorDisplayOps
     with BlockDisplayOps {
 

@@ -1,0 +1,68 @@
+---
+sidebar_position: 3
+title: Merge Tokens
+description: Build a transaction to merge asset tokens.
+---
+
+import RevealedLock from './_revealed-lock.mdx';
+import TxReturn from './_tx-return.mdx';
+import ScaladocLink from '@site/src/components/ScaladocLink';
+
+
+# Build a Merging Transaction
+
+Our asset management system allows merging of distinct, yet compatible, asset tokens. The first step to merging these
+existing asset tokens on the Blockchain is to build an unproven merging transaction. There are restrictions on the
+types of tokens that can be merged. Continue reading to learn more.
+
+<RevealedLock/>
+
+## Merge Asset Tokens
+
+You can create a transaction to merge asset tokens using
+the <ScaladocLink path="co/topl/brambl/builders/TransactionBuilderApi.html#buildAssetMergeTransaction(Seq[TransactionOutputAddress],Seq[Txo],Map[LockAddress,Predicate],Long,LockAddress,LockAddress,Option[Struct],Option[ByteString]):F[Either[BuilderError,IoTransaction]]"><code>buildAssetMergeTransaction</code></ScaladocLink>
+function of a Transaction Builder API instance.
+
+```scala
+def buildAssetMergeTransaction(
+  utxosToMerge:           Seq[TransactionOutputAddress],
+  txos:                   Seq[Txo],
+  locks:                  Map[LockAddress, Lock.Predicate],
+  fee:                    Long,
+  mergedAssetLockAddress: LockAddress,
+  changeAddress:          LockAddress,
+  ephemeralMetadata:      Option[Struct] = None,
+  commitment:             Option[ByteString] = None
+): F[Either[BuilderError, IoTransaction]]
+```
+
+This function builds a transaction to merge existing distinct asset tokens to create a new type of asset. The asset
+tokens to be merged must be considered compatible. The resulting merged asset token is considered an "alloy" asset. See
+the note below for more information on compatible asset tokens.
+
+
+The parameters are as follows:
+- `utxosToMerge` - A sequence of TransactionOutputAddress representing the asset tokens to be merged. These asset tokens must be compatible with each other.
+- `txos` - A sequence of TXOs to be the inputs of the created transaction. Any extra tokens that are not being merged or used as fees will be returned as change.
+- `locks` - A map of LockAddress to Predicate Locks that encumber the funds in the txos. This will be used in the attestations of the txos' inputs.
+- `fee` - The transaction fee. The txos must contain enough LVLs to satisfy this fee
+- `mergedAssetLockAddress` - The LockAddress to send the resulting merged alloy asset to.
+- `changeAddress` - The LockAddress to send any change to.
+- `ephemeralMetadata` - Optional metadata to be included in merged alloy asset. The `ephemeralMetadata` of the input
+assets will not be carried over to the resulting alloy asset and thus should be specified, if so desired. `ephemeralMetadata` and `commitment`
+are the only fields in an asset that are not used in the merging process.
+- `commitment` - Optional commitment to be included in the merged alloy asset. The `commitment` of the input assets will
+not be carried over to the resulting alloy asset and thus should be specified, if so desired. `ephemeralMetadata` and `commitment`
+are the only fields in an asset that are not used in the merging process.
+
+:::note
+To be considered compatible, assets must all share the same `fungibility` and `quantityDescriptor` types. The `fungibility`
+type must be either `GROUP` or `SERIES`. If the assets are `GROUP` fungible, then they must all share the same `groupId`.
+Similarly, if the assets are `SERIES` fungible, then they must all share the same `seriesId`.
+:::
+
+<TxReturn tokenType="new alloy asset tokens" />
+
+### Example
+
+An example of how this merging transaction can be built is outlined in the following [tutorial](../../tutorials/tutorials/merge-asset#step-3-merge-asset-tokens).
