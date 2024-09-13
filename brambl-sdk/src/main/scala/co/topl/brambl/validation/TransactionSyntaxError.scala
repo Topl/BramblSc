@@ -1,7 +1,7 @@
 package co.topl.brambl.validation
 
 import co.topl.brambl.models.TransactionOutputAddress
-import co.topl.brambl.models.box.Value
+import co.topl.brambl.models.box.{AssetMergingStatement, Value}
 import co.topl.brambl.models.transaction.Schedule
 import quivr.models.{Proof, Proposition}
 
@@ -59,4 +59,9 @@ object TransactionSyntaxError {
    * A Syntax error indicating that this transaction contains invalid UpdateProposals
    */
   case class InvalidUpdateProposal(outputs: Seq[Value.UpdateProposal]) extends TransactionSyntaxError
+
+  /**
+   * A Syntax error indicating that this transaction contains invalid MergingStatements
+   */
+  case class InvalidMergingStatements(statements: Seq[AssetMergingStatement]) extends TransactionSyntaxError
 }
