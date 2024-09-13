@@ -193,75 +193,226 @@ class TransactionSyntaxInterpreterAssetMergingSpec extends munit.FunSuite with M
    * all UTXOs (inputs and the new output) share the same (non group-and-series) fungibility type
    */
   test("Invalid case, UTXOs share GROUP_AND_SERIES fungibility type") {
+    val groupSeriesTxos = for (i <- 1 to 3) yield Txo(
+      transactionOutput = UnspentTransactionOutput(mockLockAddress, Value.defaultInstance.withAsset(
+        mockAsset.withFungibility(FungibilityType.GROUP_AND_SERIES)
+          .withSeriesId(SeriesId(ByteString.copyFrom(Array.fill(32)(i.toByte))))
+          .withGroupId(GroupId(ByteString.copyFrom(Array.fill(32)(i.toByte))))
+      )), outputAddress = dummyTxoAddress.withIndex(i)
+    )
+    val mergedGroupSeries = MergingOps.merge(groupSeriesTxos, mockLockAddress, None, None)
+    val asmGroupSeries = AssetMergingStatement(groupSeriesTxos.map(_.outputAddress), 0)
+    val inputs = for (txo <- groupSeriesTxos) yield SpentTransactionOutput(txo.outputAddress, mockAttestation, txo.transactionOutput.value)
+    val outputs = Seq(mergedGroupSeries)
+    val testTx = mockTransaction.withInputs(inputs).withOutputs(outputs).withMergingStatements(Seq(asmGroupSeries))
+
+    val result = validator.validate(testTx).swap
+    val assertError = result.exists(_.toList.contains(TransactionSyntaxError.IncompatibleMerge(inputs.map(_.value.getAsset), outputs.head.value.getAsset)))
+    assertEquals(assertError, true)
+    assertEquals(result.map(_.toList.size).getOrElse(0), 1)
   }
   /**
    * all UTXOs (inputs and the new output) share the same (non group-and-series) fungibility type
    */
   test("Invalid case, all inputs do not share the same fungibility type") {
+    val mockTxos = groupTxos :+ seriesTxos.head
+    val mockOutput = MergingOps.merge(mockTxos, mockLockAddress, None, None)
+    val asm = AssetMergingStatement(mockTxos.map(_.outputAddress), 0)
+    val inputs = for (txo <- mockTxos) yield SpentTransactionOutput(txo.outputAddress, mockAttestation, txo.transactionOutput.value)
+    val outputs = Seq(mockOutput)
+    val testTx = mockTransaction.withInputs(inputs).withOutputs(outputs).withMergingStatements(Seq(asm))
+
+    val result = validator.validate(testTx).swap
+    val assertError = result.exists(_.toList.contains(TransactionSyntaxError.IncompatibleMerge(inputs.map(_.value.getAsset), outputs.head.value.getAsset)))
+    assertEquals(assertError, true)
+    assertEquals(result.map(_.toList.size).getOrElse(0), 1)
   }
   /**
    * all UTXOs (inputs and the new output) share the same (non group-and-series) fungibility type
    */
   test("Invalid case, the output does not share the same fungibility type as the inputs") {
+    val asmGroup = AssetMergingStatement(groupTxos.map(_.outputAddress), 0)
+    val inputs = for (txo <- groupTxos) yield SpentTransactionOutput(txo.outputAddress, mockAttestation, txo.transactionOutput.value)
+    val outputs = Seq(mergedGroup.copy(value = mergedGroup.value.withAsset(mergedGroup.value.getAsset.withFungibility(FungibilityType.SERIES))))
+    val testTx = mockTransaction.withInputs(inputs).withOutputs(outputs).withMergingStatements(Seq(asmGroup))
+
+    val result = validator.validate(testTx).swap
+    val assertError = result.exists(_.toList.contains(TransactionSyntaxError.IncompatibleMerge(inputs.map(_.value.getAsset), outputs.head.value.getAsset)))
+    assertEquals(assertError, true)
+    assertEquals(result.map(_.toList.size).getOrElse(0), 1)
   }
   /**
    * all UTXOs (inputs and the new output) share the same quantity descriptor type
    */
-  test("Invalid case, all inputs do not share the same fungibility type") {
+  test("Invalid case, all inputs do not share the same quantity descriptor type") {
+    val mockTxos = groupTxos.tail :+ groupTxos.head.copy(transactionOutput = groupTxos.head.transactionOutput.copy(value = groupTxos.head.transactionOutput.value.withAsset(groupTxos.head.transactionOutput.value.getAsset.withQuantityDescriptor(QuantityDescriptorType.ACCUMULATOR))))
+    val mockOutput = MergingOps.merge(mockTxos, mockLockAddress, None, None)
+    val asm = AssetMergingStatement(mockTxos.map(_.outputAddress), 0)
+    val inputs = for (txo <- mockTxos) yield SpentTransactionOutput(txo.outputAddress, mockAttestation, txo.transactionOutput.value)
+    val outputs = Seq(mockOutput)
+    val testTx = mockTransaction.withInputs(inputs).withOutputs(outputs).withMergingStatements(Seq(asm))
+
+    val result = validator.validate(testTx).swap
+    val assertError = result.exists(_.toList.contains(TransactionSyntaxError.IncompatibleMerge(inputs.map(_.value.getAsset), outputs.head.value.getAsset)))
+    assertEquals(assertError, true)
+    assertEquals(result.map(_.toList.size).getOrElse(0), 1)
   }
   /**
    * all UTXOs (inputs and the new output) share the same quantity descriptor type
    */
   test("Invalid case, the output does not share the same quantity descriptor type as the inputs") {
+    val asmGroup = AssetMergingStatement(groupTxos.map(_.outputAddress), 0)
+    val inputs = for (txo <- groupTxos) yield SpentTransactionOutput(txo.outputAddress, mockAttestation, txo.transactionOutput.value)
+    val outputs = Seq(mergedGroup.copy(value = mergedGroup.value.withAsset(mergedGroup.value.getAsset.withQuantityDescriptor(QuantityDescriptorType.ACCUMULATOR))))
+    val testTx = mockTransaction.withInputs(inputs).withOutputs(outputs).withMergingStatements(Seq(asmGroup))
+
+    val result = validator.validate(testTx).swap
+    val assertError = result.exists(_.toList.contains(TransactionSyntaxError.IncompatibleMerge(inputs.map(_.value.getAsset), outputs.head.value.getAsset)))
+    assertEquals(assertError, true)
+    assertEquals(result.map(_.toList.size).getOrElse(0), 1)
   }
   /**
    * If group fungible, all UTXOs must share the same group ID.
    */
   test("Invalid case, all inputs do not share the same group id") {
+    val mockTxos = groupTxos.tail :+ groupTxos.head.copy(transactionOutput = groupTxos.head.transactionOutput.copy(value = groupTxos.head.transactionOutput.value.withAsset(groupTxos.head.transactionOutput.value.getAsset.withGroupId(GroupId(ByteString.copyFrom(Array.fill(32)(99.toByte)))))))
+    val mockOutput = MergingOps.merge(mockTxos, mockLockAddress, None, None)
+    val asm = AssetMergingStatement(mockTxos.map(_.outputAddress), 0)
+    val inputs = for (txo <- mockTxos) yield SpentTransactionOutput(txo.outputAddress, mockAttestation, txo.transactionOutput.value)
+    val outputs = Seq(mockOutput)
+    val testTx = mockTransaction.withInputs(inputs).withOutputs(outputs).withMergingStatements(Seq(asm))
+
+    val result = validator.validate(testTx).swap
+    val assertError = result.exists(_.toList.contains(TransactionSyntaxError.IncompatibleMerge(inputs.map(_.value.getAsset), outputs.head.value.getAsset)))
+    assertEquals(assertError, true)
+    assertEquals(result.map(_.toList.size).getOrElse(0), 1)
   }
   /**
    * If group fungible, all UTXOs must share the same group ID.
    */
   test("Invalid case, the output does not share the group id as the inputs") {
+    val asmGroup = AssetMergingStatement(groupTxos.map(_.outputAddress), 0)
+    val inputs = for (txo <- groupTxos) yield SpentTransactionOutput(txo.outputAddress, mockAttestation, txo.transactionOutput.value)
+    val outputs = Seq(mergedGroup.copy(value = mergedGroup.value.withAsset(mergedGroup.value.getAsset.withGroupId(GroupId(ByteString.copyFrom(Array.fill(32)(99.toByte)))))))
+    val testTx = mockTransaction.withInputs(inputs).withOutputs(outputs).withMergingStatements(Seq(asmGroup))
+
+    val result = validator.validate(testTx).swap
+    val assertError = result.exists(_.toList.contains(TransactionSyntaxError.IncompatibleMerge(inputs.map(_.value.getAsset), outputs.head.value.getAsset)))
+    assertEquals(assertError, true)
+    assertEquals(result.map(_.toList.size).getOrElse(0), 1)
   }
   /**
    * If group fungible, The new output must have a valid seriesAlloy/seriesId.
    */
   test("Invalid case, the output does not have a series alloy") {
+    val asmGroup = AssetMergingStatement(groupTxos.map(_.outputAddress), 0)
+    val inputs = for (txo <- groupTxos) yield SpentTransactionOutput(txo.outputAddress, mockAttestation, txo.transactionOutput.value)
+    val outputs = Seq(mergedGroup.copy(value = mergedGroup.value.withAsset(mergedGroup.value.getAsset.clearSeriesAlloy)))
+    val testTx = mockTransaction.withInputs(inputs).withOutputs(outputs).withMergingStatements(Seq(asmGroup))
+
+    val result = validator.validate(testTx).swap
+    val assertError = result.exists(_.toList.contains(TransactionSyntaxError.IncompatibleMerge(inputs.map(_.value.getAsset), outputs.head.value.getAsset)))
+    assertEquals(assertError, true)
+    assertEquals(result.map(_.toList.size).getOrElse(0), 1)
   }
   /**
    * If group fungible, The new output must have a valid seriesAlloy/seriesId.
    */
   test("Invalid case, the output has a seriesId defined") {
+    val asmGroup = AssetMergingStatement(groupTxos.map(_.outputAddress), 0)
+    val inputs = for (txo <- groupTxos) yield SpentTransactionOutput(txo.outputAddress, mockAttestation, txo.transactionOutput.value)
+    val outputs = Seq(mergedGroup.copy(value = mergedGroup.value.withAsset(mergedGroup.value.getAsset.withSeriesId(SeriesId(ByteString.copyFrom(Array.fill(32)(99.toByte)))))))
+    val testTx = mockTransaction.withInputs(inputs).withOutputs(outputs).withMergingStatements(Seq(asmGroup))
+
+    val result = validator.validate(testTx).swap
+    val assertError = result.exists(_.toList.contains(TransactionSyntaxError.IncompatibleMerge(inputs.map(_.value.getAsset), outputs.head.value.getAsset)))
+    assertEquals(assertError, true)
+    assertEquals(result.map(_.toList.size).getOrElse(0), 1)
   }
   /**
    * If group fungible, The new output must have a valid seriesAlloy.
    */
   test("Invalid case, the output's series alloy is not a valid merkle root of the inputs") {
+    val asmGroup = AssetMergingStatement(groupTxos.map(_.outputAddress), 0)
+    val inputs = for (txo <- groupTxos) yield SpentTransactionOutput(txo.outputAddress, mockAttestation, txo.transactionOutput.value)
+    val outputs = Seq(mergedGroup.copy(value = mergedGroup.value.withAsset(mergedGroup.value.getAsset.withSeriesAlloy(mergedSeries.value.getAsset.getGroupAlloy))))
+    val testTx = mockTransaction.withInputs(inputs).withOutputs(outputs).withMergingStatements(Seq(asmGroup))
+
+    val result = validator.validate(testTx).swap
+    val assertError = result.exists(_.toList.contains(TransactionSyntaxError.IncompatibleMerge(inputs.map(_.value.getAsset), outputs.head.value.getAsset)))
+    assertEquals(assertError, true)
+    assertEquals(result.map(_.toList.size).getOrElse(0), 1)
   }
   /**
    * If series fungible, all UTXOs must share the same series ID.
    */
   test("Invalid case, all inputs do not share the same series id") {
+    val mockTxos = seriesTxos.tail :+ seriesTxos.head.copy(transactionOutput = seriesTxos.head.transactionOutput.copy(value = seriesTxos.head.transactionOutput.value.withAsset(seriesTxos.head.transactionOutput.value.getAsset.withSeriesId(SeriesId(ByteString.copyFrom(Array.fill(32)(99.toByte)))))))
+    val mockOutput = MergingOps.merge(mockTxos, mockLockAddress, None, None)
+    val asm = AssetMergingStatement(mockTxos.map(_.outputAddress), 0)
+    val inputs = for (txo <- mockTxos) yield SpentTransactionOutput(txo.outputAddress, mockAttestation, txo.transactionOutput.value)
+    val outputs = Seq(mockOutput)
+    val testTx = mockTransaction.withInputs(inputs).withOutputs(outputs).withMergingStatements(Seq(asm))
+
+    val result = validator.validate(testTx).swap
+    val assertError = result.exists(_.toList.contains(TransactionSyntaxError.IncompatibleMerge(inputs.map(_.value.getAsset), outputs.head.value.getAsset)))
+    assertEquals(assertError, true)
+    assertEquals(result.map(_.toList.size).getOrElse(0), 1)
   }
   /**
    * If series fungible, all UTXOs must share the same series ID.
    */
   test("Invalid case, the output does not share the series id as the inputs") {
+    val asmGroup = AssetMergingStatement(seriesTxos.map(_.outputAddress), 0)
+    val inputs = for (txo <- seriesTxos) yield SpentTransactionOutput(txo.outputAddress, mockAttestation, txo.transactionOutput.value)
+    val outputs = Seq(mergedSeries.copy(value = mergedSeries.value.withAsset(mergedSeries.value.getAsset.withSeriesId(SeriesId(ByteString.copyFrom(Array.fill(32)(99.toByte)))))))
+    val testTx = mockTransaction.withInputs(inputs).withOutputs(outputs).withMergingStatements(Seq(asmGroup))
+
+    val result = validator.validate(testTx).swap
+    val assertError = result.exists(_.toList.contains(TransactionSyntaxError.IncompatibleMerge(inputs.map(_.value.getAsset), outputs.head.value.getAsset)))
+    assertEquals(assertError, true)
+    assertEquals(result.map(_.toList.size).getOrElse(0), 1)
   }
   /**
    * If series fungible, The new output must have a valid groupAlloy/groupId .
    */
   test("Invalid case, the output does not have a group alloy") {
+    val asmGroup = AssetMergingStatement(seriesTxos.map(_.outputAddress), 0)
+    val inputs = for (txo <- seriesTxos) yield SpentTransactionOutput(txo.outputAddress, mockAttestation, txo.transactionOutput.value)
+    val outputs = Seq(mergedSeries.copy(value = mergedSeries.value.withAsset(mergedSeries.value.getAsset.clearGroupAlloy)))
+    val testTx = mockTransaction.withInputs(inputs).withOutputs(outputs).withMergingStatements(Seq(asmGroup))
+
+    val result = validator.validate(testTx).swap
+    val assertError = result.exists(_.toList.contains(TransactionSyntaxError.IncompatibleMerge(inputs.map(_.value.getAsset), outputs.head.value.getAsset)))
+    assertEquals(assertError, true)
+    assertEquals(result.map(_.toList.size).getOrElse(0), 1)
   }
   /**
    * If series fungible, The new output must have a valid groupAlloy/groupId .
    */
   test("Invalid case, the output has a group id defined") {
+    val asmGroup = AssetMergingStatement(seriesTxos.map(_.outputAddress), 0)
+    val inputs = for (txo <- seriesTxos) yield SpentTransactionOutput(txo.outputAddress, mockAttestation, txo.transactionOutput.value)
+    val outputs = Seq(mergedSeries.copy(value = mergedSeries.value.withAsset(mergedSeries.value.getAsset.withGroupId(GroupId(ByteString.copyFrom(Array.fill(32)(99.toByte)))))))
+    val testTx = mockTransaction.withInputs(inputs).withOutputs(outputs).withMergingStatements(Seq(asmGroup))
+
+    val result = validator.validate(testTx).swap
+    val assertError = result.exists(_.toList.contains(TransactionSyntaxError.IncompatibleMerge(inputs.map(_.value.getAsset), outputs.head.value.getAsset)))
+    assertEquals(assertError, true)
+    assertEquals(result.map(_.toList.size).getOrElse(0), 1)
   }
   /**
    * If series fungible, The new output must have a valid groupAlloy.
    */
   test("Invalid case, the output's group alloy is not a valid merkle root of the inputs") {
+    val asmGroup = AssetMergingStatement(seriesTxos.map(_.outputAddress), 0)
+    val inputs = for (txo <- seriesTxos) yield SpentTransactionOutput(txo.outputAddress, mockAttestation, txo.transactionOutput.value)
+    val outputs = Seq(mergedSeries.copy(value = mergedSeries.value.withAsset(mergedSeries.value.getAsset.withGroupAlloy(mergedGroup.value.getAsset.getSeriesAlloy))))
+    val testTx = mockTransaction.withInputs(inputs).withOutputs(outputs).withMergingStatements(Seq(asmGroup))
+
+    val result = validator.validate(testTx).swap
+    val assertError = result.exists(_.toList.contains(TransactionSyntaxError.IncompatibleMerge(inputs.map(_.value.getAsset), outputs.head.value.getAsset)))
+    assertEquals(assertError, true)
+    assertEquals(result.map(_.toList.size).getOrElse(0), 1)
   }
 }

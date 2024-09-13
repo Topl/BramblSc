@@ -59,9 +59,12 @@ object TransactionSyntaxError {
    * A Syntax error indicating that this transaction contains invalid UpdateProposals
    */
   case class InvalidUpdateProposal(outputs: Seq[Value.UpdateProposal]) extends TransactionSyntaxError
-
   /**
    * A Syntax error indicating that this transaction contains invalid MergingStatements
    */
   case class InvalidMergingStatements(statements: Seq[AssetMergingStatement]) extends TransactionSyntaxError
+  /**
+   * A Syntax error indicating that the request merging operation is invalid
+   */
+  case class IncompatibleMerge(inputs: Seq[Value.Asset], output: Value.Asset) extends TransactionSyntaxError
 }
